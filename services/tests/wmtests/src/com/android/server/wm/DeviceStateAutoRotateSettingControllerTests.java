@@ -26,7 +26,7 @@ import static android.provider.Settings.Secure.DEVICE_STATE_ROTATION_LOCK_UNLOCK
 import static android.provider.Settings.System.ACCELEROMETER_ROTATION;
 import static android.provider.Settings.System.getUriFor;
 
-import static com.android.internal.view.RotationPolicy.NATURAL_ROTATION;
+import static com.android.internal.view.RotationPolicy.getNaturalRotation;
 import static com.android.server.wm.DisplayRotation.NO_UPDATE_USER_ROTATION;
 import static com.android.server.wm.DisplayRotation.USE_CURRENT_ROTATION;
 import static com.android.server.wm.utils.DeviceStateTestUtils.FOLDED;
@@ -476,11 +476,11 @@ public class DeviceStateAutoRotateSettingControllerTests {
         mTestLooper.dispatchAll();
 
         mDeviceStateAutoRotateSettingController.requestAccelerometerRotationSettingChange(
-                false, NATURAL_ROTATION, "");
+                false, getNaturalRotation, "");
         mTestLooper.dispatchAll();
 
         verify(mMockDisplayRotation).setUserRotationSetting(
-                eq(WindowManagerPolicy.USER_ROTATION_LOCKED), eq(NATURAL_ROTATION), any());
+                eq(WindowManagerPolicy.USER_ROTATION_LOCKED), eq(getNaturalRotation), any());
     }
 
     @Test
@@ -586,7 +586,7 @@ public class DeviceStateAutoRotateSettingControllerTests {
         mTestLooper.dispatchAll();
 
         verify(mMockDisplayRotation).setUserRotationSetting(
-                eq(WindowManagerPolicy.USER_ROTATION_LOCKED), eq(NATURAL_ROTATION), any());
+                eq(WindowManagerPolicy.USER_ROTATION_LOCKED), eq(getNaturalRotation), any());
     }
 
     private void setDeviceStateAutoRotateSetting(SparseIntArray deviceStateAutoRotateSetting) {
