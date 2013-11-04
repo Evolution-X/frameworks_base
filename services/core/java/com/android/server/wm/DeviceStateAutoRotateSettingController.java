@@ -22,8 +22,8 @@ import static android.provider.Settings.Secure.DEVICE_STATE_ROTATION_LOCK_UNLOCK
 import static android.provider.Settings.System.ACCELEROMETER_ROTATION;
 import static android.provider.Settings.System.getUriFor;
 
-import static com.android.internal.view.RotationPolicy.NATURAL_ROTATION;
-import static com.android.internal.view.RotationPolicy.areAllRotationsAllowed;
+import static com.android.internal.view.RotationPolicy.getNaturalRotation;
+import static com.android.internal.view.RotationPolicy.isCurrentRotationAllowed;
 import static com.android.internal.view.RotationPolicy.useCurrentRotationOnRotationLockChange;
 import static com.android.server.wm.DisplayRotation.NO_UPDATE_USER_ROTATION;
 import static com.android.server.wm.DisplayRotation.USE_CURRENT_ROTATION;
@@ -375,10 +375,10 @@ public class DeviceStateAutoRotateSettingController {
             if (mAccelerometerSetting) {
                 userRotation = NO_UPDATE_USER_ROTATION;
             } else {
-                userRotation = areAllRotationsAllowed(mContext)
+                userRotation = isCurrentRotationAllowed(mContext)
                         || useCurrentRotationOnRotationLockChange(mContext)
                         ? USE_CURRENT_ROTATION
-                        : NATURAL_ROTATION;
+                        : getNaturalRotation();
             }
             caller = "DSAutoRotateCtrl#" + event.getClass().getSimpleName();
         }
