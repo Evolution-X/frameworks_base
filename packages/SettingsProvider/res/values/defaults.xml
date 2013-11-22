@@ -352,4 +352,7 @@
         devices without forcing it on other form factors.
     -->
     <bool name="def_text_show_password"></bool>
+
+    <!-- Default for Settings.Global.TETHER_DUN_REQUIRED -->
+    <integer name="def_tether_dun_required">0</integer>
 </resources>
