@@ -122,22 +122,7 @@ public class NumPadKey extends ViewGroup implements NumPadAnimationListener, Num
         mDigitText.setText(Integer.toString(mDigit));
         mKlondikeText = (TextView) findViewById(R.id.klondike_text);
 
-        if (mDigit >= 0) {
-            if (sKlondike == null) {
-                sKlondike = getResources().getStringArray(R.array.lockscreen_num_pad_klondike);
-            }
-            if (sKlondike != null && sKlondike.length > mDigit) {
-                String klondike = sKlondike[mDigit];
-                final int len = klondike.length();
-                if (len > 0) {
-                    mKlondikeText.setText(klondike);
-                } else if (mKlondikeText.getVisibility() != View.GONE) {
-                    mKlondikeText.setVisibility(View.INVISIBLE);
-                }
-            }
-        }
-
-        setContentDescription(mDigitText.getText().toString());
+        updateText();
 
         Drawable background = getBackground();
         if (background instanceof GradientDrawable) {
@@ -150,6 +135,30 @@ public class NumPadKey extends ViewGroup implements NumPadAnimationListener, Num
         if (bouncerUiRevamp2()) {
             mDigitText.setTypeface(
                     Typeface.create(FontStyles.GSF_LABEL_SMALL_EMPHASIZED, Typeface.NORMAL));
+        }
+    }
+
+    public void setDigit(int digit) {
+        mDigit = digit;
+        updateText();
+    }
+
+    private void updateText() {
+        if (mDigit >= 0) {
+            mDigitText.setText(Integer.toString(mDigit));
+            setContentDescription(mDigitText.getText().toString());
+            if (sKlondike == null) {
+                sKlondike = getResources().getStringArray(R.array.lockscreen_num_pad_klondike);
+            }
+            if (sKlondike != null && sKlondike.length > mDigit) {
+                String klondike = sKlondike[mDigit];
+                final int len = klondike.length();
+                if (len > 0) {
+                    mKlondikeText.setText(klondike);
+                } else if (mKlondikeText.getVisibility() != View.GONE) {
+                    mKlondikeText.setVisibility(View.INVISIBLE);
+                }
+            }
         }
     }
 
