@@ -360,8 +360,8 @@ public final class NotificationRecord {
         if (mAsstLight != null) {
             return mAsstLight;
         }
-        int defaultLightColor = mContext.getResources().getColor(
-                com.android.internal.R.color.config_defaultNotificationColor);
+        // Lineage lights will set the default color later
+        int defaultLightColor = 0;
         int defaultLightOn = mContext.getResources().getInteger(
                 com.android.internal.R.integer.config_defaultNotificationLedOn);
         int defaultLightOff = mContext.getResources().getInteger(
