@@ -4,5 +4,6 @@
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources>
-
+    <!-- Notification counter -->
+    <color name="notification_number_text_color">#ff000000</color>
 </resources>
