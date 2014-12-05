@@ -7,4 +7,7 @@
     <!-- Mobile data enable confirmation dialog: "Don't ask me again" checkbox row -->
     <color name="mobile_data_dialog_checkbox_bg">@color/materialColorSurfaceContainerHigh</color>
     <color name="mobile_data_dialog_checkbox_text">@color/materialColorOnSurface</color>
+
+    <!-- Notification counter -->
+    <color name="notification_number_text_color">#ff000000</color>
 </resources>
