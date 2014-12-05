@@ -39,6 +39,7 @@ import com.android.internal.statusbar.StatusBarIcon.Shape;
 import com.android.systemui.demomode.DemoModeCommandReceiver;
 import com.android.systemui.kairos.ExperimentalKairosApi;
 import com.android.systemui.kairos.KairosNetwork;
+import com.android.systemui.res.R;
 import com.android.systemui.statusbar.BaseStatusBarFrameLayout;
 import com.android.systemui.statusbar.NetworkTraffic;
 import com.android.systemui.statusbar.StatusBarIconView;
@@ -108,6 +109,7 @@ public class IconManager implements DemoModeCommandReceiver {
     protected ArrayList<String> mBlockList = new ArrayList<>();
 
     private final boolean mNewIconStyle;
+    private final boolean mShowNotificationCount;
 
     public IconManager(
             ViewGroup group,
@@ -128,6 +130,9 @@ public class IconManager implements DemoModeCommandReceiver {
 
         mNewIconStyle = Settings.System.getIntForUser(mContext.getContentResolver(),
             Settings.System.STATUSBAR_COLORED_ICONS, 0, UserHandle.USER_CURRENT) == 1;
+        mShowNotificationCount = Settings.System.getIntForUser(mContext.getContentResolver(),
+            Settings.System.STATUSBAR_NOTIF_COUNT, 0,
+            UserHandle.USER_CURRENT) == 1;
 
         reloadDimens();
 
@@ -198,6 +203,7 @@ public class IconManager implements DemoModeCommandReceiver {
             StatusBarIcon icon) {
         StatusBarIconView view = onCreateStatusBarIconView(slot, blocked);
         view.setIconStyle(mNewIconStyle);
+        view.setShowCount(mShowNotificationCount);
         view.set(icon);
         mGroup.addView(view, index, onCreateLayoutParams(icon.shape));
         return view;
