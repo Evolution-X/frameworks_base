@@ -77,4 +77,7 @@
     <bool name="config_themedBatteryPillIconLeading">true</bool>
     <bool name="config_themedBatteryPillOutline">false</bool>
     <bool name="config_themedBatteryPillNub">true</bool>
+
+    <!-- Notification counter -->
+    <integer name="status_bar_notification_info_maxnum">999</integer>
 </resources>
