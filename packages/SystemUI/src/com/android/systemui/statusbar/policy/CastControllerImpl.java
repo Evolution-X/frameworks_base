@@ -178,7 +178,7 @@ public class CastControllerImpl implements CastController {
 
     @Override
     public void startCasting(CastDevice device) {
-        if (device == null || device.getTag() == null) return;
+        if (device == null || !(device.getTag() instanceof RouteInfo)) return;
         final RouteInfo route = (RouteInfo) device.getTag();
         mLogger.logStartCasting(route);
         mMediaRouter.selectRoute(ROUTE_TYPE_REMOTE_DISPLAY, route);
