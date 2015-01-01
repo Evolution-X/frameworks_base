@@ -424,5 +424,6 @@ public class SecureSettingsValidators {
         VALIDATORS.put(Secure.CAMERA_EXTENSIONS_FALLBACK, BOOLEAN_VALIDATOR);
         // Evolution X additions
         VALIDATORS.put(Secure.HIDE_DEVELOPER_STATUS, ANY_STRING_VALIDATOR);
+        VALIDATORS.put(Secure.QUICK_SETTINGS_TILES_VIBRATE, BOOLEAN_VALIDATOR);
     }
 }
