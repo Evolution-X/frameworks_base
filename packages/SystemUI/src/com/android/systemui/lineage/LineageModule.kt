@@ -21,6 +21,7 @@ import com.android.systemui.qs.pipeline.shared.TileSpec
 import com.android.systemui.qs.shared.model.TileCategory
 import com.android.systemui.qs.tileimpl.QSTileImpl
 import com.android.systemui.qs.tiles.CaffeineTile
+import com.android.systemui.qs.tiles.HeadsUpTile
 import com.android.systemui.qs.tiles.base.shared.model.QSTileConfig
 import com.android.systemui.qs.tiles.base.shared.model.QSTileUIConfig
 import com.android.systemui.res.R
@@ -39,8 +40,15 @@ interface LineageModule {
     @StringKey(CaffeineTile.TILE_SPEC)
     fun bindCaffeineTile(caffeineTile: CaffeineTile): QSTileImpl<*>
 
+    /** Inject HeadsUpTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(HeadsUpTile.TILE_SPEC)
+    fun bindHeadsUpTile(headsUpTile: HeadsUpTile): QSTileImpl<*>
+
     companion object {
         const val CAFFEINE_TILE_SPEC = "caffeine"
+        const val HEADS_UP_TILE_SPEC = "heads_up"
 
         @Provides
         @IntoMap
@@ -57,5 +65,19 @@ interface LineageModule {
                 category = TileCategory.DISPLAY,
             )
 
+        @Provides
+        @IntoMap
+        @StringKey(HEADS_UP_TILE_SPEC)
+        fun provideHeadsUpTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(HEADS_UP_TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.ic_qs_heads_up,
+                        labelRes = R.string.quick_settings_heads_up_label
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.ACCESSIBILITY,
+            )
     }
 }
