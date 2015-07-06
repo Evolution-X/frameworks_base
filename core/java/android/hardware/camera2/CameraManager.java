@@ -36,6 +36,7 @@ import android.annotation.SuppressLint;
 import android.annotation.SystemApi;
 import android.annotation.SystemService;
 import android.annotation.TestApi;
+import android.app.ActivityThread;
 import android.app.compat.CompatChanges;
 import android.companion.virtual.VirtualDeviceManager;
 import android.compat.annotation.ChangeId;
