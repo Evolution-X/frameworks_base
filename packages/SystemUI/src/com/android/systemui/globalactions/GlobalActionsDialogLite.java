@@ -859,13 +859,14 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
                 case RESTART:
                     addIfShouldShowAction(tempActions, restartAction);
                     break;
-                case SCREENSHOT:
+                case SCREENSHOT: {
                     UiModeManager uiModeManager =
                             (UiModeManager) mContext.getSystemService(Context.UI_MODE_SERVICE);
                     if (uiModeManager.getCurrentModeType() != Configuration.UI_MODE_TYPE_TELEVISION) {
                         addIfShouldShowAction(tempActions, new ScreenshotAction());
                     }
                     break;
+                }
                 case LOGOUT:
                     if (mLogoutInteractor.isLogoutEnabled().getValue()) {
                         addIfShouldShowAction(tempActions, new LogoutAction());
@@ -880,6 +881,14 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
                 case DEVICECONTROLS:
                     addIfShouldShowAction(tempActions, new DeviceControlsAction());
                     break;
+                case ONTHEGO: {
+                    UiModeManager uiModeManager =
+                            (UiModeManager) mContext.getSystemService(Context.UI_MODE_SERVICE);
+                    if (uiModeManager.getCurrentModeType() != Configuration.UI_MODE_TYPE_TELEVISION) {
+                        addIfShouldShowAction(tempActions, new getOnTheGoAction());
+                    }
+                    break;
+                }
                 case EMERGENCY:
                     // Only add the standard EmergencyDialerAction if the
                     // EmergencyAffordanceAction was NOT already handled.
@@ -1650,6 +1659,34 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
                 return true;
             }
         };
+    }
+
+    class getOnTheGoAction extends SinglePressAction {
+
+        public getOnTheGoAction() {
+            super(com.android.systemui.res.R.drawable.ic_lock_onthego,
+                    com.android.systemui.res.R.string.global_action_onthego);
+        }
+
+        @Override
+        public void onPress() {
+            ComponentName cn = new ComponentName("com.android.systemui",
+                    "com.android.systemui.evolution.onthego.OnTheGoService");
+            Intent onTheGoIntent = new Intent();
+            onTheGoIntent.setComponent(cn);
+            onTheGoIntent.setAction("start");
+            mContext.startService(onTheGoIntent);
+        }
+
+        @Override
+        public boolean showDuringKeyguard() {
+            return true;
+        }
+
+        @Override
+        public boolean showBeforeProvisioning() {
+            return false;
+        }
     }
 
     @VisibleForTesting
