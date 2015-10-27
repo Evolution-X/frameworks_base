@@ -649,4 +649,6 @@ interface IDevicePolicyManager {
 
     void setAppFunctionsPolicy(String callerPackageName, int policy);
     int getAppFunctionsPolicy(String callerPackageName, int userId);
+
+    boolean requireSecureKeyguard(int userHandle);
 }
