@@ -44,7 +44,11 @@ android_library {
         "notification_flags_lib",
         "SettingsLibDeviceStateRotationLock",
         "SettingsLibDisplayUtils",
+        "org.lineageos.platform.internal",
     ],
+    optimize: {
+        proguard_flags_files: ["proguard.flags"],
+    },
     platform_apis: true,
 }
 
