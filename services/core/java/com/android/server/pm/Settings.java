@@ -526,7 +526,7 @@ public final class Settings implements Watchable, Snappable, ResilientAtomicFile
             }
 
             databaseVersion = CURRENT_DATABASE_VERSION;
-            buildFingerprint = Build.FINGERPRINT;
+            buildFingerprint = Build.VERSION.INCREMENTAL;
             fingerprint = PackagePartitions.FINGERPRINT;
         }
     }
