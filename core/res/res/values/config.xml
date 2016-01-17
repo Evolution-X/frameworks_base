@@ -1160,6 +1160,7 @@
             4 - Go to voice assist
             5 - Go to assistant (Settings.Secure.ASSISTANT)
             6 - Go to sleep (doze)
+            7 - Toggle torch on / off (if screen is off)
     -->
     <integer name="config_longPressOnPowerBehavior">5</integer>
 
