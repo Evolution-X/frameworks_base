@@ -84,6 +84,7 @@ import com.android.systemui.keyguard.data.quickaffordance.KeyguardDataQuickAffor
 import com.android.systemui.keyguard.shared.quickaffordance.KeyguardQuickAffordancesMetricsLogger;
 import com.android.systemui.keyguard.shared.quickaffordance.KeyguardQuickAffordancesMetricsLoggerImpl;
 import com.android.systemui.keyguard.ui.composable.LockscreenContent;
+import com.android.systemui.lineage.LineageModule;
 import com.android.systemui.log.dagger.LogModule;
 import com.android.systemui.log.dagger.MonitorLog;
 import com.android.systemui.log.table.TableLogBuffer;
@@ -255,6 +256,7 @@ import javax.inject.Named;
         KeyboardModule.class,
         KeyguardDataQuickAffordanceModule.class,
         LetterboxModule.class,
+        LineageModule.class,
         LogModule.class,
         MediaProjectionActivitiesModule.class,
         MediaProjectionModule.class,
