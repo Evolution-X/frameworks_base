@@ -88,7 +88,7 @@
     <!-- Maximum density scale. The actual scale used depends on the device. -->
     <fraction name="display_density_max_scale">150%</fraction>
     <!-- Minimum density scale. This is available on all devices. -->
-    <fraction name="display_density_min_scale">85%</fraction>
+    <fraction name="display_density_min_scale">70%</fraction>
     <!-- Maximum density scale for external displays. -->
     <fraction name="external_display_density_max_scale">150%</fraction>
     <!-- Minimum density scale for external displays. -->
