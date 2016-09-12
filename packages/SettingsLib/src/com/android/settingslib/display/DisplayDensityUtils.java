@@ -62,6 +62,8 @@ public class DisplayDensityUtils {
      * largest.
      */
     private static final int[] SUMMARIES_SMALLER = new int[]{
+            R.string.screen_zoom_summary_smallest,
+            R.string.screen_zoom_summary_smaller,
             R.string.screen_zoom_summary_small
     };
 
