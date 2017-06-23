@@ -101,6 +101,7 @@ import javax.crypto.Mac;
 @RequiresFeature(PackageManager.FEATURE_FINGERPRINT)
 public class FingerprintManager implements BiometricAuthenticator, BiometricFingerprintConstants {
     private static final String TAG = "FingerprintManager";
+    private static final boolean DEBUG = false;
 
     /**
      * @hide
@@ -1225,7 +1226,7 @@ public class FingerprintManager implements BiometricAuthenticator, BiometricFing
                 throw e.rethrowFromSystemServer();
             }
         } else {
-            Slog.w(TAG, "isFingerprintHardwareDetected(): Service not connected!");
+            if (DEBUG) Slog.w(TAG, "isFingerprintHardwareDetected(): Service not connected!");
         }
         return false;
     }
