@@ -386,7 +386,6 @@ import android.os.FactoryTest;
 import android.os.FileUtils;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.IDeviceIdentifiersPolicyService;
 import android.os.IPermissionController;
 import android.os.IProcessInfoService;
 import android.os.IProgressListener;
@@ -1780,8 +1779,6 @@ public class ActivityManagerService extends IActivityManager.Stub
      */
     @CompositeRWLock({"this", "mProcLock"})
     private boolean mForceBackgroundCheck;
-
-    private static String sTheRealBuildSerial = Build.UNKNOWN;
 
     @GuardedBy("mProcLock")
     private ParcelFileDescriptor[] mLifeMonitorFds;
@@ -5409,13 +5406,6 @@ public class ActivityManagerService extends IActivityManager.Stub
 
             ProfilerInfo profilerInfo = mAppProfiler.setupProfilerInfoLocked(thread, app, instr);
 
-            // We deprecated Build.SERIAL and it is not accessible to
-            // Instant Apps and target APIs higher than O MR1. Since access to the serial
-            // is now behind a permission we push down the value.
-            final String buildSerial = (!appInfo.isInstantApp()
-                    && appInfo.targetSdkVersion < Build.VERSION_CODES.P)
-                            ? sTheRealBuildSerial : Build.UNKNOWN;
-
             // Figure out whether the app needs to run in autofill compat mode.
             AutofillOptions autofillOptions = null;
             if (UserHandle.getAppId(app.info.uid) >= Process.FIRST_APPLICATION_UID) {
@@ -5492,7 +5482,7 @@ public class ActivityManagerService extends IActivityManager.Stub
                         app.getCompat(),
                         getCommonServicesLocked(app.isolated),
                         mCoreSettingsObserver.getCoreSettings(app.userId),
-                        buildSerial,
+                        Build.UNKNOWN,
                         autofillOptions,
                         contentCaptureOptions,
                         app.getDisabledCompatChanges(),
@@ -9728,12 +9718,6 @@ public class ActivityManagerService extends IActivityManager.Stub
             mSystemReady = true;
             t.traceEnd();
         }
-
-        try {
-            sTheRealBuildSerial = IDeviceIdentifiersPolicyService.Stub.asInterface(
-                    ServiceManager.getService(Context.DEVICE_IDENTIFIERS_SERVICE))
-                    .getSerial();
-        } catch (RemoteException e) {}
 
         t.traceBegin("killProcesses");
         ArrayList<ProcessRecord> procsToKill = null;
