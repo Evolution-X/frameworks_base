@@ -382,6 +382,7 @@ java_library {
         "service-rkp.stubs.system_server",
         "service-sdksandbox.stubs.system_server",
         "service-telecom.stubs.system_server",
+        "org.lineageos.platform.internal",
     ],
 
     // Uncomment to enable output of certain warnings (deprecated, unchecked)

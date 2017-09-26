@@ -180,6 +180,7 @@ java_library_static {
         "service-sdksandbox.stubs.system_server",
         "service-telecom.stubs.system_server",
         "services.net",
+        "org.lineageos.platform.internal",
     ],
     plugins: ["ImmutabilityAnnotationProcessor"],
 
