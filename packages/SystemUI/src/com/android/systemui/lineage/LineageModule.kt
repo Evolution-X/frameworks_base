@@ -24,6 +24,7 @@ import com.android.systemui.qs.tiles.AmbientDisplayTile
 import com.android.systemui.qs.tiles.AODTile
 import com.android.systemui.qs.tiles.CaffeineTile
 import com.android.systemui.qs.tiles.CellularTileLegacy
+import com.android.systemui.qs.tiles.CompassTile
 import com.android.systemui.qs.tiles.DataSwitchTile
 import com.android.systemui.qs.tiles.HeadsUpTile
 import com.android.systemui.qs.tiles.LocaleTile
@@ -73,6 +74,12 @@ interface LineageModule {
     @IntoMap
     @StringKey(CellularTileLegacy.TILE_SPEC)
     fun bindCellularTileLegacy(cellularTileLegacy: CellularTileLegacy): QSTileImpl<*>
+
+    /** Inject CompassTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(CompassTile.TILE_SPEC)
+    fun bindCompassTile(compassTile: CompassTile): QSTileImpl<*>
 
     /** Inject DataSwitchTile into tileMap in QSModule */
     @Binds
@@ -163,6 +170,7 @@ interface LineageModule {
         const val AOD_TILE_SPEC = "aod"
         const val CAFFEINE_TILE_SPEC = "caffeine"
         const val CELLULAR_TILE_SPEC = "celllegacy"
+        const val COMPASS_TILE_SPEC = "compass"
         const val DATA_SWITCH_TILE_SPEC = "dataswitch"
         const val HEADS_UP_TILE_SPEC = "heads_up"
         const val LOCALE_TILE_SPEC = "locale"
@@ -446,6 +454,21 @@ interface LineageModule {
                     ),
                 instanceId = uiEventLogger.getNewInstanceId(),
                 category = TileCategory.DISPLAY,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(COMPASS_TILE_SPEC)
+        fun provideCompassTile(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(COMPASS_TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.ic_qs_compass,
+                        labelRes = R.string.quick_settings_compass_label
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.UTILITIES,
             )
     }
 }
