@@ -32,6 +32,7 @@ import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.android.app.animation.Interpolators
+import com.android.systemui.android.batterybar.BatteryBarController
 import com.android.systemui.clock.ClockModernization
 import com.android.systemui.display.dagger.SystemUIDisplaySubcomponent.PerDisplaySingleton
 import com.android.systemui.lifecycle.repeatWhenAttached
@@ -120,6 +121,8 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
         centerClock?.hideInitially(state = View.GONE)
         rightClock?.hideInitially(state = View.GONE)
         notificationIconsArea.hideInitially()
+
+        val batteryBar: BatteryBarController = view.requireViewById(R.id.battery_bar)
 
         view.repeatWhenAttached {
             repeatOnLifecycle(Lifecycle.State.CREATED) {
@@ -396,6 +399,7 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
                 launch {
                     viewModel.isNotificationIconContainerVisible.collect {
                         notificationIconsArea.adjustVisibility(it)
+                        batteryBar.adjustVisibility(it)
                     }
                 }
 
