@@ -617,6 +617,7 @@ android_library {
         "dagger.useBindingGraphFix=ENABLED",
     ],
     manifest: "AndroidManifest.xml",
+    additional_manifests: ["LineageManifest.xml"],
 }
 
 java_library {
