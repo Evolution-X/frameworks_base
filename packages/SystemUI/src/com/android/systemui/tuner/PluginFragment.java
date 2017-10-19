@@ -29,10 +29,10 @@ import android.util.ArrayMap;
 import android.util.ArraySet;
 import android.view.View;
 
-import androidx.preference.PreferenceFragment;
+import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceScreen;
 import androidx.preference.PreferenceViewHolder;
-import androidx.preference.SwitchPreference;
+import androidx.preference.SwitchPreferenceCompat;
 
 import com.android.systemui.Dependency;
 import com.android.systemui.plugins.PluginEnablerImpl;
@@ -47,7 +47,7 @@ import com.android.systemui.shared.plugins.PluginPrefs;
 import java.util.List;
 import java.util.Set;
 
-public class PluginFragment extends PreferenceFragment {
+public class PluginFragment extends PreferenceFragmentCompat {
 
     public static final String ACTION_PLUGIN_SETTINGS
             = "com.android.systemui.action.PLUGIN_SETTINGS";
@@ -111,7 +111,7 @@ public class PluginFragment extends PreferenceFragment {
                 // Don't manage privileged plugins, they are part of the OS.
                 return;
             }
-            SwitchPreference pref = new PluginPreference(prefContext, app, mPluginEnabler);
+            SwitchPreferenceCompat pref = new PluginPreference(prefContext, app, mPluginEnabler);
             pref.setSummary("Plugins: " + toString(plugins.get(app.packageName)));
             screen.addPreference(pref);
         });
@@ -149,7 +149,7 @@ public class PluginFragment extends PreferenceFragment {
         }
     };
 
-    private static class PluginPreference extends SwitchPreference {
+    private static class PluginPreference extends SwitchPreferenceCompat {
         private final boolean mHasSettings;
         private final PackageInfo mInfo;
         private final PluginEnabler mPluginEnabler;
