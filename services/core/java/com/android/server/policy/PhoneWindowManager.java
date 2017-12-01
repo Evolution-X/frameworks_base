@@ -4551,7 +4551,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             }
 
             if (isWakeKey) {
-                wakeUpFromWakeKey(event);
+                wakeUpFromWakeKey(event, true);
             }
             return result;
         }
@@ -4956,7 +4956,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         }
 
         if (isWakeKey) {
-            wakeUpFromWakeKey(event);
+            // Check proximity only on wake key
+            wakeUpFromWakeKey(event, event.getKeyCode() == KeyEvent.KEYCODE_WAKEUP);
         }
 
         // If the key event is targeted to a specific display, then the user is interacting with
@@ -5565,14 +5566,31 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 event.getEventTime(),
                 event.getKeyCode(),
                 event.getAction() == KeyEvent.ACTION_DOWN,
-                event.getFlags());
+                event.getFlags(),
+                false);
+    }
+
+    private void wakeUpFromWakeKey(KeyEvent event, boolean withProximityCheck) {
+        wakeUpFromWakeKey(
+                event.getDisplayId(),
+                event.getEventTime(),
+                event.getKeyCode(),
+                event.getAction() == KeyEvent.ACTION_DOWN,
+                event.getFlags(),
+                withProximityCheck);
     }
 
     private void wakeUpFromWakeKey(
             int eventDisplayId, long eventTime, int keyCode, boolean isDown, int keyEventFlags) {
+        wakeUpFromWakeKey(eventDisplayId, eventTime, keyCode, isDown, keyEventFlags, false);
+    }
+
+    private void wakeUpFromWakeKey(
+            int eventDisplayId, long eventTime, int keyCode, boolean isDown, int keyEventFlags,
+            boolean withProximityCheck) {
         final int displayId = useEventDisplayIdForKeyWakeup() ? eventDisplayId : DEFAULT_DISPLAY;
         if (mWindowWakeUpPolicy.wakeUpFromKey(
-                displayId, eventTime, keyCode, isDown, keyEventFlags)) {
+                displayId, eventTime, keyCode, isDown, keyEventFlags, withProximityCheck)) {
             final boolean keyCanLaunchHome = keyCode == KEYCODE_HOME || keyCode == KEYCODE_POWER;
             // Start HOME with "reason" extra if sleeping for more than mWakeUpToLastStateTimeout
             if (shouldWakeUpWithHomeIntent() &&  keyCanLaunchHome) {
