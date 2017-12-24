@@ -108,4 +108,7 @@
 
     <!-- Screenshot Tile -->
     <string name="screenshot_long_press">Long press - selected region</string>
+
+    <!-- CPUInfo tile -->
+    <string name="quick_settings_cpuinfo_label">CPU Info</string>
 </resources>
