@@ -71,4 +71,7 @@
     <string name="config_pocketJudgeVendorSensorName"></string>
     <item name="config_pocketJudgeVendorSensorValue" format="float" type="dimen">1.0</item>
     <string name="config_pocketJudgeVendorProximitySensorName"></string>
+
+    <!-- Whether the device supports Smart Pixels -->
+    <bool name="config_supportSmartPixels">false</bool>
 </resources>
