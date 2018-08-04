@@ -33,6 +33,7 @@ import android.os.Handler;
 import android.os.Parcelable;
 import android.os.SystemClock;
 import android.os.UserHandle;
+import android.provider.Settings;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
@@ -54,7 +55,6 @@ import com.android.systemui.plugins.DarkIconDispatcher;
 import com.android.systemui.plugins.DarkIconDispatcher.DarkReceiver;
 import com.android.systemui.res.R;
 import com.android.systemui.settings.UserTracker;
-import com.android.systemui.statusbar.phone.ui.StatusBarIconController;
 import com.android.systemui.tuner.TunerService;
 import com.android.systemui.tuner.TunerService.Tunable;
 
@@ -74,11 +74,15 @@ public class Clock extends TextView implements
         Tunable,
         DarkReceiver {
 
-    public static final String CLOCK_SECONDS = "clock_seconds";
     private static final String CLOCK_SUPER_PARCELABLE = "clock_super_parcelable";
     private static final String CURRENT_USER_ID = "current_user_id";
     private static final String SHOW_SECONDS = "show_seconds";
     private static final String VISIBILITY = "visibility";
+
+    public static final String STATUS_BAR_CLOCK_SECONDS =
+            "system:" + Settings.System.STATUS_BAR_CLOCK_SECONDS;
+    private static final String STATUS_BAR_AM_PM =
+            "lineagesystem:" + LineageSettings.System.STATUS_BAR_AM_PM;
 
     private final UserTracker mUserTracker;
     private int mCurrentUserId;
@@ -133,19 +137,8 @@ public class Clock extends TextView implements
                 R.styleable.Clock,
                 0, 0);
         try {
-            mAmPmStyle = readClockAmPm(context);
-            mContentObserver = new ContentObserver(null) {
-                @Override
-                public void onChange(boolean selfChange) {
-                    mAmPmStyle = readClockAmPm(context);
-                    // Force refresh of dependent variables.
-                    mContentDescriptionFormatString = "";
-                    mDateTimePatternGenerator = null;
-                    context.getMainExecutor().execute(() -> {
-                        updateClock(true);
-                    });
-                }
-            };
+            mAmPmStyle = LineageSettings.System.getIntForUser(mContext.getContentResolver(),
+                    LineageSettings.System.STATUS_BAR_AM_PM, AM_PM_STYLE_GONE, UserHandle.USER_CURRENT);
             mNonAdaptedColor = getCurrentTextColor();
         } finally {
             a.recycle();
@@ -205,11 +198,9 @@ public class Clock extends TextView implements
             // The receiver will return immediately if the view does not have a Handler yet.
             mBroadcastDispatcher.registerReceiverWithHandler(mIntentReceiver, filter,
                     Dependency.get(Dependency.TIME_TICK_HANDLER), UserHandle.ALL);
-            Dependency.get(TunerService.class).addTunable(this, CLOCK_SECONDS,
-                    StatusBarIconController.ICON_HIDE_LIST);
-            mContext.getContentResolver().registerContentObserver(
-                    LineageSettings.System.getUriFor(LineageSettings.System.STATUS_BAR_AM_PM),
-                    false, mContentObserver);
+            Dependency.get(TunerService.class).addTunable(this,
+                    STATUS_BAR_CLOCK_SECONDS,
+                    STATUS_BAR_AM_PM);
             mUserTracker.addCallback(mUserChangedCallback, mContext.getMainExecutor());
             mCurrentUserId = mUserTracker.getUserId();
         }
@@ -238,7 +229,6 @@ public class Clock extends TextView implements
         if (mAttached) {
             mBroadcastDispatcher.unregisterReceiver(mIntentReceiver);
             mAttached = false;
-            mContext.getContentResolver().unregisterContentObserver(mContentObserver);
             Dependency.get(TunerService.class).removeTunable(this);
             mUserTracker.removeCallback(mUserChangedCallback);
         }
@@ -299,9 +289,22 @@ public class Clock extends TextView implements
 
     @Override
     public void onTuningChanged(String key, String newValue) {
-        if (CLOCK_SECONDS.equals(key)) {
-            mShowSeconds = TunerService.parseIntegerSwitch(newValue, false);
-            updateShowSeconds();
+        switch (key) {
+            case STATUS_BAR_CLOCK_SECONDS:
+                mShowSeconds =
+                        TunerService.parseIntegerSwitch(newValue, false);
+                updateShowSeconds();
+                break;
+            case STATUS_BAR_AM_PM:
+                mAmPmStyle =
+                        TunerService.parseInteger(newValue, AM_PM_STYLE_GONE);
+                // Force refresh of dependent variables.
+                mContentDescriptionFormatString = "";
+                mDateTimePatternGenerator = null;
+                updateClock(true);
+                break;
+            default:
+                break;
         }
     }
 
