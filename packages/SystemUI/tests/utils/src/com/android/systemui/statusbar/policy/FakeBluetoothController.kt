@@ -75,6 +75,8 @@ class FakeBluetoothController : BluetoothController {
         listener: BluetoothAdapter.OnMetadataChangedListener?,
     ) {}
 
+    override fun getBatteryLevel(): Int = 0
+
     /** Trigger the [Callback.onBluetoothDevicesChanged] method for all registered callbacks. */
     @VisibleForTesting
     fun onBluetoothDevicesChanged() {
