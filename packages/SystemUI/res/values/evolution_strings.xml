@@ -191,4 +191,8 @@
     <string name="smartspace_flight_qr_code">QR code</string>
     <string name="smartspace_icu_date_pattern">EEEMMMd</string>
     <string name="smartspace_role_desc">View</string>
+
+    <!-- Kill button in notification guts -->
+    <string name="force_stop_dlg_title">Force stop?</string>
+    <string name="force_stop_dlg_text">If you force stop an app, it may misbehave.</string>
 </resources>
