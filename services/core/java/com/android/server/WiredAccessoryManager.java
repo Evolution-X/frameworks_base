@@ -149,7 +149,7 @@ final class WiredAccessoryManager implements WiredAccessoryCallbacks {
             }
         }
 
-        if (ExtconUEventObserver.extconExists()) {
+        if (ExtconUEventObserver.extconExists() && mExtconObserver.uEventCount() > 0) {
             if (mUseDevInputEventForAudioJack) {
                 Log.w(TAG, "Both input event and extcon are used for audio jack,"
                         + " please just choose one.");
@@ -762,6 +762,10 @@ final class WiredAccessoryManager implements WiredAccessoryCallbacks {
                 startObserving(extconInfo);
             }
 
+        }
+
+        public int uEventCount() {
+            return mExtconInfos.size();
         }
 
         @Override
