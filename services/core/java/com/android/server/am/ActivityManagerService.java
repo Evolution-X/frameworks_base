@@ -527,6 +527,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 
+import lineageos.providers.LineageSettings;
+
 public class ActivityManagerService extends IActivityManager.Stub
         implements Watchdog.Monitor, BatteryStatsImpl.BatteryCallback, ActivityManagerGlobalLock {
 
@@ -20889,5 +20891,15 @@ public class ActivityManagerService extends IActivityManager.Stub
     @Override
     public boolean shouldForceCutoutFullscreen(String packageName) {
         return mActivityTaskManager.shouldForceCutoutFullscreen(packageName);
+    }
+
+    @Override
+    public boolean isThreeFingersSwipeActive() {
+        synchronized (this) {
+            return LineageSettings.System.getIntForUser(
+                mContext.getContentResolver(),
+                LineageSettings.System.KEY_THREE_FINGERS_SWIPE_ACTION, 12,
+                UserHandle.USER_CURRENT) != 0;
+        }
     }
 }
