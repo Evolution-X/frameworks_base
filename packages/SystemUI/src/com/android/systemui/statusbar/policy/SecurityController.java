@@ -20,10 +20,13 @@ import android.app.admin.DeviceAdminInfo;
 import android.content.ComponentName;
 import android.graphics.drawable.Drawable;
 
+import com.android.internal.net.VpnProfile;
 import com.android.systemui.Dumpable;
 import com.android.systemui.statusbar.policy.SecurityController.SecurityControllerCallback;
 import com.android.systemui.statusbar.policy.vpn.data.repository.VpnRepository;
 import com.android.systemui.supervision.data.model.SupervisionModel;
+
+import java.util.List;
 
 public interface SecurityController extends CallbackController<SecurityControllerCallback>,
         Dumpable {
@@ -105,6 +108,12 @@ public interface SecurityController extends CallbackController<SecurityControlle
     /** The supervision info for the current user. */
     @Nullable
     SupervisionModel getSupervisionModel();
+
+    List<VpnProfile> getConfiguredLegacyVpns();
+    List<String> getVpnAppPackageNames();
+    void connectLegacyVpn(VpnProfile profile);
+    void launchVpnApp(String packageName);
+    void disconnectPrimaryVpn();
 
     public interface SecurityControllerCallback {
         void onStateChanged();
