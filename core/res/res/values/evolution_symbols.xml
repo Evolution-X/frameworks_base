@@ -84,4 +84,7 @@
 
     <!-- Smart 5G -->
     <java-symbol type="bool" name="config_supportSmart5G" />
+
+    <!-- Whether device has physical tri state switch -->
+    <java-symbol type="bool" name="config_hasAlertSlider" />
 </resources>
