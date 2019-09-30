@@ -49,4 +49,7 @@
 
     <!-- Smart 5G -->
     <bool name="config_supportSmart5G">false</bool>
+
+    <!-- Whether device has physical tri state switch -->
+    <bool name="config_hasAlertSlider">false</bool>
 </resources>
