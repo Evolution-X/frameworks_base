@@ -57,4 +57,8 @@
     <dimen name="nowplaying_icon_padding_compact">8dp</dimen>
     <dimen name="nowplaying_icon_padding_normal">16dp</dimen>
     <dimen name="nowplaying_title_artist_gap">6dp</dimen>
+
+    <!-- OmniStyle custom headers -->
+    <dimen name="qs_header_image_height">142dp</dimen>
+    <dimen name="qs_header_image_fade_size">80dp</dimen>
 </resources>
