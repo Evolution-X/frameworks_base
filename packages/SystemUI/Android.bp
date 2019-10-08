@@ -493,6 +493,9 @@ android_library {
         "ax_blur",
         "ax_compose",
         "ax_platform_hooks",
+        "axquicklook-client",
+        "ax_compose",
+        "ax_blur",
         "SystemUI-res",
         "WifiTrackerLib",
         "WindowManager-Shell",
@@ -578,6 +581,7 @@ android_library {
         "uilatencystats_flags_core_java_lib",
         "personalcontext_ace_visualizer",
         "vendor.lineage.powershare-V1-java",
+        "FadingEdgeLayoutLib",
     ],
     enable_ksp: true,
     annotation_processor_flags: [
@@ -807,6 +811,7 @@ android_library {
     ],
     static_libs: [
         "//frameworks/libs/systemui:compilelib",
+        "ax_blur",
         "com.android.systemui.bundle.phone_dagger",
         "SystemUI_test_fixtures",
         "ax_blur",
