@@ -197,6 +197,7 @@ import android.os.UserHandle;
 import android.os.VibrationAttributes;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.pocket.PocketManager;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.provider.Settings.Secure;
@@ -783,6 +784,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     private final List<DeviceKeyHandler> mDeviceKeyHandlers = new ArrayList<>();
 
     private LineageButtons mLineageButtons;
+
+    private PocketManager mPocketManager;
 
     private final boolean mVisibleBackgroundUsersEnabled = isVisibleBackgroundUsersEnabled();
 
@@ -6223,6 +6226,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         setPendingSleepingGroup(displayGroupId);
 
         mKeyguardDelegate.onStartedGoingToSleep(pmSleepReason);
+        if (mPocketManager != null) {
+            mPocketManager.onInteractiveChanged(false);
+        }
     }
 
     // Called on the PowerManager's Notifier thread.
@@ -6304,6 +6310,10 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         mKeyguardDelegate.onStartedWakingUp(pmWakeReason, mPowerButtonLaunchGestureTriggered);
 
         mPowerButtonLaunchGestureTriggered = false;
+
+        if (mPocketManager != null) {
+            mPocketManager.onInteractiveChanged(true);
+        }
     }
 
     // Called on the PowerManager's Notifier thread.
@@ -6753,6 +6763,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         // In normal flow, systemReady is called before other system services are ready.
         // So it is better not to bind keyguard here.
         mKeyguardDelegate.onSystemReady();
+
+        mPocketManager = (PocketManager) mContext.getSystemService(Context.POCKET_SERVICE);
 
         mVrManagerInternal = LocalServices.getService(VrManagerInternal.class);
         if (mVrManagerInternal != null) {
