@@ -64,4 +64,8 @@
 
     <!-- Component name of the activity that allows choosing the usb function when a usb device is plugged in. -->
     <string name="config_usbFunctionActivity" translatable="false">com.android.systemui/com.android.systemui.usb.UsbFunctionActivity</string>
+
+    <!-- Defines the sysfs attribute path used by pocket bridge
+         to communicate pocket state to the pocket judge kernel driver. -->
+    <string name="config_pocketBridgeSysfsInpocket"></string>
 </resources>
