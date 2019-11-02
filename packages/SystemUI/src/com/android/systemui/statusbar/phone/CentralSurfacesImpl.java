@@ -124,6 +124,7 @@ import com.android.systemui.emergency.EmergencyGestureModule.EmergencyGestureInt
 import com.android.systemui.fragments.ExtensionFragmentListener;
 import com.android.systemui.fragments.FragmentHostManager;
 import com.android.systemui.fragments.FragmentService;
+import com.android.systemui.keyguard.KeyguardSliceProvider;
 import com.android.systemui.keyguard.KeyguardUiEvent;
 import com.android.systemui.keyguard.KeyguardUnlockAnimationController;
 import com.android.systemui.keyguard.KeyguardViewMediator;
@@ -196,6 +197,7 @@ import com.android.systemui.statusbar.policy.KeyguardStateController;
 import com.android.systemui.statusbar.policy.UserInfoControllerImpl;
 import com.android.systemui.surfaceeffects.core.ripple.RippleShader.RippleShape;
 import com.android.systemui.topui.TopUiController;
+import com.android.systemui.tuner.TunerService;
 import com.android.systemui.util.DumpUtilsKt;
 import com.android.systemui.util.WallpaperController;
 import com.android.systemui.util.concurrency.DelayableExecutor;
@@ -239,7 +241,11 @@ import javax.inject.Named;
  * {@link ActivityStarterImpl}
  */
 @SysUISingleton
-public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces {
+public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
+        TunerService.Tunable {
+
+    private static final String PULSE_ON_NEW_TRACKS =
+            Settings.Secure.PULSE_ON_NEW_TRACKS;
 
     private static final int MSG_LAUNCH_TRANSITION_TIMEOUT = 1003;
     // 1020-1040 reserved for BaseStatusBar
@@ -403,6 +409,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces {
     private final MessageRouter mMessageRouter;
     private final WallpaperManager mWallpaperManager;
     private final UserTracker mUserTracker;
+    private final TunerService mTunerService;
     private final ActivityStarter mActivityStarter;
 
     private final DisplayMetrics mDisplayMetrics;
@@ -606,6 +613,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces {
             LightRevealScrim lightRevealScrim,
             AlternateBouncerInteractor alternateBouncerInteractor,
             UserTracker userTracker,
+            TunerService tunerService,
             ActivityStarter activityStarter,
             BrightnessMirrorShowingRepository brightnessMirrorShowingRepository,
             GlanceableHubContainerController glanceableHubContainerController,
@@ -695,6 +703,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces {
         mCameraLauncherLazy = cameraLauncherLazy;
         mAlternateBouncerInteractor = alternateBouncerInteractor;
         mUserTracker = userTracker;
+        mTunerService = tunerService;
         mActivityStarter = activityStarter;
         mBrightnessMirrorShowingRepository = brightnessMirrorShowingRepository;
         if (!SceneContainerFlag.isEnabled()) {
@@ -779,6 +788,8 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces {
         mWallpaperSupported = mWallpaperManager.isWallpaperSupported();
 
         createAndAddWindows();
+
+        mTunerService.addTunable(this, PULSE_ON_NEW_TRACKS);
 
         // Set up the initial notification state. This needs to happen before CommandQueue.disable()
         setUpPresenter();
@@ -2430,6 +2441,21 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces {
         return (mStatusBarStateController.isDozing()
                 && mDozeServiceHost.getIgnoreTouchWhilePulsing())
                 || mScreenOffAnimationController.shouldIgnoreKeyguardTouches();
+    }
+
+    @Override
+    public void onTuningChanged(String key, String newValue) {
+        switch (key) {
+            case PULSE_ON_NEW_TRACKS:
+                boolean showPulseOnNewTracks =
+                        TunerService.parseIntegerSwitch(newValue, false);
+                KeyguardSliceProvider sliceProvider = KeyguardSliceProvider.getAttachedInstance();
+                if (sliceProvider != null)
+                    sliceProvider.setPulseOnNewTracks(showPulseOnNewTracks);
+                break;
+            default:
+                break;
+         }
     }
 
     // Begin Extra BaseStatusBar methods.
