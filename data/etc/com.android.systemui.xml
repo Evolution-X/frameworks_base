@@ -106,5 +106,6 @@
         <permission name="android.permission.ACCESS_CONTEXT_HUB" />
         <permission name="android.permission.REGISTER_STATS_PULL_ATOM" />
         <permission name="android.permission.SET_WALLPAPER_COMPONENT" />
+        <permission name="android.permission.WRITE_APN_SETTINGS" />
     </privapp-permissions>
 </permissions>
