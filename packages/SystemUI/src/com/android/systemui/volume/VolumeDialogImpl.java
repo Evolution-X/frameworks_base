@@ -1949,6 +1949,10 @@ public class VolumeDialogImpl implements VolumeDialog, Dumpable,
 
     protected void dismissH(int reason) {
         Trace.beginSection("VolumeDialogImpl#dismissH");
+        // Avoid multiple animation calls on touch spams.
+        if (!mShowing) {
+            return;
+        }
         for (int i = 0; i < mRows.size(); i++) {
             mRows.get(i).removeHaptics();
         }
