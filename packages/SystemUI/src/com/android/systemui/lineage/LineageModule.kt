@@ -27,6 +27,7 @@ import com.android.systemui.qs.tiles.CaffeineTile
 import com.android.systemui.qs.tiles.CellularTileLegacy
 import com.android.systemui.qs.tiles.CompassTile
 import com.android.systemui.qs.tiles.DataSwitchTile
+import com.android.systemui.qs.tiles.FPSInfoTile
 import com.android.systemui.qs.tiles.HeadsUpTile
 import com.android.systemui.qs.tiles.LocaleTile
 import com.android.systemui.qs.tiles.PowerShareTile
@@ -94,6 +95,12 @@ interface LineageModule {
     @IntoMap
     @StringKey(DataSwitchTile.TILE_SPEC)
     fun bindDataSwitchTile(dataSwitchTile: DataSwitchTile): QSTileImpl<*>
+
+    /** Inject FPSInfoTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(FPSInfoTile.TILE_SPEC)
+    fun bindFPSInfoTile(fpsInfoTile: FPSInfoTile): QSTileImpl<*>
 
     /** Inject HeadsUpTile into tileMap in QSModule */
     @Binds
@@ -187,6 +194,7 @@ interface LineageModule {
         const val COMPASS_TILE_SPEC = "compass"
         const val CPU_INFO_TILE_SPEC = "cpuinfo"
         const val DATA_SWITCH_TILE_SPEC = "dataswitch"
+        const val FPS_INFO_TILE_SPEC = "fpsinfo"
         const val HEADS_UP_TILE_SPEC = "heads_up"
         const val LOCALE_TILE_SPEC = "locale"
         const val POWERSHARE_TILE_SPEC = "powershare"
@@ -515,6 +523,21 @@ interface LineageModule {
                     ),
                 instanceId = uiEventLogger.getNewInstanceId(),
                 category = TileCategory.UTILITIES,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(FPS_INFO_TILE_SPEC)
+        fun provideFPSInfoConfig(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(FPS_INFO_TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.ic_qs_fps_info,
+                        labelRes = R.string.quick_settings_fpsinfo_label
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.DISPLAY,
             )
     }
 }
