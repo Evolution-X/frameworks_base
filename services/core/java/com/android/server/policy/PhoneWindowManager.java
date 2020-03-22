@@ -2421,6 +2421,21 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             case CYCLE_RINGER_MODE:
                 cycleRingerMode();
                 break;
+            case TORCH:
+                toggleTorch();
+                break;
+            case VOLUME_PANEL:
+                toggleVolumePanel();
+                break;
+            case CLEAR_ALL_NOTIFICATIONS:
+                clearAllNotifications();
+                break;
+            case NOTIFICATIONS:
+                toggleNotificationPanel();
+                break;
+            case QS_PANEL:
+                toggleQsPanel();
+                break;
             default:
                 break;
         }
@@ -8006,5 +8021,52 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
     private void takeScreenshot(int type, int source) {
         mScreenshotHelper.takeScreenshot(type, source, mHandler, null);
+    }
+
+    private void toggleVolumePanel() {
+        AudioManager am = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
+        am.adjustVolume(AudioManager.ADJUST_SAME, AudioManager.FLAG_SHOW_UI);
+    }
+
+    private void clearAllNotifications() {
+        IStatusBarService statusBarService = getStatusBarService();
+        if (statusBarService != null) {
+            try {
+                statusBarService.onClearAllNotifications(ActivityManager.getCurrentUser());
+            } catch (RemoteException e) {
+                // do nothing.
+            }
+        }
+    }
+
+    private void toggleQsPanel() {
+        IStatusBarService statusBarService = getStatusBarService();
+        if (statusBarService != null) {
+            try {
+                statusBarService.expandSettingsPanel(null);
+            } catch (RemoteException e) {
+                // do nothing.
+            }
+        }
+    }
+
+    private void toggleRingerModes() {
+        AudioManager am = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
+
+        switch (am.getRingerMode()) {
+            case AudioManager.RINGER_MODE_NORMAL:
+                if (mVibrator.hasVibrator()) {
+                    am.setRingerMode(AudioManager.RINGER_MODE_VIBRATE);
+                }
+                break;
+            case AudioManager.RINGER_MODE_VIBRATE:
+                am.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
+                NotificationManager nm = getNotificationService();
+                nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY);
+                break;
+            case AudioManager.RINGER_MODE_SILENT:
+                am.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
+                break;
+        }
     }
 }
