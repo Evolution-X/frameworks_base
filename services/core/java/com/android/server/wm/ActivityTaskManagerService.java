@@ -260,6 +260,7 @@ import com.android.internal.protolog.common.ProtoLog;
 import com.android.internal.util.ArrayUtils;
 import com.android.internal.util.FastPrintWriter;
 import com.android.internal.util.FrameworkStatsLog;
+import com.android.internal.util.evolution.cutout.CutoutFullscreenController;
 import com.android.internal.util.function.pooled.PooledLambda;
 import com.android.internal.util.evolution.PixelPropsUtils;
 import com.android.server.LocalManagerRegistry;
@@ -808,6 +809,8 @@ public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
     // Lineage sdk activity related helper
     private LineageActivityManager mLineageActivityManager;
 
+    private CutoutFullscreenController mCutoutFullscreenController;
+
     private final class SettingObserver extends ContentObserver {
         private final Uri mFontScaleUri = Settings.System.getUriFor(FONT_SCALE);
         private final Uri mHideErrorDialogsUri = Settings.Global.getUriFor(HIDE_ERROR_DIALOGS);
@@ -909,6 +912,9 @@ public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
         // LineageActivityManager depends on settings so we can initialize only
         // after providers are available.
         mLineageActivityManager = new LineageActivityManager(mContext);
+
+        // Force full screen for devices with cutout
+        mCutoutFullscreenController = new CutoutFullscreenController(mContext);
     }
 
     public void retrieveSettings(ContentResolver resolver) {
@@ -7352,5 +7358,9 @@ public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
 
     public boolean shouldForceLongScreen(String packageName) {
         return mLineageActivityManager.shouldForceLongScreen(packageName);
+    }
+
+    public boolean shouldForceCutoutFullscreen(String packageName) {
+        return mCutoutFullscreenController.shouldForceCutoutFullscreen(packageName);
     }
 }
