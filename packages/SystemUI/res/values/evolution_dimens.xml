@@ -45,4 +45,8 @@
     <!-- Lyric -->
     <dimen name="lyric_icon_margin_end">4dp</dimen>
     <dimen name="lyric_padding_end">4dp</dimen>
+
+    <!-- Additional gesture navbar lengths -->
+    <dimen name="navigation_home_handle_width_short">72dp</dimen>
+    <dimen name="navigation_home_handle_width_long">140dp</dimen>
 </resources>
