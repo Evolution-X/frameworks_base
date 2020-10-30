@@ -6688,6 +6688,13 @@ public final class Settings {
         public static final String ACCESSIBILITY_FORCE_INVERT_COLOR_OVERRIDE_PACKAGES_TO_DISABLE =
                 "accessibility_force_invert_color_override_packages_to_disable";
 
+	/**
+         * Swipe to screenshot gesture
+         * Also known as Three Fingers Screenshot.
+         * @hide
+         */
+        public static final String SWIPE_TO_SCREENSHOT = "swipe_to_screenshot";
+
         /**
          * Setting to determine whether or not to show the battery percentage in the status bar.
          *    0 - Don't show percentage
