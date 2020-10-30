@@ -3464,6 +3464,12 @@ public class InputManagerService extends IInputManager.Stub
          * Provide information on whether the keyguard is currently locked or not.
          */
         boolean isKeyguardLocked(int displayId);
+
+        void registerPointerEventListener(WindowManagerPolicyConstants.PointerEventListener listener,
+                int displayId);
+        
+        void unregisterPointerEventListener(WindowManagerPolicyConstants.PointerEventListener listener,
+                int displayId);
     }
 
     /**
