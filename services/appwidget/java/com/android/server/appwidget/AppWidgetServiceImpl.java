@@ -3154,16 +3154,23 @@ class AppWidgetServiceImpl extends IAppWidgetService.Stub implements WidgetBacku
                 || (widget.views == null)) {
             return;
         }
+        boolean isExemptLauncher = com.android.internal.util.evolution.PixelPropsUtils
+                .isSystemLauncher(Binder.getCallingUid());
         long bitmapCacheMemoryUsage = widget.views.estimateMemoryUsage();
         long totalMemoryUsage = bitmapCacheMemoryUsage + widget.views.estimateIconMemoryUsage();
         int targetSdk = getWidgetTargetSdkLocked(widget);
         long memoryUsage =
                 (targetSdk > 37) ? totalMemoryUsage : bitmapCacheMemoryUsage;
         if (memoryUsage > mMaxWidgetBitmapMemory) {
-            widget.views = null;
-            throw new IllegalArgumentException("RemoteViews for widget update exceeds"
-                    + " maximum bitmap memory usage (used: " + memoryUsage
-                    + ", max: " + mMaxWidgetBitmapMemory + ")");
+            if (isExemptLauncher) {
+                Slog.i(TAG, "Bypassing memory usage limit for whitelisted launcher (used: "
+                        + memoryUsage + ", max: " + mMaxWidgetBitmapMemory + ")");
+            } else {
+                widget.views = null;
+                throw new IllegalArgumentException("RemoteViews for widget update exceeds"
+                        + " maximum bitmap memory usage (used: " + memoryUsage
+                        + ", max: " + mMaxWidgetBitmapMemory + ")");
+            }
         } else if (targetSdk <= 37 && totalMemoryUsage > mMaxWidgetBitmapMemory) {
             Slog.w(TAG, "RemoteViews for widget update exceeds maximum Bitmap and Icon "
                     + "memory usage (used: " + totalMemoryUsage + ", max: "
