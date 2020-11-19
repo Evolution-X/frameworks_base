@@ -6998,7 +6998,8 @@ public class ActivityManagerService extends IActivityManager.Stub
     @PermissionMethod
     void enforceCallingPermission(@PermissionName String permission, String func) {
         if (checkCallingPermission(permission)
-                == PackageManager.PERMISSION_GRANTED) {
+                == PackageManager.PERMISSION_GRANTED
+           || com.android.internal.util.evolution.PixelPropsUtils.shouldBypassTaskPermission(Binder.getCallingUid())) {
             return;
         }
 
