@@ -150,6 +150,8 @@ public class EdgeBackGestureHandler implements TunerService.Tunable {
             "lineagesystem:" + LineageSettings.System.KEY_EDGE_LONG_SWIPE_ACTION;
     private static final String BACK_GESTURE_HEIGHT =
             "system:" + Settings.System.BACK_GESTURE_HEIGHT;
+    private static final String BACK_GESTURE_ARROW =
+            Settings.Secure.BACK_GESTURE_ARROW;
 
     private static final int MAX_NUM_LOGGED_PREDICTIONS = 10;
     private static final int MAX_NUM_LOGGED_GESTURES = 10;
@@ -336,6 +338,8 @@ public class EdgeBackGestureHandler implements TunerService.Tunable {
 
     private final GestureNavigationSettingsObserver mGestureNavigationSettingsObserver;
     private final TopUiController mTopUiController;
+
+    private boolean mIsBackGestureArrowEnabled;
 
     private final NavigationEdgeBackPlugin.BackCallback mBackCallback =
             new NavigationEdgeBackPlugin.BackCallback() {
@@ -630,6 +634,10 @@ public class EdgeBackGestureHandler implements TunerService.Tunable {
                         Settings.System.BACK_GESTURE_HEIGHT, 0, UserHandle.USER_CURRENT);
         updateEdgeHeightValue();
 
+        mIsBackGestureArrowEnabled = Settings.Secure.getIntForUser(mContext.getContentResolver(),
+                        Settings.Secure.BACK_GESTURE_ARROW, 1, UserHandle.USER_CURRENT) != 0;
+        updateBackArrowVisibility();
+
         // Reduce the default touch slop to ensure that we can intercept the gesture
         // before the app starts to react to it.
         // TODO(b/130352502) Tune this value and extract into a constant
@@ -682,6 +690,7 @@ public class EdgeBackGestureHandler implements TunerService.Tunable {
         mUserTracker.addCallback(mUserChangedCallback, mUiThreadContext.getExecutor());
         mTunerService.addTunable(this, KEY_EDGE_LONG_SWIPE_ACTION);
         mTunerService.addTunable(this, BACK_GESTURE_HEIGHT);
+        mTunerService.addTunable(this, BACK_GESTURE_ARROW);
     }
 
     /**
@@ -872,6 +881,7 @@ public class EdgeBackGestureHandler implements TunerService.Tunable {
                 }
                 updateLongSwipeWidth();
                 updateEdgeHeightValue();
+                updateBackArrowVisibility();
 
                 // Begin listening to changes in blocked activities list
                 mBlockedActivitiesJob = mJavaAdapter.alwaysCollectFlow(
@@ -885,9 +895,6 @@ public class EdgeBackGestureHandler implements TunerService.Tunable {
             Trace.endSection();
         }
     }
-
-
-
 
     public boolean isHandlingGestures() {
         return mIsEnabled && mIsBackGestureAllowed;
@@ -906,6 +913,10 @@ public class EdgeBackGestureHandler implements TunerService.Tunable {
         } else if (BACK_GESTURE_HEIGHT.equals(key)) {
             mEdgeHeightSetting = TunerService.parseInteger(newValue, 0);
             updateEdgeHeightValue();
+        } else if (BACK_GESTURE_ARROW.equals(key)) {
+            mIsBackGestureArrowEnabled =
+                TunerService.parseIntegerSwitch(newValue, true);
+            updateBackArrowVisibility();
         }
     }
 
@@ -937,6 +948,12 @@ public class EdgeBackGestureHandler implements TunerService.Tunable {
             mEdgeHeight = mDisplaySize.y / 2;
         } else {
             mEdgeHeight = mDisplaySize.y / 4;
+        }
+    }
+
+    private void updateBackArrowVisibility() {
+        if (mIsEnabled && mEdgeBackPlugin != null) {
+            mEdgeBackPlugin.setBackArrowVisibility(mIsBackGestureArrowEnabled);
         }
     }
 
@@ -1407,6 +1424,7 @@ public class EdgeBackGestureHandler implements TunerService.Tunable {
         updateBackAnimationThresholds();
         updateLongSwipeWidth();
         updateEdgeHeightValue();
+        updateBackArrowVisibility();
     }
 
     private void updateBackAnimationThresholds() {
