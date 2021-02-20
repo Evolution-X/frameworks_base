@@ -1176,9 +1176,7 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
     final class RestartAction extends SinglePressAction implements LongPressAction {
         RestartAction() {
             super(com.android.systemui.res.R.drawable.ic_global_actions_restart,
-                    shouldShowRestartSubmenu()
-                    ? com.android.systemui.res.R.string.global_action_restart_more
-                    : R.string.global_action_restart);
+                    R.string.global_action_restart);
         }
 
         @Override
