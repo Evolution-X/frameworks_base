@@ -111,6 +111,9 @@ public class AutomaticBrightnessStrategy implements DisplayBrightnessStrategy{
     // Indicates if the current auto-brightness should be ramped up or down slowly.
     private boolean mIsSlowChange;
 
+    // Whether auto brightness is applied one shot when screen is turned on
+    private boolean mAutoBrightnessOneShotEnabled;
+
     @VisibleForTesting
     AutomaticBrightnessStrategy(Context context, int displayId, Injector injector,
             DisplayManagerFlags displayManagerFlags) {
@@ -224,6 +227,10 @@ public class AutomaticBrightnessStrategy implements DisplayBrightnessStrategy{
 
     public boolean isAutoBrightnessDisabledDueToDisplayOff() {
         return mAutoBrightnessDisabledDueToDisplayOff;
+    }
+
+    public void setAutoBrightnessOneShotEnabled(boolean enabled) {
+        mAutoBrightnessOneShotEnabled = enabled;
     }
 
     /**
@@ -533,7 +540,8 @@ public class AutomaticBrightnessStrategy implements DisplayBrightnessStrategy{
                     policy,
                     displayState,
                     useNormalBrightnessForDoze,
-                    mShouldResetShortTermModel);
+                    mShouldResetShortTermModel,
+                    mAutoBrightnessOneShotEnabled);
             mShouldResetShortTermModel = false;
             // We take note if the user brightness point is still being used in the current
             // auto-brightness model.
