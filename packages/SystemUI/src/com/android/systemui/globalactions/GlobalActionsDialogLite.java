@@ -792,7 +792,10 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
 
         // Make sure emergency affordance action is first
         boolean handledEmergencyAffordance = false;
-        if (mEmergencyAffordanceManager.needsEmergencyAffordance()) {
+        // make sure emergency affordance action is first, if needed
+        boolean showEmergencyAffordance = actionTypes.contains(GlobalActionType.EMERGENCY);
+        if (showEmergencyAffordance &&
+                mEmergencyAffordanceManager.needsEmergencyAffordance()) {
             addIfShouldShowAction(tempActions, new EmergencyAffordanceAction());
             handledEmergencyAffordance = true;
         }
