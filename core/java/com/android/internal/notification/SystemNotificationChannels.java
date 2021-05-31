@@ -71,6 +71,7 @@ public class SystemNotificationChannels {
     public static final String ACCESSIBILITY_HEARING_DEVICE = "ACCESSIBILITY_HEARING_DEVICE";
     public static final String ACCESSIBILITY_SECURITY_POLICY = "ACCESSIBILITY_SECURITY_POLICY";
     public static final String ABUSIVE_BACKGROUND_APPS = "ABUSIVE_BACKGROUND_APPS";
+    public static String SLEEP = "SLEEP";
 
     @VisibleForTesting
     static final String OBSOLETE_DO_NOT_DISTURB = "DO_NOT_DISTURB";
@@ -205,6 +206,11 @@ public class SystemNotificationChannels {
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION)
                 .build());
         channelsList.add(systemChanges);
+
+        NotificationChannel sleepModeChanges = new NotificationChannel(SLEEP,
+                context.getString(R.string.notification_channel_sleep),
+                NotificationManager.IMPORTANCE_LOW);
+        channelsList.add(sleepModeChanges);
 
         final NotificationChannel newFeaturePrompt = new NotificationChannel(
                 ACCESSIBILITY_MAGNIFICATION,
