@@ -37,6 +37,7 @@ import com.android.systemui.qs.tiles.ProfilesTile
 import com.android.systemui.qs.tiles.ReadingModeTile
 import com.android.systemui.qs.tiles.RefreshRateTile
 import com.android.systemui.qs.tiles.ScreenshotTile
+import com.android.systemui.qs.tiles.SleepModeTile
 import com.android.systemui.qs.tiles.SmartPixelsTile
 import com.android.systemui.qs.tiles.SoundTile
 import com.android.systemui.qs.tiles.SyncTile
@@ -160,6 +161,12 @@ interface LineageModule {
     @StringKey(ScreenshotTile.TILE_SPEC)
     fun bindScreenshotTile(screenshotTile: ScreenshotTile): QSTileImpl<*>
 
+    /** Inject SleepModeTile into tileMap in QSModule */
+    @Binds  
+    @IntoMap
+    @StringKey(SleepModeTile.TILE_SPEC)
+    fun bindSleepModeTile(sleepModeTile: SleepModeTile): QSTileImpl<*>
+
     /** Inject SmartPixelsTile into tileMap in QSModule */
     @Binds
     @IntoMap
@@ -231,6 +238,7 @@ interface LineageModule {
         const val READING_MODE_TILE_SPEC = "reading_mode"
         const val REFRESH_RATE_TILE_SPEC = "refresh_rate"
         const val SCREENSHOT_TILE_SPEC = "screenshot"
+        const val SLEEP_MODE_TILE_SPEC = "sleep_mode"
         const val SMART_PIXELS_TILE_SPEC = "smartpixels"
         const val SOUND_TILE_SPEC = "sound"
         const val SYNC_TILE_SPEC = "sync"
@@ -358,6 +366,21 @@ interface LineageModule {
                     ),
                 instanceId = uiEventLogger.getNewInstanceId(),
                 category = TileCategory.DISPLAY,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(SLEEP_MODE_TILE_SPEC)
+        fun provideSleepModeTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(SLEEP_MODE_TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.ic_sleep,
+                        labelRes = R.string.quick_settings_sleep_mode_label
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.UTILITIES,
             )
 
         @Provides
