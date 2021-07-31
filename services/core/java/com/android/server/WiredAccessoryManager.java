@@ -604,6 +604,9 @@ final class WiredAccessoryManager implements WiredAccessoryCallbacks {
             for (int i = 0; i < mUEventInfo.size(); ++i) {
                 UEventInfo uei = mUEventInfo.get(i);
                 if (devPath.equals(uei.getDevPath())) {
+                    if (state == 1 && mDpCount > 0) {
+                        uei.setStreamIndex(mDpCount);
+                    }
                     updateLocked(
                             name, uei.getDevAddress(),
                             uei.computeNewHeadsetState(mHeadsetState, state),
@@ -639,7 +642,6 @@ final class WiredAccessoryManager implements WiredAccessoryCallbacks {
                         assert(idx2 != -1);
                         int dev = Integer.parseInt(mDevName.substring(idx + 1, idx2));
                         int cable = Integer.parseInt(mDevName.substring(idx2 + 1));
-                        mDevAddress = "controller=" + cable + ";stream=" + dev;
                         if (LOG) {
                             Slog.v(TAG, "UEvent dev address " + mDevAddress);
                         }
@@ -724,6 +726,14 @@ final class WiredAccessoryManager implements WiredAccessoryCallbacks {
                         break;
                     }
                 }
+            }
+
+            public void setStreamIndex(int streamIndex) {
+                int index1 = mDevAddress.indexOf("=");
+                int index2 = mDevAddress.indexOf("=", index1 + 1);
+
+                String allExceptStreamIdx = mDevAddress.substring(0, index2 + 1);
+                mDevAddress = allExceptStreamIdx + String.valueOf(streamIndex);
             }
 
             public String getDevName() {
