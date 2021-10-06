@@ -54,6 +54,7 @@ import com.android.systemui.qs.tileimpl.QSTileImpl;
 import com.android.systemui.qs.tiles.dialog.InternetDialogManager;
 import com.android.systemui.qs.tiles.dialog.WifiStateWorker;
 import com.android.systemui.res.R;
+import com.android.systemui.statusbar.policy.KeyguardStateController;
 import com.android.systemui.statusbar.connectivity.AccessPointController;
 import com.android.systemui.statusbar.connectivity.IconState;
 import com.android.systemui.statusbar.connectivity.MobileDataIndicators;
@@ -67,7 +68,7 @@ import java.io.PrintWriter;
 import javax.inject.Inject;
 
 /** Quick settings tile: Internet **/
-public class InternetTile extends QSTileImpl<QSTile.BooleanState> {
+public class InternetTile extends SecureQSTile<QSTile.BooleanState> {
 
     public static final String TILE_SPEC = "internet";
 
@@ -102,10 +103,11 @@ public class InternetTile extends QSTileImpl<QSTile.BooleanState> {
             NetworkController networkController,
             AccessPointController accessPointController,
             InternetDialogManager internetDialogManager,
-            WifiStateWorker wifiStateWorker
+            WifiStateWorker wifiStateWorker,
+            KeyguardStateController keyguardStateController
     ) {
         super(host, uiEventLogger, backgroundLooper, mainHandler, falsingManager, metricsLogger,
-                statusBarStateController, activityStarter, qsLogger);
+                statusBarStateController, activityStarter, qsLogger, keyguardStateController);
         mInternetDialogManager = internetDialogManager;
         mWifiStateWorker = wifiStateWorker;
         mHandler = mainHandler;
@@ -129,7 +131,10 @@ public class InternetTile extends QSTileImpl<QSTile.BooleanState> {
     }
 
     @Override
-    protected void handleClick(@Nullable Expandable expandable) {
+    protected void handleClick(@Nullable Expandable expandable, boolean keyguardShowing) {
+        if (checkKeyguard(expandable, keyguardShowing)) {
+            return;
+        }
         mHandler.post(() -> mInternetDialogManager.create(true,
                 mAccessPointController.canConfigMobileData(),
                 mAccessPointController.canConfigWifi(), expandable));
