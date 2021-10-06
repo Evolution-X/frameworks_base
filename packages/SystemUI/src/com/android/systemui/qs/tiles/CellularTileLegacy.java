@@ -64,7 +64,7 @@ import com.android.systemui.statusbar.policy.KeyguardStateController;
 import javax.inject.Inject;
 
 /** Quick settings tile: Cellular (Legacy Java Implementation) **/
-public class CellularTileLegacy extends QSTileImpl<BooleanState> {
+public class CellularTileLegacy extends SecureQSTile<BooleanState> {
 
     public static final String TILE_SPEC = "celllegacy";
 
@@ -91,7 +91,7 @@ public class CellularTileLegacy extends QSTileImpl<BooleanState> {
 
     ) {
         super(host, uiEventLogger, backgroundLooper, mainHandler, falsingManager, metricsLogger,
-                statusBarStateController, activityStarter, qsLogger);
+                statusBarStateController, activityStarter, qsLogger, keyguardStateController);
         mController = networkController;
         mKeyguard = keyguardStateController;
         mDataController = mController.getMobileDataController();
@@ -112,7 +112,11 @@ public class CellularTileLegacy extends QSTileImpl<BooleanState> {
     }
 
     @Override
-    protected void handleClick(@Nullable Expandable expandable) {
+    protected void handleClick(@Nullable Expandable expandable, boolean keyguardShowing) {
+        if (checkKeyguard(expandable, keyguardShowing)) {
+            return;
+        }
+
         if (getState().state == Tile.STATE_UNAVAILABLE) {
             return;
         }
