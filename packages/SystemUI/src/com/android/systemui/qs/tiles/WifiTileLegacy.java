@@ -53,11 +53,12 @@ import com.android.systemui.statusbar.connectivity.NetworkController;
 import com.android.systemui.statusbar.connectivity.SignalCallback;
 import com.android.systemui.statusbar.connectivity.WifiIcons;
 import com.android.systemui.statusbar.connectivity.WifiIndicators;
+import com.android.systemui.statusbar.policy.KeyguardStateController;
 
 import javax.inject.Inject;
 
 /** Quick settings tile: Wifi (Legacy Java Implementation) **/
-public class WifiTileLegacy extends QSTileImpl<BooleanState> {
+public class WifiTileLegacy extends SecureQSTile<BooleanState> {
 
     public static final String TILE_SPEC = "wifilegacy";
 
@@ -82,10 +83,11 @@ public class WifiTileLegacy extends QSTileImpl<BooleanState> {
             ActivityStarter activityStarter,
             QSLogger qsLogger,
             NetworkController networkController,
-            AccessPointController accessPointController
+            AccessPointController accessPointController,
+            KeyguardStateController keyguardStateController
     ) {
         super(host, uiEventLogger, backgroundLooper, mainHandler, falsingManager, metricsLogger,
-                statusBarStateController, activityStarter, qsLogger);
+                statusBarStateController, activityStarter, qsLogger, keyguardStateController);
         mController = networkController;
         mWifiController = accessPointController;
         mController.observe(getLifecycle(), mSignalCallback);
@@ -103,7 +105,11 @@ public class WifiTileLegacy extends QSTileImpl<BooleanState> {
     }
 
     @Override
-    protected void handleClick(@Nullable Expandable expandable) {
+    protected void handleClick(@Nullable Expandable expandable, boolean keyguardShowing) {
+        if (checkKeyguard(expandable, keyguardShowing)) {
+            return;
+        }
+
         // Secondary clicks are header clicks, just toggle.
         mState.copyTo(mStateBeforeClick);
         boolean wifiEnabled = mState.value;
