@@ -106,4 +106,7 @@
     <dimen name="chip_corner_radius">28dp</dimen>
     <dimen name="status_bar_clock_chip_tb_padding">0dp</dimen>
     <dimen name="status_bar_clock_chip_lr_padding">8dp</dimen>
+
+    <!-- Maximum vertical offset of statusbar for burn-in protection -->
+    <dimen name="status_bar_offset_max_y">4dp</dimen>
 </resources>
