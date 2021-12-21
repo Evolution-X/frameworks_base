@@ -42,4 +42,8 @@
 
     <!-- FPS Info tile -->
     <dimen name="fps_info_text_padding">4dp</dimen>
+
+    <!-- Udfps fingerprint animation -->
+    <dimen name="udfps_animation_size">200dp</dimen>
+    <dimen name="udfps_animation_offset">0dp</dimen>
 </resources>
