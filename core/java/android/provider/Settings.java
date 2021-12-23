@@ -14305,6 +14305,13 @@ public final class Settings {
         public static final String VPN_ENFORCE_DNS_STORE = "vpn_enforce_dns_store";
 
         /**
+         * Whether to show QS without unlocks
+         * @hide
+         */
+        @Readable
+        public static final String QSTILE_REQUIRES_UNLOCKING = "qstile_requires_unlocking";
+
+        /**
          * These entries are considered common between the personal and the managed profile,
          * since the managed profile doesn't get to change them.
          */
