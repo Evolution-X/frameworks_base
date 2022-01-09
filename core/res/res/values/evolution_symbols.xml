@@ -48,4 +48,8 @@
     <java-symbol type="array" name="device_configs_override" />
     <java-symbol type="array" name="device_configs_propertyToKeep" />
     <java-symbol type="array" name="device_configs_modifyAllowedPackages" />
+
+    <!-- Camera -->
+    <!-- Whether to force enable multi resolution configuration for camera -->
+    <java-symbol type="bool" name="config_forceMultiResolution" />
 </resources>
