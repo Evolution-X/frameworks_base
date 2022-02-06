@@ -321,4 +321,7 @@
     <string name="usb_mode_webcam">USB Webcam</string>
     <string name="usb_mode_charging_only">Charging only</string>
     <string name="usb_charging_status">USB charging is on</string>
+
+    <!-- Label for UI element which allows to use lens on screenshot [CHAR LIMIT=30] -->
+    <string name="screenshot_lens_label">Lens</string>
 </resources>
