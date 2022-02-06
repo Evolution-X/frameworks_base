@@ -294,4 +294,7 @@
 
     <!-- Label for UI element which writes a clipboard-only screenshot to storage [CHAR LIMIT=30] -->
     <string name="screenshot_save_to_storage_label">Save to storage</string>
+
+    <!-- Label for UI element which allows to use lens on screenshot [CHAR LIMIT=30] -->
+    <string name="screenshot_lens_label">Lens</string>
 </resources>
