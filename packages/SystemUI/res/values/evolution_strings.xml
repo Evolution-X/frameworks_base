@@ -139,4 +139,7 @@
     <string name="vpn_tethering_label">VPN tethering</string>
     <string name="vpn_tethering_changed_off">VPN tethering turned off.</string>
     <string name="vpn_tethering_changed_on">VPN tethering turned on.</string>
+
+    <!-- Name of the roaming status bar icon. -->
+    <string name="status_bar_roaming">Roaming indicator</string>
 </resources>
