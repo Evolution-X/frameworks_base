@@ -139,4 +139,7 @@
     <string name="screenrecord_hevc_switch_summary">Use the more efficient HEVC encoder</string>
     <string name="screenrecord_limit_reaching">Screenrecord about to reach file size limit</string>
     <string name="screenrecord_limit_reached">Screenrecord stopped\nFile size limit (15GiB) was reached</string>
+
+    <!-- Name of the roaming status bar icon. -->
+    <string name="status_bar_roaming">Roaming indicator</string>
 </resources>
