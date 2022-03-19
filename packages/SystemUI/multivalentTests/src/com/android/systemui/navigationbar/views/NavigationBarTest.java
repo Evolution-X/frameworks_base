@@ -103,7 +103,6 @@ import com.android.systemui.navigationbar.views.buttons.ButtonDispatcher;
 import com.android.systemui.navigationbar.views.buttons.DeadZone;
 import com.android.systemui.navigationbar.views.buttons.KeyButtonView;
 import com.android.systemui.navigationbar.views.buttons.NavBarButtonClickLogger;
-import com.android.systemui.navigationbar.views.buttons.NavbarOrientationTrackingLogger;
 import com.android.systemui.plugins.statusbar.StatusBarStateController;
 import com.android.systemui.recents.Recents;
 import com.android.systemui.rotation.RotationPolicyWrapper;
@@ -208,8 +207,6 @@ public class NavigationBarTest extends SysuiTestCase {
     private UiEventLogger mUiEventLogger;
     @Mock
     private NavBarButtonClickLogger mNavBarButtonClickLogger;
-    @Mock
-    private NavbarOrientationTrackingLogger mNavbarOrientationTrackingLogger;
     @Mock
     private ViewTreeObserver mViewTreeObserver;
     NavBarHelper mNavBarHelper;
@@ -708,8 +705,7 @@ public class NavigationBarTest extends SysuiTestCase {
                 mWakefulnessLifecycle,
                 mTaskStackChangeListeners,
                 new FakeDisplayTracker(mContext),
-                mNavBarButtonClickLogger,
-                mNavbarOrientationTrackingLogger));
+                mNavBarButtonClickLogger));
     }
 
     private void processAllMessages() {
