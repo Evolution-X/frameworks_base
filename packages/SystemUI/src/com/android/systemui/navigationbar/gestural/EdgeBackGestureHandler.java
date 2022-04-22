@@ -310,6 +310,7 @@ public class EdgeBackGestureHandler implements PluginListener<NavigationEdgeBack
     private final GestureNavigationSettingsObserver mGestureNavigationSettingsObserver;
 
     private boolean mIsBackGestureArrowEnabled;
+    private boolean mIsEdgeHapticEnabled;
 
     private final NavigationEdgeBackPlugin.BackCallback mBackCallback =
             new NavigationEdgeBackPlugin.BackCallback() {
@@ -544,6 +545,7 @@ public class EdgeBackGestureHandler implements PluginListener<NavigationEdgeBack
         mIsButtonForcedVisible =
                 mGestureNavigationSettingsObserver.areNavigationButtonForcedVisible();
         mIsBackGestureArrowEnabled = mGestureNavigationSettingsObserver.getBackArrowGesture();
+        mIsEdgeHapticEnabled = mGestureNavigationSettingsObserver.getEdgeHapticEnabled();
         if (previousForcedVisible != mIsButtonForcedVisible
                 && mButtonForcedVisibleCallback != null) {
             mButtonForcedVisibleCallback.accept(mIsButtonForcedVisible);
@@ -1113,6 +1115,7 @@ public class EdgeBackGestureHandler implements PluginListener<NavigationEdgeBack
             if (mAllowGesture) {
                 mEdgeBackPlugin.setIsLeftPanel(mIsOnLeftEdge);
                 mEdgeBackPlugin.setBackArrowVisibility(mIsBackGestureArrowEnabled);
+                mEdgeBackPlugin.setEdgeHapticEnabled(mIsEdgeHapticEnabled);
                 mEdgeBackPlugin.onMotionEvent(ev);
                 dispatchToBackAnimation(ev);
             }
