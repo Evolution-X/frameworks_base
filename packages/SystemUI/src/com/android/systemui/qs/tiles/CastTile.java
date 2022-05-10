@@ -125,6 +125,12 @@ public class CastTile extends QSTileImpl<BooleanState> {
     }
 
     @Override
+    public boolean isAvailable() {
+        // Screen Cast tile is not working with microG as of this writing, so disable it.
+        return false;
+    }
+
+    @Override
     public BooleanState newTileState() {
         BooleanState state = new BooleanState();
         state.handlesLongClick = false;
