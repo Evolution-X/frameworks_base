@@ -31,6 +31,7 @@ LOCAL_REQUIRED_MODULES := \
 	NavigationBarModeGesturalOverlayWideBack \
 	NavigationBarModeGesturalOverlayExtraWideBack \
 	TransparentNavigationBarOverlay \
+	NotchBarKillerLeftOverlay \
 	NotchBarKillerOverlay \
 	NotesRoleEnabledOverlay \
 	preinstalled-packages-platform-overlays.xml
