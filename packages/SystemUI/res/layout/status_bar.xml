@@ -72,6 +72,8 @@
                 android:layout_gravity="center_vertical|start"
                 android:clipChildren="false">
 
+                <include layout="@layout/status_bar_lyric" />
+
                 <!-- The alpha of the start side is controlled by PhoneStatusBarTransitions, and the
                      individual views are controlled by StatusBarManager disable flags DISABLE_CLOCK
                      and DISABLE_NOTIFICATION_ICONS, respectively -->
