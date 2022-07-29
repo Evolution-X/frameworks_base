@@ -35,6 +35,10 @@ data class StatusBarVisibilityModel(
             this.showSecondaryOngoingActivityChip != other.showSecondaryOngoingActivityChip
     }
 
+    fun getShowOngoingActivityChip(): Boolean {
+        return showPrimaryOngoingActivityChip || showSecondaryOngoingActivityChip
+    }
+
     companion object {
         /** Creates the default model. */
         @JvmStatic
