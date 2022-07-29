@@ -48,6 +48,7 @@ import com.android.systemui.statusbar.events.shared.model.SystemEventAnimationSt
 import com.android.systemui.statusbar.events.shared.model.SystemEventAnimationState.AnimatingIn
 import com.android.systemui.statusbar.events.shared.model.SystemEventAnimationState.AnimatingOut
 import com.android.systemui.statusbar.events.shared.model.SystemEventAnimationState.RunningChipAnim
+import com.android.systemui.statusbar.phone.LyricViewController
 import com.android.systemui.statusbar.pipeline.shared.ui.model.VisibilityModel
 import com.android.systemui.statusbar.pipeline.shared.ui.viewmodel.HomeStatusBarViewModel
 import com.android.systemui.statusbar.phone.ui.StatusBarIconController
@@ -130,6 +131,46 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
 
         val batteryBar: BatteryBarController = view.requireViewById(R.id.battery_bar)
         val leftLogo: LogoImage = view.requireViewById(R.id.statusbar_logo)
+
+        val leftSideArea: View =
+            view.requireViewById(R.id.status_bar_start_side_except_heads_up)
+        val centeredArea: View? = view.findViewById(R.id.centered_area)
+        val lyricView =
+            object : LyricViewController(view.context, view) {
+                private var isNotificationIconsVisible = true
+                private var hideForHun = false
+
+                override fun showLyricView(animate: Boolean) {
+                    if (!isNotificationIconsVisible || hideForHun) {
+                        hideLyricView(animate)
+                        return
+                    }
+                    leftSideArea.hide(View.INVISIBLE, animate)
+                    centeredArea?.hide(View.INVISIBLE, animate)
+                    this.view.show(animate)
+                }
+
+                override fun hideLyricView(animate: Boolean) {
+                    this.view.hide(View.INVISIBLE, animate)
+                    // Only restore these views if nothing else needs them hidden right now.
+                    // Otherwise we'd fight the HUN or chip logic for the same region.
+                    if (isNotificationIconsVisible && !hideForHun) {
+                        leftSideArea.show(animate)
+                        centeredArea?.show(animate)
+                    }
+                }
+
+                fun updateConditions(isNotificationIconsVisible: Boolean, hideForHun: Boolean) {
+                    this.isNotificationIconsVisible = isNotificationIconsVisible
+                    this.hideForHun = hideForHun
+                    if (isLyricStarted()) {
+                        showLyricView(true)
+                    } else {
+                        hideLyricView(true)
+                    }
+                }
+            }
+        lyricView.view.hideInitially()
 
         view.repeatWhenAttached {
             repeatOnLifecycle(Lifecycle.State.CREATED) {
@@ -458,10 +499,54 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
                 }
 
                 launch {
-                    viewModel.isNotificationIconContainerVisible.collect {
-                        notificationIconsArea.adjustVisibility(it)
-                        batteryBar.adjustVisibility(it)
-                        leftLogo.adjustVisibility(it)
+                    viewModel.isNotificationIconContainerVisible.collect { vis ->
+                        notificationIconsArea.adjustVisibility(vis)
+                        batteryBar.adjustVisibility(vis)
+                        leftLogo.adjustVisibility(vis)
+                    }
+                }
+
+                launch {
+                    combine(
+                        viewModel.isNotificationIconContainerVisible,
+                        viewModel.hideStartSideContentForHeadsUp,
+                    ) { isNotifIconsVisible, hideForHun ->
+                        isNotifIconsVisible to hideForHun
+                    }
+                        .collect { (isNotifIconsVisible, hideForHun) ->
+                            lyricView.updateConditions(
+                                isNotificationIconsVisible =
+                                    isNotifIconsVisible.visibility == View.VISIBLE,
+                                hideForHun = hideForHun,
+                            )
+                        }
+                }
+
+                val lyricEnabledUri: Uri =
+                    Settings.Secure.getUriFor(Settings.Secure.STATUS_BAR_SHOW_LYRIC)
+                val lyricContentObserver =
+                    object : ContentObserver(Handler(Looper.getMainLooper())) {
+                        override fun onChange(selfChange: Boolean, uri: Uri?) {
+                            lyricView.setEnabled(
+                                Settings.Secure.getIntForUser(
+                                    context.contentResolver,
+                                    Settings.Secure.STATUS_BAR_SHOW_LYRIC,
+                                    0,
+                                    UserHandle.USER_CURRENT,
+                                ) != 0
+                            )
+                        }
+                    }
+                context.contentResolver.registerContentObserver(
+                    lyricEnabledUri,
+                    false,
+                    lyricContentObserver,
+                    UserHandle.USER_ALL,
+                )
+                lyricContentObserver.onChange(false, lyricEnabledUri)
+                job?.invokeOnCompletion {
+                    runCatching {
+                        context.contentResolver.unregisterContentObserver(lyricContentObserver)
                     }
                 }
 
