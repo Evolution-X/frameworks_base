@@ -143,3 +143,7 @@
 -keep class com.google.android.submerge.** {
     *;
 }
+
+# SDK
+-keep,allowoptimization,allowaccessmodification class lineageos.** { *; }
+-keep,allowoptimization,allowaccessmodification class org.lineageos.** { *; }
