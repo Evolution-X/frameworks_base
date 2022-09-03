@@ -26,4 +26,7 @@
     <!-- Launcher Restart -->
     <string name="launcher_restart_title">Launcher restart required</string>
     <string name="launcher_restart_message">For all changes to take effect, a Launcher restart is required. Restart Launcher now?</string>
+
+    <!-- Cycle through ringer modes -->
+    <string name="volume_dialog_ringer_guidance_normal">Calls and notifications will ring</string>
 </resources>
