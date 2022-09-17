@@ -580,14 +580,8 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
                 },
                 UserHandle.USER_ALL);
 
-        // All wallpaper color and keyguard logic only applies when Monet is enabled.
-        if (!mIsMonetEnabled) {
-            return;
-        }
-
         mUserTracker.addCallback(mUserTrackerCallback, mMainExecutor);
         mDeviceProvisionedController.addCallback(mDeviceProvisionedListener);
-
 
         // Condition only applies when booting to Setup Wizard.
         // We should check if the device has specific hardware color styles, load the relative
