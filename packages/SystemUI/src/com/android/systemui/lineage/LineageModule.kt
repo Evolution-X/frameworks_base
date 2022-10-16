@@ -44,6 +44,7 @@ import com.android.systemui.qs.tiles.VPNTetheringTile
 import com.android.systemui.qs.tiles.VolumeQSTile
 import com.android.systemui.qs.tiles.VolumeTile
 import com.android.systemui.qs.tiles.VpnTile
+import com.android.systemui.qs.tiles.WeatherTile
 import com.android.systemui.qs.tiles.base.shared.model.QSTileConfig
 import com.android.systemui.qs.tiles.base.shared.model.QSTileUIConfig
 import com.android.systemui.res.R
@@ -199,6 +200,12 @@ interface LineageModule {
     @IntoMap
     @StringKey(VpnTile.TILE_SPEC)
     fun bindVpnTile(vpnTile: VpnTile): QSTileImpl<*>
+
+    /** Inject WeatherTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(WeatherTile.TILE_SPEC)
+    fun bindWeatherTile(weatherTile: WeatherTile): QSTileImpl<*>
 
     companion object {
         const val AMBIENT_DISPLAY_TILE_SPEC = "ambient_display"
@@ -583,6 +590,21 @@ interface LineageModule {
                     ),
                 instanceId = uiEventLogger.getNewInstanceId(),
                 category = TileCategory.CONNECTIVITY,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(WeatherTile.TILE_SPEC)
+        fun provideWeatherTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(WeatherTile.TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.ic_qs_weather,
+                        labelRes = R.string.omnijaws_label_default
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.UTILITIES,
             )
     }
 }
