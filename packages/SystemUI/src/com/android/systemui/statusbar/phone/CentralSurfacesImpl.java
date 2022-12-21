@@ -426,6 +426,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
     @VisibleForTesting
     protected boolean mUserSetup = false;
 
+    private Handler mMainHandler;
     private final DelayableExecutor mMainExecutor;
 
     private int mInteractingWindows;
@@ -602,6 +603,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
             StatusBarHideIconsForBouncerManager statusBarHideIconsForBouncerManager,
             LockscreenShadeTransitionController lockscreenShadeTransitionController,
             KeyguardUnlockAnimationController keyguardUnlockAnimationController,
+            @Main Handler mainHandler,
             @Main DelayableExecutor delayableExecutor,
             @Main MessageRouter messageRouter,
             WallpaperManager wallpaperManager,
@@ -698,6 +700,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
         mWallpaperController = wallpaperController;
         mStatusBarHideIconsForBouncerManager = statusBarHideIconsForBouncerManager;
         mKeyguardUnlockAnimationController = keyguardUnlockAnimationController;
+        mMainHandler = mainHandler;
         mMainExecutor = delayableExecutor;
         mMessageRouter = messageRouter;
         mWallpaperManager = wallpaperManager;
