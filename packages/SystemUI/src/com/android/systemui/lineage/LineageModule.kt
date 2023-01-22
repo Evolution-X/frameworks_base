@@ -26,6 +26,7 @@ import com.android.systemui.qs.tiles.CaffeineTile
 import com.android.systemui.qs.tiles.CellularTileLegacy
 import com.android.systemui.qs.tiles.DataSwitchTile
 import com.android.systemui.qs.tiles.HeadsUpTile
+import com.android.systemui.qs.tiles.LocaleTile
 import com.android.systemui.qs.tiles.PowerShareTile
 import com.android.systemui.qs.tiles.ProfilesTile
 import com.android.systemui.qs.tiles.ReadingModeTile
@@ -82,6 +83,12 @@ interface LineageModule {
     @IntoMap
     @StringKey(HeadsUpTile.TILE_SPEC)
     fun bindHeadsUpTile(headsUpTile: HeadsUpTile): QSTileImpl<*>
+
+    /** Inject LocaleTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(LocaleTile.TILE_SPEC)
+    fun bindLocaleTile(localeTile: LocaleTile): QSTileImpl<*>
 
     /** Inject PowerShareTile into tileMap in QSModule */
     @Binds
@@ -144,6 +151,7 @@ interface LineageModule {
         const val CELLULAR_TILE_SPEC = "celllegacy"
         const val DATA_SWITCH_TILE_SPEC = "dataswitch"
         const val HEADS_UP_TILE_SPEC = "heads_up"
+        const val LOCALE_TILE_SPEC = "locale"
         const val POWERSHARE_TILE_SPEC = "powershare"
         const val PROFILES_TILE_SPEC = "profiles"
         const val READING_MODE_TILE_SPEC = "reading_mode"
@@ -377,6 +385,21 @@ interface LineageModule {
                     ),
                 instanceId = uiEventLogger.getNewInstanceId(),
                 category = TileCategory.UTILITIES,
+            )
+
+        @Provides
+        @IntoMap  
+        @StringKey(LOCALE_TILE_SPEC)
+        fun provideLocaleTile(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(LOCALE_TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.ic_qs_locale,
+                        labelRes = R.string.quick_settings_locale_label
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.ACCESSIBILITY,
             )
     }
 }
