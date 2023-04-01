@@ -2171,6 +2171,10 @@ UnflaggedApi: android.hardware.CameraCompatMode#writeToParcel(android.os.Parcel,
     New API must be flagged with @FlaggedApi: method android.hardware.CameraCompatMode.writeToParcel(android.os.Parcel,int)
 UnflaggedApi: android.hardware.camera2.CameraManager#getRotationOverride(android.content.Context, android.content.pm.PackageManager, String):
     New API must be flagged with @FlaggedApi: method android.hardware.camera2.CameraManager.getRotationOverride(android.content.Context,android.content.pm.PackageManager,String)
+UnflaggedApi: android.hardware.display.AmbientDisplayConfiguration#alwaysOnChargingEnabledSetting(int):
+    New API must be flagged with @FlaggedApi: method android.hardware.display.AmbientDisplayConfiguration.alwaysOnChargingEnabledSetting(int)
+UnflaggedApi: android.hardware.display.AmbientDisplayConfiguration#alwaysOnEnabledSetting(int):
+    New API must be flagged with @FlaggedApi: method android.hardware.display.AmbientDisplayConfiguration.alwaysOnEnabledSetting(int)
 UnflaggedApi: android.hardware.input.InputManager#addUniqueIdAssociationByPort(String, String):
     New API must be flagged with @FlaggedApi: method android.hardware.input.InputManager.addUniqueIdAssociationByPort(String,String)
 UnflaggedApi: android.hardware.input.InputManager#removeUniqueIdAssociationByPort(String):
