@@ -10,4 +10,9 @@
     <string name="aerr_copy">Copy crash log URL</string>
     <string name="url_copy_success">URL copied successfully</string>
     <string name="url_copy_failed">An error occured while uploading the log to Pasty</string>
+
+    <!-- PowerOffAlarmService -->
+    <string name="notification_channel_poweroff_alarm">Power off alarm</string>
+    <string name="poweroff_alarm_title">Power off alarm set</string>
+    <string name="poweroff_alarm_body">An alarm was detected and the device will power on 2 minutes before it\'s due</string>
 </resources>
