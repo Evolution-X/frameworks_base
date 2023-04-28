@@ -40,4 +40,7 @@
     <!-- Lyric -->
     <dimen name="lyric_icon_margin_end">4dp</dimen>
     <dimen name="lyric_padding_end">4dp</dimen>
+
+    <!-- Weather -->
+    <dimen name="weather_image_max_size">24dp</dimen>
 </resources>
