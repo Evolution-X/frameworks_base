@@ -88,7 +88,7 @@ public class CastTile extends QSTileImpl<BooleanState> {
     private final TileJavaAdapter mJavaAdapter;
     private final ShadeDialogContextInteractor mShadeDialogContextInteractor;
     private boolean mCastTransportAllowed;
-    private boolean mHotspotConnected;
+    private boolean mHotspotEnabled;
     private final CastDetailsViewModel.Factory mCastDetailsViewModelFactory;
     private final DialogCreator mDialogCreator;
 
@@ -375,24 +375,24 @@ public class CastTile extends QSTileImpl<BooleanState> {
          if (Flags.qsCastTileSkipWifiCheck()) {
             return true;
         } else {
-            return mCastTransportAllowed || mHotspotConnected;
+            return mCastTransportAllowed || mHotspotEnabled;
         }
     }
 
-    private void setCastTransportAllowed(boolean connected) {
-        if (connected != mCastTransportAllowed) {
-            mCastTransportAllowed = connected;
-            // Hotspot is not connected, so changes here should update
-            if (!mHotspotConnected) {
+    private void setCastTransportAllowed(boolean enabled) {
+        if (enabled != mCastTransportAllowed) {
+            mCastTransportAllowed = enabled;
+            // Hotspot is not enabled, so changes here should update
+            if (!mHotspotEnabled) {
                 refreshState();
             }
         }
     }
 
-    private void setHotspotConnected(boolean connected) {
-        if (connected != mHotspotConnected) {
-            mHotspotConnected = connected;
-            // Wifi is not connected, so changes here should update
+    private void setHotspotEnabled(boolean enabled) {
+        if (enabled != mHotspotEnabled) {
+            mHotspotEnabled = enabled;
+            // Wifi is not enabled, so changes here should update
             if (!mCastTransportAllowed) {
                 refreshState();
             }
@@ -410,8 +410,7 @@ public class CastTile extends QSTileImpl<BooleanState> {
             new HotspotController.Callback() {
                 @Override
                 public void onHotspotChanged(boolean enabled, int numDevices) {
-                    boolean enabledAndConnected = enabled && numDevices > 0;
-                    setHotspotConnected(enabledAndConnected);
+                    setHotspotEnabled(enabled);
                 }
             };
 
