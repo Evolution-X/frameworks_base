@@ -523,5 +523,6 @@ public class SecureSettingsValidators {
                 new InclusiveIntegerRangeValidator(0, 1));
         // Evolution X additions
         VALIDATORS.put(Secure.GMS_CERT_CHAIN, BOOLEAN_VALIDATOR);
+        VALIDATORS.put(Secure.HIDE_DEVELOPER_STATUS, ANY_STRING_VALIDATOR);
     }
 }
