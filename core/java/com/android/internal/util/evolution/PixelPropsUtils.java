@@ -81,6 +81,7 @@ public final class PixelPropsUtils {
     private static final String[] packagesToChangeRecentPixel = {
             "com.android.chrome",
             "com.breel.wallpapers20",
+            "com.google.android.aicore",
             "com.google.android.apps.aiwallpapers",
             "com.google.android.apps.bard",
             "com.google.android.apps.customization.pixel",
