@@ -1929,6 +1929,7 @@ public class DisplayModeDirector {
         @Nullable
         private SparseArray<RefreshRateRange> mHighZoneRefreshRateForThermals;
         private int mRefreshRateInHighZone;
+        private int mPeakRefreshRate;
 
         @Nullable
         private List<IdleScreenRefreshRateTimeoutLuxThresholdPoint>
@@ -2206,10 +2207,18 @@ public class DisplayModeDirector {
         @GuardedBy("mLock")
         public void onRefreshRateSettingChangedLocked(float min, float max) {
             boolean changeable = (max - min > 1f && max > 60f);
-            if (mRefreshRateChangeable != changeable) {
+            int peakRefreshRate = Math.round(Math.max(min, max));
+            if (mRefreshRateChangeable != changeable || mPeakRefreshRate != peakRefreshRate) {
                 mRefreshRateChangeable = changeable;
-                updateSensorStatus();
-                updateFlickerRefreshRateVotes();
+                mPeakRefreshRate = peakRefreshRate;
+                if (changeable) {
+                    synchronized (mLock) {
+                        updateFlickerRefreshRateVotes();
+                    }
+                } else {
+                    updateSensorStatus();
+                    updateFlickerRefreshRateVotes();
+                }
             }
         }
 
@@ -2551,6 +2560,7 @@ public class DisplayModeDirector {
                 return;
             }
 
+            int refreshRateInLowZone = Math.min(mPeakRefreshRate, mRefreshRateInLowZone);
             boolean insideLowZone = hasValidLowZone() && isInsideLowZone(mBrightness, mAmbientLux);
             if (insideLowZone) {
                 if (hasLowLightVrrConfig()) {
@@ -2558,7 +2568,7 @@ public class DisplayModeDirector {
                             .getRefreshRateData().lowLightBlockingZoneSupportedModes);
                 } else {
                     refreshRateVote = Vote.forPhysicalRefreshRates(
-                            mRefreshRateInLowZone, mRefreshRateInLowZone);
+                            refreshRateInLowZone, refreshRateInLowZone);
                     refreshRateSwitchingVote = Vote.forDisableRefreshRateSwitching();
                 }
                 if (mLowZoneRefreshRateForThermals != null) {
@@ -2572,12 +2582,12 @@ public class DisplayModeDirector {
                 }
             }
 
+            int refreshRateInHighZone = Math.min(mPeakRefreshRate, mRefreshRateInHighZone);
             boolean insideHighZone = hasValidHighZone()
                     && isInsideHighZone(mBrightness, mAmbientLux);
             if (insideHighZone) {
                 refreshRateVote =
-                        Vote.forPhysicalRefreshRates(mRefreshRateInHighZone,
-                                mRefreshRateInHighZone);
+                        Vote.forPhysicalRefreshRates(refreshRateInHighZone, refreshRateInHighZone);
                 if (mHighZoneRefreshRateForThermals != null) {
                     RefreshRateRange range = SkinThermalStatusObserver
                             .findBestMatchingRefreshRateRange(mThermalStatus,
