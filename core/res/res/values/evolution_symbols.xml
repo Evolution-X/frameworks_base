@@ -93,4 +93,7 @@
     <java-symbol type="string" name="config_oemFastChargerStatusPath2" />
     <!-- Expected value from fast charging status file -->
     <java-symbol type="string" name="config_oemFastChargerStatusValue" />
+
+    <!-- Smart 5G -->
+    <java-symbol type="bool" name="config_supportSmart5G" />
 </resources>
