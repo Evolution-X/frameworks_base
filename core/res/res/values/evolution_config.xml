@@ -53,4 +53,7 @@
     <string name="config_oemFastChargerStatusPath2" translatable="false"></string>
     <!-- Expected value from fast charging status file  -->
     <string name="config_oemFastChargerStatusValue" translatable="false">1</string>
+
+    <!-- Smart 5G -->
+    <bool name="config_supportSmart5G">false</bool>
 </resources>
