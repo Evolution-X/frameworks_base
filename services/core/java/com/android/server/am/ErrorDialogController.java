@@ -103,7 +103,7 @@ final class ErrorDialogController {
 
     @GuardedBy("mProcLock")
     void clearAllErrorDialogs() {
-        clearCrashDialogs();
+        clearCrashDialogs(false);
         clearAnrDialogs();
         clearViolationDialogs();
         clearWaitingDialog();
