@@ -95,6 +95,8 @@ class ShadeViewControllerEmptyImpl @Inject constructor() : ShadeViewController {
     override val shadeFoldAnimator = ShadeFoldAnimatorEmptyImpl()
     override fun getScrollerLayoutController(): NotificationStackScrollLayoutController? = null
     override fun getKeyguardBottomAreaView(): KeyguardBottomAreaView? = null
+
+    override fun showIsland(show: Boolean) {}
 }
 
 class ShadeHeadsUpTrackerEmptyImpl : ShadeHeadsUpTracker {
