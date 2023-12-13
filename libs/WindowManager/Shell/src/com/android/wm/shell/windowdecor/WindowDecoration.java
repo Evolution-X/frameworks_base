@@ -46,6 +46,7 @@ import android.window.SurfaceSyncGroup;
 import android.window.TaskConstants;
 import android.window.WindowContainerTransaction;
 
+import com.android.internal.policy.ScreenDecorationsUtils;
 import com.android.wm.shell.ShellTaskOrganizer;
 import com.android.wm.shell.common.DisplayController;
 import com.android.wm.shell.desktopmode.DesktopModeStatus;
@@ -320,6 +321,7 @@ public abstract class WindowDecoration<T extends View & TaskFocusStateConsumer>
         }
         startT.setShadowRadius(mTaskSurface, shadowRadius)
                 .show(mTaskSurface);
+        final int cornerRadiusPixels = (int) ScreenDecorationsUtils.getWindowCornerRadius(mContext);
         finishT.setPosition(mTaskSurface, taskPosition.x, taskPosition.y)
                 .setShadowRadius(mTaskSurface, shadowRadius);
         if (mTaskInfo.getWindowingMode() == WINDOWING_MODE_FREEFORM) {
@@ -331,8 +333,8 @@ public abstract class WindowDecoration<T extends View & TaskFocusStateConsumer>
                 mTmpColor[2] = (float) Color.blue(backgroundColorInt) / 255.f;
                 startT.setColor(mTaskSurface, mTmpColor);
             }
-            startT.setCornerRadius(mTaskSurface, params.mCornerRadius);
-            finishT.setCornerRadius(mTaskSurface, params.mCornerRadius);
+            startT.setCornerRadius(mTaskSurface, cornerRadiusPixels);
+            finishT.setCornerRadius(mTaskSurface, cornerRadiusPixels);
         } else if (!DesktopModeStatus.isVeiledResizeEnabled()) {
             startT.unsetColor(mTaskSurface);
         }
