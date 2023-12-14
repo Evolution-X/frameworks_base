@@ -107,6 +107,8 @@ import com.android.server.pm.verify.domain.DomainVerificationManagerInternal;
 import libcore.io.IoUtils;
 
 import java.io.BufferedReader;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
@@ -759,12 +761,12 @@ public class PackageManagerServiceUtils {
         final AtomicFile atomicFile = new AtomicFile(dstFile);
         FileOutputStream outputStream = null;
         try (
-                InputStream fileIn = new GZIPInputStream(new FileInputStream(srcFile))
+            InputStream fileIn = new BufferedInputStream(new GZIPInputStream(new FileInputStream(srcFile)))
         ) {
             outputStream = atomicFile.startWrite();
-            FileUtils.copy(fileIn, outputStream);
-            // Flush anything in buffer before chmod, because any writes after chmod will fail.
-            outputStream.flush();
+            BufferedOutputStream bufferedOutStream = new BufferedOutputStream(outputStream);
+            FileUtils.copy(fileIn, bufferedOutStream);
+            bufferedOutStream.flush(); // Ensure to flush the buffered stream
             Os.fchmod(outputStream.getFD(), DEFAULT_FILE_ACCESS_MODE);
             atomicFile.finishWrite(outputStream);
             return PackageManager.INSTALL_SUCCEEDED;
