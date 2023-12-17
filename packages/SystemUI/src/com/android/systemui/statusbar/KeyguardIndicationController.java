@@ -407,10 +407,16 @@ public class KeyguardIndicationController {
                     ServiceManager.getService("batteryproperties"));
         }
     }
+    
+    public void setIndicationAreaTop(ViewGroup indicationAreaTop) {
+        mFaceIconView = indicationAreaTop.findViewById(R.id.face_unlock_icon);
+        if (mFaceIconView != null) {
+            mFaceIconView.updateColor();
+        }
+    }
 
     public void setIndicationArea(ViewGroup indicationArea) {
         mIndicationArea = indicationArea;
-        mFaceIconView = indicationArea.findViewById(R.id.face_unlock_icon);
         mTopIndicationView = indicationArea.findViewById(R.id.keyguard_indication_text);
         mLockScreenIndicationView = indicationArea.findViewById(
             R.id.keyguard_indication_text_bottom);
@@ -911,6 +917,8 @@ public class KeyguardIndicationController {
             mFaceIconView.setState(FaceUnlockImageView.State.SUCCESS);
         } else if (TextUtils.equals(biometricMessage, mContext.getString(R.string.keyguard_face_failed))) {
             mFaceIconView.setState(FaceUnlockImageView.State.NOT_VERIFIED);
+        } else if (TextUtils.equals(biometricMessage, mContext.getString(R.string.face_unlock_recognizing))) {
+            mFaceIconView.setState(FaceUnlockImageView.State.SCANNING);
         }
 
         mBiometricMessage = biometricMessage;
@@ -937,21 +945,18 @@ public class KeyguardIndicationController {
     }
 
     private void showFaceUnlockRecognizingMessage() {
-        mFaceIconView.setVisibility(View.VISIBLE);
-        mFaceIconView.setState(FaceUnlockImageView.State.SCANNING);
-        showBiometricMessage(mContext.getResources().getString(
-                                    R.string.face_unlock_recognizing));
+        String faceUnlockMessage = mContext.getResources().getString(
+            R.string.face_unlock_recognizing);
+        showBiometricMessage(faceUnlockMessage);
     }
 
     private void hideFaceUnlockRecognizingMessage() {
-        if (mFaceIconView != null) {
-            mFaceIconView.setVisibility(View.GONE);
-        }
         String faceUnlockMessage = mContext.getResources().getString(
             R.string.face_unlock_recognizing);
         if (mBiometricMessage != null && mBiometricMessage == faceUnlockMessage) {
             mBiometricMessage = null;
             hideBiometricMessage();
+            mFaceIconView.setState(FaceUnlockImageView.State.HIDDEN);
         }
     }
 
@@ -1665,6 +1670,10 @@ public class KeyguardIndicationController {
                 hideFaceUnlockRecognizingMessage();
             }
             updateDeviceEntryIndication(false);
+            mFaceIconView.setDozing(mDozing);
+            if (mDozing) {
+                mFaceIconView.updateFaceIconState();
+            }
         }
     };
 
