@@ -56,6 +56,8 @@ object KeyguardIndicationAreaBinder {
     ): DisposableHandle {
         val indicationArea: ViewGroup = view.requireViewById(R.id.keyguard_indication_area)
         indicationController.setIndicationArea(indicationArea)
+        val indicationAreaTop: ViewGroup = view.requireViewById(R.id.keyguard_indication_area_top)
+        indicationController.setIndicationAreaTop(indicationAreaTop)
 
         val indicationText: TextView = indicationArea.requireViewById(R.id.keyguard_indication_text)
         val indicationTextBottom: TextView =
