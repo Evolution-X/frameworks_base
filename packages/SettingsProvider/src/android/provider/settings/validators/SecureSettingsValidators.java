@@ -524,5 +524,7 @@ public class SecureSettingsValidators {
         // Evolution X additions
         VALIDATORS.put(Secure.CLIPBOARD_AUTO_CLEAR_ENABLED, BOOLEAN_VALIDATOR);
         VALIDATORS.put(Secure.CLIPBOARD_AUTO_CLEAR_TIMEOUT, NONE_NEGATIVE_LONG_VALIDATOR);
+        VALIDATORS.put(Secure.VPN_ENFORCE_DNS, BOOLEAN_VALIDATOR);
+        VALIDATORS.put(Secure.VPN_ENFORCE_DNS_STORE, new DiscreteValueValidator(new String[] {"-1", "0", "1", "2"}));
     }
 }
