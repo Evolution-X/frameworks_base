@@ -4474,6 +4474,7 @@ public abstract class Context {
                 RANGING_SERVICE,
                 MEDIA_QUALITY_SERVICE,
                 ADVANCED_PROTECTION_SERVICE,
+                REFRESH_RATE_MANAGER_SERVICE,
             })
     @Retention(RetentionPolicy.SOURCE)
     public @interface ServiceName {}
@@ -6968,6 +6969,16 @@ public abstract class Context {
      */
     @FlaggedApi(android.media.tv.flags.Flags.FLAG_MEDIA_QUALITY_FW)
     public static final String MEDIA_QUALITY_SERVICE = "media_quality";
+
+    /**
+     * Use with {@link #getSystemService(String)} to retrieve a
+     * {@link org.evolution.display.RefreshRateManager} for managing display refresh rate.
+     *
+     * @hide
+     * @see #getSystemService
+     * @see org.evolution.display.RefreshRateManager
+     */
+    public static final String REFRESH_RATE_MANAGER_SERVICE = "refresh_rate_ext";
 
     /**
      * Service to perform operations needed for dynamic instrumentation.

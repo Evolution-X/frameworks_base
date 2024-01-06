@@ -16,6 +16,10 @@
 
 package com.android.internal.util.evolution;
 
+import android.app.ActivityManager;
+import android.app.ActivityThread;
+import android.app.IActivityManager;
+import android.app.role.RoleManager;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
@@ -23,6 +27,9 @@ import android.content.pm.PackageManager;
 import android.os.PowerManager;
 import android.os.SystemClock;
 import android.os.SystemProperties;
+import android.os.UserHandle;
+
+import com.android.internal.util.CollectionUtils;
 
 import java.util.List;
 
@@ -76,5 +83,19 @@ public class Utils {
             needsNav = true;
         }
         return needsNav;
+    }
+
+    public static String getDefaultLauncher(Context context) {
+        final RoleManager roleManager = context.getSystemService(RoleManager.class);
+        final String packageName = CollectionUtils.firstOrNull(
+                roleManager.getRoleHolders(RoleManager.ROLE_HOME));
+        return packageName != null ? packageName : "";
+    }
+
+    public static void forceStopDefaultLauncher(Context context) {
+        final ActivityManager activityManager = context.getSystemService(ActivityManager.class);
+        try {
+            activityManager.forceStopPackageAsUser(getDefaultLauncher(context), UserHandle.USER_CURRENT);
+        } catch (Exception ignored) {}
     }
 }
