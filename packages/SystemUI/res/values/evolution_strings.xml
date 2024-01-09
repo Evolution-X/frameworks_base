@@ -294,4 +294,7 @@
 
     <!-- Label for UI element which allows to use lens on screenshot [CHAR LIMIT=30] -->
     <string name="screenshot_lens_label">Lens</string>
+
+    <!-- AI Assistant affordance [CHAR LIMIT=32] -->
+    <string name="accessibility_assistant_button">AI Assistant</string>
 </resources>
