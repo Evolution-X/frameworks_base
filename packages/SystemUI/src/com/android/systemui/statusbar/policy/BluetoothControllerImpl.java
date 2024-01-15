@@ -330,7 +330,7 @@ public class BluetoothControllerImpl implements BluetoothController, BluetoothCa
 
     @Override
     public int getBatteryLevel() {
-        if (!mConnectedDevices.isEmpty()) {
+        if (!mConnectedDevices.isEmpty() && mConnectedDevices.get(0) != null) {
             return mConnectedDevices.get(0).getBatteryLevel();
         }
         return -1;
