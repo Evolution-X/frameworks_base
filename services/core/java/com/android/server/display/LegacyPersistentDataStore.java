@@ -372,6 +372,7 @@ public final class LegacyPersistentDataStore {
         final DisplayState state = getDisplayState(displayDeviceUniqueId, true);
         if (state.setBrightness(brightness, userSerial)) {
             setDirty();
+            saveIfNeeded();
             return true;
         }
         return false;
