@@ -323,6 +323,7 @@ final class PersistentDataStore {
         final DisplayState state = getDisplayState(displayDeviceUniqueId, true);
         if (state.setBrightness(brightness, userSerial)) {
             setDirty();
+            saveIfNeeded();
             return true;
         }
         return false;
