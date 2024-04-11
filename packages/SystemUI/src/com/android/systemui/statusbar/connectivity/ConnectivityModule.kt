@@ -27,6 +27,7 @@ import com.android.systemui.qs.tiles.AirplaneModeTile
 import com.android.systemui.qs.tiles.BluetoothTile
 import com.android.systemui.qs.tiles.CastTile
 import com.android.systemui.qs.tiles.DataSaverTile
+import com.android.systemui.qs.tiles.DnsTile
 import com.android.systemui.qs.tiles.HotspotTile
 import com.android.systemui.qs.tiles.InternetTileNewImpl
 import com.android.systemui.qs.tiles.MobileDataTile
@@ -117,6 +118,12 @@ interface ConnectivityModule {
     @StringKey(InternetTileNewImpl.TILE_SPEC)
     fun bindInternetTile(newInternetTile: InternetTileNewImpl): QSTileImpl<*>
 
+    /** Inject DnsTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(DnsTile.TILE_SPEC)
+    fun bindDnsTile(dnsTile: DnsTile): QSTileImpl<*>
+
     @Binds
     @IntoMap
     @StringKey(AIRPLANE_MODE_TILE_SPEC)
@@ -163,6 +170,7 @@ interface ConnectivityModule {
         const val CAST_TILE_SPEC = "cast"
         const val BLUETOOTH_TILE_SPEC = "bt"
         const val NFC_TILE_SPEC = "nfc"
+        const val DNS_TILE_SPEC = "dns"
 
         @Provides
         @IntoMap
@@ -385,6 +393,21 @@ interface ConnectivityModule {
                     QSTileUIConfig.Resource(
                         iconRes = R.drawable.ic_qs_nfc,
                         labelRes = R.string.quick_settings_nfc_label,
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.CONNECTIVITY,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(DNS_TILE_SPEC)
+        fun provideDnsTile(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(DNS_TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.ic_settings_dns,
+                        labelRes = com.android.settingslib.R.string.select_private_dns_configuration_title
                     ),
                 instanceId = uiEventLogger.getNewInstanceId(),
                 category = TileCategory.CONNECTIVITY,
