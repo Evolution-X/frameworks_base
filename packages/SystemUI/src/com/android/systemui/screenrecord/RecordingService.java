@@ -87,7 +87,6 @@ public class RecordingService extends Service implements ScreenMediaRecorderList
     private static final String EXTRA_CAPTURE_TARGET = "extra_captureTarget";
     private static final String EXTRA_SHOW_STOP_DOT = "extra_showStopDot";
     private static final String EXTRA_LOW_QUALITY = "extra_lowQuality";
-    private static final String EXTRA_LONGER_DURATION = "extra_longerDuration";
     private final static String EXTRA_HEVC = "extra_HEVC";
 
     private static final String ACTION_START = "com.android.systemui.screenrecord.START";
@@ -112,8 +111,7 @@ public class RecordingService extends Service implements ScreenMediaRecorderList
     private final UserContextProvider mUserContextTracker;
     private int mNotificationId = NOTIF_BASE_ID;
 
-    private boolean mLowQuality;
-    private boolean mLongerDuration;
+    private int mLowQuality;
     private boolean mHEVC;
     private boolean mShowStopDot;
     private boolean mIsDotAtRight;
@@ -152,7 +150,7 @@ public class RecordingService extends Service implements ScreenMediaRecorderList
     public static Intent getStartIntent(Context context, int resultCode,
             int audioSource, boolean showTaps,
             @Nullable MediaProjectionCaptureTarget captureTarget,
-            boolean showStopDot, boolean lowQuality, boolean longerDuration, boolean hevc) {
+            boolean showStopDot, int lowQuality, boolean hevc) {
         return new Intent(context, RecordingService.class)
                 .setAction(ACTION_START)
                 .putExtra(EXTRA_RESULT_CODE, resultCode)
@@ -161,7 +159,6 @@ public class RecordingService extends Service implements ScreenMediaRecorderList
                 .putExtra(EXTRA_CAPTURE_TARGET, captureTarget)
                 .putExtra(EXTRA_SHOW_STOP_DOT, showStopDot)
                 .putExtra(EXTRA_LOW_QUALITY, lowQuality)
-                .putExtra(EXTRA_LONGER_DURATION, longerDuration)
                 .putExtra(EXTRA_HEVC, hevc);
     }
 
@@ -191,8 +188,7 @@ public class RecordingService extends Service implements ScreenMediaRecorderList
                 Log.d(TAG, "recording with audio source " + mAudioSource);
                 mShowTaps = intent.getBooleanExtra(EXTRA_SHOW_TAPS, false);
                 mShowStopDot = intent.getBooleanExtra(EXTRA_SHOW_STOP_DOT, false);
-                mLowQuality = intent.getBooleanExtra(EXTRA_LOW_QUALITY, false);
-                mLongerDuration = intent.getBooleanExtra(EXTRA_LONGER_DURATION, false);
+                mLowQuality = intent.getIntExtra(EXTRA_LOW_QUALITY, 0);
                 mHEVC = intent.getBooleanExtra(EXTRA_HEVC, true);
 
                 MediaProjectionCaptureTarget captureTarget =
@@ -215,7 +211,6 @@ public class RecordingService extends Service implements ScreenMediaRecorderList
                         this
                 );
                 setLowQuality(mLowQuality);
-                setLongerDuration(mLongerDuration);
                 setHEVC(mHEVC);
 
                 if (startRecording()) {
@@ -576,15 +571,9 @@ public class RecordingService extends Service implements ScreenMediaRecorderList
         Settings.System.putInt(getContentResolver(), Settings.System.SHOW_TOUCHES, value);
     }
 
-    private void setLowQuality(boolean turnOn) {
+    private void setLowQuality(int value) {
         if (getRecorder() != null) {
-            getRecorder().setLowQuality(turnOn);
-        }
-    }
-
-    private void setLongerDuration(boolean longer) {
-        if (getRecorder() != null) {
-            getRecorder().setLongerDuration(longer);
+            getRecorder().setLowQuality(value);
         }
     }
 
