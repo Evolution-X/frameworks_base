@@ -117,7 +117,9 @@ public class BluetoothTile extends SecureQSTile<BooleanState> {
         }
 
         if (mFeatureFlags.isEnabled(Flags.BLUETOOTH_QS_TILE_DIALOG)) {
-            mDialogViewModel.showDialog(mContext, view);
+            boolean isAutoOn = Settings.System.getInt(mContext.getContentResolver(),
+                    Settings.System.QS_BT_AUTO_ON, 0) == 1;
+            mDialogViewModel.showDialog(mContext, view, isAutoOn);
         } else {
             // Secondary clicks are header clicks, just toggle.
             final boolean isEnabled = mState.value;
