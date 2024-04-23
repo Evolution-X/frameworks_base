@@ -619,7 +619,7 @@ android_library {
         "com.android.systemui.pods-impl-aosp-handheld",
     ],
     javacflags: [
-        "-Adagger.fastInit=enabled",
+        // "-Adagger.fastInit=enabled",
         "-Adagger.explicitBindingConflictsWithInject=ERROR",
         "-Adagger.strictMultibindingValidation=enabled",
         "-Adagger.useBindingGraphFix=ENABLED",
