@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: Evolution X
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <!-- Statusbar Icons -->
+    <string name="status_bar_nfc">NFC</string>
+    <!-- Indication on the keyguard that is shown when the device is charging with a dash charger. Should match keyguard_plugged_in_dash_charging [CHAR LIMIT=40]-->
+    <!-- Indication on the keyguard that is shown when the device is charging with a warp charger. Should match keyguard_plugged_in_warp_charging [CHAR LIMIT=40]-->
+    <!-- Indication on the keyguard that is shown when the device is charging with a VOOC charger. Should match keyguard_plugged_in_vooc_charging [CHAR LIMIT=40]-->
+    <!-- Indication on the keyguard that is shown when the device is charging with a turbo power charger. Should match keyguard_plugged_in_turbo_charging [CHAR LIMIT=40]-->
+    <!-- Text while recognizing face -->
+    <string name="face_unlock_recognizing">Reconhecendo o rosto...</string>
+    <!-- Flashlight Strength -->
+    <string name="flashlight_strength_title">Força da Lanterna</string>
+    <string name="flashlight_strength_turn_off">Desligar</string>
+    <string name="flashlight_strength_turn_on">Ligar</string>
+    <!-- Button to restart SystemUI, within the Restart Options dialog -->
+    <string name="global_action_restart_systemui">Interface do sistema</string>
+    <!-- Sound QS Tile -->
+    <string name="quick_settings_sound_label">Som</string>
+    <string name="quick_settings_sound_ring">Toque</string>
+    <string name="quick_settings_sound_vibrate">Vibrar</string>
+    <string name="quick_settings_sound_mute">Mudo</string>
+    <!-- DataSwitch Tile -->
+    <string name="qs_data_switch_label">Trocar SIM de dados</string>
+    <!-- Volume panel QS tile -->
+    <string name="quick_settings_volume_panel_label">Painel de volume</string>
+    <!-- Language toggle tile -->
+    <string name="quick_settings_locale_label">Idioma</string>
+    <string name="quick_settings_locale_more_locales_toast">Configure vários idiomas primeiro</string>
+    <!-- Preferred network tile -->
+    <string name="quick_settings_preferred_network_label">Rede preferida</string>
+    <string name="quick_settings_preferred_network_unsupported">Não suportado</string>
+    <!-- Statusbar Icons -->
+    <string name="status_bar_data_saver">Economia de dados</string>
+    <string name="status_bar_call_strength">Força da chamada</string>
+    <!-- AI Assistant affordance [CHAR LIMIT=32] -->
+    <string name="accessibility_assistant_button">Assistente de IA</string>
+    <!-- Status bar network traffic monitor strings -->
+    <string name="kilobitspersecond_short">kb/s</string>
+    <string name="megabitspersecond_short">Mb/s</string>
+    <string name="gigabitspersecond_short">Gb/s</string>
+    <string name="kilobytespersecond_short">kB/s</string>
+    <string name="megabytespersecond_short">MB/s</string>
+    <string name="gigabytespersecond_short">GB/s</string>
+    <!-- Refresh Rate Tile -->
+    <string name="refresh_rate_tile_label">Taxa de atualização</string>
+    <string name="auto_mode_label">Automático</string>
+    <!-- Compass QS Tile -->
+    <string name="quick_settings_compass_label">Bússola</string>
+    <string name="quick_settings_compass_value"><xliff:g id="degrees">%1$.0f</xliff:g>\u00b0<xliff:g id="direction">%2$s</xliff:g></string>
+    <string name="quick_settings_compass_init">Inicializando\u2026</string>
+    <string name="quick_settings_compass_N">N</string>
+    <string name="quick_settings_compass_NE">NE</string>
+    <string name="quick_settings_compass_E">L</string>
+    <string name="quick_settings_compass_SE">SE</string>
+    <string name="quick_settings_compass_S">S</string>
+    <string name="quick_settings_compass_SW">SO</string>
+    <string name="quick_settings_compass_W">O</string>
+    <string name="quick_settings_compass_NW">NO</string>
+    <!-- Screenshot Tile -->
+    <string name="screenshot_long_press">Toque longo - região selecionada</string>
+    <!-- CPUInfo tile -->
+    <string name="quick_settings_cpuinfo_label">Informações da CPU</string>
+    <!-- FPS Info tile -->
+    <string name="quick_settings_fpsinfo_label">Informação de FPS</string>
+    <!-- FPS view text placeholder -->
+    <string name="fps_text_placeholder">FPS: <xliff:g id="fps" example="90">%1$d</xliff:g></string>
+    <!-- Autobrightness tile -->
+    <string name="quick_settings_autobrightness_label">Brilho automático</string>
+    <!-- Label for notification action to delete a screen recording file [CHAR LIMIT=35] -->
+    <string name="screenrecord_delete_label">Excluir</string>
+    <!-- A toast message shown after successfully deleting a screen recording [CHAR LIMIT=NONE] -->
+    <string name="screenrecord_delete_description">Gravação de tela excluída</string>
+    <!-- VPN tethering QS tile -->
+    <string name="vpn_tethering_label">Compartilhamento de VPN</string>
+    <string name="vpn_tethering_changed_off">O compartilhamento de VPN foi desligado.</string>
+    <string name="vpn_tethering_changed_on">O compartilhamento de VPN foi ativado.</string>
+    <!-- Name of the roaming status bar icon. -->
+    <string name="status_bar_roaming">Indicador de roaming</string>
+    <!-- Name of the HD calling status bar icon. -->
+    <string name="status_bar_hd_calling">Chamada HD (VoLTE/VoNR)</string>
+    <!-- Name of the VoWiFi status bar icon. -->
+    <string name="status_bar_vowifi">Chamada Wi-Fi (VoWiFi)</string>
+    <!-- Data disabled icon -->
+    <string name="data_disabled_icon_title">Ícone de dados desativados</string>
+    <!-- Disable stacked mobile icons -->
+    <string name="disable_stacked_mobile_icons_title">Desativar ícone de dados combinado</string>
+    <!-- 4G icon -->
+    <string name="show_fourg_icon_title">Ícone 4G</string>
+    <!-- Notification counter -->
+    <!-- QuickSettings: InternetDialog: Summary for how many devices are connected to the hotspot [CHAR LIMIT=NONE] -->
+    <plurals name="quick_settings_internet_hotspot_summary_num_devices">
+        <item quantity="one">%d dispositivo conectado</item>
+        <item quantity="other">%d dispositivos conectados</item>
+    </plurals>
+    <!-- 5G toggle in Internet Dialog -->
+    <string name="enable_fiveg">Ativar 5G</string>
+    <!-- WiFi Standard icon -->
+    <string name="wifi_standard_icon_title">Padrão da rede Wi-Fi</string>
+    <!-- Volume QS Tile -->
+    <string name="quick_settings_volume_label">Volume</string>
+    <string name="qs_volume_dialog_title">Controle de volume</string>
+    <string name="qs_volume_dialog_mute">Mudo</string>
+    <!-- Data usage info in QS footer -->
+    <string name="usage_data">usado hoje</string>
+    <string name="usage_data_weekly">usado esta semana</string>
+    <string name="usage_data_default_suffix">Dados</string>
+    <string name="usage_wifi_default_suffix">Wi-Fi</string>
+    <!-- Kill button in notification guts -->
+    <string name="force_stop_dlg_title">Forçar parada?</string>
+    <string name="force_stop_dlg_text">Se você forçar o fechamento de um aplicativo, ele poderá funcionar mal.</string>
+    <!-- On The Go -->
+    <string name="onthego_notif_ticker">On-The-Go ativado</string>
+    <string name="onthego_notif_title">On-The-Go está ativo</string>
+    <string name="onthego_notif_stop">Parar</string>
+    <string name="onthego_notif_options">Opções</string>
+    <string name="onthego_notif_error">Não é possível iniciar On-The-Go</string>
+    <string name="onthego_notif_restart">Reiniciar On-The-Go</string>
+    <string name="onthego_notif_camera_changed">Modo de câmera alterado</string>
+    <string name="onthego_transparency">Transparência</string>
+    <string name="onthego_front_camera">Usar câmera frontal</string>
+    <string name="onthego_service_toggle">Reiniciar automaticamente o serviço</string>
+    <string name="onthego_channel_name">Principal</string>
+    <string name="global_action_onthego">On-The-Go</string>
+    <!-- Privacy Indicator -->
+    <string name="mic_camera_privacy_indicator_title">Indicador de privacidade do microfone e da câmera</string>
+    <string name="location_privacy_indicator_title">Indicador de privacidade de localização</string>
+    <string name="projection_privacy_indicator_title">Indicador de privacidade para transmissão de tela</string>
+    <!-- Weather -->
+    <string name="weather_condition_clouds">Nublado</string>
+    <string name="weather_condition_rain">Chuvoso</string>
+    <string name="weather_condition_clear">Céu limpo</string>
+    <string name="weather_condition_storm">Tempestuoso</string>
+    <string name="weather_condition_snow">Nevando</string>
+    <string name="weather_condition_wind">Ventoso</string>
+    <string name="weather_condition_mist">Neblina</string>
+    <!-- Weather Tile -->
+    <string name="omnijaws_service_error">Erro ao carregar dados do tempo</string>
+    <string name="omnijaws_service_unknown">Sem dados do tempo</string>
+    <string name="omnijaws_label_default">Clima</string>
+    <!-- Sleep Mode -->
+    <string name="quick_settings_sleep_mode_label">Modo de suspensão</string>
+    <string name="default_user_name">Evolution X</string>
+    <!-- AxDynamicBar strings [CHAR LIMIT=NONE] -->
+    <string name="ax_dynamic_bar_timer">Temporizador</string>
+    <string name="ax_dynamic_bar_stopwatch">Cronômetro</string>
+    <string name="ax_dynamic_bar_alarm">Alarme</string>
+    <string name="ax_dynamic_bar_flashlight">Lanterna</string>
+    <string name="ax_dynamic_bar_hotspot">Ponto de acesso</string>
+    <string name="ax_dynamic_bar_hotspot_active">Hotspot Ativo</string>
+    <string name="ax_dynamic_bar_vpn_active">VPN ativa</string>
+    <string name="ax_dynamic_bar_screen_recording">Gravação de tela</string>
+    <string name="ax_dynamic_bar_now_playing">Tocando agora</string>
+    <string name="ax_dynamic_bar_media_output">Saída de mídia</string>
+    <string name="ax_dynamic_bar_sound_mode">Modo de som</string>
+    <string name="ax_dynamic_bar_silent">Silencioso</string>
+    <string name="ax_dynamic_bar_vibrate">Vibrar</string>
+    <string name="ax_dynamic_bar_ring">Tocar</string>
+    <string name="ax_dynamic_bar_charging">Carregando</string>
+    <string name="ax_dynamic_bar_wireless">Sem fio</string>
+    <string name="ax_dynamic_bar_saver">Economia</string>
+    <string name="ax_dynamic_bar_music">Música</string>
+    <string name="ax_dynamic_bar_copied">Copiado</string>
+    <string name="ax_dynamic_bar_copied_feedback">Copiado!</string>
+    <string name="ax_dynamic_bar_image_copied">Imagem copiada</string>
+    <string name="ax_dynamic_bar_copy_image">Copiar imagem</string>
+    <string name="ax_dynamic_bar_clipboard_image_desc">Imagem da área de transferência</string>
+    <string name="ax_dynamic_bar_image">Imagem</string>
+    <string name="ax_dynamic_bar_url">URL</string>
+    <string name="ax_dynamic_bar_dismiss">Dispensar</string>
+    <string name="ax_dynamic_bar_open">Abrir</string>
+    <string name="ax_dynamic_bar_stop">Parar</string>
+    <string name="ax_dynamic_bar_stop_recording">Parar gravação</string>
+    <string name="ax_dynamic_bar_reset">Redefinir</string>
+    <string name="ax_dynamic_bar_clear_all">Limpar tudo</string>
+    <string name="ax_dynamic_bar_show_more">Mostrar mais</string>
+    <string name="ax_dynamic_bar_show_less">Mostrar menos</string>
+    <string name="ax_dynamic_bar_play">Reproduzir</string>
+    <string name="ax_dynamic_bar_pause">Pausar</string>
+    <string name="ax_dynamic_bar_paused">Pausado</string>
+    <string name="ax_dynamic_bar_saved">Salvo</string>
+    <string name="ax_dynamic_bar_recording">Gravando</string>
+    <string name="ax_dynamic_bar_done">Concluído</string>
+    <string name="ax_dynamic_bar_ringing">Tocando</string>
+    <string name="ax_dynamic_bar_running">Em execução</string>
+    <string name="ax_dynamic_bar_on">ATIVO</string>
+    <string name="ax_dynamic_bar_recents">Recentes</string>
+    <string name="ax_dynamic_bar_unlocked">Desbloqueado</string>
+    <string name="ax_dynamic_bar_device_unlocked">Dispositivo desbloqueado</string>
+    <string name="ax_dynamic_bar_progress">Progresso</string>
+    <string name="ax_dynamic_bar_casting_to">Transmitindo para</string>
+    <string name="ax_dynamic_bar_camera_mic">Câmera e microfone</string>
+    <string name="ax_dynamic_bar_camera">Câmera</string>
+    <string name="ax_dynamic_bar_microphone">Microfone</string>
+    <string name="ax_dynamic_bar_camera_mic_short">Câmera e mic</string>
+    <string name="ax_dynamic_bar_hotspot_devices"><xliff:g id="count" example="3">%d</xliff:g> dispositivos</string>
+    <string name="ax_dynamic_bar_wireless_charging">Carregamento sem fio</string>
+    <string name="ax_dynamic_bar_until_full">até completar</string>
+    <string name="ax_dynamic_bar_battery_saver">Economia de bateria</string>
+    <string name="ax_dynamic_bar_call">Chamada</string>
+    <string name="ax_dynamic_bar_incoming_call">Chamada recebida</string>
+    <string name="ax_dynamic_bar_connected">Conectado</string>
+    <string name="ax_dynamic_bar_disconnect">Desconectar</string>
+    <string name="ax_dynamic_bar_no_devices">Nenhum dispositivo</string>
+    <string name="ax_dynamic_bar_one_device_connected">1 dispositivo conectado</string>
+    <string name="ax_dynamic_bar_devices_connected"><xliff:g id="count" example="3">%d</xliff:g> dispositivos conectados</string>
+    <string name="ax_dynamic_bar_vpn_connected">VPN conectada</string>
+    <string name="ax_dynamic_bar_secured">Protegido</string>
+    <string name="ax_dynamic_bar_connecting">Conectando\u2026</string>
+    <string name="ax_dynamic_bar_one_device">1 dispositivo</string>
+    <string name="ax_dynamic_bar_bluetooth_device">Dispositivo Bluetooth</string>
+    <string name="ax_dynamic_bar_apps_count"><xliff:g id="count" example="2">%d</xliff:g> aplicativos</string>
+    <string name="ax_dynamic_bar_just_now">Agora mesmo</string>
+    <string name="ax_dynamic_bar_mins_ago"><xliff:g id="count" example="5">%d</xliff:g>m atrás</string>
+    <string name="ax_dynamic_bar_hours_ago"><xliff:g id="count" example="2">%d</xliff:g>h atrás</string>
+    <string name="ax_dynamic_bar_days_ago"><xliff:g id="count" example="3">%d</xliff:g>d atrás</string>
+    <string name="ax_dynamic_bar_weeks_ago"><xliff:g id="count" example="1">%d</xliff:g>semana atrás</string>
+    <string name="ax_dynamic_bar_resume">Retomar</string>
+    <string name="ax_dynamic_bar_clipboard">Área de transferência</string>
+    <string name="ax_dynamic_bar_previous">Anterior</string>
+    <string name="ax_dynamic_bar_next">Próximo</string>
+    <string name="ax_dynamic_bar_shuffle">Aleatório</string>
+    <string name="ax_dynamic_bar_output">Saída</string>
+    <string name="ax_dynamic_bar_rec_short">Gravar</string>
+    <string name="ax_dynamic_bar_cast_short">Transmitir</string>
+    <string name="ax_dynamic_bar_active">Ativo</string>
+    <string name="ax_dynamic_bar_biometric">Biometria</string>
+    <string name="ax_dynamic_bar_trust">Confiança</string>
+    <string name="ax_dynamic_bar_alignment">Alinhamento</string>
+    <string name="ax_dynamic_bar_cam_short">Câmera</string>
+    <string name="ax_dynamic_bar_mic_short">Microfone</string>
+    <string name="ax_dynamic_bar_recent_apps">Apps recentes</string>
+    <string name="ax_dynamic_bar_count_running"><xliff:g id="count" example="3">%d</xliff:g> executando</string>
+    <string name="ax_dynamic_bar_sports_vs">vs</string>
+    <string name="ax_dynamic_bar_sports_live">AO VIVO</string>
+    <string name="ax_dynamic_bar_sports_final">Final</string>
+    <string name="ax_dynamic_bar_sports_halftime">Intervalo</string>
+    <string name="ax_dynamic_bar_sports_upcoming">Em breve</string>
+    <!-- Screenshot -->
+    <string name="quick_settings_screenshot_label">Captura de tela</string>
+    <!-- Essential Notifications -->
+    <string name="essential_notifications_title">Essenciais</string>
+    <string name="essential_notifications_summary">Mensagens e alertas importantes</string>
+    <!-- USB Mode Picker -->
+    <string name="usb_mode_picker_title">Selecione o modo USB</string>
+    <string name="usb_mode_file_transfer">Transferência de arquivo</string>
+    <string name="usb_mode_tethering">Conexão USB</string>
+    <string name="usb_mode_midi">MIDI</string>
+    <string name="usb_mode_photo_transfer">Foto e transferência de vídeo</string>
+    <string name="usb_mode_webcam">Webcam USB</string>
+    <string name="usb_mode_charging_only">Apenas carregar</string>
+    <string name="usb_charging_status">O carregamento USB está ativado</string>
+    <!-- Smart Pixels -->
+    <string name="quick_settings_smart_pixels_label">Pixels Inteligentes</string>
+    <string name="quick_settings_smart_pixels_on">Ligado</string>
+    <string name="quick_settings_smart_pixels_off">Desligado</string>
+    <string name="smart_pixels_percent_label">Porcentagem de pixels</string>
+    <string name="smart_pixels_percent_format"><xliff:g id="percent" example="25">%d</xliff:g>%%</string>
+</resources>

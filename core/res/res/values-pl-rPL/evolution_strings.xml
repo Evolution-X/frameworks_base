@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: Evolution X
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <!-- Button that copies the url to the log of a crashed application -->
+    <string name="aerr_copy">Skopiuj link dziennika awarii</string>
+    <string name="url_copy_success">Link skopiowano pomyślnie</string>
+    <string name="url_copy_failed">Wystąpił błąd podczas przesyłania dziennika do wklejki</string>
+    <!-- Settings Restart -->
+    <string name="settings_restart_title">Wymagane ponowne uruchomienie ustawień</string>
+    <string name="settings_restart_message">Aby zastosować zmiany, wymagane jest ponowne uruchomienie ustawień. Uruchomić ponownie teraz?</string>
+    <!-- System Reboot -->
+    <string name="system_restart_title">Wymagane ponowne uruchomienie systemu</string>
+    <string name="system_restart_message">Aby zastosować zmiany, wymagane jest ponowne uruchomienie systemu. Uruchomić ponownie teraz?</string>
+    <!-- SystemUI Restart -->
+    <string name="systemui_restart_title">Wymagane ponowne uruchomienie interfejsu</string>
+    <string name="systemui_restart_message">Aby zastosować zmiany, wymagane jest ponowne uruchomienie interfejsu. Uruchomić ponownie teraz?</string>
+    <!-- Launcher Restart -->
+    <string name="launcher_restart_title">Wymagane ponowne uruchomienie launchera</string>
+    <string name="launcher_restart_message">Aby zastosować zmiany, wymagane jest ponowne uruchomienie launchera. Uruchomić ponownie teraz?</string>
+    <!-- Cycle through ringer modes -->
+    <string name="volume_dialog_ringer_guidance_normal">Połączenia i powiadomienia użyją dzwonka</string>
+    <!-- PowerOffAlarmService -->
+    <string name="notification_channel_poweroff_alarm">Wyłącz alarm</string>
+    <string name="poweroff_alarm_title">Ustawiono alarm przy wyłączonym urządzeniu</string>
+    <string name="poweroff_alarm_body">Wykryto alarm i urządzenie włączy się 2 minuty przed jego uruchomieniem</string>
+    <!-- Pocket Lock -->
+    <string name="pocket_mode_title">Ochrona przed przypadkowymi dotknięciami jest aktywna</string>
+    <string name="pocket_mode_illustration_description">Ilustracja telefonu w kieszeni</string>
+    <string name="pocket_mode_instructions_header">Aby użyć swojego telefonu:</string>
+    <string name="pocket_mode_instruction_step1">1. Upewnij się, że niebieski obszar (czujnik zbliżeniowy) pokazany powyżej nie jest niczym zasłonięty i nie ma na nim brudu ani kurzu.</string>
+    <string name="pocket_mode_instruction_step2">2. Naciśnij i przytrzymaj przycisk zasilania, aby wyjść z trybu ochrony przed przypadkowymi dotknięciami.</string>
+    <!-- Sleep Mode -->
+    <string name="notification_channel_sleep">Tryb uśpienia</string>
+    <string name="sleep_mode_notification_title">Tryb uśpienia włączony</string>
+    <string name="sleep_mode_notification_content">Naciśnij, aby wyłączyć tryb uśpienia</string>
+    <string name="sleep_mode_enabled_toast">Tryb uśpienia włączony</string>
+    <string name="sleep_mode_disabled_toast">Tryb uśpienia wyłączony</string>
+    <!-- GameSpace -->
+    <string name="gamespace_new_game_added"><xliff:g id="name" example="MyApp">%s</xliff:g> dodano do panelu gier</string>
+</resources>
