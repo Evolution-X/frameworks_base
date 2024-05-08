@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: Evolution X
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <!-- Button that copies the url to the log of a crashed application -->
+    <string name="aerr_copy">クラッシュログ URL をコピー</string>
+    <string name="url_copy_success">URL を正常にコピーしました</string>
+    <string name="url_copy_failed">Pasty へのログのアップロード中にエラーが発生しました</string>
+    <!-- PowerOffAlarmService -->
+    <string name="notification_channel_poweroff_alarm">電源オフ時のアラーム</string>
+    <string name="poweroff_alarm_title">電源オフ時のアラームを設定</string>
+    <string name="poweroff_alarm_body">アラームが検出され、デバイスは期限の2分前に電源がオンになります。</string>
+    <!-- Settings Restart -->
+    <string name="settings_restart_title">設定の再起動が必要です</string>
+    <string name="settings_restart_message">全ての変更を反映するには設定アプリの再起動が必要です。再起動しますか?</string>
+    <!-- System Reboot -->
+    <string name="system_restart_title">システムの再起動が必要です</string>
+    <string name="system_restart_message">全ての変更を反映するには、システムの再起動が必要です。システムを再起動しますか?</string>
+    <!-- SystemUI Restart -->
+    <string name="systemui_restart_title">システム UI の再起動が必要です</string>
+    <string name="systemui_restart_message">全ての変更を反映するにはシステム UI の再起動が必要です。再起動しますか?</string>
+    <!-- Launcher Restart -->
+    <string name="launcher_restart_title">ランチャーの再起動が必要です</string>
+    <string name="launcher_restart_message">全ての変更を反映するにはランチャーの再起動が必要です。再起動しますか?</string>
+    <!-- Pocket Lock -->
+    <string name="pocket_mode_title">ポケットモードが有効です</string>
+    <string name="pocket_mode_illustration_description">ポケットの中のスマートフォンのイラスト</string>
+    <string name="pocket_mode_instructions_header">携帯電話の有効化:</string>
+    <string name="pocket_mode_instruction_step1">1. 上記の青色の領域 (近接センサー) が覆われておらず、汚れやほこりがないことを確認してください。</string>
+    <string name="pocket_mode_instruction_step2">2. 電源ボタンを押したままにするとポケットモードを終了します。</string>
+    <!-- Cycle through ringer modes -->
+    <string name="volume_dialog_ringer_guidance_normal">通話と通知をお知らせします</string>
+</resources>
