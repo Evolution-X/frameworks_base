@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: Evolution X
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <!-- Button that copies the url to the log of a crashed application -->
+    <string name="aerr_copy">نسخ رابط سجل الأعطال</string>
+    <string name="url_copy_success">تم نسخ الرابط بنجاح</string>
+    <string name="url_copy_failed">حدث خطأ أثناء رفع السجل</string>
+    <!-- PowerOffAlarmService -->
+    <string name="notification_channel_poweroff_alarm">إغلاق المنبه</string>
+    <string name="poweroff_alarm_title">تم ضبط المنبّه ليعمل عند إيقاف تشغيل الهاتف</string>
+    <string name="poweroff_alarm_body">تم اكتشاف منبّه فسيتم تشغيل الجهاز قبل ٢ دقائق من الموعد</string>
+    <!-- Settings Restart -->
+    <string name="settings_restart_title">إعادة تشغيل الإعدادات مطلوبة</string>
+    <string name="settings_restart_message">لتطبيق كل التغييرات، إعادة تشغيل الإعدادات مطلوبة. هل تريد إعادة تشغيل تطبيق الإعدادات الآن؟</string>
+    <!-- System Reboot -->
+    <string name="system_restart_title">إعادة تشغيل النظام مطلوبة</string>
+    <string name="system_restart_message">لتكون كافة التغييرات نافذة المفعول، مطلوب إعادة تشغيل واجهة النظام. هل تريد إعادة تشغيل واجهة النظام الآن؟</string>
+    <!-- SystemUI Restart -->
+    <string name="systemui_restart_title">مطلوب إعادة تشغيل واجهة النظام</string>
+    <string name="systemui_restart_message">لتكون كافة التغييرات نافذة المفعول، مطلوب إعادة تشغيل واجهة النظام. هل تريد إعادة تشغيل واجهة النظام الآن؟</string>
+    <!-- Launcher Restart -->
+    <string name="launcher_restart_title">إعادة تشغيل النظام مطلوبة</string>
+    <string name="launcher_restart_message">لكي تصبح جميع التغييرات سارية المفعول، يجب إعادة تشغيل المشغّل. هل تريد إعادة تشغيل المشغّل الآن؟</string>
+    <!-- Pocket Lock -->
+    <string name="pocket_mode_title">وضع الجيب مفعل</string>
+    <string name="pocket_mode_illustration_description">رسم توضيحي للهاتف في الجيب</string>
+    <string name="pocket_mode_instructions_header">لاستخدام هاتفك:</string>
+    <string name="pocket_mode_instruction_step1">1. تحقق أن المنطقة الزرقاء (مستشعر التقارب) الموضحة أعلاه غير محجوبة وخالية من الأوساخ والرمل.</string>
+    <string name="pocket_mode_instruction_step2">2. اضغط مطولاً زر الطاقة للخروج من وضع المحمول.</string>
+    <!-- Cycle through ringer modes -->
+    <string name="volume_dialog_ringer_guidance_normal">المكالمات والإشعارات ستَرِن</string>
+</resources>

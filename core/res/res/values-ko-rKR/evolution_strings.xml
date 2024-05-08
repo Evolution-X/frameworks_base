@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: Evolution X
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <!-- Button that copies the url to the log of a crashed application -->
+    <string name="aerr_copy">충돌 로그 URL 복사</string>
+    <string name="url_copy_success">URL이 복사되었습니다</string>
+    <string name="url_copy_failed">로그를 Pastey에 업로드하는 동안 오류가 발생했습니다.</string>
+    <!-- PowerOffAlarmService -->
+    <string name="notification_channel_poweroff_alarm">전원 꺼짐 알람</string>
+    <string name="poweroff_alarm_title">전원 차단 알람 설정됨</string>
+    <string name="poweroff_alarm_body">경보가 감지되었으며, 기기는 예정 시간 2분 전에 자동으로 켜집니다.</string>
+    <!-- Settings Restart -->
+    <string name="settings_restart_title">설정 앱 재시작 필요</string>
+    <string name="settings_restart_message">모든 변경 사항을 적용하려면 설정 앱을 다시 시작해야 합니다. 지금 설정 앱을 다시 시작하시겠습니까?</string>
+    <!-- System Reboot -->
+    <string name="system_restart_title">시스템 재시작 필요</string>
+    <string name="system_restart_message">모든 변경 사항을 적용하려면 시스템을 다시 시작해야 합니다. 지금 시스템을 다시 시작하시겠습니까?</string>
+    <!-- SystemUI Restart -->
+    <string name="systemui_restart_title">시스템 UI 재시작이 필요합니다</string>
+    <string name="systemui_restart_message">모든 변경 사항을 적용하려면 시스템 UI를 다시 시작해야 합니다. 지금 시스템 UI를 다시 시작하시겠습니까?</string>
+    <!-- Launcher Restart -->
+    <string name="launcher_restart_title">런처를 다시 시작해야 합니다.</string>
+    <string name="launcher_restart_message">모든 변경 사항을 적용하려면 런처를 다시 시작해야 합니다. 지금 런처를 다시 시작하시겠습니까?</string>
+    <!-- Pocket Lock -->
+    <string name="pocket_mode_title">포켓 모드 사용 중</string>
+    <string name="pocket_mode_illustration_description">주머니에 들어 있는 기기를 나타낸 그림</string>
+    <string name="pocket_mode_instructions_header">기기를 사용하려면</string>
+    <string name="pocket_mode_instruction_step1">1. 파란색 영역(근접 센서)가 가려지거나 먼지, 흙이 묻지 않았는지 확인합니다.</string>
+    <string name="pocket_mode_instruction_step2">2. 전원 버튼을 길게 눌러 포켓 모드를 종료합니다.</string>
+    <!-- Cycle through ringer modes -->
+    <string name="volume_dialog_ringer_guidance_normal">벨소리 및 알림음이 울립니다</string>
+</resources>
