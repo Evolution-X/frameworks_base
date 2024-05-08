@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2019-2024 The Evolution X Project
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <!-- Button that copies the url to the log of a crashed application -->
+    <string name="aerr_copy">Капіяваць URL журнала памылкі</string>
+    <string name="url_copy_success">Спасылка паспяхова скапіявана</string>
+    <string name="url_copy_failed">Адбылася памылка падчас загрузкі лога на Pasty</string>
+    <!-- Settings Restart -->
+    <string name="settings_restart_title">Патрабуецца перазагрузка налад</string>
+    <string name="settings_restart_message">Каб змены ўступілі ў сілу, трэба перазагрузіць інтэрфейс сістэмы. Перазагрузіць зараз?</string>
+    <!-- System Reboot -->
+    <string name="system_restart_title">Патрабуецца перазапуск сістэмы</string>
+    <string name="system_restart_message">Каб усе змены ўступілі ў сілу, патрабуецца перазагрузка сістэмы. Выканаць перазагрузку сістэмы зараз?</string>
+    <!-- SystemUI Restart -->
+    <string name="systemui_restart_title">Неабходна перазагрузка карыстацкага інтэрфейсу</string>
+    <string name="systemui_restart_message">Каб усе змены набылі сілу, патрабуецца перазагрузка карыстацкага інтэрфейсу. Перазагрузіць інтэрфейс?</string>
+    <!-- Launcher Restart -->
+    <string name="launcher_restart_title">Патрабуецца перазагрузка праграмы запуску</string>
+    <string name="launcher_restart_message">Каб усе змены ўступілі ў сілу, патрабуецца перазапуск праграмы запуску. Перазапусціць праграму запуску зараз?</string>
+    <!-- Lock gesture -->
+    <string name="gesture_locked_warning">Правядзіце яшчэ раз, каб разблакіраваць жэсты</string>
+    <!-- Cycle through ringer modes -->
+    <string name="volume_dialog_ringer_guidance_normal">Гукавы сігнал для званкоў і апавяшчэнняў уключаны</string>
+    <!-- Game Space -->
+    <string name="gamespace_new_game_added"><xliff:g id="name" example="MyApp">%s</xliff:g> дададзена ў гульнявую прастору</string>
+    <!-- PowerOffAlarmService -->
+    <string name="notification_channel_poweroff_alarm">Выключыць будзільнік</string>
+    <string name="poweroff_alarm_title">Будзільнік пры адключанай прыладзе</string>
+    <string name="poweroff_alarm_body">Выяўлены будзільнік. Вы можаце выключыць тэлефон, і ён уключыцца за 2 хвіліны да спрацоўвання</string>
+    <!-- Pocket Lock -->
+    <string name="pocket_mode_title">Рэжым \"У кішэні\" уключаны</string>
+    <string name="pocket_mode_illustration_description">Ілюстрацыя тэлефона ў кішэні</string>
+    <string name="pocket_mode_instructions_header">Для выкарыстання тэлефона:</string>
+    <string name="pocket_mode_instruction_step1">1. Пераканайцеся, што сіняя вобласць (датчык набліжэння), паказаная вышэй, не мае перашкод і не мае бруду або пылу.</string>
+    <string name="pocket_mode_instruction_step2">2. Каб выйсці з кішэннага рэжыму, націсніце і ўтрымлівайце кнопку сілкавання.</string>
+    <!-- App lock -->
+    <string name="unlock_application">Разблакіраваць <xliff:g id="label" example="Telegram">%1$s</xliff:g></string>
+</resources>
