@@ -36,8 +36,8 @@
     <!-- Button to restart SystemUI, within the Restart Options dialog -->
     <string name="global_action_restart_systemui">Системный интерфейс</string>
     <!-- On The Go -->
-    <string name="onthego_notif_ticker">Режим \"На ходу\" включён</string>
-    <string name="onthego_notif_title">Режим \"На ходу\" активен</string>
+    <string name="onthego_notif_ticker">Режим «На ходу» включен</string>
+    <string name="onthego_notif_title">Режим «На ходу» активен</string>
     <string name="onthego_notif_stop">Стоп</string>
     <string name="onthego_notif_options">Параметры</string>
     <string name="onthego_notif_error">Невозможно запустить режим «На ходу»</string>
@@ -47,5 +47,5 @@
     <string name="onthego_front_camera">Использовать переднюю камеру</string>
     <string name="onthego_service_toggle">Автоматический перезапуск службы</string>
     <string name="onthego_channel_name">Основной</string>
-    <string name="global_action_onthego">Режим \"На ходу\"</string>
+    <string name="global_action_onthego">Режим «На ходу»</string>
 </resources>
