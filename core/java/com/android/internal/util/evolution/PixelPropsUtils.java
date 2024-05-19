@@ -91,13 +91,17 @@ public class PixelPropsUtils {
             "com.google.pixel.livewallpaper"
     };
 
-    private static final String[] extraPackagesToChange = {
-            "com.amazon.avod.thirdpartyclient",
+    // Packages to Spoof as Pixel 5a
+    private static final String[] packagesToChangePixel5a = {
             "com.android.chrome",
             "com.breel.wallpapers20",
+            "com.nhs.online.nhsonline"
+    };
+
+    private static final String[] extraPackagesToChange = {
+            "com.amazon.avod.thirdpartyclient",
             "com.disney.disneyplus",
             "com.microsoft.android.smsorganizer",
-            "com.nhs.online.nhsonline",
             "com.nothing.smartcenter",
             "in.startv.hotstar",
             "jp.id_credit_sp2.android"
@@ -399,13 +403,10 @@ public class PixelPropsUtils {
                     }
                     setPropValue("TIME", System.currentTimeMillis());
                 }
-                dlog("Spoofing Pixel 8 Pro for Google Services");
                 propsToChange.putAll(propsToChangeRecentPixel);
             } else if (sIsTablet) {
-                dlog("Spoofing Pixel Tablet for Google Services");
                 propsToChange.putAll(propsToChangePixelTablet);
-            } else {
-                dlog("Spoofing Pixel 5a for Google Services");
+            } else if (Arrays.asList(packagesToChangePixel5a).contains(packageName)) {
                 propsToChange.putAll(propsToChangePixel5a);
             }
         } else if (SystemProperties.getBoolean(SPOOF_MUSIC_APPS, false)
