@@ -53,15 +53,10 @@ public class GamesPropsUtils {
     private static final Map<String, Object> propsToChangeOP8P = createMap("IN2020", "OnePlus");
     private static final String[] packagesToChangeOP8P = { // spoof as OnePlus 8 PRO
             "com.netease.lztgglobal",
-            "com.pubg.imobile",
-            "com.pubg.krmobile",
-            "com.rekoo.pubgm",
             "com.riotgames.league.wildrift",
             "com.riotgames.league.wildrifttw",
             "com.riotgames.league.wildriftvn",
-            "com.tencent.ig",
-            "com.tencent.tmgp.pubgmhd",
-            "com.vng.pubgmobile"
+            "com.tencent.ig"
     };
 
     private static final Map<String, Object> propsToChangeOP9P = createMap("LE2101", "OnePlus");
@@ -86,6 +81,15 @@ public class GamesPropsUtils {
             "com.madfingergames.legends",
             "com.pearlabyss.blackdesertm",
             "com.pearlabyss.blackdesertm.gl"
+    };
+
+    private static final Map<String, Object> propsToChangeROG8P = createMap("ASUS_AI2401_A", "asus");
+    private static final String[] packagesToChangeROG8P = { // spoof as ROG Phone 8 Pro
+            "com.pubg.imobile",
+            "com.pubg.krmobile",
+            "com.rekoo.pubgm",
+            "com.tencent.tmgp.pubgmhd",
+            "com.vng.pubgmobile"
     };
 
     private static final Map<String, Object> propsToChangeXP5 = createMap("SO-52A", "Sony");
@@ -126,6 +130,8 @@ public class GamesPropsUtils {
                 propsToChange = propsToChangeF5;
             } else if (Arrays.asList(packagesToChangeROG6).contains(packageName)) {
                 propsToChange = propsToChangeROG6;
+            } else if (Arrays.asList(packagesToChangeROG8P).contains(packageName)) {
+                propsToChange = propsToChangeROG8P;
             } else if (Arrays.asList(packagesToChangeXP5).contains(packageName)) {
                 propsToChange = propsToChangeXP5;
             }
