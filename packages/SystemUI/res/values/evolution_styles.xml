@@ -15,4 +15,10 @@
         <item name="cornerSize">48dp</item>
     </style>
 
+    <!-- Data usage -->
+    <style name="TextAppearance.QS.TileLabel.DataUsage">
+        <item name="android:textSize">12sp</item>
+        <item name="android:fontFamily">@*android:string/config_bodyFontFamily</item>
+    </style>
+
 </resources>
