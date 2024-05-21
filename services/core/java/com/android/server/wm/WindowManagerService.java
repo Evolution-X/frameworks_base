@@ -9771,7 +9771,12 @@ public class WindowManagerService extends IWindowManager.Stub
                 "notifyScreenshotListeners()")) {
             throw new SecurityException("Requires STATUS_BAR_SERVICE permission");
         }
+
+        final boolean hideScreenCapture = Settings.Global.getInt(mContext.getContentResolver(),
+                Settings.Global.HIDE_SCREEN_CAPTURE_STATUS, 0) != 0;
+
         synchronized (mGlobalLock) {
+            if (hideScreenCapture) return new ArrayList<>();
             final DisplayContent displayContent = mRoot.getDisplayContent(displayId);
             if (displayContent == null) {
                 return new ArrayList<>();
