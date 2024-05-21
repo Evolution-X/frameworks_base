@@ -704,7 +704,7 @@ public class GestureDetector {
                         slopSquare *= mAmbiguousGestureMultiplier * mAmbiguousGestureMultiplier;
                     }
 
-                    if (distance > slopSquare) {
+                    if (slopSquare != 0 && distance > slopSquare) {
                         recordGestureClassification(
                                 TOUCH_GESTURE_CLASSIFIED__CLASSIFICATION__SCROLL);
                         handled = mListener.onScroll(mCurrentDownEvent, ev, scrollX, scrollY);
@@ -716,7 +716,7 @@ public class GestureDetector {
                         mHandler.removeMessages(LONG_PRESS);
                     }
                     int doubleTapSlopSquare = isGeneratedGesture ? 0 : mDoubleTapTouchSlopSquare;
-                    if (distance > doubleTapSlopSquare) {
+                    if (doubleTapSlopSquare != 0 && distance > doubleTapSlopSquare) {
                         mAlwaysInBiggerTapRegion = false;
                     }
                 } else if ((Math.abs(scrollX) >= 1) || (Math.abs(scrollY) >= 1)) {
