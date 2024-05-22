@@ -22,8 +22,10 @@ import android.animation.AnimatorSet
 import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Typeface
+import android.provider.Settings
 import android.view.View
 import android.view.animation.Interpolator
+import android.os.UserHandle
 import androidx.annotation.VisibleForTesting
 import androidx.constraintlayout.widget.ConstraintSet
 import androidx.constraintlayout.widget.ConstraintSet.MATCH_CONSTRAINT
@@ -152,6 +154,11 @@ constructor(
         if (!SceneContainerFlag.isEnabled) return
         seekBarViewModel.listening = listening
     }
+
+    private val isCompactMode: Boolean = Settings.System.getIntForUser(
+            context.contentResolver,
+            "qs_compact_media_player_mode", 0, UserHandle.USER_CURRENT
+        ) != 0
 
     /** A callback for config changes */
     private val configurationListener =
@@ -290,8 +297,8 @@ constructor(
     }
 
     /** Get the constraintSet for a given expansion */
-    private fun constraintSetForExpansion(expansion: Float): ConstraintSet =
-        if (expansion > 0) expandedLayout else collapsedLayout
+    private fun constraintSetForExpansion(expansion: Float): ConstraintSet = 
+        if (isCompactMode) collapsedLayout else expandedLayout
 
     /** Set the height of UMO background constraints. */
     private fun setBackgroundHeights(height: Int) {
