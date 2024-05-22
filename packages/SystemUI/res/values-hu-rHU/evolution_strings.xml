@@ -48,4 +48,58 @@
     <string name="onthego_service_toggle">A szolgáltatás automatikus újraindítása</string>
     <string name="onthego_channel_name">Elsődleges</string>
     <string name="global_action_onthego">Menet közben (OnTheGo)</string>
+    <!-- QuickSettings: InternetDialog: Summary for how many devices are connected to the hotspot [CHAR LIMIT=NONE] -->
+    <plurals name="quick_settings_internet_hotspot_summary_num_devices">
+        <item quantity="one">%d készülék csatlakoztatva</item>
+        <item quantity="other">%d készülék csatlakoztatva</item>
+    </plurals>
+    <!-- Sound QS Tile -->
+    <string name="quick_settings_sound_label">Hang</string>
+    <string name="quick_settings_sound_ring">Csengés</string>
+    <string name="quick_settings_sound_vibrate">Rezgés</string>
+    <string name="quick_settings_sound_mute">Némítás</string>
+    <!-- SoundSearch Tile -->
+    <string name="quick_settings_sound_search">Zenekeresés</string>
+    <string name="quick_settings_sound_search_not_found">A \'Hangalapú keresés\' megfelelő működéséhez előbb telepíteni kell a Google alkalmazását</string>
+    <!-- DataSwitch Tile -->
+    <string name="qs_data_switch_label">SIM-kártyaváltás</string>
+    <string name="qs_data_switch_toast_0">Jelenleg nincs SIM-kártya behelyezve</string>
+    <string name="qs_data_switch_toast_1">Jelenleg csak egy SIM-kártya van behelyezve</string>
+    <string name="qs_data_switch_text_1">1.SIM</string>
+    <string name="qs_data_switch_text_2">2.SIM</string>
+    <string name="qs_data_switch_changed_1">Az 1.SIM lett az adatkártya</string>
+    <string name="qs_data_switch_changed_2">A 2.SIM lett az adatkártya</string>
+    <!-- Volume panel QS tile -->
+    <string name="quick_settings_volume_panel_label">Hangerőszabályzó</string>
+    <!-- Language toggle tile -->
+    <string name="quick_settings_locale_label">Nyelv</string>
+    <string name="quick_settings_locale_more_locales_toast">A kapcsolónak csak több nyelv esetén van értelme, állítson be többet</string>
+    <!-- Preferred network tile -->
+    <string name="quick_settings_preferred_network_label">Előnyt élvező hálózat</string>
+    <string name="quick_settings_preferred_network_lte">4G / LTE</string>
+    <string name="quick_settings_preferred_network_nr">5G / NR</string>
+    <string name="quick_settings_preferred_network_unsupported">Nem támogatott</string>
+    <!-- Compass QS Tile -->
+    <string name="quick_settings_compass_label">Iránytű</string>
+    <string name="quick_settings_compass_value"><xliff:g id="degrees">%1$.0f</xliff:g>\u00b0 <xliff:g id="direction">%2$s</xliff:g></string>
+    <string name="quick_settings_compass_init">Előkészítés\u2026</string>
+    <!-- Island notification -->
+    <string name="now_playing_on">Most %1$s hallható</string>
+    <string name="by_artist">%1$s, %2$s szerzeménye</string>
+    <!-- Statusbar Icons -->
+    <string name="status_bar_data_saver">Adatforgalom-csökkentő</string>
+    <string name="status_bar_call_strength">Jelerősség</string>
+    <!-- Data usage info in QS footer -->
+    <string name="usage_data">felhasználva ma</string>
+    <string name="usage_data_default_suffix">Adat</string>
+    <string name="usage_wifi_default_suffix">Wi-Fi</string>
+    <!-- CPUInfo tile -->
+    <string name="quick_settings_cpuinfo_label">CPU-adatok</string>
+    <!-- FPS Info tile -->
+    <string name="quick_settings_fpsinfo_label">FPS-adatok</string>
+    <!-- FPS view text placeholder -->
+    <string name="fps_text_placeholder"><xliff:g id="fps" example="90">%1$d</xliff:g> FPS</string>
+    <!-- Refresh Rate Tile -->
+    <string name="refresh_rate_tile_label">Frissítési gyakoriság</string>
+    <string name="auto_mode_label">Automatikus</string>
 </resources>
