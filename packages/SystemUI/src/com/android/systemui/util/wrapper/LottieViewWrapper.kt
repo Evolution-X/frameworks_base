@@ -17,8 +17,11 @@ package com.android.systemui.util.wrapper
 
 import android.content.Context
 import android.util.AttributeSet
+import android.view.View
 import com.airbnb.lottie.LottieAnimationView
+import com.airbnb.lottie.LottieListener
 import com.android.app.tracing.traceSection
+import com.android.systemui.res.R
 import com.android.systemui.util.animation.enableScreenOffAnimationGuard
 
 /** LottieAnimationView that traces each call to invalidate. */
@@ -38,10 +41,24 @@ open class LottieViewWrapper : LottieAnimationView {
         enableScreenOffAnimationGuard()
     }
 
+    private val wrappedFailureListener = object : LottieListener<Throwable> {
+        override fun onResult(result: Throwable?) {
+            this@LottieViewWrapper.visibility = View.INVISIBLE
+        }
+    }
+
     override fun invalidate() {
         traceSection<Any?>("${this::class} invalidate") {
             super.invalidate()
             null
         }
+    }
+
+    override fun setFailureListener(listener: LottieListener<Throwable>?) {
+        super.setFailureListener(wrappedFailureListener)
+    }
+
+    override fun setFallbackResource(resId: Int) {
+        super.setFallbackResource(R.drawable.ic_lock)
     }
 }
