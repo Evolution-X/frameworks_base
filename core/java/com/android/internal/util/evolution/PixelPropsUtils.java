@@ -88,6 +88,7 @@ public class PixelPropsUtils {
             "com.google.android.apps.wallpaper.pixel",
             "com.google.android.gms",
             "com.google.android.googlequicksearchbox",
+            "com.google.android.inputmethod.latin",
             "com.google.android.wallpaper.effects",
             "com.google.pixel.livewallpaper"
     };
