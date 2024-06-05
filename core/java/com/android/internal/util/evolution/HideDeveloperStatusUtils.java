@@ -19,7 +19,11 @@ public class HideDeveloperStatusUtils {
     ));
 
     public static boolean shouldHideDevStatus(ContentResolver cr, String packageName, String name) {
-        return getApps(cr).contains(packageName) && settingsToHide.contains(name);
+        Set<String> apps = getApps(cr);
+        if (apps == null) {
+            return false;
+        }
+        return apps.contains(packageName) && settingsToHide.contains(name);
     }
 
     private static Set<String> getApps(ContentResolver cr) {
