@@ -55,7 +55,6 @@ public class PixelPropsUtils {
     private static final String PACKAGE_GMS = "com.google.android.gms";
     private static final String PROCESS_GMS_UNSTABLE = PACKAGE_GMS + ".unstable";
     private static final String PACKAGE_GOOGLE = "com.google";
-    private static final String PACKAGE_SI = "com.google.android.settings.intelligence";
     private static final String SPOOF_PIF = "persist.sys.pif";
     private static final String SPOOF_PIXEL_PROPS = "persist.sys.pixelprops";
 
@@ -69,13 +68,9 @@ public class PixelPropsUtils {
     private static final Map<String, Object> propsToChangeGeneric;
     private static final Map<String, Object> propsToChangeRecentPixel;
     private static final Map<String, Object> propsToChangePixelTablet;
-    private static final Map<String, Object> propsToChangePixel5a;
-    private static final Map<String, ArrayList<String>> propsToKeep;
 
     // Packages to Spoof as the most recent Pixel device
     private static final String[] packagesToChangeRecentPixel = {
-            "com.android.chrome",
-            "com.breel.wallpapers20",
             "com.google.android.apps.aiwallpapers",
             "com.google.android.apps.bard",
             "com.google.android.apps.customization.pixel",
@@ -85,55 +80,21 @@ public class PixelPropsUtils {
             "com.google.android.apps.subscriptions.red",
             "com.google.android.apps.wallpaper",
             "com.google.android.apps.wallpaper.pixel",
-            "com.google.android.gms",
             "com.google.android.googlequicksearchbox",
             "com.google.android.wallpaper.effects",
-            "com.google.pixel.livewallpaper",
-            "com.nhs.online.nhsonline"
+            "com.google.pixel.livewallpaper"
     };
 
     private static final String[] extraPackagesToChange = {
             "com.amazon.avod.thirdpartyclient",
+            "com.android.chrome",
+            "com.breel.wallpapers20",
             "com.disney.disneyplus",
             "com.microsoft.android.smsorganizer",
+            "com.nhs.online.nhsonline",
             "com.nothing.smartcenter",
             "in.startv.hotstar",
             "jp.id_credit_sp2.android"
-    };
-
-    private static final String[] customGoogleCameraPackages = {
-            "com.google.android.MTCL83",
-            "com.google.android.UltraCVM",
-            "com.google.android.apps.cameralite"
-    };
-
-    // Packages to Keep with original device
-    private static final String[] packagesToKeep = {
-            "com.google.android.apps.dreamlinerupdater",
-            "com.google.android.apps.dreamliner",
-            "com.google.android.apps.miphone.aiai.AiaiApplication",
-            "com.google.android.apps.motionsense.bridge",
-            "com.google.android.apps.photos",
-            "com.google.android.apps.pixelmigrate",
-            "com.google.android.apps.recorder",
-            "com.google.android.apps.restore",
-            "com.google.android.apps.tachyon",
-            "com.google.android.apps.tips",
-            "com.google.android.apps.tycho",
-            "com.google.android.apps.wearables.maestro.companion",
-            "com.google.android.apps.youtube.kids",
-            "com.google.android.apps.youtube.music",
-            "com.google.android.as",
-            "com.google.android.backupuses",
-            "com.google.android.backuptransport",
-            "com.google.android.dialer",
-            "com.google.android.euicc",
-            "com.google.android.inputmethod.latin",
-            "com.google.android.setupwizard",
-            "com.google.android.youtube",
-            "com.google.ar.core",
-            "com.google.intelligence.sense",
-            "com.google.oslo"
     };
 
     // Codenames for currently supported Pixels by Google
@@ -158,8 +119,6 @@ public class PixelPropsUtils {
     private static volatile String sProcessName;
 
     static {
-        propsToKeep = new HashMap<>();
-        propsToKeep.put(PACKAGE_SI, new ArrayList<>(Collections.singletonList("FINGERPRINT")));
         propsToChangeGeneric = new HashMap<>();
         propsToChangeGeneric.put("TYPE", "user");
         propsToChangeGeneric.put("TAGS", "release-keys");
@@ -170,8 +129,8 @@ public class PixelPropsUtils {
         propsToChangeRecentPixel.put("PRODUCT", "husky");
         propsToChangeRecentPixel.put("HARDWARE", "husky");
         propsToChangeRecentPixel.put("MODEL", "Pixel 8 Pro");
-        propsToChangeRecentPixel.put("ID", "AP1A.240505.005");
-        propsToChangeRecentPixel.put("FINGERPRINT", "google/husky/husky:14/AP1A.240505.005/11677807:user/release-keys");
+        propsToChangeRecentPixel.put("ID", "AP2A.240605.024");
+        propsToChangeRecentPixel.put("FINGERPRINT", "google/husky/husky:14/AP2A.240605.024/11860263:user/release-keys");
         propsToChangePixelTablet = new HashMap<>();
         propsToChangePixelTablet.put("BRAND", "google");
         propsToChangePixelTablet.put("MANUFACTURER", "Google");
@@ -179,17 +138,8 @@ public class PixelPropsUtils {
         propsToChangePixelTablet.put("PRODUCT", "tangorpro");
         propsToChangePixelTablet.put("HARDWARE", "tangorpro");
         propsToChangePixelTablet.put("MODEL", "Pixel Tablet");
-        propsToChangePixelTablet.put("ID", "AP1A.240505.004");
-        propsToChangePixelTablet.put("FINGERPRINT", "google/tangorpro/tangorpro:14/AP1A.240505.004/11583682:user/release-keys");
-        propsToChangePixel5a = new HashMap<>();
-        propsToChangePixel5a.put("BRAND", "google");
-        propsToChangePixel5a.put("MANUFACTURER", "Google");
-        propsToChangePixel5a.put("DEVICE", "barbet");
-        propsToChangePixel5a.put("PRODUCT", "barbet");
-        propsToChangePixel5a.put("HARDWARE", "barbet");
-        propsToChangePixel5a.put("MODEL", "Pixel 5a");
-        propsToChangePixel5a.put("ID", "AP1A.240505.004");
-        propsToChangePixel5a.put("FINGERPRINT", "google/barbet/barbet:14/AP1A.240505.004/11583682:user/release-keys");
+        propsToChangePixelTablet.put("ID", "AP2A.240605.024");
+        propsToChangePixelTablet.put("FINGERPRINT", "google/tangorpro/tangorpro:14/AP2A.240605.024/11860263:user/release-keys");
     }
 
     public static String getBuildID(String fingerprint) {
@@ -208,11 +158,6 @@ public class PixelPropsUtils {
             return parts[1];
         }
         return "";
-    }
-
-    private static boolean isGoogleCameraPackage(String packageName) {
-        return packageName.contains("GoogleCamera")
-                || Arrays.asList(customGoogleCameraPackages).contains(packageName);
     }
 
     private static boolean shouldTryToCertifyDevice() {
@@ -308,12 +253,8 @@ public class PixelPropsUtils {
         final boolean sIsTablet = isDeviceTablet(appContext);
         sProcessName = processName;
         sIsGms = packageName.equals(PACKAGE_GMS) && processName.equals(PROCESS_GMS_UNSTABLE);
-        sIsExcluded = Arrays.asList(packagesToKeep).contains(packageName) || isGoogleCameraPackage(packageName);
         propsToChangeGeneric.forEach((k, v) -> setPropValue(k, v));
         if (packageName == null || processName == null || packageName.isEmpty()) {
-            return;
-        }
-        if (sIsExcluded) {
             return;
         }
         if (sIsGms) {
@@ -327,8 +268,7 @@ public class PixelPropsUtils {
                     spoofBuildGms(context);
                 }
             }
-        } else if ((packageName.toLowerCase().contains(PACKAGE_GOOGLE) && !sIsGms)
-                || Arrays.asList(packagesToChangeRecentPixel).contains(packageName)
+        } else if (Arrays.asList(packagesToChangeRecentPixel).contains(packageName)
                 || Arrays.asList(extraPackagesToChange).contains(packageName)) {
 
             boolean isPixelDevice = Arrays.asList(pixelCodenames).contains(SystemProperties.get(DEVICE));
@@ -339,40 +279,19 @@ public class PixelPropsUtils {
                 }
                 dlog("Pixel props is disabled by config or system prop");
                 return;
-            } else if (Arrays.asList(packagesToChangeRecentPixel).contains(packageName)) {
-                if (packageName.toLowerCase().contains("com.google.android.gms")) {
-                    if (processName.toLowerCase().contains("update")) {
-                        return;
-                    } else if (processName.toLowerCase().contains("ui")
-                            || processName.toLowerCase().contains("gapps")
-                            || processName.toLowerCase().contains("gservice")
-                            || processName.toLowerCase().contains("learning")
-                            || processName.toLowerCase().contains("persistent")
-                            || processName.toLowerCase().contains("search")) {
-                        propsToChange.putAll(propsToChangePixel5a);
-                    }
-                    setPropValue("TIME", System.currentTimeMillis());
-                }
-                propsToChange.putAll(propsToChangeRecentPixel);
             } else if (sIsTablet) {
                 propsToChange.putAll(propsToChangePixelTablet);
+            } else if (Arrays.asList(packagesToChangeRecentPixel).contains(packageName)
+                    || Arrays.asList(extraPackagesToChange).contains(packageName)) {
+                propsToChange.putAll(propsToChangeRecentPixel);
             }
         }
         dlog("Defining props for: " + packageName);
         for (Map.Entry<String, Object> prop : propsToChange.entrySet()) {
             String key = prop.getKey();
             Object value = prop.getValue();
-            if (propsToKeep.containsKey(packageName) && propsToKeep.get(packageName).contains(key)) {
-                dlog("Not defining " + key + " prop for: " + packageName);
-                continue;
-            }
             dlog("Defining " + key + " prop for: " + packageName);
             setPropValue(key, value);
-        }
-        // Set proper indexing fingerprint
-        if (packageName.equals(PACKAGE_SI)) {
-            setPropValue("FINGERPRINT", String.valueOf(Build.TIME));
-            return;
         }
     }
 
@@ -474,7 +393,7 @@ public class PixelPropsUtils {
 
     public static void onEngineGetCertificateChain() {
         // Check stack for SafetyNet or Play Integrity
-        if (isCallerSafetyNet() && !sIsExcluded) {
+        if (isCallerSafetyNet()) {
             dlog("Blocked key attestation");
             throw new UnsupportedOperationException();
         }
