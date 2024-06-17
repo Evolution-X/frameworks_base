@@ -37,17 +37,10 @@ import java.util.Map;
 public final class AttestationHooks {
 
     private static final String TAG = "AttestationHooks";
+    private static final String DEVICE = "ro.evolution.device";
     private static final boolean DEBUG = false;
 
-    private static final String sStockFp =
-            Resources.getSystem().getString(R.string.config_stockFingerprint);
-
-    private static final String sNetflixModel =
-            Resources.getSystem().getString(R.string.config_netflixSpoofModel);
-
-    private static final String PACKAGE_ARCORE = "com.google.ar.core";
     private static final String PACKAGE_GPHOTOS = "com.google.android.apps.photos";
-    private static final String PACKAGE_NETFLIX = "com.netflix.mediaclient";
     private static final String PACKAGE_SNAPCHAT = "com.snapchat.android";
 
     private static final Map<String, Object> sPixelXLProps = Map.of(
@@ -68,6 +61,21 @@ public final class AttestationHooks {
         "FINGERPRINT", "google/walleye/walleye:8.1.0/OPM1.171019.011/4448085:user/release-keys"
     );
 
+    // Codenames for currently supported Pixels by Google
+    private static final String[] pixelCodenames = {
+            "husky",
+            "shiba",
+            "felix",
+            "tangorpro",
+            "lynx",
+            "cheetah",
+            "panther",
+            "bluejay",
+            "oriole",
+            "raven",
+            "barbet"
+    };
+
     private static volatile String sProcessName;
 
     private AttestationHooks() { }
@@ -81,25 +89,19 @@ public final class AttestationHooks {
         }
 
         sProcessName = processName;
-        if (!sStockFp.isEmpty() && packageName.equals(PACKAGE_ARCORE)) {
-            dlog("Setting stock fingerprint for: " + packageName);
-            setPropValue("FINGERPRINT", sStockFp);
-        }
 
+        boolean isPixelDevice = Arrays.asList(pixelCodenames).contains(SystemProperties.get(DEVICE));
         if (packageName.equals(PACKAGE_GPHOTOS)) {
             if (!SystemProperties.getBoolean("persist.sys.pixelprops.gphotos", true)) {
+                if (isPixelDevice) {
+                    dlog("Pixel props is disabled due to being a currently supported Pixel device");
+                    return;
+                }
                 dlog("Photos spoofing disabled by system prop");
                 return;
             } else {
                 dlog("Spoofing Pixel XL for: " + packageName);
                 sPixelXLProps.forEach(AttestationHooks::setPropValue);
-            }
-        }
-
-        if (packageName.equals(PACKAGE_NETFLIX)) {
-            if (!sNetflixModel.isEmpty() && packageName.equals(PACKAGE_NETFLIX)) {
-                dlog("Setting model to " + sNetflixModel + " for Netflix");
-                setPropValue("MODEL", sNetflixModel);
             }
         }
 
