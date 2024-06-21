@@ -46,4 +46,6 @@
     <!-- Define device configs on boot -->
     <java-symbol type="array" name="global_device_configs_override" />
     <java-symbol type="array" name="device_configs_override" />
+    <java-symbol type="array" name="device_configs_propertyToKeep" />
+    <java-symbol type="array" name="device_configs_modifyAllowedPackages" />
 </resources>
