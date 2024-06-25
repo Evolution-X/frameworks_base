@@ -15,10 +15,10 @@
 # Nintendo Switch Pro Controller - HAC-013 - Bluetooth/USB
 
 # Standard face buttons
-key 0x130   BUTTON_A    # BTN_SOUTH (Nintendo 'B')
-key 0x131   BUTTON_B    # BTN_EAST  (Nintendo 'A')
-key 0x133   BUTTON_Y    # BTN_NORTH (Nintendo 'X')
-key 0x134   BUTTON_X    # BTN_WEST (Nintendo 'Y')
+key 0x130   BUTTON_B
+key 0x131   BUTTON_A
+key 0x133   BUTTON_X
+key 0x134   BUTTON_Y
 
 # Shoulder buttons
 # Button labelled as L and R
