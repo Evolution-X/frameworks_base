@@ -272,7 +272,7 @@ public class PackageCacher implements IPackageCacher {
             try (FileOutputStream fos = new FileOutputStream(cacheFile)) {
                 fos.write(cacheEntry);
             } catch (IOException ioe) {
-                Slog.w(TAG, "Error writing cache entry.", ioe);
+                //Slog.w(TAG, "Error writing cache entry.", ioe);
                 cacheFile.delete();
             }
         } catch (Throwable e) {
