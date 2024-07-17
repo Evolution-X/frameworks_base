@@ -6989,6 +6989,12 @@ public final class Settings {
         public static final String SMART_5G = "smart_5g";
 
         /**
+         * Whether to enable qs split shade in landscape mode
+         * @hide
+         */
+        public static final String QS_SPLIT_SHADE = "qs_split_shade";
+
+        /**
          * These are all public system settings
          *
          * @hide
