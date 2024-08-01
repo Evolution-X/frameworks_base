@@ -18,13 +18,6 @@
     <string name="force_stop_dlg_text">Примусове зупинення додатка може призвести до збою в його роботі.</string>
     <!-- Accessibility label for nfc icon (not shown on screen) [CHAR LIMIT=NONE] -->
     <string name="accessibility_status_bar_nfc">NFC</string>
-    <!-- Status bar network traffic monitor strings -->
-    <string name="kilobitspersecond_short">кб/с</string>
-    <string name="megabitspersecond_short">Мбіт/с</string>
-    <string name="gigabitspersecond_short">Гб/с</string>
-    <string name="kilobytespersecond_short">кБ/с</string>
-    <string name="megabytespersecond_short">МБ/с</string>
-    <string name="gigabytespersecond_short">ГБ/с</string>
     <!-- Button to restart SystemUI, within the Restart Options dialog -->
     <string name="global_action_restart_systemui">Інтерфейс системи</string>
     <!-- On The Go -->
@@ -96,4 +89,13 @@
     <!-- Refresh Rate Tile -->
     <string name="refresh_rate_tile_label">Частота оновлення</string>
     <string name="auto_mode_label">Автоматично</string>
+    <!-- Status bar network traffic monitor strings -->
+    <string name="kilobitspersecond_short">кб/с</string>
+    <string name="megabitspersecond_short">Мбіт/с</string>
+    <string name="gigabitspersecond_short">Гб/с</string>
+    <string name="kilobytespersecond_short">кБ/с</string>
+    <string name="megabytespersecond_short">МБ/с</string>
+    <string name="gigabytespersecond_short">ГБ/с</string>
+    <!-- DC Dimming -->
+    <string name="quick_settings_dc_dimming_label">DC Затемнення</string>
 </resources>
