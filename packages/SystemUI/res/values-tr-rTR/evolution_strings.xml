@@ -18,13 +18,6 @@
     <string name="force_stop_dlg_text">Uygulamayı zorla durdurursanız, hatalı davranabilir.</string>
     <!-- Accessibility label for nfc icon (not shown on screen) [CHAR LIMIT=NONE] -->
     <string name="accessibility_status_bar_nfc">Nfc</string>
-    <!-- Status bar network traffic monitor strings -->
-    <string name="kilobitspersecond_short">kb/sn</string>
-    <string name="megabitspersecond_short">Mb/sn</string>
-    <string name="gigabitspersecond_short">Gb/sn</string>
-    <string name="kilobytespersecond_short">kB/sn</string>
-    <string name="megabytespersecond_short">MB/sn</string>
-    <string name="gigabytespersecond_short">GB/sn</string>
     <!-- Button to restart SystemUI, within the Restart Options dialog -->
     <string name="global_action_restart_systemui">Sistem Arayüzü</string>
     <!-- On The Go -->
@@ -94,4 +87,13 @@
     <!-- Refresh Rate Tile -->
     <string name="refresh_rate_tile_label">Yenileme hızı</string>
     <string name="auto_mode_label">Otomatik</string>
+    <!-- Status bar network traffic monitor strings -->
+    <string name="kilobitspersecond_short">kb/sn</string>
+    <string name="megabitspersecond_short">Mb/sn</string>
+    <string name="gigabitspersecond_short">Gb/sn</string>
+    <string name="kilobytespersecond_short">kB/sn</string>
+    <string name="megabytespersecond_short">MB/sn</string>
+    <string name="gigabytespersecond_short">GB/sn</string>
+    <!-- DC Dimming -->
+    <string name="quick_settings_dc_dimming_label">DC Karartma</string>
 </resources>
