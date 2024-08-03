@@ -7012,8 +7012,8 @@ public final class Settings {
         /**
          * @hide
          */
-        public static final String STATUSBAR_BATTERY_BAR_BATTERY_LOW_COLOR =
-                "statusbar_battery_bar_battery_low_color";
+        public static final String STATUSBAR_BATTERY_BAR_BATTERY_LOW_COLOR_WARNING =
+                "statusbar_battery_bar_battery_low_color_warning";
 
         /**
          * @hide
@@ -7031,6 +7031,21 @@ public final class Settings {
          */
         public static final String STATUSBAR_BATTERY_BAR_BLEND_COLOR_REVERSE =
                 "statusbar_battery_bar_blend_color_reverse";
+
+        /**
+         * @hide
+         */
+        public static final String STATUSBAR_BATTERY_BAR_HIGH_COLOR = "statusbar_battery_bar_high_color";
+
+        /**
+         * @hide
+         */
+        public static final String STATUSBAR_BATTERY_BAR_LOW_COLOR = "statusbar_battery_bar_low_color";
+
+        /**
+         * @hide
+         */
+        public static final String STATUSBAR_BATTERY_BAR_USE_GRADIENT_COLOR = "statusbar_battery_bar_use_gradient_color";
 
         /**
          * Keys we no longer back up under the current schema, but want to continue to
