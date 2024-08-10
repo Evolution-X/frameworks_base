@@ -130,14 +130,12 @@ public class QSFooterView extends FrameLayout {
             info = mDataController.getWifiDailyDataUsageInfo(true);
             if (info == null) {
                 info = mDataController.getWifiDailyDataUsageInfo(false);
-                suffix = mContext.getResources().getString(R.string.usage_wifi_default_suffix);
-            } else {
-                suffix = getWifiSsid();
             }
+            suffix = mContext.getString(R.string.usage_wifi_default_suffix);
         } else if (!mHasNoSims) {
             mDataController.setSubscriptionId(mSubId);
             info = mDataController.getDailyDataUsageInfo();
-            suffix = getSlotCarrierName();
+            suffix = mContext.getString(R.string.usage_data_default_suffix);
         } else {
             mShouldShowUsageText = false;
             mUsageText.setText(null);
@@ -153,37 +151,20 @@ public class QSFooterView extends FrameLayout {
         // relayout if the text didn't actually change.
         String text = formatDataUsage(info.usageLevel, suffix);
         if (!TextUtils.equals(text, mUsageText.getText())) {
-            mUsageText.setText(formatDataUsage(info.usageLevel, suffix));
+            mUsageText.setText(text);
         }
         mShouldShowUsageText = true;
         updateVisibilities();
     }
 
     private String formatDataUsage(long byteValue, String suffix) {
-        // Example: 1.23 GB used today (airtel)
-        StringBuilder usage = new StringBuilder(Formatter.formatFileSize(getContext(),
-                byteValue, Formatter.FLAG_IEC_UNITS))
+        // Format the data usage to ": 1.23 GB (Wi-Fi)"
+        return new StringBuilder()
+                .append(": ")
+                .append(Formatter.formatFileSize(getContext(), byteValue, Formatter.FLAG_IEC_UNITS))
                 .append(" ")
-                .append(mContext.getString(R.string.usage_data))
-                .append(" (")
                 .append(suffix)
-                .append(")");
-        return usage.toString();
-    }
-
-    private String getSlotCarrierName() {
-        SubscriptionInfo subInfo = mSubManager.getActiveSubscriptionInfo(mSubId);
-        if (subInfo != null) {
-            return subInfo.getDisplayName().toString();
-        }
-        return mContext.getResources().getString(R.string.usage_data_default_suffix);
-    }
-
-    private String getWifiSsid() {
-        if (mWifiSsid != null) {
-            return mWifiSsid.replace("\"", "");
-        }
-        return mContext.getResources().getString(R.string.usage_wifi_default_suffix);
+                .toString();
     }
 
     protected void setWifiSsid(String ssid) {
