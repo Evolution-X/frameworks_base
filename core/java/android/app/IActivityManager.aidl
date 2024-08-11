@@ -968,12 +968,12 @@ interface IActivityManager {
     int getBindingUidProcessState(int uid, in String callingPackage);
 
     /**
-     *  Should disable touch if three fingers to screen shot is active?
-     */
-    boolean isSwipeToScreenshotGestureActive();
-
-    /**
      *  Force full screen for devices with cutout
      */
     boolean shouldForceCutoutFullscreen(in String packageName);
+
+    /**
+     *  Should disable touch if three fingers to screen shot is active?
+     */
+    boolean isSwipeToScreenshotGestureActive();
 }
