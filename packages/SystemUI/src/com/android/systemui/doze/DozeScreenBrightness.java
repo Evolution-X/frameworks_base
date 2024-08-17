@@ -81,6 +81,11 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
             "com.android.systemui.doze.AOD_BRIGHTNESS";
     protected static final String BRIGHTNESS_BUCKET = "brightness_bucket";
 
+    // Settings keys defined in the patch
+    private static final String PULSE_BRIGHTNESS = "pulse_brightness";
+    private static final String DOZE_BRIGHTNESS = "doze_brightness";
+    private static final String DOZE_BRIGHTNESS_FORCE = "doze_brightness_force";
+
     /**
      * Just before the screen times out from user inactivity, DisplayPowerController dims the screen
      * brightness to the lower of {@link #mScreenBrightnessDim}, or the current brightness minus
@@ -112,6 +117,7 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
     private int mDevicePosture;
     private boolean mRegistered;
     private final float mDefaultDozeBrightness;
+    private final float mDefaultPulseBrightness;
     private boolean mPaused = false;
     private boolean mScreenOff = false;
     private int mLastSensorValue = -1;
@@ -163,6 +169,16 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
                 R.dimen.config_screenBrightnessMinimumDimAmountFloat);
 
         mDefaultDozeBrightness = mDisplayManager.getDefaultDozeBrightness(mContext.getDisplayId());
+        
+        // Custom Pulse Brightness configuration
+        int defaultPulseBrightness = context.getResources().getInteger(
+                com.android.internal.R.integer.config_screenBrightnessPulse);
+        if (defaultPulseBrightness != -1) {
+            mDefaultPulseBrightness = defaultPulseBrightness / 255f;
+        } else {
+            mDefaultPulseBrightness = mDefaultDozeBrightness;
+        }
+
         mScreenBrightnessDim = alwaysOnDisplayPolicy.dimBrightness;
         float[] sensorToBrightness =
                 mDisplayManager.getDozeBrightnessSensorValueToBrightness(mContext.getDisplayId());
@@ -194,6 +210,23 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
             case DOZE_AOD_DOCKED:
             case DOZE_AOD_MINMODE:
                 setLightSensorEnabled(true);
+                if (newState == DozeMachine.State.DOZE_REQUEST_PULSE) {
+                    int customPulse = mSystemSettings.getIntForUser(
+                            PULSE_BRIGHTNESS, -1, UserHandle.USER_CURRENT);
+                    if (customPulse != -1) {
+                        mDozeService.setDozeScreenBrightness(
+                                clampToDimBrightnessForScreenOff(
+                                        clampToUserSetting(getPulseBrightnessValue())));
+                    }
+                } else {
+                    int customDoze = mSystemSettings.getIntForUser(
+                            DOZE_BRIGHTNESS, -1, UserHandle.USER_CURRENT);
+                    if (customDoze != -1) {
+                        mDozeService.setDozeScreenBrightness(
+                                clampToDimBrightnessForScreenOff(
+                                        clampToUserSetting(getDozeBrightnessValue())));
+                    }
+                }
                 break;
             case DOZE:
             case DOZE_SUSPEND_TRIGGERS:
@@ -329,12 +362,44 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
 
     private void resetBrightnessToDefault() {
         mDozeService.setDozeScreenBrightness(clampToDimBrightnessForScreenOff(
-                clampToUserSettingOrAutoBrightness(mDefaultDozeBrightness)));
+                clampToUserSettingOrAutoBrightness(getDozeBrightnessValue())));
         mDozeHost.setAodDimmingScrim(0f);
         mDozeHost.setAodWallpaperDimmingScrim(0f);
     }
 
+    /**
+     * Gets the custom doze brightness value from settings (if set),
+     * otherwise returns the default hardware doze brightness.
+     */
+    private float getDozeBrightnessValue() {
+        int brightnessInt = mSystemSettings.getIntForUser(
+                DOZE_BRIGHTNESS, -1, UserHandle.USER_CURRENT);
+        if (brightnessInt == -1) {
+            return mDefaultDozeBrightness;
+        }
+        return brightnessInt / 255f;
+    }
+
+    /**
+     * Gets the custom pulse brightness value from settings (if set),
+     * otherwise returns the default config pulse brightness.
+     */
+    private float getPulseBrightnessValue() {
+        int brightnessInt = mSystemSettings.getIntForUser(
+                PULSE_BRIGHTNESS, -1, UserHandle.USER_CURRENT);
+        if (brightnessInt == -1) {
+            return mDefaultPulseBrightness;
+        }
+        return brightnessInt / 255f;
+    }
+
     private float clampToUserSetting(float brightness) {
+        boolean forceCustomBrightness = mSystemSettings.getIntForUser(
+                DOZE_BRIGHTNESS_FORCE, 0, UserHandle.USER_CURRENT) == 1;
+        if (forceCustomBrightness) {
+            return brightness;
+        }
+
         int screenBrightnessModeSetting = mSystemSettings.getIntForUser(
                 Settings.System.SCREEN_BRIGHTNESS_MODE,
                 Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL, UserHandle.USER_CURRENT);
@@ -346,6 +411,12 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
     }
 
     private float clampToUserSettingOrAutoBrightness(float brightness) {
+        boolean forceCustomBrightness = mSystemSettings.getIntForUser(
+                DOZE_BRIGHTNESS_FORCE, 0, UserHandle.USER_CURRENT) == 1;
+        if (forceCustomBrightness) {
+            return brightness;
+        }
+
         return Math.min(brightness, getScreenBrightness());
     }
 
@@ -445,6 +516,7 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
                 + Arrays.toString(mSensorToWallpaperScrimOpacity));
         idpw.println("screenBrightnessDim=" + mScreenBrightnessDim);
         idpw.println("mDefaultDozeBrightness=" + mDefaultDozeBrightness);
+        idpw.println("mDefaultPulseBrightness=" + mDefaultPulseBrightness);
         idpw.println("mLastSensorValue=" + mLastSensorValue);
     }
 
