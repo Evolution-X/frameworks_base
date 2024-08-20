@@ -1056,4 +1056,10 @@ interface IActivityManager {
             in String compilationReason);
 
     boolean shouldForceLongScreen(in String packageName);
+
+    /**
+     *  Should disable touch if three fingers swipe enabled
+     */
+    boolean isThreeFingersSwipeActive();
+    void setThreeFingersSwipeActive(boolean active);
 }
