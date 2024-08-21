@@ -693,6 +693,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     private Action mEdgeLongSwipeAction;
     private Action mThreeFingersSwipeAction;
     private Action mThreeFingersLongPressAction;
+    private Action mShakeGestureAction;
 
     // support for activating the lock screen while the screen is on
     private HashSet<Integer> mAllowLockscreenWhenOnDisplays = new HashSet<>();
@@ -1112,6 +1113,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(LineageSettings.System.getUriFor(
                     LineageSettings.System.KEY_THREE_FINGERS_LONG_PRESS_ACTION), false, this,
+                    UserHandle.USER_ALL);
+            resolver.registerContentObserver(LineageSettings.System.getUriFor(
+                    LineageSettings.System.KEY_SHAKE_GESTURE_ACTION), false, this,
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(LineageSettings.System.getUriFor(
                     LineageSettings.System.HOME_WAKE_SCREEN), false, this,
@@ -3350,6 +3354,10 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
         boolean actionsChanged = mThreeFingersSwipeAction != threeFingersSwipeAction ||
                                  mThreeFingersLongPressAction != threeFingersLongPressAction;
+                                 
+        mShakeGestureAction = Action.fromSettings(resolver,
+                LineageSettings.System.KEY_SHAKE_GESTURE_ACTION,
+                Action.NOTHING);
 
         if (mThreeFingersListener != null && actionsChanged) {
             mThreeFingersSwipeAction = threeFingersSwipeAction;
@@ -6985,10 +6993,20 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             mVrManagerInternal.addPersistentVrModeStateListener(mPersistentVrModeListener);
         }
 
-        GestureCallbacks gestureCallbacks = new GestureCallbacks(mContext, mCurrentUserId);
-
-        mShakeGestures = ShakeGestureService.getInstance(mContext, (ShakeGestureService.ShakeGesturesCallbacks) gestureCallbacks);
-        mShakeGestures.onStart();
+        mShakeGestures = ShakeGestureService.getInstance(mContext, new ShakeGestureService.ShakeGesturesCallbacks() {
+            @Override
+            public void onShake() {
+                if (mShakeGestureAction == Action.NOTHING)
+                    return;
+                long now = SystemClock.uptimeMillis();
+                KeyEvent event = new KeyEvent(now, now, KeyEvent.ACTION_DOWN,
+                        KeyEvent.KEYCODE_SYSRQ, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
+                        KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_TOUCHSCREEN);
+                performKeyAction(mShakeGestureAction, event);
+                performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, false,
+                        "Shake Gesture");
+            }
+        });
 
         mThreeFingersListener = new ThreeFingersSwipeListener(mContext, new ThreeFingersSwipeListener.Callbacks() {
             @Override
@@ -7037,76 +7055,6 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
         mAutofillManagerInternal = LocalServices.getService(AutofillManagerInternal.class);
         mGestureLauncherService = LocalServices.getService(GestureLauncherService.class);
-    }
-
-    public class GestureCallbacks implements SwipeToScreenshotListener.Callbacks, ShakeGestureService.ShakeGesturesCallbacks {
-        private Context mContext;
-        private int mCurrentUserId;
-
-        public GestureCallbacks(Context context, int currentUserId) {
-            this.mContext = context;
-            this.mCurrentUserId = currentUserId;
-        }
-
-        @Override
-        public void onVoiceLaunch() {
-            launchVoiceAssistWithWakeLock();
-        }
-
-        @Override
-        public void onLaunchSearch() {
-            long eventTime = System.currentTimeMillis();
-            KeyEvent downEvent = new KeyEvent(eventTime, eventTime, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SEARCH, 0);
-            launchAssistAction(null, INVALID_INPUT_DEVICE_ID, SystemClock.uptimeMillis(),
-                   AssistUtils.INVOCATION_TYPE_ASSIST_BUTTON);
-            logKeyboardSystemsEvent(downEvent, KeyboardLogEvent.LAUNCH_ASSISTANT);
-        }
-
-        @Override
-        public void onScreenshotTaken() {
-            interceptScreenshotChord(TAKE_SCREENSHOT_FULLSCREEN, SCREENSHOT_KEY_OTHER, 0 /*pressDelay*/);
-        }
-
-        @Override
-        public void onClearAllNotifications() {
-            clearAllNotifications();
-        }
-
-        @Override
-        public void onToggleRingerModes() {
-            toggleRingerModes();
-        }
-
-        @Override
-        public void onToggleTorch() {
-            toggleTorch();
-        }
-
-        @Override
-        public void onMediaKeyDispatch() {
-            AudioManager am = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
-            int keyCode = am.isMusicActive() ? KeyEvent.KEYCODE_MEDIA_NEXT : KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE;
-            long eventTime = System.currentTimeMillis();
-            KeyEvent downEvent = new KeyEvent(eventTime, eventTime, KeyEvent.ACTION_DOWN, keyCode, 0);
-            KeyEvent upEvent = new KeyEvent(eventTime, eventTime, KeyEvent.ACTION_UP, keyCode, 0);
-            dispatchMediaKeyWithWakeLock(downEvent);
-            dispatchMediaKeyWithWakeLock(upEvent);
-        }
-
-        @Override
-        public void onToggleVolumePanel() {
-            toggleVolumePanel();
-        }
-
-        @Override
-        public void onKillApp() {
-            ActionUtils.killForegroundApp(mContext, mCurrentUserId);
-        }
-
-        @Override
-        public void onTurnScreenOnOrOff() {
-            turnScreenOnOrOff();
-        }
     }
 
     /** {@inheritDoc} */
