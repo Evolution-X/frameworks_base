@@ -161,4 +161,7 @@
 
     <!-- Smart 5G -->
     <java-symbol type="bool" name="config_supportSmart5G" />
+
+    <!-- Prop/KeyboxImitationHooks -->
+    <java-symbol type="array" name="config_certifiedKeybox" />
 </resources>
