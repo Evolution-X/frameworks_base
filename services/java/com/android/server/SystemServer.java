@@ -1820,9 +1820,11 @@ public final class SystemServer implements Dumpable {
             mSystemServiceManager.startService(LogcatManagerService.class);
             t.traceEnd();
 
-            t.traceBegin("StartPowerOffAlarmService");
-            mSystemServiceManager.startService(PowerOffAlarmService.class);
-            t.traceEnd();
+            if (context.getResources().getBoolean(R.bool.config_powerOffAlarmEnabled)) {
+                t.traceBegin("StartPowerOffAlarmService");
+                mSystemServiceManager.startService(PowerOffAlarmService.class);
+                t.traceEnd();
+            }
 
             if (!isWatch && !isTv && !isAutomotive
                     && android.security.Flags.aflApi()) {
