@@ -58,4 +58,7 @@
 
     <!-- Whether device has a centered display cutout -->
     <bool name="config_physicalDisplayCutoutCentered">@bool/config_physicalDisplayCutout</bool>
+
+    <!-- PowerOffAlarmService -->
+    <bool name="config_powerOffAlarmEnabled">false</bool>
 </resources>
