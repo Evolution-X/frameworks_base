@@ -3341,6 +3341,11 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 mWindowManagerFuncs.unregisterPointerEventListener(mThreeFingersSwipe, DEFAULT_DISPLAY);
                 mThreeFingersSwipeHasAction = false;
             }
+            try {
+                mActivityManagerService.setThreeFingersSwipeActive(mThreeFingersSwipeHasAction);
+            } catch (Exception e) {
+                // Do nothing
+            }
         }
 
         mShortPressOnWindowBehavior = SHORT_PRESS_WINDOW_NOTHING;
