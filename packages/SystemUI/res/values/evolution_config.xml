@@ -45,4 +45,7 @@
 
     <!-- Whether to enable HEVC toggle for screenrecord -->
     <bool name="config_screenRecordHEVC">true</bool>
+
+    <!-- Whether to play turbulence noise after clicking the play button -->
+    <bool name="config_turbulenceNoise">true</bool>
 </resources>
