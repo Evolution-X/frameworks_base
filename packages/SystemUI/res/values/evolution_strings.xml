@@ -261,4 +261,7 @@
 
     <!-- Screenshot -->
     <string name="quick_settings_screenshot_label">Screenshot</string>
+
+    <!-- System Theme Re-evaluation Toast -->
+    <string name="reevaluating_system_theme">Re-evaluating system theme.. Please wait for a few seconds</string>
 </resources>
