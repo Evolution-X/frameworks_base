@@ -197,6 +197,7 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
     private final UserScopedService<UiModeManager> mUiModeManagerProvider;
     private ColorScheme mDarkColorScheme;
     private ColorScheme mLightColorScheme;
+    private final RisingThemeController mThemeController;
 
     // Defers changing themes until Setup Wizard is done.
     private boolean mDeferredThemeEvaluation;
@@ -501,6 +502,7 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
                 .isFinishedInStateWhereWithScene(KeyguardState.Companion::deviceIsAsleepInState);
 
         mIsKeyguardOnAsleepState = mJavaAdapter.stateInApp(isFinishedInAsleepStateFlow, false);
+        mThemeController = new RisingThemeController(mContext, mBgHandler);
     }
 
     @Override
@@ -527,6 +529,7 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
         final IntentFilter filter = new IntentFilter();
         filter.addAction(Intent.ACTION_PROFILE_ADDED);
         filter.addAction(Intent.ACTION_WALLPAPER_CHANGED);
+        mThemeController.observeSettings(() -> reevaluateSystemTheme(true));
         mBroadcastDispatcher.registerReceiver(mBroadcastReceiver, filter, mMainExecutor,
                 UserHandle.ALL);
         mSecureSettings.registerContentObserverForUserSync(
