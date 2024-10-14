@@ -278,4 +278,7 @@
     <string name="omnijaws_service_error">Error loading weather data</string>
     <string name="omnijaws_service_unknown">No weather data</string>
     <string name="omnijaws_label_default">Weather</string>
+
+    <!-- Clock Weather -->
+    <string name="clock_ide_weather_data_unavailable">null</string>
 </resources>
