@@ -170,5 +170,16 @@ constructor(
                 UserHandle.USER_CURRENT,
             )
         )
+        val clockStyleEnabled = secureSettings.getIntForUser(
+            "clock_style",
+            0, // Default value
+            UserHandle.USER_CURRENT
+        ) != 0
+        val clockSettingValue = if (clockStyleEnabled) {
+            0 
+        } else {
+            isDoubleLineClock
+        }
+        return ClockSizeSetting.fromSettingValue(clockSettingValue)
     }
 }
