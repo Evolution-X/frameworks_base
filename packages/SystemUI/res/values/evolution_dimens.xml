@@ -43,4 +43,7 @@
     <!-- Weather -->  
     <dimen name="weather_image_max_size">24dp</dimen>
     <dimen name="weather_humidity_margin_start">16dp</dimen>
+
+    <!-- Lockscreen clock -->
+    <dimen name="custom_clock_frame_margin_top">0dp</dimen>
 </resources>
