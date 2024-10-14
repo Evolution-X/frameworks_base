@@ -22,7 +22,7 @@
     <!-- Whether to force split shade. This value has effect only when flag
     lockscreen.enable_landscape is enabled. -->
     <!-- TODO(b/411449027): This config is deprecated. Remove with the launch of SceneContainer. -->
-    <bool name="force_config_use_split_notification_shade">false</bool>
+    <bool name="force_config_use_split_notification_shade">true</bool>
 
     <!-- The number of rows in the paginated grid QuickSettings -->
     <integer name="quick_settings_paginated_grid_num_rows">3</integer>
