@@ -23,4 +23,9 @@
     <!-- Blur radius used by SystemUI -->
     <dimen name="min_window_blur_radius">1px</dimen>
     <dimen name="max_window_blur_radius">17.5px</dimen>
+
+    <!-- Custom clocks -->
+    <dimen name="presentation_clock_text_size">50dp</dimen>
+    <dimen name="large_clock_text_size">150dp</dimen>
+    <dimen name="small_clock_text_size">86dp</dimen>
 </resources>
