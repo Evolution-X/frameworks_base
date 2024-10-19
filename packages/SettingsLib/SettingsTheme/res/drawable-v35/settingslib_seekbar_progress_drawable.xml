@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   ~ Copyright (C) 2021 The AospExtended Project
-  ~ Copyright (C) 2023 The LibreMobileOS Foundation
+  ~ Copyright (C) 2023-2025 The LibreMobileOS Foundation
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
   ~ you may not use this file except in compliance with the License.
@@ -16,26 +16,14 @@
   ~ limitations under the License.
   -->
 <layer-list
-    xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:gravity="fill_horizontal|center" android:id="@android:id/background">
-        <selector>
-            <item android:state_enabled="false">
-                <shape android:tint="@color/settingslib_seekbar_track_color" android:shape="rectangle">
-                    <size android:height="4dp" />
-                    <corners android:radius="8dp" />
-                </shape>
-            </item>
-            <item android:state_enabled="true">
-                <shape android:tint="@color/settingslib_seekbar_track_color" android:shape="rectangle">
-                    <size android:height="4dp" />
-                    <corners android:radius="8dp" />
-                </shape>
-            </item>
-        </selector>
-    </item>
-    <item android:gravity="fill_horizontal|center" android:id="@android:id/progress">
-        <com.android.settingslib.drawable.RoundedCornerProgressDrawable
-            android:drawable="@drawable/settingslib_seekbar_progress"
-            />
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:autoMirrored="true">
+    <item android:height="16dp" android:gravity="fill_horizontal|center" android:id="@android:id/background"
+          android:drawable="@drawable/settingslib_seekbar_track" />
+    <!-- Track stop indicator -->
+    <item android:height="4dp" android:gravity="end|center" android:end="6dp"
+          android:drawable="@drawable/settingslib_seekbar_tick_mark" />
+    <item android:height="16dp" android:gravity="fill_horizontal|center" android:id="@android:id/progress">
+        <scale android:scaleWidth="100%" android:drawable="@drawable/settingslib_seekbar_progress" />
     </item>
 </layer-list>
