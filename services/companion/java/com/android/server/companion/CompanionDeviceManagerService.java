@@ -1085,18 +1085,28 @@ public class CompanionDeviceManagerService extends SystemService {
 
         @Override
         public void enablePermissionsSync(int associationId) {
+            if (getCallingUid() != SYSTEM_UID) {
+                throw new SecurityException("Caller must be system UID");
+            }
             getAssociationWithCallerChecks(associationId);
             mSystemDataTransferProcessor.enablePermissionsSync(associationId);
         }
 
         @Override
         public void disablePermissionsSync(int associationId) {
+            if (getCallingUid() != SYSTEM_UID) {
+                throw new SecurityException("Caller must be system UID");
+            }
             getAssociationWithCallerChecks(associationId);
             mSystemDataTransferProcessor.disablePermissionsSync(associationId);
         }
 
         @Override
         public PermissionSyncRequest getPermissionSyncRequest(int associationId) {
+            if (getCallingUid() != SYSTEM_UID) {
+                throw new SecurityException("Caller must be system UID");
+            }
+
             // TODO: temporary fix, will remove soon
             AssociationInfo association = mAssociationStore.getAssociationById(associationId);
             if (association == null) {
