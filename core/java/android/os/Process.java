@@ -1846,6 +1846,13 @@ public class Process {
 
     }
 
+    /** @hide */
+    @SystemApi
+    @SuppressLint("UnflaggedApi")
+    public static boolean isMemoryTaggingSupported() {
+        return com.android.internal.os.Zygote.nativeSupportsMemoryTagging();
+    }
+
     /**
      * Wait for the death of the given process.
      *
