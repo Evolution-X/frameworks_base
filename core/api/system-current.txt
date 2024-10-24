@@ -12762,6 +12762,10 @@ package android.os {
     field @Deprecated public static final int TEMPORARY_ALLOWLIST_TYPE_FOREGROUND_SERVICE_NOT_ALLOWED = 1; // 0x1
   }
 
+  public class Process {
+    method public static boolean isMemoryTaggingSupported();
+  }
+
   public class RecoverySystem {
     method @RequiresPermission(android.Manifest.permission.RECOVERY) public static void cancelScheduledUpdate(android.content.Context) throws java.io.IOException;
     method @RequiresPermission(anyOf={android.Manifest.permission.RECOVERY, android.Manifest.permission.REBOOT}) public static void clearPrepareForUnattendedUpdate(@NonNull android.content.Context) throws java.io.IOException;
