@@ -198,4 +198,13 @@
     <string name="usage_data">used today</string>
     <string name="usage_data_default_suffix">Data</string>
     <string name="usage_wifi_default_suffix">Wi-Fi</string>
+
+    <!-- USB function dialog - copied from Settings -->
+    <string name="usb_use_charging_only">No data transfer</string>
+    <string name="usb_use_file_transfers">File Transfer</string>
+    <string name="usb_use_photo_transfers">PTP</string>
+    <string name="usb_use_uvc_webcam">Webcam</string>
+    <string name="usb_use_tethering">USB tethering</string>
+    <string name="usb_use_MIDI">MIDI</string>
+    <string name="usb_use">Use USB for</string>
 </resources>
