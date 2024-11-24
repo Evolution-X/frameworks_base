@@ -65,4 +65,8 @@
     <!-- Preferred network tile -->
     <string name="quick_settings_preferred_network_label">Preferred network</string>
     <string name="quick_settings_preferred_network_unsupported">Unsupported</string>
+
+    <!-- Refresh Rate Tile -->
+    <string name="refresh_rate_tile_label">Refresh rate</string>
+    <string name="auto_mode_label">Auto</string>
 </resources>
