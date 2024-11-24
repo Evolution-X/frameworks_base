@@ -1056,4 +1056,6 @@ interface IActivityManager {
      */
     oneway void reportOptimizationInfo(in IBinder app, in String compilerFilter,
             in String compilationReason);
+
+    boolean shouldForceLongScreen(in String packageName);
 }
