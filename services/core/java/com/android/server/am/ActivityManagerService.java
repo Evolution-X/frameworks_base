@@ -19509,4 +19509,9 @@ public class ActivityManagerService extends IActivityManager.Stub
             return mIsSwipeToScrenshotEnabled && SystemProperties.getBoolean("sys.android.screenshot", false);
         }
     }
+    
+    @Override
+    public boolean shouldForceLongScreen(String packageName) {
+        return mActivityTaskManager.shouldForceLongScreen(packageName);
+    }
 }
