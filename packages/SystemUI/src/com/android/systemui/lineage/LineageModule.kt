@@ -30,6 +30,7 @@ import com.android.systemui.qs.tiles.PowerShareTile
 import com.android.systemui.qs.tiles.PreferredNetworkTile
 import com.android.systemui.qs.tiles.ProfilesTile
 import com.android.systemui.qs.tiles.ReadingModeTile
+import com.android.systemui.qs.tiles.RefreshRateTile
 import com.android.systemui.qs.tiles.SoundTile
 import com.android.systemui.qs.tiles.SyncTile
 import com.android.systemui.qs.tiles.UsbTetherTile
@@ -107,6 +108,12 @@ interface LineageModule {
     @StringKey(ReadingModeTile.TILE_SPEC)
     fun bindReadingModeTile(readingModeTile: ReadingModeTile): QSTileImpl<*>
 
+    /** Inject RefreshRateTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(RefreshRateTile.TILE_SPEC)
+    fun bindRefreshRateTile(refreshRateTile: RefreshRateTile): QSTileImpl<*>
+
     /** Inject SoundTile into tileMap in QSModule */
     @Binds
     @IntoMap
@@ -148,6 +155,7 @@ interface LineageModule {
         const val PREFERRED_NETWORK_TILE_SPEC = "preferred_network"
         const val PROFILES_TILE_SPEC = "profiles"
         const val READING_MODE_TILE_SPEC = "reading_mode"
+        const val REFRESH_RATE_TILE_SPEC = "refresh_rate"
         const val SOUND_TILE_SPEC = "sound"
         const val SYNC_TILE_SPEC = "sync"
         const val USB_TETHER_TILE_SPEC = "usb_tether"
@@ -377,6 +385,21 @@ interface LineageModule {
                     ),
                 instanceId = uiEventLogger.getNewInstanceId(),
                 category = TileCategory.CONNECTIVITY,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(REFRESH_RATE_TILE_SPEC)
+        fun provideRefreshRateTile(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(REFRESH_RATE_TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.ic_refresh_rate,
+                        labelRes = R.string.refresh_rate_tile_label
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.DISPLAY,
             )
     }
 }
