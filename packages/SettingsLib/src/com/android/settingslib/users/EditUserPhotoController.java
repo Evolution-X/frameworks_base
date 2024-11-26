@@ -130,12 +130,10 @@ public class EditUserPhotoController {
             intent.addCategory(Intent.CATEGORY_DEFAULT);
             intent.putExtra(EXTRA_IS_USER_NEW, isUserNew);
             // Fix vulnerability b/341688848 by explicitly set the class name of avatar picker.
-            if (Flags.fixAvatarCrossUserLeak()) {
-                final String packageName =
-                        mActivity.getString(R.string.config_avatar_picker_package);
-                final String className = mActivity.getString(R.string.config_avatar_picker_class);
-                intent.setClassName(packageName, className);
-            }
+            final String packageName =
+                    mActivity.getString(R.string.config_avatar_picker_package);
+            final String className = mActivity.getString(R.string.config_avatar_picker_class);
+            intent.setClassName(packageName, className);
         } else {
             intent = new Intent(mImageView.getContext(), AvatarPickerActivity.class);
         }
