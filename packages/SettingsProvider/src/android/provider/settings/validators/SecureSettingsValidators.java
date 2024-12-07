@@ -524,5 +524,6 @@ public class SecureSettingsValidators {
         // Evolution X additions
         VALIDATORS.put(Secure.GMS_CERT_CHAIN, BOOLEAN_VALIDATOR);
         VALIDATORS.put(Secure.HIDE_DEVELOPER_STATUS, ANY_STRING_VALIDATOR);
+        VALIDATORS.put(Secure.HIDE_APPLIST, ANY_STRING_VALIDATOR);
     }
 }
