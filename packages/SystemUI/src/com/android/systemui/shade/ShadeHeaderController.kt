@@ -23,7 +23,9 @@ import android.app.PendingIntent
 import android.app.StatusBarManager
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.content.res.Configuration
+import android.graphics.Color
 import android.graphics.Insets
 import android.os.Bundle
 import android.os.Trace
@@ -85,9 +87,9 @@ import com.android.systemui.statusbar.policy.ConfigurationController
 import com.android.systemui.statusbar.policy.NextAlarmController
 import com.android.systemui.statusbar.policy.VariableDateView
 import com.android.systemui.statusbar.policy.VariableDateViewController
+import com.android.systemui.util.ViewController
 import com.android.systemui.tuner.TunerService
 import com.android.systemui.tuner.TunerService.Tunable
-import com.android.systemui.util.ViewController
 import dagger.Lazy
 import java.io.PrintWriter
 import javax.inject.Inject
@@ -151,6 +153,8 @@ constructor(
 
         internal val NETWORK_TRAFFIC_ENABLED =
             "system:" + Settings.System.NETWORK_TRAFFIC_ENABLED
+        internal val QS_HEADER_CLOCK_STYLE =
+            "system:" + "qs_header_clock_style"
 
         private fun Int.stateToString() =
             when (this) {
@@ -329,6 +333,7 @@ constructor(
                     getFgColor(),
                     getBgColor(),
                 )
+                updateQsHeaderClockDateVisibility()
                 loadConstraints()
                 header.minHeight =
                     resources.getDimensionPixelSize(R.dimen.large_screen_shade_header_min_height)
@@ -340,10 +345,12 @@ constructor(
 
             override fun onThemeChanged() {
                 updateColors()
+                updateQsHeaderClockDateVisibility()
             }
 
             override fun onUiModeChanged() {
                 updateColors()
+                updateQsHeaderClockDateVisibility()
             }
         }
 
@@ -351,6 +358,13 @@ constructor(
         NextAlarmController.NextAlarmChangeCallback { nextAlarm ->
             nextAlarmIntent = nextAlarm?.showIntent
         }
+
+    fun updateQsHeaderClockDateVisibility() {
+        val color = if (qsClockStyle != 0) Color.TRANSPARENT else Color.WHITE
+        val colorStateList = ColorStateList.valueOf(color)
+        clock.setTextColor(colorStateList)
+        date.setTextColor(colorStateList)
+    }
 
     override fun onInit() {
         variableDateViewControllerFactory.create(date as VariableDateView).init()
@@ -450,6 +464,9 @@ constructor(
         iconContainer.setIsUsingQs(true)
 
         tunerService.addTunable(this, NETWORK_TRAFFIC_ENABLED)
+
+        updateQsHeaderClockDateVisibility()
+        tunerService.addTunable(this, QS_HEADER_CLOCK_STYLE)
     }
 
     override fun onViewDetached() {
@@ -470,6 +487,11 @@ constructor(
             NETWORK_TRAFFIC_ENABLED -> {
                 if (TunerService.parseIntegerSwitch(value, false))
                     updateColors()
+            }
+
+            QS_HEADER_CLOCK_STYLE -> {
+                qsClockStyle = TunerService.parseInteger(value, 0)
+                updateQsHeaderClockDateVisibility()
             }
 
             else -> return
