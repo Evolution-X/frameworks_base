@@ -222,6 +222,7 @@ public class CaffeineTile extends QSTileImpl<BooleanState> {
         }
         state.icon = mIcon;
         state.label = mContext.getString(R.string.quick_settings_caffeine_label);
+        state.hasLongClickEffect = false;
         if (state.value) {
             state.secondaryLabel = formatValueWithRemainingTime();
             state.contentDescription =  mContext.getString(
