@@ -7738,6 +7738,21 @@ public final class Settings {
         public static final String QS_TILE_ICON_SHAPE = "qs_tile_icon_shape";
 
         /**
+         * @hide
+         */
+        public static final String ONGOING_ACTION_CHIP = "ongoing_action_chip";
+
+        /**
+         * @hide
+         */
+        public static final String ONGOING_MEDIA_PROGRESS = "ongoing_media_progress";
+
+        /**
+         * @hide
+         */
+        public static final String ONGOING_COMPACT_MODE = "ongoing_compact_mode";
+
+        /**
          * Keys we no longer back up under the current schema, but want to continue to
          * process when restoring historical backup datasets.
          *
