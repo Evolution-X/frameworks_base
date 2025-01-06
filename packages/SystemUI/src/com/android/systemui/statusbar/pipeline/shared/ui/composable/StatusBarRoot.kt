@@ -77,13 +77,17 @@ import com.android.systemui.plugins.DarkIconDispatcher
 import com.android.systemui.res.R
 import com.android.systemui.scene.shared.flag.SceneContainerFlag
 import com.android.systemui.shade.ui.composable.VariableDayDate
+import com.android.systemui.statusbar.NotificationListener
+import com.android.systemui.statusbar.OngoingActionProgress
 import com.android.systemui.statusbar.StatusBarAlwaysUseRegionSampling
+import com.android.systemui.statusbar.VibratorHelper
 import com.android.systemui.axdynamicbar.ui.AxDynamicBarChipViewModel
 import com.android.systemui.axdynamicbar.ui.compose.AxDynamicBarChip
 import com.android.systemui.statusbar.chips.ui.compose.OngoingActivityChips
 import com.android.systemui.statusbar.core.NewStatusBarIcons
 import com.android.systemui.statusbar.core.RudimentaryBattery
 import com.android.systemui.statusbar.core.StatusBarConnectedDisplays
+import com.android.systemui.statusbar.notification.headsup.HeadsUpManager
 import com.android.systemui.statusbar.core.StatusBarForDesktop
 import com.android.systemui.statusbar.events.domain.interactor.SystemStatusEventAnimationInteractor
 import com.android.systemui.statusbar.featurepods.popups.StatusBarPopupChips
@@ -99,6 +103,7 @@ import com.android.systemui.statusbar.phone.StatusIconContainer
 import com.android.systemui.statusbar.phone.domain.interactor.IsAreaDark
 import com.android.systemui.statusbar.phone.ongoingcall.OngoingCallController
 import com.android.systemui.statusbar.phone.ongoingcall.StatusBarChipsModernization
+import com.android.systemui.statusbar.policy.KeyguardStateController
 import com.android.systemui.statusbar.phone.ui.DarkIconManager
 import com.android.systemui.statusbar.phone.ui.StatusBarIconController
 import com.android.systemui.statusbar.phone.ui.TintedIconManager
@@ -147,6 +152,10 @@ constructor(
     @DisplayAware private val homeStatusBarViewModelFactory: HomeStatusBarViewModelFactory,
     private val statusBarRegionSamplingViewModelFactory: StatusBarRegionSamplingViewModel.Factory,
     private val axDynamicBarChipViewModel: AxDynamicBarChipViewModel,
+    private val notificationListener: NotificationListener,
+    private val keyguardStateController: KeyguardStateController,
+    private val headsUpManager: HeadsUpManager,
+    private val vibrator: VibratorHelper,
 ) {
     fun create(root: ViewGroup, andThen: (ViewGroup) -> Unit): ComposeView {
         val composeView = ComposeView(root.context)
@@ -173,6 +182,10 @@ constructor(
                             statusBarRegionSamplingViewModelFactory,
                         axDynamicBarChipViewModel = axDynamicBarChipViewModel,
                         onViewCreated = andThen,
+                        notificationListener = notificationListener,
+                        keyguardStateController = keyguardStateController,
+                        headsUpManager = headsUpManager,
+                        vibrator = vibrator,
                         modifier = Modifier.sysUiResTagContainer(),
                     )
                 }
@@ -213,6 +226,10 @@ fun StatusBarRoot(
     statusBarRegionSamplingViewModelFactory: StatusBarRegionSamplingViewModel.Factory,
     axDynamicBarChipViewModel: AxDynamicBarChipViewModel,
     onViewCreated: (ViewGroup) -> Unit,
+    notificationListener: NotificationListener,
+    keyguardStateController: KeyguardStateController,
+    headsUpManager: HeadsUpManager,
+    vibrator: VibratorHelper,
     modifier: Modifier = Modifier,
 ) {
     val displayId = parent.context.displayId
@@ -273,6 +290,10 @@ fun StatusBarRoot(
                         iconViewStore = iconViewStore,
                         appHandlesViewModel = appHandlesViewModel,
                         axDynamicBarChipViewModel = axDynamicBarChipViewModel,
+                        notificationListener = notificationListener,
+                        keyguardStateController = keyguardStateController,
+                        headsUpManager = headsUpManager,
+                        vibrator = vibrator,
                         context = context,
                     )
                 }
@@ -415,6 +436,10 @@ private fun addStartSideComposable(
     iconViewStore: NotificationIconContainerViewBinder.IconViewStore?,
     appHandlesViewModel: AppHandlesViewModel,
     axDynamicBarChipViewModel: AxDynamicBarChipViewModel,
+    notificationListener: NotificationListener,
+    keyguardStateController: KeyguardStateController,
+    headsUpManager: HeadsUpManager,
+    vibrator: VibratorHelper,
     context: Context,
 ) {
     val startSideExceptHeadsUp =
@@ -501,7 +526,23 @@ private fun addStartSideComposable(
                         modifier = Modifier.widthIn(max = chipsMaxWidth),
                     )
                 }
+
+                val progressController = remember {
+                    com.android.systemui.statusbar.OnGoingActionProgressComposeController(
+                        context,
+                        notificationListener,
+                        keyguardStateController,
+                        headsUpManager,
+                        vibrator
+                    )
+                }
+
                 val chipsVisibilityModel = statusBarViewModel.ongoingActivityChips
+                val hasSystemChips = chipsVisibilityModel.chips.active.isNotEmpty()
+                progressController.setSystemChipVisible(hasSystemChips)
+
+                OngoingActionProgress(controller = progressController)
+
                 if (chipsVisibilityModel.areChipsAllowed) {
                     OngoingActivityChips(
                         chips = chipsVisibilityModel.chips,
