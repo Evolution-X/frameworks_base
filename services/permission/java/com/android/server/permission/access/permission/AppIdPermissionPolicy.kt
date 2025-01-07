@@ -1920,10 +1920,13 @@ class AppIdPermissionPolicy : SchemePolicy() {
 
     override fun MutateStateScope.onSystemReady() {
         if (!privilegedPermissionAllowlistViolations.isEmpty()) {
-            throw IllegalStateException(
-                "Signature|privileged permissions not in privileged" +
+            val msg = "Signature|privileged permissions not in privileged" +
                     " permission allowlist: $privilegedPermissionAllowlistViolations"
-            )
+            if (Build.isDebuggable()) {
+                Slog.e(LOG_TAG, msg)
+            } else {
+                throw IllegalStateException(msg)
+            }
         }
     }
 
