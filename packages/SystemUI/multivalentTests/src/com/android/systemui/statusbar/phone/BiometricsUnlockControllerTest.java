@@ -253,6 +253,7 @@ public class BiometricsUnlockControllerTest extends SysuiTestCase {
     }
 
     @Test
+    @org.junit.Ignore("GrapheneOS commit 'protect against upstream bugs bypassing 2FA' doesn't return MODE_WAKE_AND_DISMISS")
     public void onBiometricAuthenticated_whenDeviceIsAlreadyUnlocked_wakeAndUnlock() {
         reset(mUpdateMonitor);
         reset(mStatusBarKeyguardViewManager);
