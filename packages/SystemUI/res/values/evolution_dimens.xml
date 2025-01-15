@@ -48,4 +48,7 @@
     <dimen name="custom_aod_image_size">180dp</dimen>
     <dimen name="custom_clock_frame_margin_top">0dp</dimen>
     <dimen name="keyguard_status_area_margin_top">0dp</dimen>
+
+    <!-- Biometric view -->
+    <dimen name="biometric_indicator_above_margin_bottom">8dp</dimen>
 </resources>
