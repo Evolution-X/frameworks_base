@@ -95,6 +95,9 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
             
     private static final String LOCKSCREEN_WIDGETS_STYLE =
             "lockscreen_widgets_style";
+            
+    private static final String LOCKSCREEN_WIDGETS_TRANSPARENCY =
+            "lockscreen_widgets_transparency";
 
     private static final int[] MAIN_WIDGETS_VIEW_IDS = {
             R.id.main_kg_item_placeholder1,
@@ -182,6 +185,7 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
 
     private boolean mLockscreenWidgetsEnabled;
     private int mThemeStyle = 0;
+    private float mTransparency = 0.3f;
 
     final ConfigurationListener mConfigurationListener = new ConfigurationListener() {
         @Override
@@ -412,6 +416,7 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
         int bgRes;
         switch (themeStyle) {
             case 0:
+            case 3:
             default:
                 bgRes = R.drawable.lockscreen_widget_background_circle;
                 break;
@@ -572,12 +577,12 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
     private void setButtonActiveState(LaunchableImageView iv, LaunchableFAB efab, boolean active) {
         int bgTint;
         int tintColor;
-        if (mThemeStyle == 2) {
+        if (mThemeStyle == 2 || mThemeStyle == 3) {
             if (active) {
-                bgTint = Utils.applyAlpha(0.3f, mDarkColorActive);
+                bgTint = Utils.applyAlpha(mTransparency, mDarkColorActive);
                 tintColor = mDarkColorActive;
             } else {
-                bgTint = Utils.applyAlpha(0.3f, Color.WHITE);
+                bgTint = Utils.applyAlpha(mTransparency, Color.WHITE);
                 tintColor = Color.WHITE;
             }
         } else {
@@ -987,6 +992,10 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
                     Settings.System.getUriFor(LOCKSCREEN_WIDGETS_STYLE), 
                     false, 
                     this);
+            mContext.getContentResolver().registerContentObserver(
+                    Settings.System.getUriFor(LOCKSCREEN_WIDGETS_TRANSPARENCY), 
+                    false, 
+                    this);
             updateSettings();
         }
         void unobserve() {
@@ -1001,6 +1010,8 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
                            LOCKSCREEN_WIDGETS_EXTRAS);
             mThemeStyle = Settings.System.getInt(mContext.getContentResolver(), 
                            LOCKSCREEN_WIDGETS_STYLE, 0);
+            mTransparency = Settings.System.getInt(mContext.getContentResolver(), 
+                           LOCKSCREEN_WIDGETS_TRANSPARENCY, 30) / 100f;
             if (mMainLockscreenWidgetsList != null) {
                 mMainWidgetsList = Arrays.asList(mMainLockscreenWidgetsList.split(","));
             }
