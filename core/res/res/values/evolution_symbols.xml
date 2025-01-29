@@ -40,9 +40,6 @@
     <!-- Whether to cancel fingerprint operation if not idle -->
     <java-symbol type="bool" name="config_fpCancelIfNotIdle" />
 
-    <!-- Whether Pixel props is enabled -->
-    <java-symbol type="bool" name="config_enablePixelProps" />
-
     <!-- Define device configs on boot -->
     <java-symbol type="array" name="global_device_configs_override" />
     <java-symbol type="array" name="device_configs_override" />
@@ -161,4 +158,16 @@
 
     <!-- Smart 5G -->
     <java-symbol type="bool" name="config_supportSmart5G" />
+
+    <!-- Whitelist of package names to bypass foreground service type validation -->
+    <java-symbol type="array" name="config_fgsTypeValidationBypassPackages"/>
+
+    <!-- Whitelist of package names to bypass alarm manager validation -->
+    <java-symbol type="array" name="config_alarmManagerValidationBypassPackages"/>
+
+    <!-- Whitelist of package names to bypass broadcast reciever validation -->
+    <java-symbol type="array" name="config_broadcaseReceiverValidationBypassPackages"/>
+
+    <java-symbol type="array" name="config_launcherComponents" />
+    <java-symbol type="array" name="config_launcherPackages" />
 </resources>
