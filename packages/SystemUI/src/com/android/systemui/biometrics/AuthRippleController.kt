@@ -138,7 +138,7 @@ constructor(
         val keyguardNotShowing = !keyguardStateController.isShowing
         val unlockNotAllowed =
             !keyguardUpdateMonitor.isUnlockingWithBiometricAllowed(biometricSourceType)
-        if (keyguardNotShowing || unlockNotAllowed) {
+        if (keyguardNotShowing || unlockNotAllowed || !isRippleEnabled) {
             logger.notShowingUnlockRipple(keyguardNotShowing, unlockNotAllowed)
             return
         }
