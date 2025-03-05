@@ -2246,10 +2246,12 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
             mIsUpgrade =
                     !partitionsFingerprint.equals(ver.fingerprint);
             if (mIsUpgrade) {
+                SystemProperties.set("persist.sys.is_upgrade", "1");
                 PackageManagerServiceUtils.logCriticalInfo(Log.INFO,
                         "Upgrading from " + ver.fingerprint + " (" + ver.buildFingerprint + ") to "
                                 + PackagePartitions.FINGERPRINT
                                 + " (" + Build.VERSION.INCREMENTAL + ")");
+                SystemProperties.set("persist.sys.is_upgrade", "0");
             }
             mPriorSdkVersion = mIsUpgrade ? ver.sdkVersion : -1;
             mPriorSdkVersionFull = mIsUpgrade ? ver.sdkVersionFull : -1;
