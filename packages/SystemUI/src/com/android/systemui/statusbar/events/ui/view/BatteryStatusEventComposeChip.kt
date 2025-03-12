@@ -95,6 +95,6 @@ constructor(level: Int, context: Context, attrs: AttributeSet? = null) :
 
     @SuppressLint("UseCompatLoadingForDrawables")
     private fun updateResources() {
-        roundedContainer.background = mContext.getDrawable(R.drawable.statusbar_chip_bg)
+        roundedContainer.background = mContext.getDrawable(R.drawable.statusbar_battery_chip_bg)
     }
 }
