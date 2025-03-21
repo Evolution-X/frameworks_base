@@ -6247,4 +6247,15 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
     boolean isInsetsAnimationRunning() {
         return mInsetsAnimationRunning;
     }
+
+    private boolean mCopySplashScreenFinish;
+
+    public void setCopySplashScreenFinish(boolean finish) {
+        mCopySplashScreenFinish = finish;
+    }
+
+    public boolean isCopySplashScreenFinish() {
+        return mCopySplashScreenFinish;
+    }
+
 }
