@@ -42,6 +42,8 @@ import androidx.preference.PreferenceManager;
 import androidx.preference.PreferenceViewHolder;
 import androidx.preference.SwitchPreferenceCompat;
 
+import com.android.settingslib.widget.SettingsThemeHelper;
+
 /**
  * Version of SwitchPreferenceCompat that can be disabled by a device admin
  * using a user restriction.
@@ -83,7 +85,10 @@ public class RestrictedSwitchPreference extends SwitchPreferenceCompat implement
             }
         }
         if (mUseAdditionalSummary) {
-            setLayoutResource(R.layout.restricted_switch_preference);
+            int resId = SettingsThemeHelper.isExpressiveTheme(context)
+                    ? R.layout.restricted_switch_preference_expressive
+                    : R.layout.restricted_switch_preference;
+            setLayoutResource(resId);
             useAdminDisabledSummary(false);
         }
     }
