@@ -46,6 +46,7 @@ android_library {
         "SettingsLibIntroPreference",
         "SettingsLibLayoutPreference",
         "SettingsLibMainSwitchPreference",
+        "SettingsLibMenuPreference",
         "SettingsLibMetadata",
         "SettingsLibPreference",
         "SettingsLibProfileSelector",
