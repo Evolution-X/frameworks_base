@@ -40,6 +40,24 @@
         <item name="android:dropDownVerticalOffset">@dimen/settingslib_expressive_space_large3</item>
     </style>
 
+    <style name="SettingslibSpinnerItemStyle.Expressive"
+        parent="@android:style/Widget.DeviceDefault.TextView.SpinnerItem">
+        <item name="android:textAppearance">@style/TextAppearance.SettingsLib.LabelLarge</item>
+        <item name="android:textColor">@color/settingslib_materialColorOnSecondaryContainer</item>
+        <item name="android:paddingStart">@dimen/settingslib_expressive_space_small1</item>
+        <item name="android:paddingEnd">@dimen/settingslib_expressive_space_small1</item>
+    </style>
+
+    <!-- dropdownPreference dropdown item -->
+    <style name="SettingslibSpinnerDropDownItemStyle.Expressive"
+        parent="@android:style/Widget.Material.DropDownItem.Spinner">
+        <item name="android:textAppearance">@style/TextAppearance.SettingsLib.LabelLarge</item>
+        <item name="android:textColor">@color/settingslib_materialColorOnSurface</item>
+        <item name="android:layout_height">@dimen/settingslib_expressive_space_medium4</item>
+        <item name="android:paddingStart">@dimen/settingslib_expressive_space_small1</item>
+        <item name="android:paddingEnd">@dimen/settingslib_expressive_space_small1</item>
+    </style>
+
     <style name="SettingslibSpinnerStyle.Expressive.Outlined">
         <item name="android:background">@drawable/settingslib_expressive_spinner_background_outlined</item>
     </style>
