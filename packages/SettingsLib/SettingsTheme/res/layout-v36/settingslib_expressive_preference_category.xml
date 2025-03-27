@@ -29,14 +29,37 @@
     android:gravity="center_vertical"
     android:filterTouchesWhenObscured="false">
 
-    <TextView
-        android:id="@android:id/title"
+    <include layout="@layout/settingslib_expressive_preference_icon_frame"/>
+
+    <RelativeLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
         android:paddingStart="@dimen/settingslib_expressive_space_extrasmall4"
         android:paddingTop="@dimen/settingslib_expressive_space_extrasmall4"
-        android:paddingBottom="@dimen/settingslib_expressive_space_extrasmall4"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="start"
-        android:textAlignment="viewStart"
-        style="@style/PreferenceCategoryTitleTextStyle"/>
+        android:paddingBottom="@dimen/settingslib_expressive_space_extrasmall4">
+
+        <TextView
+            android:id="@android:id/title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="start"
+            android:textAlignment="viewStart"
+            style="@style/PreferenceCategoryTitleTextStyle"/>
+
+        <TextView
+            android:id="@android:id/summary"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@android:id/title"
+            android:layout_alignStart="@android:id/title"
+            android:layout_gravity="start"
+            android:textAlignment="viewStart"
+            android:textColor="?android:attr/textColorSecondary"
+            android:maxLines="10"
+            style="@style/PreferenceSummaryTextStyle"/>
+
+    </RelativeLayout>
 </LinearLayout>
