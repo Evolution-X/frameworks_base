@@ -68,6 +68,7 @@
     </style>
 
     <style name="SettingsLibPreference.DropDown.Expressive">
+        <item name="layout">@layout/settingslib_expressive_preference_dropdown</item>
     </style>
 
     <style name="SettingsLibPreference.SwitchPreference.Expressive"/>
