@@ -194,7 +194,8 @@ constructor(
     private fun getClockSize(): ClockSizeSetting {
         val isDoubleLineClock = secureSettings.getIntForUser(
             Settings.Secure.LOCKSCREEN_USE_DOUBLE_LINE_CLOCK,
-            1, // Default value
+            context.resources
+                .getInteger(com.android.internal.R.integer.config_doublelineClockDefault),
             UserHandle.USER_CURRENT
         )
         val clockStyleEnabled = secureSettings.getIntForUser(
