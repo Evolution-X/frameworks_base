@@ -10,10 +10,19 @@ package {
 android_library {
     name: "SettingsLibProgressBar",
     use_resource_processor: true,
+    defaults: [
+        "SettingsLintDefaults",
+    ],
 
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+        "src/**/*.kt",
+    ],
     resource_dirs: ["res"],
-
+    static_libs: [
+        "SettingsLibSettingsTheme",
+        "androidx.preference_preference",
+    ],
     sdk_version: "system_current",
     min_sdk_version: "21",
     apex_available: [
