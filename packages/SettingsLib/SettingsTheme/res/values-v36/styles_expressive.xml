@@ -129,11 +129,11 @@
     </style>
 
     <style name="Widget.SettingsLib.ButtonBar" parent="@style/Widget.AppCompat.ButtonBar.AlertDialog">
-        <item name="android:paddingTop">@dimen/settingslib_expressive_space_extrasmall2</item>
         <item name="android:paddingBottom">@dimen/settingslib_expressive_space_small4</item>
     </style>
 
     <style name="Widget.SettingsLib.DialogButton" parent="@style/Widget.AppCompat.Button">
+        <item name="android:layout_marginTop">@dimen/settingslib_expressive_space_extrasmall4</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:minHeight">0dp</item>
         <item name="android:minWidth">0dp</item>
