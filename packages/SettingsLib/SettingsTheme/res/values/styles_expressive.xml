@@ -297,5 +297,7 @@
         <item name="trackColor">@color/settingslib_materialColorSecondaryContainer</item>
         <item name="trackCornerRadius">@dimen/settingslib_expressive_radius_large1</item>
         <item name="trackInnerCornerRadius">@dimen/settingslib_expressive_radius_extrasmall1</item>
+        <item name="trackStopIndicatorPadding">@dimen/settingslib_expressive_radius_extrasmall2</item>
+        <item name="indicatorTrackGapSize">@dimen/settingslib_expressive_radius_extrasmall1</item>
     </style>
 </resources>

@@ -21,5 +21,7 @@
         <attr name="android:minLines"/>
         <!-- Specifies that the textView is collapsable. -->
         <attr name="isCollapsable" format="boolean"/>
+        <attr name="trackInnerCornerRadius" format="dimension" />
+        <attr name="trackStopIndicatorPadding" format="dimension" />
     </declare-styleable>
 </resources>
