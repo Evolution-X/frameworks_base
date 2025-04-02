@@ -2892,6 +2892,11 @@ public final class SystemServer implements Dumpable {
 
             // HideAppListService
             mSystemServiceManager.startService(HideAppListService.class);
+
+            // GameSpaceManagerService
+            t.traceBegin("GameSpaceManagerService");
+            mSystemServiceManager.startService(GameSpaceManagerService.class);
+            t.traceEnd();
         }
 
         t.traceBegin("StartMediaProjectionManager");
