@@ -81,8 +81,10 @@ public class MainSwitchPreference extends TwoStatePreference implements OnChecke
         // To support onPreferenceChange callback, it needs to call callChangeListener() when
         // MainSwitchBar is clicked.
         mainSwitchBar.setOnClickListener(view -> {
-            boolean isChecked = isChecked();
-            if (!callChangeListener(isChecked)) {
+            boolean isChecked = !isChecked();
+            if (callChangeListener(isChecked)) {
+                setChecked(isChecked);
+            } else {
                 // Change checked state back if listener doesn't like it.
                 // Note that CompoundButton maintains internal state to avoid infinite recursion.
                 mainSwitchBar.setChecked(!isChecked);
@@ -104,7 +106,6 @@ public class MainSwitchPreference extends TwoStatePreference implements OnChecke
 
     @Override
     public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-        super.setChecked(isChecked);
         for (OnCheckedChangeListener listener : mSwitchChangeListeners) {
             listener.onCheckedChanged(buttonView, isChecked);
         }
