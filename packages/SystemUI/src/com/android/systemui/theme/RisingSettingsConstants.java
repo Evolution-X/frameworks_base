@@ -26,6 +26,8 @@ public class RisingSettingsConstants {
     };
     
     public static final String[] SECURE_SETTINGS_KEYS = {
+        "clock_text_accent_color",
+        "clock_text_opacity"
     };
     
     public static final String[] SYSTEM_SETTINGS_NOTIFY_ONLY_KEYS = {
