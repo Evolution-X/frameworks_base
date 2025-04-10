@@ -47,12 +47,14 @@ public class MainSwitchPreferenceTest {
     private final Context mContext = ApplicationProvider.getApplicationContext();
     private View mRootView;
     private PreferenceViewHolder mHolder;
+    private MainSwitchBar mMainSwitchBar;
     private MainSwitchPreference mPreference;
 
     @Before
     public void setUp() {
         mRootView = View.inflate(mContext, R.layout.settingslib_main_switch_layout,
                 null /* parent */);
+        mMainSwitchBar = mRootView.requireViewById(R.id.settingslib_main_switch_bar);
         mHolder = PreferenceViewHolder.createInstanceForTests(mRootView);
         mPreference = new MainSwitchPreference(mContext);
     }
@@ -73,8 +75,7 @@ public class MainSwitchPreferenceTest {
         mPreference.setChecked(true);
         mPreference.onBindViewHolder(mHolder);
 
-        assertThat(mRootView.<MainSwitchBar>requireViewById(
-                R.id.settingslib_main_switch_bar).isChecked()).isTrue();
+        assertThat(mMainSwitchBar.isChecked()).isTrue();
     }
 
     @Test
@@ -95,12 +96,12 @@ public class MainSwitchPreferenceTest {
         mPreference.setOnPreferenceChangeListener((preference, newValue) -> false);
         mPreference.onBindViewHolder(mHolder);
 
-        mPreference.performClick();
+        mMainSwitchBar.performClick();
         verify(preferenceDataStore, never()).putBoolean(any(), anyBoolean());
 
         mPreference.setOnPreferenceChangeListener((preference, newValue) -> true);
 
-        mPreference.performClick();
+        mMainSwitchBar.performClick();
         verify(preferenceDataStore).putBoolean(any(), anyBoolean());
     }
 }
