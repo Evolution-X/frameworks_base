@@ -228,6 +228,12 @@ open class SettingsPreferenceGroupAdapter(preferenceGroup: PreferenceGroup) :
         return when {
             // This item handles edge to edge itself
             item is NormalPaddingMixin && item is GroupSectionDividerMixin -> 0 to 0
+            // Item is placed directly on screen needs to have extra padding
+            item is OnScreenWidgetMixin -> {
+                val extraPadding = item.context.resources.getDimensionPixelSize(
+                    R.dimen.settingslib_expressive_space_extrasmall4)
+                mNormalPaddingStart + extraPadding to mNormalPaddingEnd + extraPadding
+            }
 
             // According to mappingPreferenceGroup(), backgroundRes == 0 means this item is
             // GroupSectionDividerMixin or PreferenceCategory, which is design to have normal

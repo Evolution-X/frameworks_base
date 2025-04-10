@@ -43,7 +43,8 @@ import java.net.URISyntaxException;
  * A custom preference acting as "footer" of a page. It has a field for icon and text. It is added
  * to screen as the last preference.
  */
-public class FooterPreference extends Preference implements GroupSectionDividerMixin {
+public class FooterPreference extends Preference
+        implements GroupSectionDividerMixin, OnScreenWidgetMixin {
     private static final String TAG = "FooterPreference";
 
     public static final String KEY_FOOTER = "footer_preference";
