@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Copyright (C) 2025 The Android Open Source Project
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+         http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:name="root_vector"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group
+        android:name="root_group"
+        android:pivotX="32"
+        android:pivotY="32"
+        android:scaleX="0.66"
+        android:scaleY="0.66"
+        android:translateX="-20"
+        android:translateY="-20">
+        <group android:name="circle">
+            <path
+                android:name="circle_path"
+                android:pathData="M43.9958 32C43.9958 38.6619 38.5952 44.0625 31.9333 44.0625C25.2714 44.0625 19.8708 38.6619 19.8708 32C19.8708 25.3381 25.2714 19.9375 31.9333 19.9375C38.5952 19.9375 43.9958 25.3381 43.9958 32Z"
+                android:strokeWidth="2.5"
+                android:strokeColor="#ffffff" />
+        </group>
+        <group android:name="fill_group">
+            <clip-path
+                android:name="mask"
+                android:pathData="@string/path_theme_mask_on" />
+            <path
+                android:name="fill_path"
+                android:fillColor="#ffffff"
+                android:pathData="M43.9958 32C43.9958 38.6619 38.5952 44.0625 31.9333 44.0625C25.2714 44.0625 19.8708 38.6619 19.8708 32C19.8708 25.3381 25.2714 19.9375 31.9333 19.9375C38.5952 19.9375 43.9958 25.3381 43.9958 32Z" />
+        </group>
+    </group>
+</vector>
+
+
+

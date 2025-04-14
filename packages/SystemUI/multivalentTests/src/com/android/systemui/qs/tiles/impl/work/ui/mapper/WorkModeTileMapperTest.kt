@@ -24,6 +24,7 @@ import android.service.quicksettings.Tile
 import android.widget.Switch
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
+import com.android.systemui.Flags.iconRefresh2025
 import com.android.systemui.SysuiTestCase
 import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.qs.tiles.base.shared.model.QSTileState
@@ -107,7 +108,16 @@ class WorkModeTileMapperTest : SysuiTestCase() {
 
     private fun createWorkModeTileState(activationState: QSTileState.ActivationState): QSTileState {
         val label = testLabel
-        val iconRes = com.android.internal.R.drawable.stat_sys_managed_profile_status
+        val iconRes =
+            if (iconRefresh2025()) {
+                if (activationState == QSTileState.ActivationState.ACTIVE) {
+                    R.drawable.qs_work_mode_icon_on
+                } else {
+                    R.drawable.qs_work_mode_icon_off
+                }
+            } else {
+                com.android.internal.R.drawable.stat_sys_managed_profile_status
+            }
         return QSTileState(
             icon = Icon.Loaded(context.getDrawable(iconRes)!!, null, iconRes),
             label = label,

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Copyright (C) 2025 The Android Open Source Project
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+         http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:name="root_vector"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group
+        android:name="root_group"
+        android:pivotX="32"
+        android:pivotY="32"
+        android:scaleX="0.66"
+        android:scaleY="0.66"
+        android:translateX="-20"
+        android:translateY="-20">
+        <group android:name="slash_group">
+            <path
+                android:name="slash_path"
+                android:pathData="@string/path_bluetooth_slash_off"
+                android:strokeWidth="0"
+                android:strokeColor="#ffffff"
+                android:strokeLineCap="round" />
+        </group>
+        <group android:name="icon_group">
+            <clip-path
+                android:name="mask"
+                android:pathData="@string/path_bluetooth_diagonal_mask_on" />
+            <path
+                android:name="bluetooth"
+                android:fillColor="#ffffff"
+                android:pathData="M32.6321 43.2731V35.075L27.4466 40.2682C27.2074 40.4859 26.9139 40.5948 26.5661 40.5948C26.2182 40.5948 25.9247 40.4859 25.6855 40.2682C25.4681 40.0287 25.3594 39.7347 25.3594 39.3863C25.3594 39.0379 25.4681 38.744 25.6855 38.5045L32.1103 32.0701L25.6855 25.6357C25.4681 25.3962 25.3594 25.1023 25.3594 24.7539C25.3594 24.4055 25.4681 24.1115 25.6855 23.872C25.9247 23.6543 26.2182 23.5454 26.5661 23.5454C26.9139 23.5454 27.2074 23.6543 27.4466 23.872L32.6321 29.0652V20.8671C32.6321 20.497 32.7517 20.1921 32.9908 19.9526C33.2517 19.7131 33.5452 19.5933 33.8714 19.5933C34.0236 19.5933 34.1758 19.626 34.328 19.6913C34.4802 19.7349 34.6215 19.822 34.7519 19.9526L40.3614 25.5704C40.4918 25.7011 40.5788 25.8426 40.6223 25.995C40.6658 26.1257 40.6875 26.2781 40.6875 26.4523C40.6875 26.6265 40.6658 26.7898 40.6223 26.9422C40.5788 27.0729 40.4918 27.2035 40.3614 27.3342L35.6325 32.0701L40.3614 36.806C40.4918 36.9367 40.5788 37.0782 40.6223 37.2307C40.6658 37.3613 40.6875 37.5137 40.6875 37.6879C40.6875 37.8621 40.6658 38.0254 40.6223 38.1778C40.5788 38.3085 40.4918 38.4391 40.3614 38.5698L34.7519 44.1876C34.6215 44.3182 34.4802 44.4162 34.328 44.4816C34.1758 44.5251 34.0236 44.5469 33.8714 44.5469C33.5452 44.5469 33.2517 44.4271 32.9908 44.1876C32.7517 43.9481 32.6321 43.6432 32.6321 43.2731ZM35.1107 29.0652L37.7197 26.4523L35.1107 23.9047V29.0652ZM35.1107 40.2355L37.7197 37.6879L35.1107 35.075V40.2355Z" />
+        </group>
+    </group>
+</vector>

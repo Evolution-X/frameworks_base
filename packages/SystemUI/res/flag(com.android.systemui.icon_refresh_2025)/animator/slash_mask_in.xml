@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<set xmlns:android="http://schemas.android.com/apk/res/android">
+    <objectAnimator
+        android:duration="300"
+        android:interpolator="@anim/overshoot"
+        android:propertyName="pathData"
+        android:startOffset="0"
+        android:valueFrom="@string/path_diagonal_mask_on"
+        android:valueTo="@string/path_diagonal_mask_off"
+        android:valueType="pathType" />
+</set>

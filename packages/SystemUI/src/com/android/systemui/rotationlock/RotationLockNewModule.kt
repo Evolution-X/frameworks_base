@@ -16,6 +16,7 @@
 
 package com.android.systemui.rotationlock
 
+import com.android.systemui.Flags.iconRefresh2025
 import com.android.systemui.camera.CameraRotationModule
 import com.android.systemui.qs.QsEventLogger
 import com.android.systemui.qs.pipeline.shared.TileSpec
@@ -58,7 +59,9 @@ interface RotationLockNewModule {
                 tileSpec = TileSpec.create(ROTATION_TILE_SPEC),
                 uiConfig =
                     QSTileUIConfig.Resource(
-                        iconRes = R.drawable.qs_auto_rotate_icon_off,
+                        iconRes =
+                            if (iconRefresh2025()) R.drawable.vd_autorotate
+                            else R.drawable.qs_auto_rotate_icon_off,
                         labelRes = R.string.quick_settings_rotation_unlocked_label,
                     ),
                 instanceId = uiEventLogger.getNewInstanceId(),

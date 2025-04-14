@@ -20,6 +20,7 @@ import android.app.admin.DevicePolicyManager
 import android.app.admin.DevicePolicyResources.Strings.SystemUi.QS_WORK_PROFILE_LABEL
 import android.content.res.Resources
 import android.service.quicksettings.Tile
+import com.android.systemui.Flags.iconRefresh2025
 import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.qs.tiles.base.shared.model.QSTileConfig
 import com.android.systemui.qs.tiles.base.shared.model.QSTileState
@@ -41,7 +42,16 @@ constructor(
         QSTileState.build(resources, theme, config.uiConfig) {
             label = getTileLabel()!!
             contentDescription = label
-            val iconRes = com.android.internal.R.drawable.stat_sys_managed_profile_status
+            val iconRes =
+                if (iconRefresh2025()) {
+                    if (data is WorkModeTileModel.HasActiveProfile && data.isEnabled) {
+                        R.drawable.qs_work_mode_icon_on
+                    } else {
+                        R.drawable.qs_work_mode_icon_off
+                    }
+                } else {
+                    com.android.internal.R.drawable.stat_sys_managed_profile_status
+                }
             icon = Icon.Loaded(resources.getDrawable(iconRes, theme), null, iconRes)
 
             when (data) {
