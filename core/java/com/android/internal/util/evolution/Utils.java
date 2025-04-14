@@ -32,11 +32,14 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.AsyncTask;
 import android.os.PowerManager;
+import android.os.RemoteException;
+import android.os.ServiceManager;
 import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.util.Log;
 
+import com.android.internal.statusbar.IStatusBarService;
 import com.android.internal.util.CollectionUtils;
 
 import java.util.ArrayList;
@@ -145,6 +148,15 @@ public class Utils {
             needsNav = true;
         }
         return needsNav;
+    }
+
+    public static void restartSystemUI() {
+        final IStatusBarService mBarService = IStatusBarService.Stub.asInterface(
+                ServiceManager.getService(Context.STATUS_BAR_SERVICE));
+        try {
+            mBarService.restartSystemUI();
+        } catch (RemoteException e) {
+        }
     }
 
     public static String getDefaultLauncher(Context context) {
