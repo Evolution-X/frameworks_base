@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Copyright (C) 2025 The Android Open Source Project
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+         http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:name="root_vector"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group
+        android:name="root_group"
+        android:pivotX="32"
+        android:pivotY="32"
+        android:scaleX="0.66"
+        android:scaleY="0.66"
+        android:translateX="-20"
+        android:translateY="-20">
+        <path
+            android:name="top"
+            android:fillColor="#ffffff"
+            android:pathData="M24 21.7182V23.1202H40.0533V21.7182C40.0533 21.0061 39.7969 20.4053 39.2841 19.9157C38.7936 19.4039 38.1916 19.1479 37.4781 19.1479H26.5752C25.8617 19.1479 25.2486 19.4039 24.7358 19.9157C24.2453 20.4053 24 21.0061 24 21.7182Z" />
+        <path
+            android:name="body"
+            android:fillColor="#ffffff"
+            android:fillType="evenOdd"
+            android:pathData="@string/path_flashlight_on" />
+    </group>
+</vector>
+
+

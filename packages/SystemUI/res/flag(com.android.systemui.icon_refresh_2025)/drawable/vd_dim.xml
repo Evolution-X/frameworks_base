@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Copyright (C) 2025 The Android Open Source Project
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+         http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:name="root_vector"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group
+        android:name="root_group"
+        android:pivotX="32"
+        android:pivotY="32"
+        android:scaleX="0.66"
+        android:scaleY="0.66"
+        android:translateX="-20"
+        android:translateY="-20">
+        <path
+            android:name="rays"
+            android:pathData="@string/path_dim_rays_on"
+            android:strokeWidth="2.5"
+            android:strokeColor="#ffffff"
+            android:strokeLineCap="round" />
+        <path
+            android:name="circle"
+            android:fillColor="#ffffff"
+            android:pathData="M32 38.6667C30.1556 38.6667 28.5778 38.0222 27.2667 36.7333C25.9778 35.4222 25.3334 33.8445 25.3334 32C25.3334 30.1556 25.9778 28.5889 27.2667 27.3C28.5778 25.9889 30.1556 25.3333 32 25.3333C33.8445 25.3333 35.4112 25.9889 36.7 27.3C38.0112 28.5889 38.6667 30.1556 38.6667 32C38.6667 33.8445 38.0112 35.4222 36.7 36.7333C35.4112 38.0222 33.8445 38.6667 32 38.6667Z" />
+    </group>
+</vector>
+
+
+

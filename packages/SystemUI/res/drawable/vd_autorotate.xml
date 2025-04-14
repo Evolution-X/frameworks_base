@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Copyright (C) 2025 The Android Open Source Project
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+         http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:name="root_vector"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group
+        android:name="root_group"
+        android:pivotX="32"
+        android:pivotY="32"
+        android:scaleX="0.66"
+        android:scaleY="0.66"
+        android:translateX="-20"
+        android:translateY="-20">
+        <group
+            android:name="box_group"
+            android:pivotX="32"
+            android:pivotY="32"
+            android:rotation="-45">
+
+            <path
+                android:name="box_path_a"
+                android:pathData="M24.4375 22.3438C24.4375 21.7915 24.8852 21.3438 25.4375 21.3438H38.5625C39.1148 21.3438 39.5625 21.7915 39.5625 22.3438V41.6562C39.5625 42.2085 39.1148 42.6562 38.5625 42.6562H25.4375C24.8852 42.6562 24.4375 42.2085 24.4375 41.6562V22.3438Z"
+                android:strokeWidth="3"
+                android:strokeColor="#ffffff"
+                android:strokeLineCap="round"
+                android:trimPathStart="0.607"
+                android:trimPathEnd="1"
+                android:trimPathOffset="0.412" />
+
+            <path
+                android:name="box_path_b"
+                android:pathData="M24.4375 22.3438C24.4375 21.7915 24.8852 21.3438 25.4375 21.3438H38.5625C39.1148 21.3438 39.5625 21.7915 39.5625 22.3438V41.6562C39.5625 42.2085 39.1148 42.6562 38.5625 42.6562H25.4375C24.8852 42.6562 24.4375 42.2085 24.4375 41.6562V22.3438Z"
+                android:strokeWidth="3"
+                android:strokeColor="#ffffff"
+                android:strokeLineCap="round"
+                android:trimPathEnd="0.393"
+                android:trimPathOffset="0.52" />
+
+            <group
+                android:name="arrow_group_a"
+                android:rotation="45"
+                android:translateX="25.1"
+                android:translateY="21.34">
+                <path
+                    android:name="arrow_path_a"
+                    android:pathData="M0 -5.49219V-1.49012e-07H5.53906"
+                    android:strokeWidth="3"
+                    android:strokeColor="#ffffff"
+                    android:strokeLineCap="round"
+                    android:strokeLineJoin="round" />
+            </group>
+
+            <group
+                android:name="arrow_group_b"
+                android:rotation="-135"
+                android:translateX="38.8"
+                android:translateY="42.66">
+                <path
+                    android:name="arrow_path_b"
+                    android:pathData="M0 -5.49219V-1.49012e-07H5.53906"
+                    android:strokeWidth="3"
+                    android:strokeColor="#ffffff"
+                    android:strokeLineCap="round"
+                    android:strokeLineJoin="round" />
+            </group>
+
+        </group>
+    </group>
+</vector>
+
+
+

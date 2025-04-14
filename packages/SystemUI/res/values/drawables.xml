@@ -23,4 +23,6 @@
     <drawable name="unblock_hw_sensor_all">@drawable/ic_videocam_off</drawable>
     <!-- Second drawable shown for the sensor unblock dialog when blocked by the hardware privacy toggle -->
     <drawable name="unblock_hw_sensor_all_second">@drawable/ic_mic_off</drawable>
+
+    <drawable name="qs_bluetooth_icon_disconnected">@drawable/vd_bluetooth</drawable>
 </resources>

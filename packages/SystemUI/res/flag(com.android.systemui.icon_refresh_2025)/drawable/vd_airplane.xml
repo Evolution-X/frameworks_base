@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Copyright (C) 2025 The Android Open Source Project
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+         http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:name="root_vector"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group
+        android:name="root_group"
+        android:pivotX="32"
+        android:pivotY="32"
+        android:scaleX="0.66"
+        android:scaleY="0.66"
+        android:translateX="-20"
+        android:translateY="-20">
+        <group android:name="plane">
+            <path
+                android:name="plane_path"
+                android:fillColor="#ffffff"
+                android:pathData="M28.3898 35.0673L19.7893 38.4785C19.2762 38.7014 18.7854 38.6569 18.3169 38.3447C17.8484 38.0326 17.6141 37.5867 17.6141 37.007V36.3047C17.6141 36.0371 17.6699 35.7919 17.7815 35.5689C17.9153 35.3237 18.0826 35.123 18.2834 34.967L28.3898 27.9439V21.9576C28.3898 21.2441 28.6463 20.631 29.1595 20.1182C29.6726 19.6054 30.2861 19.349 31 19.349C31.7139 19.349 32.3274 19.6054 32.8406 20.1182C33.3537 20.631 33.6103 21.2441 33.6103 21.9576V27.9439L43.7166 34.967C43.9174 35.123 44.0735 35.3237 44.1851 35.5689C44.319 35.7919 44.3859 36.0371 44.3859 36.3047V37.007C44.3859 37.5867 44.1516 38.0326 43.6831 38.3447C43.2146 38.6569 42.7238 38.7014 42.2107 38.4785L33.6103 35.0673V40.0503L37.0906 42.4582C37.2691 42.592 37.4029 42.7592 37.4922 42.9599C37.6037 43.1382 37.6595 43.3277 37.6595 43.5284V44.331C37.6595 44.7547 37.481 45.1002 37.124 45.3678C36.7671 45.6353 36.3767 45.7134 35.9528 45.6019L31 44.0969L26.0472 45.6019C25.6234 45.7134 25.2329 45.6353 24.876 45.3678C24.519 45.1002 24.3405 44.7547 24.3405 44.331V43.5284C24.3405 43.3277 24.3852 43.1382 24.4744 42.9599C24.5859 42.7592 24.731 42.592 24.9094 42.4582L28.3898 40.0503V35.0673Z" />
+        </group>
+    </group>
+</vector>

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Copyright (C) 2025 The Android Open Source Project
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+         http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:name="root_vector"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group
+        android:name="root_group"
+        android:pivotX="32"
+        android:pivotY="32"
+        android:scaleX="0.66"
+        android:scaleY="0.66"
+        android:translateX="-20"
+        android:translateY="-20">
+        <group
+            android:name="left"
+            android:pivotX="32"
+            android:pivotY="32">
+            <path
+                android:name="path"
+                android:fillColor="#ffffff"
+                android:pathData="M30.9564 43.3187C28.0437 43.0254 25.6001 41.8037 23.6257 39.6533C21.6708 37.4834 20.6934 34.9323 20.6934 32C20.6934 29.0482 21.6708 26.4971 23.6257 24.3467C25.6001 22.1768 28.0437 20.955 30.9564 20.6813V43.3187Z" />
+        </group>
+        <group
+            android:name="top"
+            android:pivotX="32"
+            android:pivotY="32">
+            <path
+                android:name="path"
+                android:fillColor="#ffffff"
+                android:pathData="M33.1556 20.6813V30.8857H43.36C43.0668 28.1489 41.9721 25.8324 40.0759 23.9362C38.1992 22.0204 35.8925 20.9355 33.1556 20.6813Z" />
+        </group>
+        <group
+            android:name="bottom"
+            android:pivotX="32"
+            android:pivotY="32">
+            <path
+                android:name="path"
+                android:fillColor="#ffffff"
+                android:pathData="M33.1556 33.085V43.3187C35.8925 43.0645 38.209 41.9796 40.1052 40.0638C42.021 38.1481 43.1059 35.8218 43.36 33.085H33.1556Z" />
+        </group>
+    </group>
+</vector>
