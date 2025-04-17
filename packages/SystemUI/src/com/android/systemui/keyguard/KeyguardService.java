@@ -288,6 +288,7 @@ public class KeyguardService extends Service {
             }
         };
     }
+    private final ActivityManager mActivityManager;
 
     @Inject
     public KeyguardService(
@@ -302,7 +303,8 @@ public class KeyguardService extends Service {
             KeyguardSurfaceBehindParamsApplier keyguardSurfaceBehindAnimator,
             @Application CoroutineScope scope,
             FeatureFlags featureFlags,
-            PowerInteractor powerInteractor) {
+            PowerInteractor powerInteractor,
+            ActivityManager activityManager) {
         super();
         mKeyguardViewMediator = keyguardViewMediator;
         mKeyguardLifecyclesDispatcher = keyguardLifecyclesDispatcher;
@@ -323,6 +325,7 @@ public class KeyguardService extends Service {
                     keyguardSurfaceBehindAnimator,
                     scope);
         }
+        mActivityManager = activityManager;
     }
 
     @Override
@@ -580,6 +583,10 @@ public class KeyguardService extends Service {
         public void showDismissibleKeyguard() {
             trace("showDismissibleKeyguard");
             checkPermission();
+            if (mActivityManager.getLockTaskModeState() != ActivityManager.LOCK_TASK_MODE_NONE) {
+                return;
+            }
+
             mKeyguardViewMediator.showDismissibleKeyguard();
         }
 
