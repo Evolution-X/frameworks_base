@@ -64,7 +64,10 @@ public class UsageProgressBarPreference extends Preference implements GroupSecti
      */
     public UsageProgressBarPreference(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
-        setLayoutResource(R.layout.preference_usage_progress_bar);
+        int resId = SettingsThemeHelper.isExpressiveTheme(context)
+                ? R.layout.preference_usage_progress_bar_expressive
+                : R.layout.preference_usage_progress_bar;
+        setLayoutResource(resId);
     }
 
     /**
@@ -76,7 +79,10 @@ public class UsageProgressBarPreference extends Preference implements GroupSecti
      */
     public UsageProgressBarPreference(Context context, AttributeSet attrs) {
         super(context, attrs);
-        setLayoutResource(R.layout.preference_usage_progress_bar);
+        int resId = SettingsThemeHelper.isExpressiveTheme(context)
+                ? R.layout.preference_usage_progress_bar_expressive
+                : R.layout.preference_usage_progress_bar;
+        setLayoutResource(resId);
     }
 
     /**
