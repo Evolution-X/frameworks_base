@@ -2373,7 +2373,7 @@ public final class GameManagerService extends IGameManagerService.Stub {
         private void setGameAffinity(int uid, boolean boosted) {
             Map<String, Integer> packagePidMap = getRunningGamePidsPerPackage(uid);
             if (packagePidMap.isEmpty()) {
-                Slog.w(TAG, "No running game process found for UID=" + uid);
+                Slog.v(TAG, "No running game process found for UID=" + uid);
                 return;
             }
 
@@ -2382,7 +2382,7 @@ public final class GameManagerService extends IGameManagerService.Stub {
                 String packageName = entry.getKey();
 
                 Process.setThreadAffinity(pid, boosted ? 0 : 2);
-                Slog.d(TAG, "Set affinity for PID=" + pid + " (Package: " + packageName + 
+                Slog.v(TAG, "Set affinity for PID=" + pid + " (Package: " + packageName + 
                         ", UID=" + uid + ") to " + (boosted ? "big cores (boosted)" : "all cores (normal)"));
             }
         }
