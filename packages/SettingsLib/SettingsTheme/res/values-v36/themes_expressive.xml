@@ -54,6 +54,9 @@
 
         <!-- For AndroidX AlertDialog -->
         <item name="alertDialogTheme">@style/Theme.AlertDialog.SettingsLib.Expressive</item>
+	
+	<!-- For AlertDialog -->
+        <item name="android:alertDialogTheme">@style/Theme.DeviceDefault.AlertDialog.SettingsLib.Expressive</item>
     </style>
 
     <style name="Theme.AlertDialog.SettingsLib.Expressive">
@@ -66,4 +69,15 @@
         <item name="buttonBarNegativeButtonStyle">@style/Widget.SettingsLib.DialogButton.Outline</item>
         <item name="buttonBarNeutralButtonStyle">@style/Widget.SettingsLib.DialogButton</item>
     </style>
+
+    <style name="Theme.DeviceDefault.AlertDialog.SettingsLib.Expressive" parent="@style/Theme.DeviceDefault.Dialog.Alert.DayNight">
+        <item name="android:windowTitleStyle">@style/Widget.SettingsLib.DialogWindowTitle</item>
+        <item name="dialogPreferredPadding">@dimen/settingslib_expressive_space_small4</item>
+        <item name="android:buttonBarStyle">@style/Widget.SettingsLib.ButtonBar</item>
+        <item name="android:buttonBarPositiveButtonStyle">@style/Widget.SettingsLib.DialogButton.Filled</item>
+        <item name="android:buttonBarNegativeButtonStyle">@style/Widget.SettingsLib.DialogButton.Outline</item>
+        <item name="android:buttonBarNeutralButtonStyle">@style/Widget.SettingsLib.DialogButton</item>
+    </style>
+
+    <style name="Theme.DeviceDefault.Dialog.Alert.DayNight" parent="@android:style/Theme.DeviceDefault.Light.Dialog.Alert" />
 </resources>
