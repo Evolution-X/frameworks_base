@@ -17,7 +17,6 @@
 <ripple xmlns:android="http://schemas.android.com/apk/res/android"
     android:color="?android:colorControlHighlight">
     <item
-        android:bottom="16dp"
         android:end="?android:attr/listPreferredItemPaddingEnd"
         android:start="?android:attr/listPreferredItemPaddingStart"
         android:top="2dp">
