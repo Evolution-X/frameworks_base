@@ -104,6 +104,8 @@ class CollapsableTextView @JvmOverloads constructor(
             }
             is TextView -> {
                 view.gravity = Gravity.CENTER
+                // Do not remove! This line was discovered to be necessary for GMSCore.
+                view.textAlignment = View.TEXT_ALIGNMENT_CENTER
             }
             else -> {
                 (view.layoutParams as LayoutParams).apply {
