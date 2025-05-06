@@ -59,10 +59,11 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
             R.layout.keyguard_clock_word,
             R.layout.keyguard_clock_encode,
             R.layout.keyguard_clock_nos3,
-            R.layout.keyguard_clock_analog
+            R.layout.keyguard_clock_analog,
+            R.layout.keyguard_clock_a9
     };
 
-    private final static int[] mCenterClocks = {2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18};
+    private final static int[] mCenterClocks = {2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18, 19, 20};
 
     private static final int DEFAULT_STYLE = 0; // Disabled
     public static final String CLOCK_STYLE_KEY = "clock_style";
