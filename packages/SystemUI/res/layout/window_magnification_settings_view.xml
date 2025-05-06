@@ -125,16 +125,15 @@
             android:labelFor="@id/magnifier_horizontal_lock_switch"
             android:layout_gravity="center_vertical" />
 
-        <Switch
+        <com.google.android.material.materialswitch.MaterialSwitch
             android:id="@+id/magnifier_horizontal_lock_switch"
-            android:switchMinWidth="@dimen/settingslib_switch_track_width"
             android:layout_gravity="right|center_vertical"
-            android:layout_width="@dimen/settingslib_switch_track_width"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:track="@drawable/settingslib_track_selector"
-            android:thumb="@drawable/settingslib_thumb_selector"
-            android:theme="@style/MainSwitch.Settingslib"
-            android:minHeight="48dp" />
+            android:clickable="true"
+            android:focusable="true"
+            android:theme="@style/Theme.Material3.DynamicColors.DayNight"
+            style="@style/SettingslibSwitchStyle.Expressive" />
 
     </LinearLayout>
 
