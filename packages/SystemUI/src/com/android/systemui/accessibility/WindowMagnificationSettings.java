@@ -54,13 +54,14 @@ import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
-import android.widget.Switch;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.graphics.SfVsyncFrameCallbackProvider;
 import com.android.systemui.common.ui.view.SeekBarWithIconButtonsView;
 import com.android.systemui.res.R;
 import com.android.systemui.util.settings.SecureSettings;
+
+import com.google.android.material.materialswitch.MaterialSwitch;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -89,7 +90,7 @@ class WindowMagnificationSettings implements MagnificationGestureDetector.OnGest
 
     private SeekBarWithIconButtonsView mZoomSeekbar;
     private LinearLayout mAllowDiagonalScrollingView;
-    private Switch mAllowDiagonalScrollingSwitch;
+    private MaterialSwitch mAllowDiagonalScrollingSwitch;
     private LinearLayout mPanelView;
     private LinearLayout mSettingView;
     private ImageButton mSmallButton;
@@ -532,11 +533,10 @@ class WindowMagnificationSettings implements MagnificationGestureDetector.OnGest
         mAllowDiagonalScrollingView =
                 (LinearLayout) mSettingView.findViewById(R.id.magnifier_horizontal_lock_view);
         mAllowDiagonalScrollingSwitch =
-                (Switch) mSettingView.findViewById(R.id.magnifier_horizontal_lock_switch);
+                (MaterialSwitch) mSettingView.findViewById(R.id.magnifier_horizontal_lock_switch);
         mAllowDiagonalScrollingSwitch.setChecked(mAllowDiagonalScrolling);
-        mAllowDiagonalScrollingSwitch.setOnCheckedChangeListener((view, checked) -> {
-            toggleDiagonalScrolling();
-        });
+        mAllowDiagonalScrollingSwitch.setOnCheckedChangeListener(
+                (view, isChecked) -> setDiagonalScrolling(isChecked));
 
         mSmallButton.setOnClickListener(mButtonClickListener);
         mMediumButton.setOnClickListener(mButtonClickListener);
@@ -635,15 +635,7 @@ class WindowMagnificationSettings implements MagnificationGestureDetector.OnGest
         updateSelectedButton(index);
     }
 
-    private void toggleDiagonalScrolling() {
-        boolean enabled = mSecureSettings.getIntForUser(
-                Settings.Secure.ACCESSIBILITY_ALLOW_DIAGONAL_SCROLLING, 1,
-                UserHandle.USER_CURRENT) == 1;
-        setDiagonalScrolling(!enabled);
-    }
-
-    @VisibleForTesting
-    void setDiagonalScrolling(boolean enabled) {
+    private void setDiagonalScrolling(boolean enabled) {
         mSecureSettings.putIntForUser(
                 Settings.Secure.ACCESSIBILITY_ALLOW_DIAGONAL_SCROLLING, enabled ? 1 : 0,
                 UserHandle.USER_CURRENT);
