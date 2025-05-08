@@ -26,8 +26,8 @@
         android:pivotY="32"
         android:translateX="-20"
         android:translateY="-20"
-        android:scaleX="0.66"
-        android:scaleY="0.66">
+        android:scaleX="0.7555"
+        android:scaleY="0.7555">
         <group android:name="slash_group">
             <path
                 android:name="slash_path"
