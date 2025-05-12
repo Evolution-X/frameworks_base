@@ -967,9 +967,9 @@ class KeyguardUnlockAnimationController @Inject constructor(
         }
 
         if (!showKeyguard) {
-            // Make sure we made the surface behind fully visible, just in case. It should already be
-            // fully visible. The exit animation is finished, and we should not hold the leash anymore,
-            // so forcing it to 1f.
+            // Make sure we made the surface behind fully visible, just in case. It should already
+            // be fully visible. The exit animation is finished, and we should not hold the leash
+            // anymore, so forcing it to 1f.
             surfaceBehindAlpha = 1f
             setSurfaceBehindAppearAmount(1f)
 

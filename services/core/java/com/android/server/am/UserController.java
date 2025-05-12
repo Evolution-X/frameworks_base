@@ -31,6 +31,7 @@ import static android.app.ActivityManagerInternal.ALLOW_FULL_ONLY;
 import static android.app.ActivityManagerInternal.ALLOW_NON_FULL;
 import static android.app.ActivityManagerInternal.ALLOW_NON_FULL_IN_PROFILE;
 import static android.app.ActivityManagerInternal.ALLOW_PROFILES_OR_NON_FULL;
+import static android.app.KeyguardManager.LOCK_ON_USER_SWITCH_CALLBACK;
 import static android.os.PowerWhitelistManager.REASON_BOOT_COMPLETED;
 import static android.os.PowerWhitelistManager.REASON_LOCKED_BOOT_COMPLETED;
 import static android.os.PowerWhitelistManager.TEMPORARY_ALLOWLIST_TYPE_FOREGROUND_SERVICE_ALLOWED;
@@ -124,7 +125,6 @@ import android.view.Display;
 import com.android.internal.R;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.policy.IKeyguardDismissCallback;
 import com.android.internal.util.ArrayUtils;
 import com.android.internal.util.FrameworkStatsLog;
 import com.android.internal.util.ObjectUtils;
@@ -222,14 +222,6 @@ class UserController implements Handler.Callback {
      * observer when it never calls back.
      */
     private static final int USER_SWITCH_CALLBACKS_TIMEOUT_MS = 5 * 1000;
-
-    /**
-     * Amount of time waited for {@link WindowManagerService#dismissKeyguard} callbacks to be
-     * called after dismissing the keyguard.
-     * Otherwise, we should move on to dismiss the dialog {@link #dismissUserSwitchDialog()}
-     * and report user switch is complete {@link #REPORT_USER_SWITCH_COMPLETE_MSG}.
-     */
-    private static final int DISMISS_KEYGUARD_TIMEOUT_MS = 2 * 1000;
 
     /**
      * Time after last scheduleOnUserCompletedEvent() call at which USER_COMPLETED_EVENT_MSG will be
@@ -2389,31 +2381,17 @@ class UserController implements Handler.Callback {
 
     @VisibleForTesting
     void completeUserSwitch(int oldUserId, int newUserId) {
-        final boolean isUserSwitchUiEnabled = isUserSwitchUiEnabled();
-        // serialize each conditional step
-        await(
-                // STEP 1 - If there is no challenge set, dismiss the keyguard right away
-                isUserSwitchUiEnabled && !mInjector.getKeyguardManager().isDeviceSecure(newUserId),
-                mInjector::dismissKeyguard,
-                () -> await(
-                        // STEP 2 - If user switch ui was enabled, dismiss user switch dialog
-                        isUserSwitchUiEnabled,
-                        this::dismissUserSwitchDialog,
-                        () -> {
-                            // STEP 3 - Send REPORT_USER_SWITCH_COMPLETE_MSG to broadcast
-                            // ACTION_USER_SWITCHED & call UserSwitchObservers.onUserSwitchComplete
-                            mHandler.removeMessages(REPORT_USER_SWITCH_COMPLETE_MSG);
-                            mHandler.sendMessage(mHandler.obtainMessage(
-                                    REPORT_USER_SWITCH_COMPLETE_MSG, oldUserId, newUserId));
-                        }
-                ));
-    }
-
-    private void await(boolean condition, Consumer<Runnable> conditionalStep, Runnable nextStep) {
-        if (condition) {
-            conditionalStep.accept(nextStep);
+        final Runnable runnable = () -> {
+            // Send REPORT_USER_SWITCH_COMPLETE_MSG to broadcast ACTION_USER_SWITCHED and call
+            // onUserSwitchComplete on UserSwitchObservers.
+            mHandler.removeMessages(REPORT_USER_SWITCH_COMPLETE_MSG);
+            mHandler.sendMessage(mHandler.obtainMessage(
+                    REPORT_USER_SWITCH_COMPLETE_MSG, oldUserId, newUserId));
+        };
+        if (isUserSwitchUiEnabled()) {
+            dismissUserSwitchDialog(runnable);
         } else {
-            nextStep.run();
+            runnable.run();
         }
     }
 
@@ -3661,10 +3639,6 @@ class UserController implements Handler.Callback {
             return mService.mWindowManager;
         }
 
-        ActivityTaskManagerInternal getActivityTaskManagerInternal() {
-            return mService.mAtmInternal;
-        }
-
         void activityManagerOnUserStopped(@UserIdInt int userId) {
             LocalServices.getService(ActivityTaskManagerInternal.class).onUserStopped(userId);
         }
@@ -3853,33 +3827,6 @@ class UserController implements Handler.Callback {
             return IStorageManager.Stub.asInterface(ServiceManager.getService("mount"));
         }
 
-        protected void dismissKeyguard(Runnable runnable) {
-            final AtomicBoolean isFirst = new AtomicBoolean(true);
-            final Runnable runOnce = () -> {
-                if (isFirst.getAndSet(false)) {
-                    runnable.run();
-                }
-            };
-
-            mHandler.postDelayed(runOnce, DISMISS_KEYGUARD_TIMEOUT_MS);
-            getWindowManager().dismissKeyguard(new IKeyguardDismissCallback.Stub() {
-                @Override
-                public void onDismissError() throws RemoteException {
-                    mHandler.post(runOnce);
-                }
-
-                @Override
-                public void onDismissSucceeded() throws RemoteException {
-                    mHandler.post(runOnce);
-                }
-
-                @Override
-                public void onDismissCancelled() throws RemoteException {
-                    mHandler.post(runOnce);
-                }
-            }, /* message= */ null);
-        }
-
         boolean isHeadlessSystemUserMode() {
             return UserManager.isHeadlessSystemUserMode();
         }
@@ -3903,39 +3850,25 @@ class UserController implements Handler.Callback {
         }
 
         void lockDeviceNowAndWaitForKeyguardShown() {
-            if (getWindowManager().isKeyguardLocked()) {
-                return;
-            }
-
             final TimingsTraceAndSlog t = new TimingsTraceAndSlog();
             t.traceBegin("lockDeviceNowAndWaitForKeyguardShown");
 
             final CountDownLatch latch = new CountDownLatch(1);
-            ActivityTaskManagerInternal.ScreenObserver screenObserver =
-                    new ActivityTaskManagerInternal.ScreenObserver() {
-                        @Override
-                        public void onAwakeStateChanged(boolean isAwake) {
-
-                        }
-
-                        @Override
-                        public void onKeyguardStateChanged(boolean isShowing) {
-                            if (isShowing) {
-                                latch.countDown();
-                            }
-                        }
-                    };
-
-            getActivityTaskManagerInternal().registerScreenObserver(screenObserver);
-            getWindowManager().lockDeviceNow();
+            Bundle bundle = new Bundle();
+            bundle.putBinder(LOCK_ON_USER_SWITCH_CALLBACK, new IRemoteCallback.Stub() {
+                public void sendResult(Bundle data) {
+                    latch.countDown();
+                }
+            });
+            getWindowManager().lockNow(bundle);
             try {
                 if (!latch.await(20, TimeUnit.SECONDS)) {
-                    throw new RuntimeException("Keyguard is not shown in 20 seconds");
+                    throw new RuntimeException("User controller expected a callback while waiting "
+                            + "to show the keyguard. Timed out after 20 seconds.");
                 }
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             } finally {
-                getActivityTaskManagerInternal().unregisterScreenObserver(screenObserver);
                 t.traceEnd();
             }
         }
