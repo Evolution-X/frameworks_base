@@ -65,8 +65,6 @@
         android:layout_height="wrap_content"
         android:max="100"
         android:scaleY="1"
-        app:trackThickness="@dimen/settingslib_expressive_space_small1"
-        app:indicatorTrackGapSize="@dimen/settingslib_expressive_space_extrasmall2"
         style="@style/SettingsLibProgressBarStyle.Linear.Expressive" />
 
     <TextView
