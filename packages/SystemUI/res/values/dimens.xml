@@ -417,6 +417,8 @@
     <dimen name="notification_2025_importance_button_padding_vertical">12dp</dimen>
     <dimen name="notification_2025_importance_button_padding_horizontal">16dp</dimen>
 
+    <dimen name="notification_demote_button_icon_size">16sp</dimen>
+
     <!-- The minimum height for the snackbar shown after the snooze option has been chosen. -->
     <dimen name="snooze_snackbar_min_height">56dp</dimen>
 

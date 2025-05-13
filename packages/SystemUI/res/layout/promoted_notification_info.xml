@@ -324,9 +324,10 @@ asked for it -->
             android:layout_height="wrap_content"
             android:minHeight="60dp"
             android:layout_marginTop="@dimen/notification_importance_button_separation"
+            android:paddingTop="16dp"
+            android:paddingHorizontal="16dp"
             android:gravity="center_vertical"
-            android:background="@drawable/rounded_corners"
-            android:backgroundTint="@androidprv:color/materialColorPrimaryContainer"
+            android:background="@drawable/notification_guts_promoted_explain_bg"
             >
             <TextView
                 android:id="@+id/promoted_explain_title"
@@ -335,9 +336,7 @@ asked for it -->
                 android:layout_height="wrap_content"
                 android:layout_alignParentStart="true"
                 android:gravity="start|center_vertical"
-                android:padding="16dp"
-                android:color="@androidprv:color/materialColorOnPrimary"
-                style="@style/TextAppearance.NotificationInfo.Button"/>
+                style="@style/TextAppearance.NotificationImportanceButton"/>
             <TextView
                 android:id="@+id/promoted_explain"
                 android:text="@string/live_notifications_desc"
@@ -346,7 +345,6 @@ asked for it -->
                 android:layout_below="@id/promoted_explain_title"
                 android:gravity="start|center_vertical"
                 android:maxWidth="200dp"
-                android:padding="16dp"
                 style="@style/TextAppearance.NotificationImportanceDetail"/>
             <TextView
                 android:id="@+id/promoted_demote"
@@ -355,7 +353,6 @@ asked for it -->
                 android:layout_height="wrap_content"
                 android:layout_below="@id/promoted_explain"
                 android:layout_alignParentEnd="true"
-                android:padding="16dp"
                 android:gravity="start|center_vertical"
                 android:minWidth="@dimen/notification_importance_toggle_size"
                 android:minHeight="@dimen/notification_importance_toggle_size"
