@@ -50,11 +50,6 @@
                         android:layout_alignParentStart="true"
                         android:layout_marginEnd="@dimen/settingslib_expressive_space_medium4"
                         android:orientation="vertical">
-                        <TextView
-                            android:id="@+id/banner_header"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            style="@style/Banner.Header.SettingsLib.Expressive"/>
 
                         <LinearLayout
                             android:layout_width="wrap_content"
@@ -62,19 +57,25 @@
 
                             <ImageView
                                 android:id="@+id/banner_icon"
-                                android:layout_width="@dimen/settingslib_expressive_space_small3"
-                                android:layout_height="@dimen/settingslib_expressive_space_small3"
+                                android:layout_width="28dp"
+                                android:layout_height="28dp"
                                 android:layout_gravity="center_vertical"
                                 android:layout_marginEnd="@dimen/settingslib_expressive_space_extrasmall4"
                                 android:importantForAccessibility="no"
                                 android:scaleType="fitCenter" />
 
                             <TextView
-                                android:id="@+id/banner_title"
+                                android:id="@+id/banner_header"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                style="@style/Banner.Title.SettingsLib.Expressive" />
+                                style="@style/Banner.Header.SettingsLib.Expressive"/>
                         </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/banner_title"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            style="@style/Banner.Title.SettingsLib.Expressive" />
 
                         <TextView
                             android:id="@+id/banner_subtitle"

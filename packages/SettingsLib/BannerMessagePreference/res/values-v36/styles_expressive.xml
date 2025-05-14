@@ -25,7 +25,7 @@
     <style name="Banner.Header.SettingsLib.Expressive"
         parent="">
         <item name="android:textAlignment">viewStart</item>
-        <item name="android:paddingBottom">@dimen/settingslib_expressive_space_extrasmall4</item>
+        <item name="android:layout_gravity">center_vertical</item>
         <item name="android:textAppearance">@style/TextAppearance.SettingsLib.LabelMedium</item>
         <item name="android:textColor">?android:attr/textColorPrimary</item>
     </style>
@@ -42,7 +42,6 @@
         parent="">
         <item name="android:layout_gravity">start</item>
         <item name="android:textAlignment">viewStart</item>
-        <item name="android:paddingTop">@dimen/settingslib_expressive_space_extrasmall4</item>
         <item name="android:textAppearance">@style/TextAppearance.SettingsLib.BodyMedium</item>
         <item name="android:textColor">?android:attr/textColorPrimary</item>
     </style>
