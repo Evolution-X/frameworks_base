@@ -285,10 +285,20 @@ public class IntentForwarderActivityTest {
         IntentForwarderWrapperActivity activity = mActivityRule.launchActivity(intent);
 
         ArgumentCaptor<Intent> intentCaptor = ArgumentCaptor.forClass(Intent.class);
-        verify(mIPm).canForwardTo(
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        verify(mIPm, times(2)).canForwardTo(
                 intentCaptor.capture(), nullable(String.class), anyInt(), anyInt());
         assertEquals(Intent.ACTION_VIEW, intentCaptor.getValue().getAction());
 
+        List<Intent> capturedIntents = intentCaptor.getAllValues();
+        // Verify root intent is checked and sanitized
+        assertEquals(Intent.ACTION_MAIN, capturedIntents.get(0).getAction());
+        assertNull(capturedIntents.get(0));
+        assertNull(capturedIntents.get(0).getPackage());
+        // Verify selector is checked and sanitized
+        assertEquals(Intent.ACTION_VIEW, capturedIntents.get(1).getAction());
+        assertNull(capturedIntents.get(1));
+        assertNull(capturedIntents.get(1).getPackage());
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         onView(withId(R.id.icon)).check(matches(isDisplayed()));
         onView(withId(R.id.open_cross_profile)).check(matches(isDisplayed()));
@@ -705,6 +715,12 @@ public class IntentForwarderActivityTest {
         @Override
         public PackageManager getPackageManager() {
             return mPm;
+        }
+
+        @Override
+        public CompletableFuture<ResolveInfo> resolveActivityAsUser(Intent intent,
+                String resolvedType, int flags, int userId) {
+            return resolveActivityAsUser(intent, flags, userId);
         }
 
         @Override
