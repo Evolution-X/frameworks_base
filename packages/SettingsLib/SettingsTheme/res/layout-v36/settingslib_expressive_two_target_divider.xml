@@ -25,6 +25,7 @@
     android:paddingStart="?android:attr/listPreferredItemPaddingEnd"
     android:paddingLeft="?android:attr/listPreferredItemPaddingEnd"
     android:paddingVertical="@dimen/settingslib_expressive_space_extrasmall7"
+    android:paddingEnd="@dimen/settingslib_expressive_space_extrasmall6"
     android:filterTouchesWhenObscured="false">
 
     <ImageView
