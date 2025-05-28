@@ -102,12 +102,11 @@
         <ImageView
             android:id="@+id/selector_extra_widget"
             android:layout_width="match_parent"
-            android:minWidth="@dimen/two_target_min_width"
+            android:minWidth="@dimen/settingslib_expressive_space_medium4"
             android:layout_height="fill_parent"
             android:src="@drawable/ic_settings_accent"
+            android:scaleType="centerInside"
             android:contentDescription="@string/settings_label"
-            android:paddingStart="@dimen/settingslib_expressive_space_small4"
-            android:paddingEnd="@dimen/settingslib_expressive_space_small4"
             android:layout_gravity="center"
             android:background="?android:attr/selectableItemBackground"/>
     </LinearLayout>

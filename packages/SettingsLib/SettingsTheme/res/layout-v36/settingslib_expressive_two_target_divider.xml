@@ -31,7 +31,7 @@
     <ImageView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:paddingEnd="@dimen/settingslib_expressive_space_extrasmall6"
+        android:paddingEnd="@dimen/settingslib_expressive_space_extrasmall4"
         android:src="@drawable/settingslib_expressive_icon_chevron"/>
 
     <View
