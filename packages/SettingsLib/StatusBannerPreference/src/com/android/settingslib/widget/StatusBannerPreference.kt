@@ -68,7 +68,6 @@ class StatusBannerPreference @JvmOverloads constructor(
 
     init {
         layoutResource = R.layout.settingslib_expressive_preference_statusbanner
-        isSelectable = false
 
         initAttributes(context, attrs, defStyleAttr)
     }
