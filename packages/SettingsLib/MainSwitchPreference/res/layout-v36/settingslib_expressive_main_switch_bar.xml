@@ -37,7 +37,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center_vertical"
             android:layout_marginEnd="@dimen/settingslib_expressive_space_extrasmall4"
-            android:layout_marginVertical="@dimen/settingslib_expressive_space_small4"
+            android:layout_marginVertical="@dimen/settingslib_expressive_space_small1"
             android:layout_weight="1">
 
             <TextView
@@ -47,7 +47,7 @@
                 android:layout_gravity="start"
                 android:ellipsize="end"
                 android:textAlignment="viewStart"
-                android:textAppearance="?android:attr/textAppearanceListItem"
+                android:textAppearance="@style/TextAppearance.SettingsLib.TitleMedium.Emphasized"
                 android:textColor="@color/settingslib_main_switch_text_color" />
 
             <TextView
@@ -59,7 +59,7 @@
                 android:layout_below="@id/switch_text"
                 android:layout_gravity="start"
                 android:textAlignment="viewStart"
-                android:textAppearance="?android:attr/textAppearanceListItemSmall"
+                android:textAppearance="@style/TextAppearance.SettingsLib.LabelMedium"
                 android:textColor="@color/settingslib_main_switch_text_color"
                 android:visibility="gone" />
         </RelativeLayout>
