@@ -21,7 +21,7 @@ import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.TextUtils;
 import android.text.method.LinkMovementMethod;
-import android.text.style.AbsoluteSizeSpan;
+import android.text.style.TextAppearanceSpan;
 import android.util.AttributeSet;
 import android.view.View;
 import android.widget.FrameLayout;
@@ -44,6 +44,8 @@ import java.util.regex.Pattern;
  */
 public class UsageProgressBarPreference extends Preference implements GroupSectionDividerMixin {
 
+    private static final int NUMBER_TEXT_APPEARANCE =
+            com.android.settingslib.widget.theme.R.style.TextAppearance_SettingsLib_DisplayLarge_Emphasized;
     private final Pattern mNumberPattern = Pattern.compile("[\\d]*[\\٫.,]?[\\d]+");
 
     private CharSequence mUsageSummary;
@@ -224,7 +226,7 @@ public class UsageProgressBarPreference extends Preference implements GroupSecti
         if (matcher.find()) {
             final SpannableString spannableSummary = new SpannableString(summary);
             spannableSummary.setSpan(
-                    new AbsoluteSizeSpan(64, true /* dip */),
+                    new TextAppearanceSpan(getContext(), NUMBER_TEXT_APPEARANCE),
                     matcher.start(),
                     matcher.end(),
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
