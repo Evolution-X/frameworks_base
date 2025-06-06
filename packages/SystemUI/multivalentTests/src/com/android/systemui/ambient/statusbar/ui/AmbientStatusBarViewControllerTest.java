@@ -276,14 +276,16 @@ public class AmbientStatusBarViewControllerTest extends SysuiTestCase {
     }
 
     @Test
-    public void testOnViewAttachedShowsMicCameraIconWhenDisabled() {
+    public void testOnViewAttachedShowsMicAndCameraIconWhenBothDisabled() {
         when(mSensorPrivacyController.isSensorBlocked(SensorPrivacyManager.Sensors.MICROPHONE))
                 .thenReturn(true);
         when(mSensorPrivacyController.isSensorBlocked(SensorPrivacyManager.Sensors.CAMERA))
                 .thenReturn(true);
         mController.onViewAttached();
         verify(mView).showIcon(
-                AmbientStatusBarView.STATUS_ICON_MIC_CAMERA_DISABLED, true, null);
+                AmbientStatusBarView.STATUS_ICON_MIC_DISABLED, true, null);
+        verify(mView).showIcon(
+                AmbientStatusBarView.STATUS_ICON_CAMERA_DISABLED, true, null);
     }
 
     @Test
@@ -399,7 +401,7 @@ public class AmbientStatusBarViewControllerTest extends SysuiTestCase {
     }
 
     @Test
-    public void testMicCameraIconShownWhenSensorsBlocked() {
+    public void testMicAndCameraIconShownWhenSensorsBlocked() {
         mController.onViewAttached();
 
         when(mSensorPrivacyController.isSensorBlocked(SensorPrivacyManager.Sensors.MICROPHONE))
@@ -414,7 +416,9 @@ public class AmbientStatusBarViewControllerTest extends SysuiTestCase {
                 SensorPrivacyManager.Sensors.MICROPHONE, true);
 
         verify(mView).showIcon(
-                AmbientStatusBarView.STATUS_ICON_MIC_CAMERA_DISABLED, true, null);
+                AmbientStatusBarView.STATUS_ICON_MIC_DISABLED, true, null);
+        verify(mView).showIcon(
+                AmbientStatusBarView.STATUS_ICON_CAMERA_DISABLED, true, null);
     }
 
     @Test

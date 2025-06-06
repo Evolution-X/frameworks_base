@@ -334,16 +334,12 @@ public class AmbientStatusBarViewController extends ViewController<AmbientStatus
         @AmbientStatusBarView.StatusIconType int iconType = Resources.ID_NULL;
         showIcon(
                 AmbientStatusBarView.STATUS_ICON_CAMERA_DISABLED,
-                !micBlocked && cameraBlocked,
+                cameraBlocked,
                 R.string.camera_blocked_dream_overlay_content_description);
         showIcon(
                 AmbientStatusBarView.STATUS_ICON_MIC_DISABLED,
-                micBlocked && !cameraBlocked,
+                micBlocked,
                 R.string.microphone_blocked_dream_overlay_content_description);
-        showIcon(
-                AmbientStatusBarView.STATUS_ICON_MIC_CAMERA_DISABLED,
-                micBlocked && cameraBlocked,
-                R.string.camera_and_microphone_blocked_dream_overlay_content_description);
     }
 
     private String buildNotificationsContentDescription(int notificationCount) {
