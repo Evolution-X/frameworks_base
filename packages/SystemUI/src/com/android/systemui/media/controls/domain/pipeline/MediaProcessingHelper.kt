@@ -26,6 +26,7 @@ import android.os.BadParcelableException
 import android.util.Log
 import com.android.systemui.biometrics.Utils.toBitmap
 import com.android.systemui.media.controls.shared.model.MediaData
+import com.android.systemui.util.time.SystemClock
 
 private const val TAG = "MediaProcessingHelper"
 
@@ -62,6 +63,7 @@ fun isSameMediaData(
         new.resumption == old.resumption &&
         new.token == old.token &&
         new.resumeProgress == old.resumeProgress &&
+        new.active == old.active &&
         areClickIntentsEqual(new.clickIntent, old.clickIntent) &&
         areActionsEqual(context, newController, new, old) &&
         areIconsEqual(context, new.artwork, old.artwork) &&
@@ -179,3 +181,5 @@ private fun areActionsEqual(
 private fun areClickIntentsEqual(newIntent: PendingIntent?, oldIntent: PendingIntent?): Boolean {
     return newIntent == oldIntent
 }
+
+fun getActiveTimestamp(clock: SystemClock) = clock.elapsedRealtime()
