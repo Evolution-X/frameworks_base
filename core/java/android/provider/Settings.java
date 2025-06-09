@@ -15265,6 +15265,12 @@ public final class Settings {
         public static final String DOZE_PICK_UP_GESTURE_VIBRATE = "doze_pick_up_gesture_vibrate";
 
         /**
+         * keyguard scrim
+         * @hide
+         */
+        public static final String KEYGUARD_SCRIM_TRANSPARENT = "keyguard_scrim_transparent";
+
+        /**
          * Whether to enable Sleep Mode
          * @hide
          */
