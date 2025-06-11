@@ -48,7 +48,7 @@
                 android:ellipsize="end"
                 android:textAlignment="viewStart"
                 android:textAppearance="@style/TextAppearance.SettingsLib.TitleMedium.Emphasized"
-                android:textColor="@color/settingslib_main_switch_text_color" />
+                android:textColor="@color/settingslib_expressive_color_main_switch_text" />
 
             <TextView
                 android:id="@+id/switch_summary"
@@ -60,7 +60,7 @@
                 android:layout_gravity="start"
                 android:textAlignment="viewStart"
                 android:textAppearance="@style/TextAppearance.SettingsLib.LabelMedium"
-                android:textColor="@color/settingslib_main_switch_text_color"
+                android:textColor="@color/settingslib_expressive_color_main_switch_text"
                 android:visibility="gone" />
         </RelativeLayout>
 
