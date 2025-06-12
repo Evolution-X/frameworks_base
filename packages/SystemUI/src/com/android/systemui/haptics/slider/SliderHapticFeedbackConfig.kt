@@ -28,7 +28,7 @@ data class SliderHapticFeedbackConfig(
     /** Minimum vibration scale for vibrations based on slider progress */
     @FloatRange(from = 0.0, to = 1.0) val progressBasedDragMinScale: Float = 0f,
     /** Maximum vibration scale for vibrations based on slider progress */
-    @FloatRange(from = 0.0, to = 1.0) val progressBasedDragMaxScale: Float = 0.2f,
+    @FloatRange(from = 0.0, to = 1.0) val progressBasedDragMaxScale: Float = 0.5f,
     /** Additional vibration scaling due to velocity */
     @FloatRange(from = 0.0, to = 1.0) val additionalVelocityMaxBump: Float = 0.15f,
     /** Additional time delta to wait between drag texture vibrations */
