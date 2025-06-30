@@ -93,7 +93,7 @@ public class BiometricUnlockController extends KeyguardUpdateMonitorCallback imp
     private static final long BIOMETRIC_WAKELOCK_TIMEOUT_MS = 15 * 1000;
     private static final String BIOMETRIC_WAKE_LOCK_NAME = "wake-and-unlock:wakelock";
     private static final UiEventLogger UI_EVENT_LOGGER = new UiEventLoggerImpl();
-    private static final int UDFPS_ATTEMPTS_BEFORE_SHOW_BOUNCER = 3;
+    private static final int UDFPS_ATTEMPTS_BEFORE_SHOW_BOUNCER = 5;
 
     @IntDef(prefix = { "MODE_" }, value = {
             MODE_NONE,
