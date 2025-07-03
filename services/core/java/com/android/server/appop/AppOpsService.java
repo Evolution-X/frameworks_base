@@ -1827,14 +1827,26 @@ public class AppOpsService extends IAppOpsService.Stub {
 
     @Override
     public List<AppOpsManager.PackageOps> getPackagesForOps(int[] ops) {
-        ParceledListSlice<AppOpsManager.PackageOps> packageOps = getPackagesForOpsForDevice(ops,
-                PERSISTENT_DEVICE_ID_DEFAULT);
-        return packageOps == null ? null : packageOps.getList();
+        // This method was intentionally not switched to ParceledListSlice to avoid breaking
+        // app compat, since it's a part of the allowlisted hidden API list.
+        //
+        // This method doesn't get used by the OS anymore, it exists for app compatibility.
+        //
+        // Also, third-party apps can't have the privileged GET_APP_OPS_STATS permissions, which means
+        // that only their own ops will be returned to them, which makes use of ParceledListSlice
+        // mostly redundant in this case.
+        return getPackagesForOpsForDeviceInner(ops, PERSISTENT_DEVICE_ID_DEFAULT);
     }
 
     @Override
     public ParceledListSlice<AppOpsManager.PackageOps> getPackagesForOpsForDevice(int[] ops,
             @NonNull String persistentDeviceId) {
+        List<AppOpsManager.PackageOps> res = getPackagesForOpsForDeviceInner(ops, persistentDeviceId);
+        return res != null ? new ParceledListSlice<>(res) : null;
+    }
+
+    private List<AppOpsManager.PackageOps> getPackagesForOpsForDeviceInner(int[] ops,
+        @NonNull String persistentDeviceId) {
         final int callingUid = Binder.getCallingUid();
         final boolean hasAllPackageAccess = mContext.checkPermission(
                 Manifest.permission.GET_APP_OPS_STATS, Binder.getCallingPid(),
@@ -1870,7 +1882,7 @@ public class AppOpsService extends IAppOpsService.Stub {
                 }
             }
         }
-        return res == null ? null : new ParceledListSlice<>(res);
+        return res;
     }
 
     @Override
