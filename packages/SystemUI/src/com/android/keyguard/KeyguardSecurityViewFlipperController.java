@@ -20,6 +20,7 @@ import static android.content.res.Configuration.ORIENTATION_LANDSCAPE;
 
 import static com.android.systemui.flags.Flags.LOCKSCREEN_ENABLE_LANDSCAPE;
 
+import android.os.Looper;
 import android.util.Log;
 import android.view.LayoutInflater;
 
@@ -103,6 +104,12 @@ public class KeyguardSecurityViewFlipperController
     void getSecurityView(SecurityMode securityMode,
             KeyguardSecurityCallback keyguardSecurityCallback,
             OnViewInflatedCallback onViewInflatedCallback) {
+        if (!Looper.getMainLooper().isCurrentThread()) {
+            throw new IllegalStateException(
+                    "KeyguardSecurityViewFlipperController#getSecurityView must be called from main"
+                            + " thread");
+        }
+
         for (KeyguardInputViewController<KeyguardInputView> child : mChildren) {
             if (child.getSecurityMode() == securityMode) {
                 onViewInflatedCallback.onViewInflated(child);
