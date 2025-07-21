@@ -133,6 +133,7 @@ import com.android.systemui.dagger.qualifiers.Main;
 import com.android.systemui.dagger.qualifiers.UiBackground;
 import com.android.systemui.demomode.DemoMode;
 import com.android.systemui.demomode.DemoModeController;
+import com.android.systemui.edgelight.EdgeLightViewController;
 import com.android.systemui.nowplaying.NowPlayingViewController;
 import com.android.systemui.emergency.EmergencyGesture;
 import com.android.systemui.emergency.EmergencyGestureModule.EmergencyGestureIntentFactory;
@@ -437,6 +438,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
     private final TunerService mTunerService;
     private final ActivityStarter mActivityStarter;
     private final PulseViewController mPulseViewController;
+    private final EdgeLightViewController mEdgeLightViewController;
 
     private WallpaperDepthUtils mWallpaperDepthUtils;
 
@@ -676,6 +678,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
             MediaViewController mediaViewController,
             PulseViewController pulseViewController,
             WallpaperDepthUtils wallpaperDepthUtils,
+            EdgeLightViewController edgeLightViewController,
             NowPlayingViewController nowPlayingViewController
     ) {
         mContext = context;
@@ -805,6 +808,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
         mMediaViewController = mediaViewController;
         mPulseViewController = pulseViewController;
         mWallpaperDepthUtils = wallpaperDepthUtils;
+        mEdgeLightViewController = edgeLightViewController;
         mNowPlayingViewController = nowPlayingViewController;
     }
 
@@ -978,6 +982,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
 
         detachFromParent(mMediaViewController.getMediaArtScrim());
         detachFromParent(mPulseViewController.getPulseView());
+        detachFromParent(mEdgeLightViewController.getEdgeLightView());
         detachFromParent(mNowPlayingViewController.getNowPlayingView());
 
         overlay.addView(mMediaViewController.getMediaArtScrim(),
@@ -985,6 +990,10 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
         overlay.addView(mPulseViewController.getPulseView(),
+                new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+        overlay.addView(mEdgeLightViewController.getEdgeLightView(),
                 new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
