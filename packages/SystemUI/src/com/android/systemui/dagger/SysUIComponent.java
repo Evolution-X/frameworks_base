@@ -29,6 +29,7 @@ import com.android.systemui.dagger.qualifiers.Background;
 import com.android.systemui.dagger.qualifiers.Main;
 import com.android.systemui.dagger.qualifiers.PerUser;
 import com.android.systemui.dump.DumpManager;
+import com.android.systemui.edgelight.EdgeLightViewController;
 import com.android.systemui.nowplaying.NowPlayingViewController;
 import com.android.systemui.keyguard.KeyguardSliceProvider;
 import com.android.systemui.media.MediaViewController;
@@ -249,6 +250,9 @@ public interface SysUIComponent {
 
     @SysUISingleton
     PulseViewController pulseViewController();
+
+    @SysUISingleton
+    EdgeLightViewController edgeLightViewController();
 
     @SysUISingleton
     NowPlayingViewController nowPlayingViewController();
