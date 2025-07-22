@@ -173,6 +173,7 @@ import com.android.systemui.telephony.TelephonyListenerManager;
 import com.android.systemui.user.domain.interactor.SelectedUserInteractor;
 import com.android.systemui.util.Assert;
 import com.android.systemui.util.kotlin.JavaAdapter;
+import com.android.systemui.util.ScrimUtils;
 
 import dalvik.annotation.optimization.NeverCompile;
 
@@ -2142,6 +2143,8 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener, CoreSt
             }
         }
         Trace.endSection();
+
+        ScrimUtils.get().onStartedWakingUp();
     }
 
     protected void handleStartedGoingToSleep(int arg1) {
@@ -2178,6 +2181,7 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener, CoreSt
     private void handleScreenTurnedOff() {
         Assert.isMainThread();
         mHardwareFingerprintUnavailableRetryCount = 0;
+        ScrimUtils.get().onScreenTurnedOff();
     }
 
     private void handleDreamingStateChanged(int dreamStart) {
