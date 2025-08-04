@@ -93,14 +93,13 @@ object BiometricViewSizeBinder {
 
         val iconHolderView = view.requireViewById<View>(R.id.biometric_icon)
         val panelView = view.requireViewById<View>(R.id.panel)
-        val cornerRadius = view.resources.getDimension(R.dimen.biometric_dialog_corner_size)
+        val cornerRadiusPx = view.resources.getDimension(R.dimen.biometric_dialog_corner_size).toInt()
         val pxToDp =
             TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP,
                 1f,
                 view.resources.displayMetrics,
             )
-        val cornerRadiusPx = (pxToDp * cornerRadius).toInt()
 
         var currentSize: PromptSize? = null
         var currentPosition: PromptPosition = PromptPosition.Bottom
