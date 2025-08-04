@@ -126,7 +126,7 @@ import javax.xml.datatype.DatatypeConfigurationException;
  *          <width>1920</width>
  *          <density>320</density>
  *        </density>
- *        <density>
+ *        <density default="true">
  *          <height>2160</height>
  *          <width>3840</width>
  *          <density>640</density>
@@ -2138,7 +2138,8 @@ public class DisplayDeviceConfig {
             entries[i] = new DensityMapping.Entry(
                     density.getWidth().intValue(),
                     density.getHeight().intValue(),
-                    density.getDensity().intValue());
+                    density.getDensity().intValue(),
+                    density.get_default());
         }
         mDensityMapping = DensityMapping.createByOwning(entries);
     }
