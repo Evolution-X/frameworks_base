@@ -48,6 +48,7 @@ import com.android.systemui.util.maybeForceFullscreen
 import com.android.systemui.util.registerAnimationOnBackInvoked
 import java.util.concurrent.Executor
 import kotlin.math.roundToInt
+import com.android.systemui.util.BlurUtils
 
 private const val TAG = "DialogTransitionAnimator"
 
@@ -684,6 +685,7 @@ class AnimatedDialog(
     private var dialogTouchInterceptorView: ViewGroup? = null
 
     private var hasInstrumentedJank = false
+    private val blurUtils = BlurUtils(dialog.context.resources)
 
     private var startController: DialogTransitionAnimator.Controller? = null
 
@@ -1140,6 +1142,15 @@ class AnimatedDialog(
                     if (endController is GhostedViewTransitionAnimatorController) {
                         endController.fillGhostedViewState(endState)
                     }
+
+                    // Blur the background
+                    blurUtils.applyBlur(
+                        viewRootImpl = decorView.viewRootImpl,
+                        radius = blurUtils.blurRadiusOfRatio(
+                            if (isLaunching) progress else 1f - progress
+                        ).toInt(),
+                        opaque = false
+                    )
                 }
             }
 
