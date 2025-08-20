@@ -6478,7 +6478,6 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
     }
 
     @Test
-    @EnableFlags(Flags.FLAG_LIMIT_MANAGED_SERVICES_COUNT)
     public void testSetListenerAccessForUser_tooManyListeners_skipsFollowups() throws Exception {
         UserHandle user = UserHandle.of(mContext.getUserId() + 10);
         ComponentName c = ComponentName.unflattenFromString("package/Component");
