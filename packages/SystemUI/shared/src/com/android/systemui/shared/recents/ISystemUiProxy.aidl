@@ -102,7 +102,7 @@ interface ISystemUiProxy {
     oneway void expandNotificationPanel() = 29;
 
     /**
-     * Notifies SystemUI to invoke Back.
+     * Notifies SystemUI of KEYCODE_BACK, sending a ACTION_DOWN followed by ACTION_UP.
      */
     oneway void onBackPressed() = 44;
 
@@ -158,5 +158,10 @@ interface ISystemUiProxy {
      */
     oneway void animateNavBarLongPress(boolean isTouchDown, boolean shrink, long durationMs) = 54;
 
-    // Next id = 55
+    /**
+     * Notifies SystemUI of a KeyEvent of the specified type (e.g. KEYCODE_BACK, KEYCODE_HOME).
+     */
+    oneway void onKeyEvent(int keycode) = 60;
+
+    // Next id = 61
 }
