@@ -29,7 +29,6 @@ import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -421,16 +420,6 @@ public class SliderPreference extends Preference {
 
         ImageView iconEndView = (ImageView) holder.findViewById(R.id.icon_end);
         updateIconEndIfNeeded(iconEndView);
-
-        // Remove the accessibility label of click action
-        holder.itemView.getRootView().setAccessibilityDelegate(new View.AccessibilityDelegate() {
-            @Override
-            public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo info) {
-                super.onInitializeAccessibilityNodeInfo(host, info);
-                info.removeAction(AccessibilityNodeInfo.ACTION_CLICK);
-                info.setClickable(false);
-            }
-        });
     }
 
     /**
