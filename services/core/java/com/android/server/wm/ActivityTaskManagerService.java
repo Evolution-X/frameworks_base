@@ -5507,6 +5507,11 @@ public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
         // ClientTransactions is queued during #deferWindowLayout() for performance.
         // Notify to continue.
         mLifecycleManager.onLayoutContinued();
+
+        if (mRootWindowContainer.mTaskLayersChanged
+                && !mWindowManager.mWindowPlacerLocked.isLayoutDeferred()) {
+            mRootWindowContainer.rankTaskLayers();
+        }
     }
 
     /**
