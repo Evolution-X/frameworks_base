@@ -79,6 +79,8 @@ public class SliderPreference extends Preference {
     private CharSequence mSliderContentDescription;
     private CharSequence mSliderStateDescription;
 
+    private OnPreferenceChangeListener mStopListener;
+
     /**
      * Listener reacting to the user pressing DPAD left/right keys if {@code
      * adjustable} attribute is set to true; it transfers the key presses to the {@link Slider}
@@ -123,6 +125,9 @@ public class SliderPreference extends Preference {
             if (mExtraTouchListener != null) {
                 mExtraTouchListener.onStopTrackingTouch(slider);
             }
+            if (mStopListener != null) {
+                mStopListener.onPreferenceChange(SliderPreference.this, (int) slider.getValue());
+            }
         }
 
         @Override
@@ -133,6 +138,10 @@ public class SliderPreference extends Preference {
             }
         }
     };
+
+    public void setOnPreferenceChangeStopListener(OnPreferenceChangeListener listener) {
+        mStopListener = listener;
+    }
 
     @Nullable
     private Slider.OnSliderTouchListener mExtraTouchListener;
