@@ -176,6 +176,7 @@ interface IActivityTaskManager {
     List<IBinder> getAppTasks(in String callingPackage);
     void startSystemLockTaskMode(int taskId);
     void stopSystemLockTaskMode();
+    void rebuildSystemLockTaskPinnedMode();
     void finishVoiceTask(in IVoiceInteractionSession session);
     int addAppTask(in IBinder activityToken, in Intent intent,
             in ActivityManager.TaskDescription description, in Bitmap thumbnail);

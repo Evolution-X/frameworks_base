@@ -16,6 +16,7 @@
 
 package com.android.systemui.keyguard;
 
+import static android.app.ActivityManager.LOCK_TASK_MODE_PINNED;
 import static android.app.KeyguardManager.LOCK_ON_USER_SWITCH_CALLBACK;
 import static android.app.StatusBarManager.SESSION_KEYGUARD;
 import static android.provider.Settings.Secure.LOCK_SCREEN_LOCK_AFTER_TIMEOUT;
@@ -3692,6 +3693,17 @@ public class KeyguardViewMediator implements CoreStartable, Dumpable,
             if (mBootSendUserPresent) {
                 sendUserPresentBroadcast();
             }
+
+            mHandler.post(() -> {
+                try {
+                    if (ActivityTaskManager.getService().getLockTaskModeState()
+                            == LOCK_TASK_MODE_PINNED) {
+                        ActivityTaskManager.getService().rebuildSystemLockTaskPinnedMode();
+                    }
+                } catch (RemoteException e) {
+                    Log.e(TAG, "Failed to rebuild lock task pinned mode", e);
+                }
+            });
         }
     }
 
