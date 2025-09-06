@@ -25,7 +25,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.content.res.Configuration
-import android.graphics.Color
 import android.graphics.Insets
 import android.os.Bundle
 import android.os.Trace
@@ -166,6 +165,8 @@ constructor(
     }
 
     var shadeCollapseAction: Runnable? = null
+
+    private var qsClockStyle = 0
 
     private lateinit var iconManager: TintedIconManager
     private lateinit var carrierIconSlots: List<String>
@@ -345,15 +346,23 @@ constructor(
 
             override fun onThemeChanged() {
                 updateColors()
+                updateShadeHeaderColors()
                 updateQsHeaderClockDateVisibility()
-                updateResources()
             }
 
             override fun onUiModeChanged() {
                 updateColors()
+                updateShadeHeaderColors()
                 updateQsHeaderClockDateVisibility()
             }
         }
+
+    fun updateShadeHeaderColors() {
+        if (qsClockStyle == 0) {
+            clock.setTextAppearance(R.style.TextAppearance_QS_Status)
+            date.setTextAppearance(R.style.TextAppearance_QS_Status)
+        }
+    }
 
     private val nextAlarmCallback =
         NextAlarmController.NextAlarmChangeCallback { nextAlarm ->
@@ -361,12 +370,10 @@ constructor(
         }
 
     fun updateQsHeaderClockDateVisibility() {
-        if (qsClockStyle != 0) {
-            val color = Color.TRANSPARENT
-            val colorStateList = ColorStateList.valueOf(color)
-            clock.setTextColor(colorStateList)
-            date.setTextColor(colorStateList)
-        }  
+        val color = if (qsClockStyle != 0) android.graphics.Color.TRANSPARENT else getFgColor()
+        val colorStateList = ColorStateList.valueOf(color)
+        clock.setTextColor(colorStateList)
+        date.setTextColor(colorStateList) 
     }
 
     override fun onInit() {
