@@ -22,6 +22,7 @@ import android.app.Application;
 import android.content.Context;
 import android.content.res.Resources;
 import android.os.Build;
+import android.os.Process;
 import android.os.SystemProperties;
 import android.text.TextUtils;
 import android.util.Log;
@@ -61,6 +62,11 @@ public final class AttestationHooks {
     private AttestationHooks() { }
 
     public static void setProps(Context context) {
+        if (Process.isIsolated()) {
+            dlog("Skipping setProps in isolated process");
+            return;
+        }
+
         final String packageName = context.getPackageName();
         final String processName = Application.getProcessName();
 
