@@ -795,8 +795,8 @@ public class ApplicationPackageManager extends PackageManager {
             final List<FeatureInfo> list = new ArrayList<>(parceledList.getList());
 
             // Inject Tensor features when toggle is enabled
-            final boolean forceTensor = SystemProperties.getBoolean(
-                    "persist.sys.pp.tensor", false);
+            final boolean forceTensor = !Process.isIsolated() &&
+                    SystemProperties.getBoolean("persist.sys.pp.tensor", false);
 
             if (forceTensor && !IS_TENSOR_DEVICE) {
                 for (String feature : FEATURES_TENSOR) {
@@ -948,7 +948,8 @@ public class ApplicationPackageManager extends PackageManager {
         final String pkg = ActivityThread.currentPackageName();
 
         if (name != null && pkg != null && PRIV_PKGS.contains(pkg)) {
-            final boolean photosSpoof = "com.google.android.apps.photos".equals(pkg)
+            final boolean photosSpoof = !Process.isIsolated()
+                && "com.google.android.apps.photos".equals(pkg)
                 && SystemProperties.getBoolean("persist.sys.pp.photos", true);
             if (photosSpoof) {
                 if (FEATURES_PIXEL.contains(name)) return false;
@@ -964,8 +965,8 @@ public class ApplicationPackageManager extends PackageManager {
         }
 
         if (name != null && FEATURES_TENSOR.contains(name)) {
-            final boolean forceTensor = SystemProperties.getBoolean(
-                "persist.sys.pp.tensor", false);
+            final boolean forceTensor = !Process.isIsolated() &&
+                    SystemProperties.getBoolean("persist.sys.pp.tensor", false);
 
             // Do not interfere with real Tensor devices
             if (IS_TENSOR_DEVICE) {
