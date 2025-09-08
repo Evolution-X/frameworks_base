@@ -267,6 +267,11 @@ public final class PixelPropsUtils {
         propsToChangeGeneric.forEach((k, v) -> setPropValue(k, v));
         setGameProps(packageName);
 
+        if (android.os.Process.isIsolated()) {
+            if (DEBUG) Log.d(TAG, "Skipping setProps in isolated process");
+            return;
+        }
+
         if (packageName == null || processName == null || packageName.isEmpty()) {
             return;
         }
@@ -592,6 +597,11 @@ public final class PixelPropsUtils {
     }
 
     public static void onEngineGetCertificateChain() {
+        if (android.os.Process.isIsolated()) {
+            if (DEBUG) Log.d(TAG, "Skipping onEngineGetCertificateChain in isolated process");
+            return;
+        }
+
         Context context = ActivityThread.currentApplication() != null
                 ? ActivityThread.currentApplication().getApplicationContext()
                 : null;
