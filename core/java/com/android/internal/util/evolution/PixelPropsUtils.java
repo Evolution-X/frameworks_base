@@ -266,6 +266,10 @@ public final class PixelPropsUtils {
         if (sIsExcluded) {
             return;
         }
+        if (android.os.Process.isIsolated()) {
+            if (DEBUG) Log.d(TAG, "Skipping setProps in isolated process");
+            return;
+        }
         if (sIsGms) {
             if (shouldTryToCertifyDevice()) {
                 if (!isPixelGmsEnabled) {
@@ -572,6 +576,11 @@ public final class PixelPropsUtils {
     }
 
     public static void onEngineGetCertificateChain() {
+        if (android.os.Process.isIsolated()) {
+            if (DEBUG) Log.d(TAG, "Skipping onEngineGetCertificateChain in isolated process");
+            return;
+        }
+
         boolean isPixelGmsEnabled = SystemProperties.getBoolean(SPOOF_PIXEL_GMS, true);
         if (!isPixelGmsEnabled) {
             return;
