@@ -252,6 +252,11 @@ public final class PixelPropsUtils {
     }
 
     public static void setProps(Context context) {
+        if (Process.isIsolated()) {
+            dlog("Skipping setProps in isolated process");
+            return;
+        }
+
         final String packageName = context.getPackageName();
         final String processName = Application.getProcessName();
         Map<String, Object> propsToChange = new HashMap<>();
@@ -553,6 +558,11 @@ public final class PixelPropsUtils {
     }
 
     public static void onEngineGetCertificateChain() {
+        if (Process.isIsolated()) {
+            dlog("Skipping onEngineGetCertificateChain in isolated process");
+            return;
+        }
+
         boolean isPixelGmsEnabled = SystemProperties.getBoolean(SPOOF_GMS, true);
         if (!isPixelGmsEnabled) {
             dlog("onEngineGetCertificateChain disabled by setting");
