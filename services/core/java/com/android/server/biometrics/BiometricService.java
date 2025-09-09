@@ -110,6 +110,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
+import com.android.server.biometrics.sensors.face.sense.SenseUtils;
+
 /**
  * System service that arbitrates the modality for BiometricPrompt to use.
  */
@@ -259,6 +261,8 @@ public class BiometricService extends SystemService {
         // Some devices that shipped before S already have face-specific settings. Instead of
         // migrating, which is complicated, let's just keep using the existing settings.
         private final boolean mUseLegacyFaceOnlySettings;
+        private final boolean mUseFingerprint;
+        private final boolean mCanUseBiometrics;
 
         // Only used for legacy face-only devices
         private final Uri FACE_UNLOCK_KEYGUARD_ENABLED =
@@ -332,15 +336,18 @@ public class BiometricService extends SystemService {
             mUserManager = userManager;
             mTrustManager = trustManager;
 
-            final boolean hasFingerprint = context.getPackageManager()
+            mUseFingerprint = context.getPackageManager()
                     .hasSystemFeature(PackageManager.FEATURE_FINGERPRINT);
             final boolean hasFace = context.getPackageManager()
                     .hasSystemFeature(PackageManager.FEATURE_FACE);
 
             // Use the legacy setting on face-only devices that shipped on or before Q
             mUseLegacyFaceOnlySettings =
-                    Build.VERSION.DEVICE_INITIAL_SDK_INT <= Build.VERSION_CODES.Q
-                    && hasFace && !hasFingerprint;
+                    (Build.VERSION.DEVICE_INITIAL_SDK_INT <= Build.VERSION_CODES.Q
+                    && hasFace && !mUseFingerprint) || SenseUtils.canUseProvider();
+
+
+            mCanUseBiometrics = mUseLegacyFaceOnlySettings || mUseFingerprint;
 
             addBiometricListenersForMandatoryBiometrics(fingerprintManager, faceManager);
             updateContentObserver();
@@ -350,41 +357,36 @@ public class BiometricService extends SystemService {
             mContentResolver.unregisterContentObserver(this);
 
             if (mUseLegacyFaceOnlySettings) {
-                mContentResolver.registerContentObserver(FACE_UNLOCK_KEYGUARD_ENABLED,
+                mContentResolver.registerContentObserver(
+                        FACE_KEYGUARD_ENABLED,
                         false /* notifyForDescendants */,
                         this /* observer */,
-                        UserHandle.USER_ALL);
-                mContentResolver.registerContentObserver(FACE_UNLOCK_APP_ENABLED,
+                        UserHandle.USER_ALL
+                );
+                mContentResolver.registerContentObserver(
+                        FACE_APP_ENABLED,
                         false /* notifyForDescendants */,
                         this /* observer */,
-                        UserHandle.USER_ALL);
-            } else if (com.android.settings.flags.Flags.biometricsOnboardingEducation()) {
-                mContentResolver.registerContentObserver(FINGERPRINT_KEYGUARD_ENABLED,
-                        false /* notifyForDescendants */,
-                        this /* observer */,
-                        UserHandle.USER_ALL);
-                mContentResolver.registerContentObserver(FACE_KEYGUARD_ENABLED,
-                        false /* notifyForDescendants */,
-                        this /* observer */,
-                        UserHandle.USER_ALL);
-                mContentResolver.registerContentObserver(FINGERPRINT_APP_ENABLED,
-                        false /* notifyForDescendants */,
-                        this /* observer */,
-                        UserHandle.USER_ALL);
-                mContentResolver.registerContentObserver(FACE_APP_ENABLED,
-                        false /* notifyForDescendants */,
-                        this /* observer */,
-                        UserHandle.USER_ALL);
-            } else {
-                mContentResolver.registerContentObserver(BIOMETRIC_KEYGUARD_ENABLED,
-                        false /* notifyForDescendants */,
-                        this /* observer */,
-                        UserHandle.USER_ALL);
-                mContentResolver.registerContentObserver(BIOMETRIC_APP_ENABLED,
-                        false /* notifyForDescendants */,
-                        this /* observer */,
-                        UserHandle.USER_ALL);
+                        UserHandle.USER_ALL
+                );
             }
+
+            if (mUseFingerprint) {
+                mContentResolver.registerContentObserver(
+                        FINGERPRINT_KEYGUARD_ENABLED,
+                        false /* notifyForDescendants */,
+                        this /* observer */,
+                        UserHandle.USER_ALL
+                );
+                mContentResolver.registerContentObserver(
+                        FINGERPRINT_APP_ENABLED,
+                        false /* notifyForDescendants */,
+                        this /* observer */,
+                        UserHandle.USER_ALL
+                );
+            }
+
+
             mContentResolver.registerContentObserver(FACE_UNLOCK_ALWAYS_REQUIRE_CONFIRMATION,
                     false /* notifyForDescendants */,
                     this /* observer */,
@@ -516,7 +518,7 @@ public class BiometricService extends SystemService {
         }
 
         public boolean getEnabledOnKeyguard(int userId, int modality) {
-            if (com.android.settings.flags.Flags.biometricsOnboardingEducation()) {
+            if (mCanUseBiometrics) {
                 if (modality == TYPE_FACE) {
                     if (mFaceEnabledOnKeyguard.indexOfKey(userId) < 0) {
                         onChange(true /* selfChange */, FACE_KEYGUARD_ENABLED, userId);
@@ -544,7 +546,7 @@ public class BiometricService extends SystemService {
         }
 
         public boolean getEnabledForApps(int userId, int modality) {
-            if (com.android.settings.flags.Flags.biometricsOnboardingEducation()) {
+            if (mCanUseBiometrics) {
                 if (modality == TYPE_FACE) {
                     if (mFaceEnabledForApps.indexOfKey(userId) < 0) {
                         onChange(true /* selfChange */, FACE_APP_ENABLED, userId);
@@ -601,9 +603,13 @@ public class BiometricService extends SystemService {
                     DEFAULT_MANDATORY_BIOMETRICS_REQUIREMENTS_SATISFIED_STATUS)
                     && getBiometricStatusForIdentityCheck(userId);
         }
+        
+        public boolean canUseBiometrics() {
+            return mCanUseBiometrics;
+        }
 
         private boolean getBiometricStatusForIdentityCheck(int userId) {
-            if (com.android.settings.flags.Flags.biometricsOnboardingEducation()) {
+            if (mCanUseBiometrics) {
                 if (mFingerprintEnrolledForUser.getOrDefault(userId, false /* default */)
                         && getEnabledForApps(userId, TYPE_FINGERPRINT)) {
                     return true;
@@ -1150,7 +1156,7 @@ public class BiometricService extends SystemService {
             try {
                 for (UserInfo userInfo: aliveUsers) {
                     final int userId = userInfo.id;
-                    if (com.android.settings.flags.Flags.biometricsOnboardingEducation()) {
+                    if (mSettingObserver.canUseBiometrics()) {
                         callback.onChanged(mSettingObserver.getEnabledOnKeyguard(userId, TYPE_FACE),
                                 userId, TYPE_FACE);
                         callback.onChanged(
@@ -1556,7 +1562,7 @@ public class BiometricService extends SystemService {
                         @Override
                         public void onUserSwitchComplete(int newUserId) {
                             mSettingObserver.updateContentObserver();
-                            if (com.android.settings.flags.Flags.biometricsOnboardingEducation()) {
+                            if (mSettingObserver.canUseBiometrics()) {
                                 mSettingObserver.notifyEnabledOnKeyguardCallbacks(newUserId,
                                         TYPE_FACE);
                                 mSettingObserver.notifyEnabledOnKeyguardCallbacks(
