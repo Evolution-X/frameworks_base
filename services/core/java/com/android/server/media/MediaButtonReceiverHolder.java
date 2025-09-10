@@ -65,7 +65,7 @@ final class MediaButtonReceiverHolder {
     // Filter apps regardless of the phone's locked/unlocked state.
     private static final int PACKAGE_MANAGER_COMMON_FLAGS =
             PackageManager.MATCH_DIRECT_BOOT_AWARE | PackageManager.MATCH_DIRECT_BOOT_UNAWARE;
-
+    private static final int MAX_COMPONENT_NAME_LENGTH = 1024;
     private final int mUserId;
     private final PendingIntent mPendingIntent;
     private final ComponentName mComponentName;
@@ -370,6 +370,13 @@ final class MediaButtonReceiverHolder {
             if (componentInfo != null && TextUtils.equals(componentInfo.packageName,
                     pendingIntent.getCreatorPackage())
                     && componentInfo.packageName != null && componentInfo.name != null) {
+                int componentNameLength =
+                        componentInfo.packageName.length() + componentInfo.name.length() + 1;
+                if (componentNameLength > MAX_COMPONENT_NAME_LENGTH) {
+                    Log.w(TAG, "detected and ignored component name with overly long package"
+                            + " or name, pi=" + pendingIntent);
+                    continue;
+                }
                 return new ComponentName(componentInfo.packageName, componentInfo.name);
             }
         }
