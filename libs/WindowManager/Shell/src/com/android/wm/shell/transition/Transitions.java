@@ -43,7 +43,6 @@ import static com.android.wm.shell.sysui.ShellSharedConstants.KEY_EXTRA_SHELL_SH
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.app.ActivityTaskManager;
-import android.app.IApplicationThread;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.database.ContentObserver;
@@ -442,10 +441,10 @@ public class Transitions implements RemoteCallable<Transitions>,
     }
 
     /** Boosts the process priority of remote animation player. */
-    public static void setRunningRemoteTransitionDelegate(IApplicationThread appThread) {
-        if (appThread == null) return;
+    public static void setRunningRemoteTransitionDelegate(IBinder transitionToken) {
+        if (transitionToken == null) return;
         try {
-            ActivityTaskManager.getService().setRunningRemoteTransitionDelegate(appThread);
+            ActivityTaskManager.getService().setRunningRemoteTransitionDelegate(transitionToken);
         } catch (SecurityException e) {
             Log.e(TAG, "Unable to boost animation process. This should only happen"
                     + " during unit tests");

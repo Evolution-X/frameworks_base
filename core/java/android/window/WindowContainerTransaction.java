@@ -434,6 +434,21 @@ public final class WindowContainerTransaction implements Parcelable {
     }
 
     /**
+     * Informs WM that a non-shell process is expected to animate this transition. This is only
+     * used for recents-launch since it has a special way to delegate remote animation. For normal
+     * launches, RemoteTransition in ActivityOptions provides the delegate.
+     * @hide
+     */
+    @NonNull
+    public WindowContainerTransaction setAnimationDelegate(@NonNull IBinder delegate) {
+        mHierarchyOps.add(new HierarchyOp.Builder(
+                HierarchyOp.HIERARCHY_OP_TYPE_SET_ANIMATION_DELEGATE)
+                .setInsetsFrameOwner(delegate)
+                .build());
+        return this;
+    }
+
+    /**
      * Sets to containers adjacent to each other. Containers below two visible adjacent roots will
      * be made invisible. This currently only applies to TaskFragment containers created by
      * organizer.
@@ -1377,6 +1392,7 @@ public final class WindowContainerTransaction implements Parcelable {
         public static final int HIERARCHY_OP_TYPE_SET_REPARENT_LEAF_TASK_IF_RELAUNCH = 16;
         public static final int HIERARCHY_OP_TYPE_ADD_TASK_FRAGMENT_OPERATION = 17;
         public static final int HIERARCHY_OP_TYPE_MOVE_PIP_ACTIVITY_TO_PINNED_TASK = 18;
+        public static final int HIERARCHY_OP_TYPE_SET_ANIMATION_DELEGATE = 19;
 
         // The following key(s) are for use with mLaunchOptions:
         // When launching a task (eg. from recents), this is the taskId to be launched.
@@ -1682,6 +1698,7 @@ public final class WindowContainerTransaction implements Parcelable {
                     return "setReparentLeafTaskIfRelaunch";
                 case HIERARCHY_OP_TYPE_ADD_TASK_FRAGMENT_OPERATION:
                     return "addTaskFragmentOperation";
+                case HIERARCHY_OP_TYPE_SET_ANIMATION_DELEGATE: return "setAnimationDelegate";
                 default: return "HOP(" + type + ")";
             }
         }
@@ -1754,6 +1771,9 @@ public final class WindowContainerTransaction implements Parcelable {
                 case HIERARCHY_OP_TYPE_ADD_TASK_FRAGMENT_OPERATION:
                     sb.append("fragmentToken= ").append(mContainer)
                             .append(" operation= ").append(mTaskFragmentOperation);
+                    break;
+                case HIERARCHY_OP_TYPE_SET_ANIMATION_DELEGATE:
+                    sb.append(" caller=").append(mInsetsFrameOwner);
                     break;
                 default:
                     sb.append("container=").append(mContainer)

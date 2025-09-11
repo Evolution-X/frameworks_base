@@ -353,6 +353,9 @@ class SplitScreenTransitions {
                     + " skip to start enter split transition since it already exist. ");
             return null;
         }
+        if (remoteTransition != null && remoteTransition.getAppThread() != null) {
+            wct.setAnimationDelegate(remoteTransition.getAppThread().asBinder());
+        }
         final IBinder transition = mTransitions.startTransition(transitType, wct, handler);
         setEnterTransition(transition, remoteTransition, extraTransitType, resizeAnim);
         return transition;

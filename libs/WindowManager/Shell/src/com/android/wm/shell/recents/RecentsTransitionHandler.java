@@ -131,6 +131,7 @@ public class RecentsTransitionHandler implements Transitions.TransitionHandler {
         mAnimApp = appThread;
         WindowContainerTransaction wct = new WindowContainerTransaction();
         wct.sendPendingIntent(intent, fillIn, options);
+        wct.setAnimationDelegate(appThread.asBinder());
         final RecentsController controller = new RecentsController(listener);
         RecentsMixedHandler mixer = null;
         Consumer<IBinder> setTransitionForMixer = null;
@@ -196,7 +197,7 @@ public class RecentsTransitionHandler implements Transitions.TransitionHandler {
                     "RecentsTransitionHandler.startAnimation: failed to start animation");
             return false;
         }
-        Transitions.setRunningRemoteTransitionDelegate(animApp);
+        Transitions.setRunningRemoteTransitionDelegate(transition);
         return true;
     }
 

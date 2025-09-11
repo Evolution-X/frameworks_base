@@ -89,7 +89,8 @@ public class OneShotRemoteHandler implements Transitions.TransitionHandler {
                 });
             }
         };
-        Transitions.setRunningRemoteTransitionDelegate(mRemote.getAppThread());
+        Transitions.setRunningRemoteTransitionDelegate(transition);
+
         try {
             if (mRemote.asBinder() != null) {
                 mRemote.asBinder().linkToDeath(remoteDied, 0 /* flags */);
