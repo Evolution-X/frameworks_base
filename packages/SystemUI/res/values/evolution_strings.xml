@@ -41,4 +41,9 @@
     <string name="tristate_rotation_0">Portrait</string>
     <string name="tristate_rotation_90">Landscape (90°)</string>
     <string name="tristate_rotation_270">Landscape (270°)</string>
+
+    <!-- Flashlight Strength -->
+    <string name="flashlight_strength_title">Flashlight Strength</string>
+    <string name="flashlight_strength_turn_off">Turn off</string>
+    <string name="flashlight_strength_turn_on">Turn on</string>
 </resources>
