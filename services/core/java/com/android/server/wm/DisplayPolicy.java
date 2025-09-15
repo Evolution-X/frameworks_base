@@ -155,6 +155,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.function.Consumer;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.Collections;
 
 /**
  * The policy that provides the basic behaviors and states of a display to show UI.
@@ -341,6 +344,9 @@ public class DisplayPolicy {
      */
     private final ArrayList<WindowState> mStatusBarBackgroundWindows = new ArrayList<>();
 
+    // Fullscreen cutout app
+    private final Set<String> mFullscreenCutoutApps;
+
     /**
      * A collection of {@link LetterboxDetails} of all visible activities to be sent to SysUI in
      * order to determine status bar appearance
@@ -443,6 +449,10 @@ public class DisplayPolicy {
         mDisplayContent = displayContent;
         mDecorInsets = new DecorInsets(displayContent);
         mLock = service.getWindowManagerLock();
+
+        String[] pkgs = mContext.getResources().getStringArray(
+                com.android.internal.R.array.config_fullscreenCutoutApps);
+        mFullscreenCutoutApps = new HashSet<>(Arrays.asList(pkgs));
 
         final int displayId = displayContent.getDisplayId();
 
@@ -1461,6 +1471,13 @@ public class DisplayPolicy {
             @NonNull DisplayFrames displayFrames) {
         if (win.skipLayout()) {
             return;
+        }
+
+        final WindowManager.LayoutParams lp = win.mAttrs;
+        String pkg = win.getOwningPackage();
+        if (lp != null && pkg != null && mFullscreenCutoutApps.contains(pkg)) {
+            lp.layoutInDisplayCutoutMode =
+                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
         }
 
         // This window might be in the simulated environment.
