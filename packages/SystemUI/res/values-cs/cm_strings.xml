@@ -71,4 +71,16 @@
     <string name="screenshot_delete_label">Smazat</string>
     <string name="screenshot_delete_description">Smazat snímky obrazovky</string>
     <string name="screenrecord_delete_label">Smazat</string>
+    <string name="screenrecord_delete_description">Záznam obrazovky smazán</string>
+    <string name="screenrecord_stopdot_label">Zobrazit tečku pro zastavení</string>
+    <string name="screenrecord_stopdot_summary">Dlouhým stisknutím jej přesunete</string>
+    <string name="screenrecord_lowquality_label">Nižší kvalita</string>
+    <string name="screenrecord_lowquality_summary">Pro menší velikost souboru</string>
+    <string name="screenrecord_longer_timeout_switch_label">Omezení větší velikosti souborů</string>
+    <string name="screenrecord_longer_timeout_switch_summary">Omezit velikost nahrávání na 15 GB</string>
+    <string name="screenrecord_skip_time_label">Přeskočit časovač</string>
+    <string name="screenrecord_skip_time_summary">Odstranit 3 sekundy čekání</string>
+    <string name="screenrecord_hevc_switch_label">HEVC kódování</string>
+    <string name="screenrecord_hevc_switch_summary">Použít účinnější HEVC enkodér</string>
+    <string name="battery_notification_channel_tv">Upozornění na stav baterie</string>
 </resources>
