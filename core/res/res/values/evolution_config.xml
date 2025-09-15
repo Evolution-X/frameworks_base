@@ -71,4 +71,10 @@
     <string name="config_pocketJudgeVendorSensorName"></string>
     <item name="config_pocketJudgeVendorSensorValue" format="float" type="dimen">1.0</item>
     <string name="config_pocketJudgeVendorProximitySensorName"></string>
+
+    <!-- Force Fullscreen apps -->
+    <string-array name="config_fullscreenCutoutApps">
+        <!-- List the package name here -->
+        <item>com.amazon.avod.thirdpartyclient</item>
+    </string-array>
 </resources>

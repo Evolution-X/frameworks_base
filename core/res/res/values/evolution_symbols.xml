@@ -110,4 +110,7 @@
     <java-symbol type="string" name="config_pocketJudgeVendorSensorName" />
     <java-symbol type="dimen" name="config_pocketJudgeVendorSensorValue" />
     <java-symbol type="string" name="config_pocketJudgeVendorProximitySensorName" />
+
+    <!-- Force Fullscreen apps -->
+    <java-symbol type="array" name="config_fullscreenCutoutApps" />
 </resources>
