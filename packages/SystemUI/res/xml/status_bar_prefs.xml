@@ -177,4 +177,10 @@
         android:title="@string/data_disabled_icon_title"
         sysui:defValue="true" />
 
+    <com.android.systemui.tuner.TunerSwitch
+        android:icon="@drawable/ic_statusbar_wifi_standard_icon"
+        android:key="system:wifi_standard_icon"
+        android:title="@string/wifi_standard_icon_title"
+        sysui:defValue="false" />
+
 </PreferenceScreen>
