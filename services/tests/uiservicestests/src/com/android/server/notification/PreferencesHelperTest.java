@@ -143,6 +143,7 @@ import com.android.os.AtomsProto.PackageNotificationChannelPreferences;
 import com.android.os.AtomsProto.PackageNotificationPreferences;
 import com.android.server.UiServiceTestCase;
 import com.android.server.notification.PermissionHelper.PackagePermission;
+import com.android.server.uri.UriGrantsManagerInternal;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -1455,7 +1456,6 @@ public class PreferencesHelperTest extends UiServiceTestCase {
         assertTrue(actualChannel.isSoundRestored());
     }
 
-
     /**
      * Although we don't make backups with uncanonicalized uris anymore, we used to, so we have to
      * handle its restore properly.
@@ -2726,7 +2726,21 @@ public class PreferencesHelperTest extends UiServiceTestCase {
     }
 
     @Test
-    public void testCreateChannel_noSoundUriPermission_contentSchemeVerified() {
+    public void testCreateChannel_hasSoundUriPermission_useCustomSound() {
+        final Uri sound = Uri.parse(SCHEME_CONTENT + "://media/test/sound/uri");
+
+        final NotificationChannel channel = new NotificationChannel("id2", "name2",
+                NotificationManager.IMPORTANCE_DEFAULT);
+        channel.setSound(sound, mAudioAttributes);
+        mHelper.createNotificationChannel(PKG_N_MR1, UID_N_MR1, channel, true, false, UID_N_MR1,
+                false);
+        assertThat(mHelper.getNotificationChannel(PKG_N_MR1, UID_N_MR1, channel.getId(), true)
+                .getSound()).isEqualTo(sound);
+    }
+
+
+    @Test
+    public void testCreateChannel_noSoundUriPermission_replaceWithDefaultSound() {
         final Uri sound = Uri.parse(SCHEME_CONTENT + "://media/test/sound/uri");
 
         doThrow(new SecurityException("no access")).when(mUgmInternal)
@@ -2736,12 +2750,12 @@ public class PreferencesHelperTest extends UiServiceTestCase {
         final NotificationChannel channel = new NotificationChannel("id2", "name2",
                 NotificationManager.IMPORTANCE_DEFAULT);
         channel.setSound(sound, mAudioAttributes);
-
-        assertThrows(SecurityException.class,
-                () -> mHelper.createNotificationChannel(PKG_N_MR1, UID_N_MR1, channel,
-                    true, false, UID_N_MR1, false));
+        mHelper.createNotificationChannel(PKG_N_MR1, UID_N_MR1, channel, true, false, UID_N_MR1,
+                false);
         assertThat(mHelper.getNotificationChannel(PKG_N_MR1, UID_N_MR1, channel.getId(), true))
-                .isNull();
+                .isNotNull();
+        assertThat(mHelper.getNotificationChannel(PKG_N_MR1, UID_N_MR1, channel.getId(), true)
+                .getSound()).isEqualTo(Settings.System.DEFAULT_NOTIFICATION_URI);
     }
 
     @Test

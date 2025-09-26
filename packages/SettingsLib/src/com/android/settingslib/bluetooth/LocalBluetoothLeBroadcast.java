@@ -57,12 +57,12 @@ import com.google.common.collect.ImmutableList;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -89,6 +89,10 @@ public class LocalBluetoothLeBroadcast implements LocalBluetoothProfile {
     private static final String SETTINGS_PKG = "com.android.settings";
     private static final String TAG = "LocalBluetoothLeBroadcast";
     private static final boolean DEBUG = BluetoothUtils.D;
+    private static final String VALID_PASSWORD_CHARACTERS =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+[]{}|;:,"
+                    + ".<>?/";
+    private static final int PASSWORD_LENGTH = 16;
 
     static final String NAME = "LE_AUDIO_BROADCAST";
     private static final String UNDERLINE = "_";
@@ -979,10 +983,16 @@ public class LocalBluetoothLeBroadcast implements LocalBluetoothProfile {
         mBroadcastId = UNKNOWN_VALUE_PLACEHOLDER;
     }
 
-    private String generateRandomPassword() {
-        String randomUUID = UUID.randomUUID().toString();
-        // first 12 chars from xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
-        return randomUUID.substring(0, 8) + randomUUID.substring(9, 13);
+    private static String generateRandomPassword() {
+        SecureRandom random = new SecureRandom();
+        StringBuilder stringBuilder = new StringBuilder(PASSWORD_LENGTH);
+
+        for (int i = 0; i < PASSWORD_LENGTH; i++) {
+            int randomIndex = random.nextInt(VALID_PASSWORD_CHARACTERS.length());
+            stringBuilder.append(VALID_PASSWORD_CHARACTERS.charAt(randomIndex));
+        }
+
+        return stringBuilder.toString();
     }
 
     private void registerContentObserver() {

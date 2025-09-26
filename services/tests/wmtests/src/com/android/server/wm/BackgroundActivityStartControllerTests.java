@@ -108,6 +108,8 @@ public class BackgroundActivityStartControllerTests {
     AppOpsManager mAppOpsManager;
     MirrorActiveUids mActiveUids = new MirrorActiveUids();
     WindowProcessControllerMap mProcessMap = new WindowProcessControllerMap();
+    @Mock
+    VisibleActivityProcessTracker mVisibleActivityProcessTracker;
 
     @Mock
     ActivityTaskSupervisor mSupervisor;
@@ -184,6 +186,8 @@ public class BackgroundActivityStartControllerTests {
         mService.mRootWindowContainer = mRootWindowContainer;
         Mockito.when(mService.getAppOpsManager()).thenReturn(mAppOpsManager);
         setViaReflection(mService, "mProcessMap", mProcessMap);
+        setViaReflection(mService, "mVisibleActivityProcessTracker",
+                mVisibleActivityProcessTracker);
 
         //Mockito.when(mSupervisor.getBackgroundActivityLaunchController()).thenReturn(mController);
         setViaReflection(mSupervisor, "mRecentTasks", mRecentTasks);
@@ -506,8 +510,9 @@ public class BackgroundActivityStartControllerTests {
         assertThat(balState.realCallerExplicitOptInOrOut()).isFalse();
         assertThat(balState.toString()).isEqualTo(
                 "[callingPackage: package.app1; callingPackageTargetSdk: -1; callingUid: 10001; "
-                        + "callingPid: 11001; appSwitchState: 0; callingUidHasAnyVisibleWindow: "
-                        + "false; callingUidProcState: NONEXISTENT; "
+                        + "callingPid: 11001; appSwitchState: 0; callingUidHasVisibleActivity: "
+                        + "false; callingUidHasVisibleNotPinnedActivity: false; "
+                        + "callingUidHasNonAppVisibleWindow: false; callingUidProcState: NONEXISTENT; "
                         + "isCallingUidPersistentSystemProcess: false; forcedBalByPiSender: BSP"
                         + ".NONE; intent: Intent { cmp=package.app3/someClass }; callerApp: "
                         + "mCallerApp; inVisibleTask: false; balAllowedByPiCreator: BSP"
@@ -590,8 +595,9 @@ public class BackgroundActivityStartControllerTests {
         assertThat(balState.realCallerExplicitOptInOrOut()).isFalse();
         assertThat(balState.toString()).isEqualTo(
                 "[callingPackage: package.app1; callingPackageTargetSdk: -1; callingUid: 10001; "
-                        + "callingPid: 11001; appSwitchState: 0; callingUidHasAnyVisibleWindow: "
-                        + "false; callingUidProcState: NONEXISTENT; "
+                        + "callingPid: 11001; appSwitchState: 0; callingUidHasVisibleActivity: "
+                        + "false; callingUidHasVisibleNotPinnedActivity: false; "
+                        + "callingUidHasNonAppVisibleWindow: false; callingUidProcState: NONEXISTENT; "
                         + "isCallingUidPersistentSystemProcess: false; forcedBalByPiSender: BSP"
                         + ".NONE; intent: Intent { cmp=package.app3/someClass }; callerApp: "
                         + "mCallerApp; inVisibleTask: false; balAllowedByPiCreator: BSP"
@@ -600,7 +606,9 @@ public class BackgroundActivityStartControllerTests {
                         + "isCallForResult: false; isPendingIntent: true; autoOptInReason: "
                         + "null; realCallingPackage: uid=1[debugOnly]; "
                         + "realCallingPackageTargetSdk: -1; realCallingUid: 1; realCallingPid: 1;"
-                        + " realCallingUidHasAnyVisibleWindow: false; realCallingUidProcState: "
+                        + " realCallingUidHasVisibleActivity: false; "
+                        + "realCallingUidHasVisibleNotPinnedActivity: false; "
+                        + "realCallingUidHasNonAppVisibleWindow: false; realCallingUidProcState: "
                         + "NONEXISTENT; isRealCallingUidPersistentSystemProcess: false; "
                         + "originatingPendingIntent: PendingIntentRecord; realCallerApp: null; "
                         + "balAllowedByPiSender: BSP.ALLOW_FGS; resultIfPiSenderAllowsBal: null]");

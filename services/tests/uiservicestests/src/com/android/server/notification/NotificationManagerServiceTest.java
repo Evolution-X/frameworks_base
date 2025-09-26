@@ -4057,15 +4057,15 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
 
         doThrow(new SecurityException("no access")).when(mUgmInternal)
                 .checkGrantUriPermission(eq(Process.myUid()), any(), eq(soundUri),
-                anyInt(), eq(Process.myUserHandle().getIdentifier()));
+                    anyInt(), eq(Process.myUserHandle().getIdentifier()));
 
         mBinderService.updateNotificationChannelFromPrivilegedListener(
-                null, mPkg, Process.myUserHandle(), updatedNotificationChannel);
+                null, PKG, Process.myUserHandle(), updatedNotificationChannel);
 
         verify(mPreferencesHelper, times(1)).updateNotificationChannel(
                 anyString(), anyInt(), any(), anyBoolean(),  anyInt(), anyBoolean());
 
-        verify(mListeners, never()).notifyNotificationChannelChanged(eq(mPkg),
+        verify(mListeners, never()).notifyNotificationChannelChanged(eq(PKG),
                 eq(Process.myUserHandle()), eq(mTestNotificationChannel),
                 eq(NotificationListenerService.NOTIFICATION_CHANNEL_OR_GROUP_UPDATED));
     }
@@ -4073,7 +4073,7 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
     @Test
     public void
         testUpdateNotificationChannelFromPrivilegedListener_oldSoundNoUriPerm_newSoundHasUriPerm()
-            throws Exception {
+                throws Exception {
         mService.setPreferencesHelper(mPreferencesHelper);
         when(mCompanionMgr.getAssociations(mPkg, mUserId))
                 .thenReturn(singletonList(mock(AssociationInfo.class)));
@@ -4095,12 +4095,12 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
                 updatedNotificationChannel.getAudioAttributes());
 
         mBinderService.updateNotificationChannelFromPrivilegedListener(
-                null, PKG, Process.myUserHandle(), updatedNotificationChannel);
+                null, mPkg, Process.myUserHandle(), updatedNotificationChannel);
 
         verify(mPreferencesHelper, times(1)).updateNotificationChannel(
                 anyString(), anyInt(), any(), anyBoolean(),  anyInt(), anyBoolean());
 
-        verify(mListeners, never()).notifyNotificationChannelChanged(eq(PKG),
+        verify(mListeners, never()).notifyNotificationChannelChanged(eq(mPkg),
                 eq(Process.myUserHandle()), eq(mTestNotificationChannel),
                 eq(NotificationListenerService.NOTIFICATION_CHANNEL_OR_GROUP_UPDATED));
     }

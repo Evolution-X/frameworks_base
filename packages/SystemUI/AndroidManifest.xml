@@ -901,7 +901,6 @@
                   android:launchMode="singleInstance"
                   android:configChanges="screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|orientation"
                   android:visibleToInstantApps="true"
-                  android:exported="true"
                   />
 
         <activity

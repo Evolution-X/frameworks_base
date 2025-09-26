@@ -239,7 +239,9 @@ public class BackgroundActivityStartController {
         private final int mCallingUid;
         private final int mCallingPid;
         private final @ActivityTaskManagerService.AppSwitchState int mAppSwitchState;
-        private final boolean mCallingUidHasAnyVisibleWindow;
+        private final boolean mCallingUidHasVisibleActivity;
+        private final boolean mCallingUidHasVisibleNotPinnedActivity;
+        private final boolean mCallingUidHasNonAppVisibleWindow;
         private final @ActivityManager.ProcessState int mCallingUidProcState;
         private final boolean mIsCallingUidPersistentSystemProcess;
         final BackgroundStartPrivileges mBalAllowedByPiSender;
@@ -248,7 +250,9 @@ public class BackgroundActivityStartController {
         private final String mRealCallingPackage;
         private final int mRealCallingUid;
         private final int mRealCallingPid;
-        private final boolean mRealCallingUidHasAnyVisibleWindow;
+        private final boolean mRealCallingUidHasVisibleActivity;
+        private final boolean mRealCallingUidHasVisibleNotPinnedActivity;
+        private final boolean mRealCallingUidHasNonAppVisibleWindow;
         private final @ActivityManager.ProcessState int mRealCallingUidProcState;
         private final boolean mIsRealCallingUidPersistentSystemProcess;
         private final PendingIntentRecord mOriginatingPendingIntent;
@@ -343,16 +347,25 @@ public class BackgroundActivityStartController {
             mCallingUidProcState = mService.mActiveUids.getUidState(callingUid);
             mIsCallingUidPersistentSystemProcess =
                     mCallingUidProcState <= ActivityManager.PROCESS_STATE_PERSISTENT_UI;
-            mCallingUidHasAnyVisibleWindow = mService.hasActiveVisibleWindow(callingUid);
+            mCallingUidHasVisibleActivity =
+                    mService.mVisibleActivityProcessTracker.hasVisibleActivity(callingUid);
+            mCallingUidHasVisibleNotPinnedActivity = mService.mVisibleActivityProcessTracker
+                    .hasVisibleNotPinnedActivity(callingUid);
+            mCallingUidHasNonAppVisibleWindow = mService.mActiveUids.hasNonAppVisibleWindow(
+                    callingUid);
             if (realCallingUid == NO_PROCESS_UID) {
                 // no process provided
                 mRealCallingUidProcState = PROCESS_STATE_NONEXISTENT;
-                mRealCallingUidHasAnyVisibleWindow = false;
+                mRealCallingUidHasVisibleActivity = false;
+                mRealCallingUidHasNonAppVisibleWindow = false;
+                mRealCallingUidHasVisibleNotPinnedActivity = false;
                 mRealCallerApp = null;
                 mIsRealCallingUidPersistentSystemProcess = false;
             } else if (callingUid == realCallingUid) {
                 mRealCallingUidProcState = mCallingUidProcState;
-                mRealCallingUidHasAnyVisibleWindow = mCallingUidHasAnyVisibleWindow;
+                mRealCallingUidHasVisibleActivity = mCallingUidHasVisibleActivity;
+                mRealCallingUidHasVisibleNotPinnedActivity = mCallingUidHasVisibleNotPinnedActivity;
+                mRealCallingUidHasNonAppVisibleWindow = mCallingUidHasNonAppVisibleWindow;
                 // In the PendingIntent case callerApp is not passed in, so resolve it ourselves.
                 mRealCallerApp = callerApp == null
                         ? mService.getProcessController(realCallingPid, realCallingUid)
@@ -360,8 +373,14 @@ public class BackgroundActivityStartController {
                 mIsRealCallingUidPersistentSystemProcess = mIsCallingUidPersistentSystemProcess;
             } else {
                 mRealCallingUidProcState = mService.mActiveUids.getUidState(realCallingUid);
-                mRealCallingUidHasAnyVisibleWindow =
-                        mService.hasActiveVisibleWindow(realCallingUid);
+                mRealCallingUidHasVisibleActivity =
+                        mService.mVisibleActivityProcessTracker.hasVisibleActivity(
+                                realCallingUid);
+                mRealCallingUidHasVisibleNotPinnedActivity =
+                        mService.mVisibleActivityProcessTracker.hasVisibleNotPinnedActivity(
+                                realCallingUid);
+                mRealCallingUidHasNonAppVisibleWindow =
+                        mService.mActiveUids.hasNonAppVisibleWindow(realCallingUid);
                 mRealCallerApp = mService.getProcessController(realCallingPid, realCallingUid);
                 mIsRealCallingUidPersistentSystemProcess =
                         mRealCallingUidProcState <= ActivityManager.PROCESS_STATE_PERSISTENT_UI;
@@ -458,7 +477,11 @@ public class BackgroundActivityStartController {
             sb.append("; callingUid: ").append(mCallingUid);
             sb.append("; callingPid: ").append(mCallingPid);
             sb.append("; appSwitchState: ").append(mAppSwitchState);
-            sb.append("; callingUidHasAnyVisibleWindow: ").append(mCallingUidHasAnyVisibleWindow);
+            sb.append("; callingUidHasVisibleActivity: ").append(mCallingUidHasVisibleActivity);
+            sb.append("; callingUidHasVisibleNotPinnedActivity: ")
+                    .append(mCallingUidHasVisibleNotPinnedActivity);
+            sb.append("; callingUidHasNonAppVisibleWindow: ").append(
+                    mCallingUidHasNonAppVisibleWindow);
             sb.append("; callingUidProcState: ").append(DebugUtils.valueToString(
                     ActivityManager.class, "PROCESS_STATE_", mCallingUidProcState));
             sb.append("; isCallingUidPersistentSystemProcess: ")
@@ -484,8 +507,12 @@ public class BackgroundActivityStartController {
                         .append(getTargetSdk(mRealCallingPackage));
                 sb.append("; realCallingUid: ").append(mRealCallingUid);
                 sb.append("; realCallingPid: ").append(mRealCallingPid);
-                sb.append("; realCallingUidHasAnyVisibleWindow: ")
-                        .append(mRealCallingUidHasAnyVisibleWindow);
+                sb.append("; realCallingUidHasVisibleActivity: ")
+                        .append(mRealCallingUidHasVisibleActivity);
+                sb.append("; realCallingUidHasVisibleNotPinnedActivity: ")
+                        .append(mRealCallingUidHasVisibleNotPinnedActivity);
+                sb.append("; realCallingUidHasNonAppVisibleWindow: ")
+                        .append(mRealCallingUidHasNonAppVisibleWindow);
                 sb.append("; realCallingUidProcState: ").append(DebugUtils.valueToString(
                         ActivityManager.class, "PROCESS_STATE_", mRealCallingUidProcState));
                 sb.append("; isRealCallingUidPersistentSystemProcess: ")
@@ -566,6 +593,10 @@ public class BackgroundActivityStartController {
         private boolean mOnlyCreatorAllows;
         /** indicates that this verdict is based on the real calling UID and not the calling UID */
         private boolean mBasedOnRealCaller;
+
+        BalVerdict(@BalCode int balCode, String message) {
+            this(balCode, true, message);
+        }
 
         BalVerdict(@BalCode int balCode, boolean background, String message) {
             this.mBackground = background;
@@ -847,9 +878,9 @@ public class BackgroundActivityStartController {
         // is allowed, or apps like live wallpaper with non app visible window will be allowed.
         final boolean appSwitchAllowedOrFg =
                 appSwitchState == APP_SWITCH_ALLOW || appSwitchState == APP_SWITCH_FG_ONLY;
-        if (appSwitchAllowedOrFg && callingUidHasAnyVisibleWindow) {
+        if (appSwitchAllowedOrFg && state.mCallingUidHasVisibleNotPinnedActivity) {
             return new BalVerdict(BAL_ALLOW_VISIBLE_WINDOW,
-                    /*background*/ false, "callingUid has visible window");
+                    "callingUid has visible non-pinned window");
         }
         if (mService.mActiveUids.hasNonAppVisibleWindow(callingUid)) {
             return new BalVerdict(BAL_ALLOW_NON_APP_VISIBLE_WINDOW,
@@ -943,7 +974,7 @@ public class BackgroundActivityStartController {
                 || state.mAppSwitchState == APP_SWITCH_FG_ONLY
                 || isHomeApp(state.mRealCallingUid, state.mRealCallingPackage);
         if (balImproveRealCallerVisibilityCheck()) {
-            if (appSwitchAllowedOrFg && state.mRealCallingUidHasAnyVisibleWindow) {
+            if (appSwitchAllowedOrFg && state.mRealCallingUidHasVisibleNotPinnedActivity) {
                 return new BalVerdict(BAL_ALLOW_VISIBLE_WINDOW,
                         /*background*/ false, "realCallingUid has visible window");
             }
@@ -954,7 +985,8 @@ public class BackgroundActivityStartController {
         } else {
             // don't abort if the realCallingUid has a visible window
             // TODO(b/171459802): We should check appSwitchAllowed also
-            if (state.mRealCallingUidHasAnyVisibleWindow) {
+            if (state.mRealCallingUidHasVisibleNotPinnedActivity
+                    || mService.mActiveUids.hasNonAppVisibleWindow(state.mRealCallingUid)) {
                 return new BalVerdict(BAL_ALLOW_VISIBLE_WINDOW,
                         /*background*/ false,
                         "realCallingUid has visible (non-toast) window.");
@@ -1660,10 +1692,10 @@ public class BackgroundActivityStartController {
                             state.mCallingUid,
                             state.mCallingPackage,
                             state.mCallingUidProcState,
-                            state.mCallingUidHasAnyVisibleWindow,
+                            state.mCallingUidHasVisibleActivity,
                             state.mRealCallingUid,
                             state.mRealCallingUidProcState,
-                            state.mRealCallingUidHasAnyVisibleWindow,
+                            state.mRealCallingUidHasVisibleActivity,
                             (state.mOriginatingPendingIntent != null));
         }
 
