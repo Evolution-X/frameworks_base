@@ -710,7 +710,7 @@ public class VolumeDialogImpl implements VolumeDialog, Dumpable,
                 addRow(AudioManager.STREAM_RING, R.drawable.ic_ring_volume,
                         R.drawable.ic_ring_volume_off, true, false);
                 addRow(AudioManager.STREAM_NOTIFICATION, R.drawable.ic_volume_ringer,
-                        R.drawable.ic_volume_off, true, false);
+                        R.drawable.ic_volume_ringer_mute, true, false);
                 addRow(STREAM_ALARM,
                         R.drawable.ic_alarm, R.drawable.ic_volume_alarm_mute, true, false);
                 addRow(AudioManager.STREAM_VOICE_CALL,
