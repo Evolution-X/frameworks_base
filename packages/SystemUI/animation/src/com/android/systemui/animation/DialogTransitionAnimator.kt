@@ -576,7 +576,7 @@ private class AnimatedDialog(
     private var dialogTouchInterceptorView: ViewGroup? = null
 
     private var hasInstrumentedJank = false
-    private val blurUtils = BlurUtils(dialog.context.resources)
+    private val blurUtils = BlurUtils(dialog.context.resources, dialog.context.contentResolver)
 
     fun start() {
         // Create the dialog so that its onCreate() method is called, which usually sets the dialog
