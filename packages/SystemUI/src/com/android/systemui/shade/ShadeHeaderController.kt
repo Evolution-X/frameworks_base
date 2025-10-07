@@ -29,6 +29,7 @@ import android.os.Bundle
 import android.os.Trace
 import android.os.Trace.TRACE_TAG_APP
 import android.provider.AlarmClock
+import android.provider.Settings
 import android.view.DisplayCutout
 import android.view.View
 import android.view.ViewGroup
@@ -93,6 +94,8 @@ import com.android.systemui.statusbar.policy.ConfigurationController
 import com.android.systemui.statusbar.policy.NextAlarmController
 import com.android.systemui.statusbar.policy.VariableDateView
 import com.android.systemui.statusbar.policy.VariableDateViewController
+import com.android.systemui.tuner.TunerService
+import com.android.systemui.tuner.TunerService.Tunable
 import com.android.systemui.util.ViewController
 import dagger.Lazy
 import java.io.PrintWriter
@@ -133,7 +136,8 @@ constructor(
     private val nextAlarmController: NextAlarmController,
     private val activityStarter: ActivityStarter,
     private val statusOverlayHoverListenerFactory: StatusOverlayHoverListenerFactory,
-) : ViewController<View>(header), Dumpable {
+    private val tunerService: TunerService,
+) : ViewController<View>(header), Dumpable, TunerService.Tunable {
 
     private val statusBarContentInsetsProvider
         get() =
@@ -160,6 +164,9 @@ constructor(
         internal val LARGE_SCREEN_HEADER_CONSTRAINT = R.id.large_screen_header_constraint
 
         @VisibleForTesting internal val DEFAULT_CLOCK_INTENT = Intent(AlarmClock.ACTION_SHOW_ALARMS)
+
+        internal val NETWORK_TRAFFIC_ENABLED =
+            "system:" + Settings.System.NETWORK_TRAFFIC_ENABLED
 
         private fun Int.stateToString() =
             when (this) {
@@ -494,6 +501,8 @@ constructor(
         )
 
         iconContainer.setIsUsingQs(true)
+
+        tunerService.addTunable(this, NETWORK_TRAFFIC_ENABLED)
     }
 
     override fun onViewDetached() {
@@ -506,6 +515,18 @@ constructor(
         nextAlarmController.removeCallback(nextAlarmCallback)
         systemIconsHoverContainer.setOnHoverListener(null)
         iconContainer.setIsUsingQs(false)
+        tunerService.removeTunable(this)
+    }
+
+    override fun onTuningChanged(key: String?, value: String?) {
+        when (key) {
+            NETWORK_TRAFFIC_ENABLED -> {
+                if (TunerService.parseIntegerSwitch(value, false))
+                    updateColors()
+            }
+
+            else -> return
+        }
     }
 
     fun disable(state1: Int, state2: Int, animate: Boolean) {
