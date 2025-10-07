@@ -5041,6 +5041,9 @@ public class AppOpsService extends IAppOpsService.Stub {
         if (packageName == null) {
             return true;
         }
+        if (Process.isSdkSandboxUid(uid)) {
+            return false;
+        }
         int appId = UserHandle.getAppId(uid);
         if (appId > 0 && appId < Process.FIRST_APPLICATION_UID) {
             return true;
