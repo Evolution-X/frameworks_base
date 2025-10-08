@@ -1237,6 +1237,19 @@ public class KeyguardIndicationController {
                     temperatureIcon.setBounds(0, 0, temperatureIcon.getIntrinsicWidth(), temperatureIcon.getIntrinsicHeight());
                 }
 
+                UserManager userManager = mContext.getSystemService(UserManager.class);
+                String userName = null;
+                if (userManager != null) {
+                    UserHandle currentUser = android.os.Process.myUserHandle();
+                    UserInfo userInfo = userManager.getUserInfo(currentUser.getIdentifier());
+                    if (userInfo != null) {
+                        userName = userInfo.name;
+                    }
+                }
+                if (TextUtils.isEmpty(userName)) {
+                    userName = mContext.getString(R.string.default_user_name);
+                }
+
                 SpannableStringBuilder indicationBuilder = new SpannableStringBuilder();
 
                 switch (getAmbientShowSettings()) {
@@ -1256,10 +1269,15 @@ public class KeyguardIndicationController {
                         newIndication = indicationBuilder;
                         break;
 
-                    case 0: // Hidden
-                        newIndication = "";
+                    case 4: // Hidden → show current user name
+                        newIndication = userName;
                         break;
 
+                    case 0: // Hidden (safe)
+                        SpannableStringBuilder hiddenIndication = new SpannableStringBuilder(""); 
+                        newIndication = hiddenIndication;
+                        break;
+                        
                     case 1: // Show battery level
                     default:
                         appendIcons(indicationBuilder, batteryLevel, batteryIcon, ambientShowSettingsIcon());
