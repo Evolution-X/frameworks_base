@@ -18,12 +18,11 @@ package com.android.systemui.wallpapers;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
 import android.graphics.Paint;
-import android.graphics.Rect;
-import android.graphics.BitmapFactory;
 import android.os.Build;
 import android.renderscript.Allocation;
 import android.renderscript.Element;
@@ -46,12 +45,9 @@ public class WallpaperUtils {
             bitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true);
         }
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        boolean compressed = bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSLESS, 100, byteArrayOutputStream);
-        if (compressed) {
-            byte[] byteArray = byteArrayOutputStream.toByteArray();
-            return BitmapFactory.decodeByteArray(byteArray, 0, byteArray.length);
-        }
-        return bitmap;
+        bitmap.compress(Bitmap.CompressFormat.PNG, 90, byteArrayOutputStream);
+        byte[] byteArray = byteArrayOutputStream.toByteArray();
+        return BitmapFactory.decodeByteArray(byteArray, 0, byteArray.length);
     }
 
     public static Bitmap getDimmedBitmap(Bitmap bitmap, int dimLevel) {
