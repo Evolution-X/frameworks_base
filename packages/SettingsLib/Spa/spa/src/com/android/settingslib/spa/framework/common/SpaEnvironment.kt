@@ -115,7 +115,7 @@ abstract class SpaEnvironment(context: Context) {
 
     /** Specify whether expressive design is enabled. */
     open val isSpaExpressiveEnabled by lazy {
-        SystemProperties.getBoolean("is_expressive_design_enabled", false)
+        SystemProperties.getBoolean("is_expressive_design_enabled", true)
     }
 
     /** Specify the [RestrictedRepository]. */
