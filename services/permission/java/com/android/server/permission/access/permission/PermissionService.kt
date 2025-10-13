@@ -1943,9 +1943,15 @@ class PermissionService(private val service: AccessCheckingService) :
         }
     }
 
-    override fun resetRuntimePermissions(androidPackage: AndroidPackage, userId: Int) {
+    override fun resetRuntimePermissions(
+        androidPackage: AndroidPackage,
+        userId: Int,
+        restorePregrants: Boolean,
+    ) {
         service.mutateState {
-            with(policy) { resetRuntimePermissions(androidPackage.packageName, userId) }
+            with(policy) {
+                resetRuntimePermissions(androidPackage.packageName, userId, restorePregrants)
+            }
             with(devicePolicy) { resetRuntimePermissions(androidPackage.packageName, userId) }
         }
     }
@@ -1954,7 +1960,7 @@ class PermissionService(private val service: AccessCheckingService) :
         packageManagerLocal.withUnfilteredSnapshot().use { snapshot ->
             service.mutateState {
                 snapshot.packageStates.forEach { (_, packageState) ->
-                    with(policy) { resetRuntimePermissions(packageState.packageName, userId) }
+                    with(policy) { resetRuntimePermissions(packageState.packageName, userId, true) }
                     with(devicePolicy) { resetRuntimePermissions(packageState.packageName, userId) }
                 }
             }

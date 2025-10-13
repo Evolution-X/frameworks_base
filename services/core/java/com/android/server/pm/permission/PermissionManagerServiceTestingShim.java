@@ -347,9 +347,10 @@ public class PermissionManagerServiceTestingShim implements PermissionManagerSer
     }
 
     @Override
-    public void resetRuntimePermissions(@NonNull AndroidPackage pkg, @UserIdInt int userId) {
-        mOldImplementation.resetRuntimePermissions(pkg, userId);
-        mNewImplementation.resetRuntimePermissions(pkg, userId);
+    public void resetRuntimePermissions(@NonNull AndroidPackage pkg, @UserIdInt int userId,
+                   boolean restorePregrants) {
+        mOldImplementation.resetRuntimePermissions(pkg, userId, restorePregrants);
+        mNewImplementation.resetRuntimePermissions(pkg, userId, restorePregrants);
     }
 
     @Override
