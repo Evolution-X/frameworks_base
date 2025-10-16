@@ -28,6 +28,7 @@ import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.SystemClock;
+import android.os.SystemProperties;
 import android.util.Printer;
 import android.util.TimeUtils;
 
@@ -805,6 +806,13 @@ public class Location implements Parcelable {
      * @see LocationManager#addTestProvider
      */
     public boolean isMock() {
+        // Check if mock location override is enabled via Settings
+        boolean overrideMockDetection = SystemProperties.getBoolean(
+            "persist.sys.override_mock_location", false);
+        
+        if (overrideMockDetection) {
+            return false;
+        }
         return (mFieldsMask & HAS_MOCK_PROVIDER_MASK) != 0;
     }
 
