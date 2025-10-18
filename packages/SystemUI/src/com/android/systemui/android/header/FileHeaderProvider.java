@@ -23,6 +23,7 @@ import android.content.res.Resources;
 import android.database.ContentObserver;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.drawable.AnimatedImageDrawable;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
@@ -48,12 +49,11 @@ public class FileHeaderProvider implements
 
     private Context mContext;
     private Drawable mImage = null;
+    private String mLastLoadedPath = null;
+    private boolean mIsEnabled = false;
 
     public FileHeaderProvider(Context context) {
         mContext = context;
-        if (isCustomHeaderEnabled()) {
-            loadHeaderImage();
-        }
     }
 
     @Override
@@ -63,8 +63,13 @@ public class FileHeaderProvider implements
 
     @Override
     public void settingsChanged(Uri uri) {
-        if (isCustomHeaderEnabled()) {
-            loadHeaderImage();
+        String newPath = getCustomHeaderPath();
+        if (newPath != null && !newPath.equals(mLastLoadedPath)) {
+            cleanupCurrentImage();
+            mLastLoadedPath = null;
+            if (mIsEnabled && isCustomHeaderEnabled()) {
+                loadHeaderImage();
+            }
         }
     }
     
@@ -76,34 +81,172 @@ public class FileHeaderProvider implements
     
     private String getCustomHeaderPath() {
         return Settings.System.getStringForUser(mContext.getContentResolver(),
-                    Settings.System.STATUS_BAR_FILE_HEADER_IMAGE,
-                    UserHandle.USER_CURRENT);
+                Settings.System.STATUS_BAR_FILE_HEADER_IMAGE,
+                UserHandle.USER_CURRENT);
     }
 
     @Override
     public void enableProvider() {
-        settingsChanged(null);
+        mIsEnabled = true;
+        if (isCustomHeaderEnabled()) {
+            loadHeaderImage();
+            if (mImage instanceof AnimatedImageDrawable) {
+                AnimatedImageDrawable animDrawable = (AnimatedImageDrawable) mImage;
+                if (!animDrawable.isRunning()) {
+                    animDrawable.start();
+                }
+            }
+        }
     }
 
     @Override
     public void disableProvider() {
+        mIsEnabled = false;
+        if (mImage instanceof AnimatedImageDrawable) {
+            try {
+                AnimatedImageDrawable animDrawable = (AnimatedImageDrawable) mImage;
+                if (animDrawable.isRunning()) {
+                    animDrawable.stop();
+                }
+            } catch (Exception e) {
+                if (DEBUG) Log.e(TAG, "Error stopping animation", e);
+            }
+        }
+        cleanupCurrentImage();
+    }
+
+    private void cleanupCurrentImage() {
+        if (mImage != null) {
+            if (mImage instanceof AnimatedImageDrawable) {
+                try {
+                    AnimatedImageDrawable animDrawable = (AnimatedImageDrawable) mImage;
+                    if (animDrawable.isRunning()) {
+                        animDrawable.stop();
+                    }
+                } catch (Exception e) {
+                    if (DEBUG) Log.e(TAG, "Error stopping animation during cleanup", e);
+                }
+            }
+            
+            if (mImage instanceof BitmapDrawable) {
+                Bitmap bitmap = ((BitmapDrawable) mImage).getBitmap();
+                if (bitmap != null && !bitmap.isRecycled()) {
+                    bitmap.recycle();
+                }
+            }
+            
+            mImage = null;
+        }
     }
 
     private void loadHeaderImage() {
         if (mContext == null) return;
+        
         String path = getCustomHeaderPath();
-        if (path == null || path.isEmpty()) return;
-        final Bitmap bitmap = BitmapFactory.decodeFile(path);
-        if (bitmap == null) {
-            Log.d(TAG + "loadHeaderImage: ", "Failed to decode bitmap from file");
+        if (path == null || path.isEmpty()) {
+            if (DEBUG) Log.d(TAG, "No custom header path set");
             return;
         }
-        mImage = new BitmapDrawable(mContext.getResources(), bitmap);
+
+        if (path.equals(mLastLoadedPath) && mImage != null) {
+            if (DEBUG) Log.d(TAG, "Image already loaded for path: " + path);
+            return;
+        }
+
+        if (!path.equals(mLastLoadedPath)) {
+            cleanupCurrentImage();
+        }
+
+        mLastLoadedPath = path;
+        
+        File imageFile = new File(path);
+        if (!imageFile.exists()) {
+            Log.w(TAG, "Image file does not exist: " + path);
+            return;
+        }
+
+        String lowerPath = path.toLowerCase();
+        boolean isGif = lowerPath.endsWith(".gif");
+        boolean isWebp = lowerPath.endsWith(".webp");
+
+        if (isGif || isWebp) {
+            if (loadAnimatedImage(imageFile, path)) {
+                return;
+            }
+            if (DEBUG) Log.d(TAG, "Falling back to static image loading");
+        }
+        
+        loadStaticImage(path);
+    }
+
+    private boolean loadAnimatedImage(File imageFile, String path) {
+        try {
+            android.graphics.ImageDecoder.Source source = 
+                    android.graphics.ImageDecoder.createSource(imageFile);
+            Drawable drawable = android.graphics.ImageDecoder.decodeDrawable(source);
+            
+            if (drawable == null) {
+                Log.w(TAG, "ImageDecoder returned null drawable");
+                return false;
+            }
+            
+            mImage = drawable;
+            
+            if (drawable instanceof AnimatedImageDrawable && mIsEnabled) {
+                AnimatedImageDrawable animDrawable = (AnimatedImageDrawable) drawable;
+                animDrawable.setRepeatCount(AnimatedImageDrawable.REPEAT_INFINITE);
+                if (!animDrawable.isRunning()) {
+                    animDrawable.start();
+                    if (DEBUG) Log.d(TAG, "Animation started for: " + path);
+                }
+            }
+            
+            if (DEBUG) Log.d(TAG, "Animated image loaded successfully: " + path);
+            return true;
+            
+        } catch (IOException e) {
+            Log.e(TAG, "IOException loading animated image: " + e.getMessage());
+            return false;
+        } catch (Exception e) {
+            Log.e(TAG, "Error loading animated image: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private void loadStaticImage(String path) {
+        try {
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(path, options);
+            
+            if (options.outWidth <= 0 || options.outHeight <= 0) {
+                Log.w(TAG, "Invalid image dimensions");
+                return;
+            }
+            options.inJustDecodeBounds = false;
+            options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+            
+            Bitmap bitmap = BitmapFactory.decodeFile(path, options);
+            if (bitmap == null) {
+                Log.w(TAG, "Failed to decode bitmap from file: " + path);
+                return;
+            }
+            
+            mImage = new BitmapDrawable(mContext.getResources(), bitmap);
+            if (DEBUG) Log.d(TAG, "Static image loaded successfully: " + path);
+            
+        } catch (OutOfMemoryError e) {
+            Log.e(TAG, "OutOfMemoryError loading static image: " + e.getMessage());
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to load static header image: " + e.getMessage());
+        }
     }
 
     @Override
     public Drawable getCurrent(final Calendar now) {
-        loadHeaderImage();
+        if (mImage == null && isCustomHeaderEnabled()) {
+            loadHeaderImage();
+        }
         return mImage;
     }
 }
