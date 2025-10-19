@@ -14410,6 +14410,12 @@ public final class Settings {
         public static final String BACK_GESTURE_HAPTIC = "back_gesture_haptic";
 
         /**
+         * Whether to show media squiggle animation
+         * @hide
+         */
+        public static final String MEDIA_SQUIGGLE_ANIMATION = "media_squiggle_animation";
+
+        /**
          * Keys we no longer back up under the current schema, but want to continue to
          * process when restoring historical backup datasets.
          *
