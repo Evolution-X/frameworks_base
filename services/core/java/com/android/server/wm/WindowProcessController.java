@@ -665,8 +665,7 @@ public class WindowProcessController extends ConfigurationContainer<Configuratio
             int appSwitchState, boolean isCheckingForFgsStart) {
         return mBgLaunchController.areBackgroundActivityStartsAllowed(mPid, mUid,
                 mInfo.packageName, appSwitchState, isCheckingForFgsStart,
-                hasActivityInVisibleTask(), inPinnedWindowingMode(),
-                mInstrumentingWithBackgroundActivityStartPrivileges,
+                hasActivityInVisibleTask(), mInstrumentingWithBackgroundActivityStartPrivileges,
                 mAtm.getLastStopAppSwitchesTime(),
                 mLastActivityLaunchTime, mLastActivityFinishTime);
     }
