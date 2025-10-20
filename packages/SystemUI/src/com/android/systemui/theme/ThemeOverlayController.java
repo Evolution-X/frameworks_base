@@ -67,6 +67,8 @@ import android.util.SparseIntArray;
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 
+import com.android.internal.graphics.cam.Cam;
+import com.android.internal.graphics.ColorUtils;
 import com.android.systemui.CoreStartable;
 import com.android.systemui.Dumpable;
 import com.android.systemui.broadcast.BroadcastDispatcher;
@@ -173,6 +175,8 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
     protected int mMainWallpaperColor = Color.TRANSPARENT;
     // UI contrast as reported by UiModeManager
     private double mContrast = 0.0;
+    private double mChromaBoost = 0.0;
+    private boolean mIsFidelityEnabled = true;
     // Theme variant: Vibrant, Tonal, Expressive, etc
     @VisibleForTesting
     @ThemeStyle.Type
@@ -704,6 +708,7 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
         mMainWallpaperColor = mainColor;
 
         if (mIsMonetEnabled) {
+            fetchCustomThemeSettings();
             mThemeStyle = fetchThemeStyleFromSetting();
             createOverlays(mMainWallpaperColor);
             mNeedsOverlayCreation = true;
@@ -714,6 +719,27 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
         }
 
         updateThemeOverlays(forceReload);
+    }
+
+    private void fetchCustomThemeSettings() {
+        final String overlayPackageJson = mSecureSettings.getStringForUser(
+                Settings.Secure.THEME_CUSTOMIZATION_OVERLAY_PACKAGES,
+                mUserTracker.getUserId());
+        if (!TextUtils.isEmpty(overlayPackageJson)) {
+            try {
+                JSONObject object = new JSONObject(overlayPackageJson);
+                mContrast = object.optDouble("_contrast_level", 0.0);
+                mChromaBoost = object.optDouble("_chroma_boost", 0.0);
+                mIsFidelityEnabled = object.optBoolean("_fidelity_enabled", true);
+                if (DEBUG) {
+                    Log.d(TAG, "Custom theme settings: contrast=" + mContrast
+                            + " chromaBoost=" + mChromaBoost
+                            + " fidelity=" + mIsFidelityEnabled);
+                }
+            } catch (JSONException e) {
+                Log.w(TAG, "Failed to parse custom theme settings.", e);
+            }
+        }
     }
 
     /**
@@ -758,35 +784,71 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
     }
 
     private void createOverlays(int color) {
-        mDarkColorScheme = new ColorScheme(color, true /* isDark */, mThemeStyle, mContrast);
-        mLightColorScheme = new ColorScheme(color, false /* isDark */, mThemeStyle, mContrast);
+        int style = mThemeStyle;
+        if (mIsFidelityEnabled) {
+            style = ThemeStyle.CONTENT;
+        }
+        mDarkColorScheme = new ColorScheme(color, true /* isDark */, style, mContrast);
+        mLightColorScheme = new ColorScheme(color, false /* isDark */, style, mContrast);
         mColorScheme = isNightMode() ? mDarkColorScheme : mLightColorScheme;
 
         mAccentOverlay = newFabricatedOverlay("accent");
-        assignColorsToOverlay(mAccentOverlay, DynamicColors.getAllAccentPalette());
+        assignColorsToOverlay(mAccentOverlay, DynamicColors.getAllAccentPalette(), false);
 
         mNeutralOverlay = newFabricatedOverlay("neutral");
-        assignColorsToOverlay(mNeutralOverlay, DynamicColors.getAllNeutralPalette());
+        assignColorsToOverlay(mNeutralOverlay, DynamicColors.getAllNeutralPalette(), false);
 
         mDynamicOverlay = newFabricatedOverlay("dynamic");
         // Themed Colors
-        assignColorsToOverlay(mDynamicOverlay, DynamicColors.getAllDynamicColorsMapped());
+        assignColorsToOverlay(mDynamicOverlay, DynamicColors.getAllDynamicColorsMapped(), false);
         // Fixed Colors
-        assignColorsToOverlay(mDynamicOverlay, DynamicColors.getFixedColorsMapped());
+        assignColorsToOverlay(mDynamicOverlay, DynamicColors.getFixedColorsMapped(), true);
         // Custom Colors
-        assignColorsToOverlay(mDynamicOverlay, DynamicColors.getCustomColorsMapped());
+        assignColorsToOverlay(mDynamicOverlay, DynamicColors.getCustomColorsMapped(), false);
     }
 
     private void assignColorsToOverlay(FabricatedOverlay overlay,
-            List<Pair<String, DynamicColor>> colors) {
-        colors.forEach(p -> {
+            List<Pair<String, DynamicColor>> colors, Boolean isFixed) {
+        for (Pair<String, DynamicColor> p : colors) {
+
             String prefix = "android:color/system_" + p.first;
 
-            overlay.setResourceValue(prefix + "_light", TYPE_INT_COLOR_ARGB8,
-                    p.second.getArgb(mLightColorScheme.getMaterialScheme()), null);
-            overlay.setResourceValue(prefix + "_dark", TYPE_INT_COLOR_ARGB8,
-                    p.second.getArgb(mDarkColorScheme.getMaterialScheme()), null);
-        });
+            if (isFixed) {
+                int original = p.second.getArgb(mLightColorScheme.getMaterialScheme());
+                int boosted  = boostChroma(original);
+                overlay.setResourceValue(prefix, TYPE_INT_COLOR_ARGB8, boosted, null);
+                continue;
+            }
+
+            int lightOriginal = p.second.getArgb(mLightColorScheme.getMaterialScheme());
+            int darkOriginal  = p.second.getArgb(mDarkColorScheme.getMaterialScheme());
+
+            int boostedLight = boostChroma(lightOriginal);
+            int boostedDark  = boostChroma(darkOriginal);
+
+            overlay.setResourceValue(prefix + "_light",
+                    TYPE_INT_COLOR_ARGB8, boostedLight, null);
+
+            overlay.setResourceValue(prefix + "_dark",
+                    TYPE_INT_COLOR_ARGB8, boostedDark, null);
+        }
+    }
+
+    private int boostChroma(int argb) {
+        Cam cam = Cam.fromInt(argb);
+
+        final float chromaBoost = (float) mChromaBoost;
+
+        float boostedChroma = cam.getChroma() * (1f +  chromaBoost/ 100f);
+        boostedChroma = Math.min(boostedChroma, 150f);
+
+        int boosted = ColorUtils.CAMToColor(
+                cam.getHue(),
+                boostedChroma,
+                cam.getJ()
+        );
+
+        return ColorUtils.setAlphaComponent(boosted, Color.alpha(argb));
     }
 
     /**
@@ -842,6 +904,10 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
         if (!TextUtils.isEmpty(overlayPackageJson)) {
             try {
                 JSONObject object = new JSONObject(overlayPackageJson);
+                
+                mContrast = object.optDouble("_contrast_level", 0.0);
+                mChromaBoost = object.optDouble("_chroma_boost", 0.0);
+
                 for (String category : ThemeOverlayApplier.THEME_CATEGORIES) {
                     if (object.has(category)) {
                         OverlayIdentifier identifier =
@@ -960,7 +1026,7 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
             try {
                 JSONObject object = new JSONObject(overlayPackageJson);
                 style = ThemeStyle.valueOf(
-                        object.getString(OVERLAY_CATEGORY_THEME_STYLE));
+                        object.optString(OVERLAY_CATEGORY_THEME_STYLE, ThemeStyle.name(ThemeStyle.TONAL_SPOT)));
                 if (!validStyles.contains(style)) {
                     style = ThemeStyle.TONAL_SPOT;
                 }
