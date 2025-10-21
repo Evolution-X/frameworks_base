@@ -14698,6 +14698,48 @@ public final class Settings {
         public static final String LOCK_SCREEN_CUSTOM_CLOCK_MARGIN_TOP = "lock_screen_custom_clock_margin_top";
 
         /**
+         * Whether to use PIF spoof for google apps
+         * @hide
+         */
+        @Readable
+        public static final String PI_ENABLE_SPOOF = "pi_enable_spoof";
+
+        /**
+         * Whether to use PixelProps spoof for google apps
+         * @hide
+         */
+        @Readable
+        public static final String PI_PP_SPOOF = "pi_pp_spoof";
+
+        /**
+         * Whether to use Tensor spoof for google apps
+         * @hide
+         */
+        @Readable
+        public static final String PI_TENSOR_SPOOF = "pi_tensor_spoof";
+
+        /**
+         * Whether to use PIF spoof for Play store
+         * @hide
+         */
+        @Readable
+        public static final String PI_VENDING_SPOOF = "pi_vending_spoof";
+
+        /**
+         * Whether to use spoof for photos
+         * @hide
+         */
+        @Readable
+        public static final String PI_PHOTOS_SPOOF = "pi_photos_spoof";
+
+        /**
+         * Whether to use spoof for snapchat
+         * @hide
+         */
+        @Readable
+        public static final String PI_SNAPCHAT_SPOOF = "pi_snapchat_spoof";
+
+        /**
          * Keys we no longer back up under the current schema, but want to continue to
          * process when restoring historical backup datasets.
          *
