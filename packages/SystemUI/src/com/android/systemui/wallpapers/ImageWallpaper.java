@@ -301,27 +301,79 @@ public class ImageWallpaper extends WallpaperService {
             if (canvas != null) {
                 Rect dest = mSurfaceHolder.getSurfaceFrame();
                 bitmap = WallpaperUtils.resizeAndCompress(bitmap, getDisplayContext());
+                
+                boolean isLockScreen = isLockScreenWallpaper();
+                
                 try {
+                    // Apply blur effect
                     int blurType = SystemProperties.getInt("persist.sys.wallpaper.blur_enabled", 0);
-                    // allow for both home and ls wallpaper, lockscreen only, home only
-                    if (blurType == 1 || (blurType == 2 && isLockScreenWallpaper()) || (blurType == 3 && !isLockScreenWallpaper())) {
+                    if (shouldApplyEffect(blurType, isLockScreen)) {
+                        int blurStyle = SystemProperties.getInt("persist.sys.wallpaper.blur_type", 0);
                         int userBlurRadius;
-                        switch (blurType) {
+                        switch (blurStyle) {
                             case 1: // Frosted glass
-                                userBlurRadius = 200;
+                                userBlurRadius = 50;
                                 break;
                             default: // Glass
-                                userBlurRadius = 25;
+                                userBlurRadius = 9;
                                 break;
                         }
                         bitmap = WallpaperUtils.getBlurredBitmap(bitmap, userBlurRadius, getDisplayContext());
                     }
-                    // allow for both home and ls wallpaper, lockscreen only, home only
+
+                    // Apply visual effect
+                    int effectType = SystemProperties.getInt("persist.sys.wallpaper.effect_type", 0);
+                    int effectTarget = SystemProperties.getInt("persist.sys.wallpaper.effect_target", 0);
+                    
+                    if (effectType != 0 && shouldApplyEffect(effectTarget, isLockScreen)) {
+                        switch (effectType) {
+                            case 1:
+                                bitmap = WallpaperUtils.getAtmosphereEffect(bitmap, getDisplayContext());
+                                break;
+                            case 2:
+                                float vignetteIntensity = SystemProperties.getInt("persist.sys.wallpaper.vignette_intensity", 50) / 100f;
+                                bitmap = WallpaperUtils.getVignetteEffect(bitmap, vignetteIntensity);
+                                break;
+                            case 3:
+                                int pixelationSize = SystemProperties.getInt("persist.sys.wallpaper.pixelation_size", 8);
+                                bitmap = WallpaperUtils.getPixelationEffect(bitmap, pixelationSize);
+                                break;
+                            case 4:
+                                float saturation = SystemProperties.getInt("persist.sys.wallpaper.saturation_level", 100) / 100f;
+                                bitmap = WallpaperUtils.getSaturationEffect(bitmap, saturation);
+                                break;
+                            case 5:
+                                bitmap = WallpaperUtils.getSepiaEffect(bitmap);
+                                break;
+                            case 6:
+                                bitmap = WallpaperUtils.getSharpenEffect(bitmap);
+                                break;
+                            case 7:
+                                bitmap = WallpaperUtils.getGrayscaleEffect(bitmap);
+                                break;
+                            case 8:
+                                bitmap = WallpaperUtils.getNegativeEffect(bitmap);
+                                break;
+                            case 9:
+                                bitmap = WallpaperUtils.getRadialBlurEffect(bitmap);
+                                break;
+                            case 10:
+                                int posterizeLevels = SystemProperties.getInt("persist.sys.wallpaper.posterize_levels", 8);
+                                bitmap = WallpaperUtils.getPosterizeEffect(bitmap, posterizeLevels);
+                                break;
+                            case 11:
+                                bitmap = WallpaperUtils.getChromaticAberrationEffect(bitmap);
+                                break;
+                        }
+                    }
+                    
+                    // Apply dimming effect
                     int dimType = SystemProperties.getInt("persist.sys.wallpaper.dim_enabled", 0);
-                    if (dimType == 1 || (dimType == 2 && isLockScreenWallpaper()) || (dimType == 3 && !isLockScreenWallpaper())) {
+                    if (shouldApplyEffect(dimType, isLockScreen)) {
                         int dimLevel = SystemProperties.getInt("persist.sys.wallpaper.dim_level", 10);
                         bitmap = WallpaperUtils.getDimmedBitmap(bitmap, dimLevel);
                     }
+                    
                     canvas.drawBitmap(bitmap, null, dest, null);
                     mDrawn = true;
                 } finally {
@@ -331,10 +383,24 @@ public class ImageWallpaper extends WallpaperService {
             Trace.endSection();
         }
 
-	    private boolean isLockScreenWallpaper() {
-		    return (this.getWallpaperFlags() & FLAG_LOCK)
-				    == FLAG_LOCK;
-	    }
+        private boolean shouldApplyEffect(int effectTarget, boolean isLockScreen) {
+            switch (effectTarget) {
+                case 0:
+                    return false;
+                case 1:
+                    return true;
+                case 2:
+                    return isLockScreen;
+                case 3:
+                    return !isLockScreen;
+                default:
+                    return false;
+            }
+        }
+
+        private boolean isLockScreenWallpaper() {
+            return (this.getWallpaperFlags() & FLAG_LOCK) == FLAG_LOCK;
+        }
 
         @VisibleForTesting
         boolean isBitmapLoaded() {
