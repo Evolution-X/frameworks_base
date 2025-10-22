@@ -81,14 +81,22 @@ class VisibleActivityProcessTracker {
      * {@link ActivityRecord#mVisibleRequested} or {@link ActivityRecord#isVisible()} is true.
      */
     boolean hasVisibleActivity(int uid) {
-        return match(uid, null /* predicate */);
+        return match(uid, ALWAYS_TRUE);
+    }
+
+    /**
+     * Returns {@code true} if the uid has a process that contains an activity with
+     * {@link ActivityRecord#mVisibleRequested} or {@link ActivityRecord#isVisible()} is true.
+     */
+    boolean hasVisibleNotPinnedActivity(int uid) {
+        return match(uid, wpc -> wpc.hasVisibleNotPinnedActivity());
     }
 
     private boolean match(int uid, Predicate<WindowProcessController> predicate) {
         synchronized (mProcMap) {
             for (int i = mProcMap.size() - 1; i >= 0; i--) {
                 final WindowProcessController wpc = mProcMap.keyAt(i);
-                if (wpc.mUid == uid && (predicate == null || predicate.test(wpc))) {
+                if (wpc.mUid == uid && predicate.test(wpc)) {
                     return true;
                 }
             }
