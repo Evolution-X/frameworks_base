@@ -64,6 +64,10 @@ public class KeyboxImitationHooks {
             return null;
         }
 
+        if (!params.noAuthRequired) {
+            return null;
+        }
+
         if (params.algorithm != Algorithm.EC && params.algorithm != Algorithm.RSA) {
             Log.w(TAG, "Unsupported algorithm: " + params.algorithm);
             return null;
