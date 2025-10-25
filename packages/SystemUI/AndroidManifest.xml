@@ -626,6 +626,20 @@
             </meta-data>
         </service>
 
+        <service
+            android:name="com.android.systemui.lockglymps.LockGlympsService"
+            android:enabled="true"
+            android:exported="false" />
+
+        <receiver
+            android:name="com.android.systemui.lockglymps.LockGlympsBootReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
         <activity android:name=".tuner.TunerActivity"
                   android:enabled="false"
                   android:icon="@drawable/tuner"

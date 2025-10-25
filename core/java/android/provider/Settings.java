@@ -7731,6 +7731,33 @@ public final class Settings {
         public static final String QS_TILE_ICON_SHAPE = "qs_tile_icon_shape";
 
         /**
+         * Lock Glymps - Dynamic lock screen wallpaper feature
+         * @hide
+         */
+        public static final String LOCK_GLYMPS_ENABLED = "lock_glymps_enabled";
+
+        /**
+         * Lock Glymps wallpaper source (0=Random, 1=Custom URLs)
+         * @hide
+         */
+        public static final String LOCK_GLYMPS_SOURCE = "lock_glymps_source";
+
+        /**
+         * @hide
+         */
+        public static final String LOCK_GLYMPS_WIFI_ONLY = "lock_glymps_wifi_only";
+
+        /**
+         * @hide
+         */
+        public static final String LOCK_GLYMPS_CACHE_SIZE = "lock_glymps_cache_size";
+
+        /**
+         * @hide
+         */
+        public static final String LOCK_GLYMPS_CUSTOM_URLS = "lock_glymps_custom_urls";
+
+        /**
          * Keys we no longer back up under the current schema, but want to continue to
          * process when restoring historical backup datasets.
          *
