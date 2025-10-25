@@ -14190,6 +14190,11 @@ public final class Settings {
         public static final String PULSE_BASS_HAPTICS = "pulse_bass_haptics";
 
         /**
+         * @hide
+         */
+        public static final String PULSE_HEIGHT_MULTIPLIER = "pulse_height_multiplier";
+
+        /**
          * Whether to enable Smart Pixels
          * @hide
          */

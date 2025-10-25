@@ -36,6 +36,7 @@ class PulseEngine(
             if (fftAverage == null || fftAverage!!.size != barCount) {
                 fftAverage = Array(barCount) { FFTAverage() }
             }
+            val heightMultiplier = settingsRepo.getHeightMultiplier()
             val output = FloatArray(barCount)
             for (i in 0 until barCount) {
                 val realIndex = i * 2 + 2
@@ -46,7 +47,7 @@ class PulseEngine(
                 val magnitude = (rfk * rfk + ifk * ifk).toFloat()
                 var dbValue = if (magnitude > 0) (10 * log10(magnitude.toDouble())).toInt() else 0
                 dbValue = fftAverage!![i].average(dbValue)
-                output[i] = dbValue * fudgeFactor.toFloat()
+                output[i] = dbValue * fudgeFactor.toFloat() * heightMultiplier
             }
             withContext(Dispatchers.Main) {
                 onDataProcessed(output)
