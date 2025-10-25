@@ -34,6 +34,7 @@ class PulseSettingsRepository(private val context: Context) {
         private const val PULSE_COLOR = Settings.Secure.PULSE_COLOR
         private const val PULSE_RENDERER = Settings.Secure.PULSE_RENDERER
         private const val PULSE_BASS_HAPTICS = Settings.Secure.PULSE_BASS_HAPTICS
+        private const val PULSE_HEIGHT_MULTIPLIER = Settings.Secure.PULSE_HEIGHT_MULTIPLIER
 
         private const val DEFAULT_ENABLED = false
         private const val DEFAULT_AMBIENT_ENABLED = true
@@ -42,6 +43,7 @@ class PulseSettingsRepository(private val context: Context) {
         private const val DEFAULT_COLOR = "lavalamp"
         private const val DEFAULT_RENDERER = "solid"
         private const val DEFAULT_HAPTICS_MODE = 0
+        private const val DEFAULT_HEIGHT_MULTIPLIER = 100 // 100 = 1.0x (normal height)
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -55,6 +57,7 @@ class PulseSettingsRepository(private val context: Context) {
     private var cachedColorMode: String? = null
     private var cachedRenderer: String? = null
     private var cachedHapticsMode: Int? = null
+    private var cachedHeightMultiplier: Float? = null
 
     fun startObserving() {
         if (settingsObserver != null) return
@@ -68,7 +71,8 @@ class PulseSettingsRepository(private val context: Context) {
             Settings.Secure.getUriFor(PULSE_ROUNDED_BARS),
             Settings.Secure.getUriFor(PULSE_COLOR),
             Settings.Secure.getUriFor(PULSE_RENDERER),
-            Settings.Secure.getUriFor(PULSE_BASS_HAPTICS)
+            Settings.Secure.getUriFor(PULSE_BASS_HAPTICS),
+            Settings.Secure.getUriFor(PULSE_HEIGHT_MULTIPLIER)
         ).forEach { uri ->
             context.contentResolver.registerContentObserver(uri, false,
                 settingsObserver!!, UserHandle.USER_ALL)
@@ -135,6 +139,15 @@ class PulseSettingsRepository(private val context: Context) {
         return cachedRenderer!!
     }
 
+    fun getHeightMultiplier(): Float {
+        if (cachedHeightMultiplier == null) {
+            val value = getSecureSetting(PULSE_HEIGHT_MULTIPLIER, DEFAULT_HEIGHT_MULTIPLIER)
+            // Clamp between 25% and 200% (values 25-200)
+            cachedHeightMultiplier = value.coerceIn(25, 200) / 100f
+        }
+        return cachedHeightMultiplier!!
+    }
+
     fun getPulseHapticsMode(): Int {
         if (cachedHapticsMode == null) {
             cachedHapticsMode = getSecureSetting(PULSE_BASS_HAPTICS, DEFAULT_HAPTICS_MODE)
@@ -150,6 +163,7 @@ class PulseSettingsRepository(private val context: Context) {
         cachedColorMode = null
         cachedRenderer = null
         cachedHapticsMode = null
+        cachedHeightMultiplier = null
         onSettingsChangedListener?.invoke()
     }
 
