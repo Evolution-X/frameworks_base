@@ -170,6 +170,7 @@ import com.android.server.contextualsearch.ContextualSearchManagerService;
 import com.android.server.coverage.CoverageService;
 import com.android.server.cpu.CpuMonitorService;
 import com.android.server.crashrecovery.CrashRecoveryAdaptor;
+import com.android.server.crdroid.VbmetaHashService;
 import com.android.server.credentials.CredentialManagerService;
 import com.android.server.criticalevents.CriticalEventLog;
 import com.android.server.devicepolicy.DevicePolicyManagerService;
@@ -2947,6 +2948,11 @@ public final class SystemServer implements Dumpable {
             if (imsOverrideEnabled) {
                 mSystemServiceManager.startService(ImsConfigOverrideService.class);
             }
+
+            // VbmetaHashService
+            t.traceBegin("VbmetaHashService");
+            mSystemServiceManager.startService(VbmetaHashService.class);
+            t.traceEnd();
         }
 
         t.traceBegin("StartMediaProjectionManager");
