@@ -1277,6 +1277,23 @@ public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
             @Nullable String callingFeatureId, Intent intent, String resolvedType,
             IBinder resultTo, String resultWho, int requestCode, int startFlags,
             ProfilerInfo profilerInfo, Bundle bOptions, int userId, boolean validateIncomingUser) {
+
+    // CUSTOM HACK: Redirect Google PermissionController explicit intents to AOSP
+    if (intent != null && intent.getComponent() != null) {
+        ComponentName comp = intent.getComponent();
+        String pkg = comp.getPackageName();
+        String cls = comp.getClassName();
+        
+        if ("com.google.android.permissioncontroller".equals(pkg)) {
+            // Replace package name in class name to redirect to AOSP
+            String newCls = cls.replace("com.google.android.permissioncontroller", 
+                                         "com.android.permissioncontroller");
+            intent.setComponent(new ComponentName("com.android.permissioncontroller", newCls));
+            Slog.w(TAG, "HACK: Redirected Google PermissionController intent: " 
+                   + comp + " -> " + intent.getComponent());
+        }
+    }
+
         mAmInternal.addCreatorToken(intent, callingPackage);
         final int callingPid = Binder.getCallingPid();
         final int callingUid = Binder.getCallingUid();
