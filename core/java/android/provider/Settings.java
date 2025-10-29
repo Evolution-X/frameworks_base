@@ -7399,6 +7399,12 @@ public final class Settings {
         public static final String WIRELESS_CHARGING_DYNAMIC_COLOR = "wireless_charging_dynamic_color";
 
         /**
+         * Charging ripple shape
+         * @hide
+         */
+        public static final String WIRELESS_CHARGING_RIPPLE_SHAPE = "wireless_charging_ripple_shape";
+
+        /**
          * Keys we no longer back up under the current schema, but want to continue to
          * process when restoring historical backup datasets.
          *
