@@ -46,7 +46,7 @@ import java.text.NumberFormat;
  * @hide
  */
 final class WirelessChargingLayout extends FrameLayout {
-    private static final long CIRCLE_RIPPLE_ANIMATION_DURATION = 1500;
+    private static final long CIRCLE_RIPPLE_ANIMATION_DURATION = 2200;
     private static final long ROUNDED_BOX_RIPPLE_ANIMATION_DURATION = 3000;
     private static final int SCRIM_COLOR = 0x4C000000;
     private static final int SCRIM_FADE_DURATION = 300;
