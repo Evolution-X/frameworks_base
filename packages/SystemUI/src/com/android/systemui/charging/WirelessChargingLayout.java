@@ -50,8 +50,11 @@ final class WirelessChargingLayout extends FrameLayout {
     private static final long ROUNDED_BOX_RIPPLE_ANIMATION_DURATION = 3000;
     private static final int SCRIM_COLOR = 0x4C000000;
     private static final int SCRIM_FADE_DURATION = 300;
+    
+    private static final int RIPPLE_SHAPE_CIRCLE = 0;
+    private static final int RIPPLE_SHAPE_ROUNDED_BOX = 1;
+    
     private RippleView mRippleView;
-    // This is only relevant to the rounded box ripple.
     private RippleShader.SizeAtProgress[] mSizeAtProgressArray;
 
     WirelessChargingLayout(Context context, int transmittingBatteryLevel, int batteryLevel,
@@ -62,16 +65,44 @@ final class WirelessChargingLayout extends FrameLayout {
 
     private WirelessChargingLayout(Context context) {
         super(context);
-        init(context, null, /* isDozing= */ false, RippleShape.CIRCLE);
+        RippleShape shape = getRippleShapeFromSettings(context);
+        init(context, null, /* isDozing= */ false, shape);
     }
 
     private WirelessChargingLayout(Context context, AttributeSet attrs) {
         super(context, attrs);
-        init(context, attrs, /* isDozing= */false, RippleShape.CIRCLE);
+        RippleShape shape = getRippleShapeFromSettings(context);
+        init(context, attrs, /* isDozing= */false, shape);
     }
 
     private void init(Context c, AttributeSet attrs, boolean isDozing, RippleShape rippleShape) {
         init(c, attrs, -1, -1, isDozing, rippleShape);
+    }
+
+    private RippleShape getRippleShapeFromSettings(Context context) {
+        int shapeValue = Settings.System.getIntForUser(
+                context.getContentResolver(),
+                Settings.System.WIRELESS_CHARGING_RIPPLE_SHAPE,
+                RIPPLE_SHAPE_CIRCLE,
+                UserHandle.USER_CURRENT);
+        
+        switch (shapeValue) {
+            case RIPPLE_SHAPE_ROUNDED_BOX:
+                return RippleShape.ROUNDED_BOX;
+            case RIPPLE_SHAPE_CIRCLE:
+            default:
+                return RippleShape.CIRCLE;
+        }
+    }
+
+    private long getAnimationDuration(int shapeValue) {
+        switch (shapeValue) {
+            case RIPPLE_SHAPE_ROUNDED_BOX:
+                return ROUNDED_BOX_RIPPLE_ANIMATION_DURATION;
+            case RIPPLE_SHAPE_CIRCLE:
+            default:
+                return CIRCLE_RIPPLE_ANIMATION_DURATION;
+        }
     }
 
     private int getDynamicRippleColor(Context context, int batteryLevel) {
@@ -102,6 +133,15 @@ final class WirelessChargingLayout extends FrameLayout {
             int batteryLevel, boolean isDozing, RippleShape rippleShape) {
         final boolean showTransmittingBatteryLevel =
                 (transmittingBatteryLevel != WirelessChargingAnimation.UNKNOWN_BATTERY_LEVEL);
+
+        int shapeValue = Settings.System.getIntForUser(
+                context.getContentResolver(),
+                Settings.System.WIRELESS_CHARGING_RIPPLE_SHAPE,
+                RIPPLE_SHAPE_CIRCLE,
+                UserHandle.USER_CURRENT);
+        
+        final long animationDuration = getAnimationDuration(shapeValue);
+        rippleShape = getRippleShapeFromSettings(context);
 
         // set style based on background
         int style = R.style.ChargingAnim_Background;
@@ -208,22 +248,23 @@ final class WirelessChargingLayout extends FrameLayout {
                     "backgroundColor", SCRIM_COLOR, Color.TRANSPARENT);
             scrimFadeOutAnimator.setDuration(SCRIM_FADE_DURATION);
             scrimFadeOutAnimator.setInterpolator(Interpolators.LINEAR);
-            scrimFadeOutAnimator.setStartDelay((rippleShape == RippleShape.CIRCLE
-                    ? CIRCLE_RIPPLE_ANIMATION_DURATION : ROUNDED_BOX_RIPPLE_ANIMATION_DURATION)
-                    - SCRIM_FADE_DURATION);
+            scrimFadeOutAnimator.setStartDelay(animationDuration - SCRIM_FADE_DURATION);
+            
             AnimatorSet animatorSetScrim = new AnimatorSet();
             animatorSetScrim.playTogether(scrimFadeInAnimator, scrimFadeOutAnimator);
             animatorSetScrim.start();
         }
 
-        mRippleView = findViewById(R.id.wireless_charging_ripple);
-        mRippleView.setupShader(rippleShape);
         int color;
         if (isDynamicColorEnabled(context)) {
             color = getDynamicRippleColor(context, batteryLevel);
         } else {
             color = Utils.getColorAttr(context, android.R.attr.colorAccent).getDefaultColor();
         }
+
+        mRippleView = findViewById(R.id.wireless_charging_ripple);
+        mRippleView.setupShader(rippleShape);
+        
         if (mRippleView.getRippleShape() == RippleShape.ROUNDED_BOX) {
             mRippleView.setDuration(ROUNDED_BOX_RIPPLE_ANIMATION_DURATION);
             mRippleView.setSparkleStrength(0.3f);
@@ -294,7 +335,7 @@ final class WirelessChargingLayout extends FrameLayout {
                 context.getResources().getInteger(R.integer.wireless_charging_anim_opacity_offset));
 
         // Animation Opacity: transmitting battery percentage text fades from 1 to 0 opacity
-        ValueAnimator textFadeAnimatorTransmitting = ObjectAnimator.ofFloat(transmittingPercentage,
+        ValueAnimator textFadeAnimatorTransmitting = ObjectAnimator.ofFloat(transmittingPercentage, 
                 "alpha", 1, 0);
         textFadeAnimatorTransmitting.setDuration(chargingAnimationFadeDuration);
         textFadeAnimatorTransmitting.setInterpolator(Interpolators.LINEAR);
@@ -302,19 +343,19 @@ final class WirelessChargingLayout extends FrameLayout {
 
         // play all animations together
         AnimatorSet animatorSetTransmitting = new AnimatorSet();
-        animatorSetTransmitting.playTogether(textSizeAnimatorTransmitting,
+        animatorSetTransmitting.playTogether(textSizeAnimatorTransmitting, 
                 textOpacityAnimatorTransmitting, textFadeAnimatorTransmitting);
 
         // transmitting battery icon
         final ImageView chargingViewIcon = findViewById(R.id.reverse_wireless_charging_icon);
         chargingViewIcon.setVisibility(VISIBLE);
         final int padding = Math.round(
-                TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, batteryLevelTextSizeEnd,
+                TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, batteryLevelTextSizeEnd, 
                         getResources().getDisplayMetrics()));
         chargingViewIcon.setPadding(padding, 0, padding, 0);
 
         // Animation Opacity: transmitting battery icon transitions from 0 to 1 opacity
-        ValueAnimator textOpacityAnimatorIcon = ObjectAnimator.ofFloat(chargingViewIcon, "alpha", 0,
+        ValueAnimator textOpacityAnimatorIcon = ObjectAnimator.ofFloat(chargingViewIcon, "alpha", 0, 
                 1);
         textOpacityAnimatorIcon.setInterpolator(Interpolators.LINEAR);
         textOpacityAnimatorIcon.setDuration(context.getResources().getInteger(
@@ -323,7 +364,7 @@ final class WirelessChargingLayout extends FrameLayout {
                 context.getResources().getInteger(R.integer.wireless_charging_anim_opacity_offset));
 
         // Animation Opacity: transmitting battery icon fades from 1 to 0 opacity
-        ValueAnimator textFadeAnimatorIcon = ObjectAnimator.ofFloat(chargingViewIcon, "alpha", 1,
+        ValueAnimator textFadeAnimatorIcon = ObjectAnimator.ofFloat(chargingViewIcon, "alpha", 1, 
                 0);
         textFadeAnimatorIcon.setDuration(chargingAnimationFadeDuration);
         textFadeAnimatorIcon.setInterpolator(Interpolators.LINEAR);
