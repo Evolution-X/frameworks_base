@@ -241,9 +241,6 @@ public class NotifCollection implements Dumpable, PipelineDumpable {
 
     /** @see NotifPipeline#getAllNotifs() */
     Collection<NotificationEntry> getAllNotifs() {
-        if (!Flags.doNotUseRunBlocking()) {
-            Assert.isMainThread();
-        }
         return mReadOnlyNotificationSet;
     }
 
