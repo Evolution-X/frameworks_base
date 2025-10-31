@@ -49,7 +49,7 @@ final class WirelessChargingLayout extends FrameLayout {
     private static final long CIRCLE_RIPPLE_ANIMATION_DURATION = 2200;
     private static final long ROUNDED_BOX_RIPPLE_ANIMATION_DURATION = 3000;
     private static final int SCRIM_COLOR = 0x4C000000;
-    private static final int SCRIM_FADE_DURATION = 300;
+    private static final int SCRIM_FADE_DURATION = 400;
     
     private static final int RIPPLE_SHAPE_CIRCLE = 0;
     private static final int RIPPLE_SHAPE_ROUNDED_BOX = 1;
@@ -240,19 +240,31 @@ final class WirelessChargingLayout extends FrameLayout {
         // For tablet docking animation, we don't play the background scrim.
         // TODO(b/270524780): use utility to check for tablet instead. 
         if (!Utilities.isLargeScreen(context)) {
-            ValueAnimator scrimFadeInAnimator = ObjectAnimator.ofArgb(this,
-                    "backgroundColor", Color.TRANSPARENT, SCRIM_COLOR);
-            scrimFadeInAnimator.setDuration(SCRIM_FADE_DURATION);
-            scrimFadeInAnimator.setInterpolator(Interpolators.LINEAR);
-            ValueAnimator scrimFadeOutAnimator = ObjectAnimator.ofArgb(this,
-                    "backgroundColor", SCRIM_COLOR, Color.TRANSPARENT);
-            scrimFadeOutAnimator.setDuration(SCRIM_FADE_DURATION);
-            scrimFadeOutAnimator.setInterpolator(Interpolators.LINEAR);
-            scrimFadeOutAnimator.setStartDelay(animationDuration - SCRIM_FADE_DURATION);
-            
-            AnimatorSet animatorSetScrim = new AnimatorSet();
-            animatorSetScrim.playTogether(scrimFadeInAnimator, scrimFadeOutAnimator);
-            animatorSetScrim.start();
+        ValueAnimator scrimFadeInAnimator = ObjectAnimator.ofArgb(
+                this, "backgroundColor", Color.TRANSPARENT, SCRIM_COLOR);
+        scrimFadeInAnimator.setDuration(SCRIM_FADE_DURATION);
+        scrimFadeInAnimator.setInterpolator(Interpolators.LINEAR);
+
+        long scrimFadeDuration;
+        long scrimFadeStartDelay;
+
+        if (rippleShape == RippleShape.CIRCLE) {
+                scrimFadeDuration = 550;
+                scrimFadeStartDelay = animationDuration - 1000;
+        } else {
+                scrimFadeDuration = 850;
+                scrimFadeStartDelay = animationDuration - 1700;
+        }
+
+        ValueAnimator scrimFadeOutAnimator = ObjectAnimator.ofArgb(
+                this, "backgroundColor", SCRIM_COLOR, Color.TRANSPARENT);
+        scrimFadeOutAnimator.setDuration(scrimFadeDuration);
+        scrimFadeOutAnimator.setInterpolator(new PathInterpolator(0.4f, 0f, 0.2f, 1f));
+        scrimFadeOutAnimator.setStartDelay(scrimFadeStartDelay);
+
+        AnimatorSet animatorSetScrim = new AnimatorSet();
+        animatorSetScrim.playTogether(scrimFadeInAnimator, scrimFadeOutAnimator);
+        animatorSetScrim.start();
         }
 
         int color;
