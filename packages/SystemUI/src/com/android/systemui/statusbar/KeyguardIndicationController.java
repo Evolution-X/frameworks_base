@@ -1220,19 +1220,22 @@ public class KeyguardIndicationController {
 
             if (!TextUtils.equals(mTopIndicationView.getText(), newIndication)) {
                 mWakeLock.setAcquired(true);
-                final KeyguardIndication.Builder builder = new KeyguardIndication.Builder()
-                        .setMessage(newIndication)
-                        .setTextColor(ColorStateList.valueOf(
-                                useMisalignmentColor
-                                        ? mContext.getColor(R.color.misalignment_text_color)
-                                        : Color.WHITE));
-                if (mBiometricMessage != null && newIndication == mBiometricMessage) {
-                    builder.setForceAccessibilityLiveRegionAssertive();
+                KeyguardIndication indication = null;
+                if (!TextUtils.isEmpty(newIndication)) {
+                    final KeyguardIndication.Builder builder = new KeyguardIndication.Builder()
+                            .setMessage(newIndication)
+                            .setTextColor(ColorStateList.valueOf(
+                                    useMisalignmentColor
+                                            ? mContext.getColor(R.color.misalignment_text_color)
+                                            : Color.WHITE));
+                    if (mBiometricMessage != null && newIndication == mBiometricMessage) {
+                        builder.setForceAccessibilityLiveRegionAssertive();
+                    }
+                    indication = builder.build();
                 }
 
-                mTopIndicationView.switchIndication(newIndication,
-                        builder.build(),
-                        animate, () -> mWakeLock.setAcquired(false));
+                mTopIndicationView.switchIndication(newIndication, indication, animate,
+                        () -> mWakeLock.setAcquired(false));
             }
             return;
         }
