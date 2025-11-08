@@ -179,6 +179,9 @@ class AppCompatAspectRatioPolicy {
     }
 
     float getMaxAspectRatio() {
+        if (mActivityRecord.shouldForceLongScreen()) {
+            return 0;
+        }
         if (mTransparentPolicy.isRunning()) {
             return mTransparentPolicy.getInheritedMaxAspectRatio();
         }
