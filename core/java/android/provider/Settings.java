@@ -7790,6 +7790,16 @@ public final class Settings {
         public static final String LOCK_GLYMPS_CUSTOM_URLS = "lock_glymps_custom_urls";
 
         /**
+         * @hide
+         */
+        public static final String LOCK_GLYMPS_CHANGE_ON = "lock_glymps_change_on";
+
+        /**
+         * @hide
+         */
+        public static final String LOCK_GLYMPS_TIMER_INTERVAL = "lock_glymps_timer_interval";
+
+        /**
          * Keys we no longer back up under the current schema, but want to continue to
          * process when restoring historical backup datasets.
          *
