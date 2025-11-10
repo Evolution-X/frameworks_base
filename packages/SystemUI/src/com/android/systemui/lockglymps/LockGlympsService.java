@@ -50,8 +50,8 @@ public class LockGlympsService extends Service {
     private static final int MAX_CACHE_SIZE = 10;
     private static final int CONNECTION_TIMEOUT = 15000;
     private static final int READ_TIMEOUT = 15000;
-    private static final int SCREEN_ON_DELAY = 800; // Delay for screen-on mode
-    private static final int SCREEN_OFF_DELAY = 450; // Delay for screen-off mode
+    private static final int SCREEN_ON_DELAY = 800;
+    private static final int SCREEN_OFF_DELAY = 450;
     
     private static final String LOCK_GLYMPS_ENABLED = "lock_glymps_enabled";
     private static final String LOCK_GLYMPS_SOURCE = "lock_glymps_source";
@@ -59,6 +59,7 @@ public class LockGlympsService extends Service {
     private static final String LOCK_GLYMPS_CACHE_SIZE = "lock_glymps_cache_size";
     private static final String LOCK_GLYMPS_CUSTOM_URLS = "lock_glymps_custom_urls";
     private static final String LOCK_GLYMPS_CHANGE_ON = "lock_glymps_change_on";
+    private static final String LOCK_GLYMPS_TIMER_INTERVAL = "lock_glymps_timer_interval";
     
     private static final String STORAGE_FOLDER = "Glymps";
     
@@ -69,12 +70,14 @@ public class LockGlympsService extends Service {
     private Random mRandom;
     private ScreenStateReceiver mScreenReceiver;
     private PowerManager.WakeLock mWakeLock;
+    private Runnable mTimerRunnable;
     
     private boolean mEnabled = false;
     private int mWallpaperSource = 0;
     private boolean mWifiOnly = true;
     private int mCacheSize = 5;
     private int mChangeOn = 1;
+    private long mTimerInterval = 1800000; // 30 minutes default
     private List<String> mCustomUrls = new ArrayList<>();
     
     private int mCurrentIndex = 0;
@@ -83,7 +86,6 @@ public class LockGlympsService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        Log.d(TAG, "LockGlympsService onCreate");
         
         mWallpaperManager = WallpaperManager.getInstance(this);
         mExecutor = Executors.newSingleThreadExecutor();
@@ -105,6 +107,10 @@ public class LockGlympsService extends Service {
         
         if (mEnabled) {
             mExecutor.execute(this::preFetchWallpapers);
+            
+            if (mChangeOn == 2) {
+                startTimer();
+            }
         }
     }
     
@@ -117,18 +123,20 @@ public class LockGlympsService extends Service {
             mScreenReceiver = null;
         }
         
-        mScreenReceiver = new ScreenStateReceiver();
-        IntentFilter filter = new IntentFilter();
-        
-        if (mChangeOn == 0) {
-            filter.addAction(Intent.ACTION_SCREEN_ON);
-            filter.addAction(Intent.ACTION_USER_PRESENT);
-        } else {
-            filter.addAction(Intent.ACTION_SCREEN_OFF);
+        if (mChangeOn == 0 || mChangeOn == 1) {
+            mScreenReceiver = new ScreenStateReceiver();
+            IntentFilter filter = new IntentFilter();
+            
+            if (mChangeOn == 0) {
+                filter.addAction(Intent.ACTION_SCREEN_ON);
+                filter.addAction(Intent.ACTION_USER_PRESENT);
+            } else {
+                filter.addAction(Intent.ACTION_SCREEN_OFF);
+            }
+            
+            registerReceiver(mScreenReceiver, filter);
+            Log.d(TAG, "Screen receiver registered for: " + (mChangeOn == 0 ? "SCREEN_ON" : "SCREEN_OFF"));
         }
-        
-        registerReceiver(mScreenReceiver, filter);
-        Log.d(TAG, "Screen receiver registered for: " + (mChangeOn == 0 ? "SCREEN_ON" : "SCREEN_OFF"));
     }
     
     @Override
@@ -141,6 +149,18 @@ public class LockGlympsService extends Service {
                 
                 if (oldChangeOn != mChangeOn) {
                     registerScreenReceiver();
+                    
+                    if (oldChangeOn == 2 && mChangeOn != 2) {
+                        stopTimer();
+                    }
+                    else if (oldChangeOn != 2 && mChangeOn == 2) {
+                        startTimer();
+                    }
+                }
+                
+                if (mChangeOn == 2) {
+                    stopTimer();
+                    startTimer();
                 }
                 
                 if (mEnabled) {
@@ -156,7 +176,7 @@ public class LockGlympsService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        Log.d(TAG, "LockGlympsService onDestroy");
+        stopTimer();
         
         if (mScreenReceiver != null) {
             try {
@@ -204,6 +224,7 @@ public class LockGlympsService extends Service {
             mWifiOnly = Settings.System.getInt(getContentResolver(), LOCK_GLYMPS_WIFI_ONLY, 1) == 1;
             mCacheSize = Settings.System.getInt(getContentResolver(), LOCK_GLYMPS_CACHE_SIZE, 5);
             mChangeOn = Settings.System.getInt(getContentResolver(), LOCK_GLYMPS_CHANGE_ON, 1);
+            mTimerInterval = Settings.System.getLong(getContentResolver(), LOCK_GLYMPS_TIMER_INTERVAL, 1800000L);
             
             String urls = Settings.System.getString(getContentResolver(), LOCK_GLYMPS_CUSTOM_URLS);
             mCustomUrls.clear();
@@ -218,9 +239,41 @@ public class LockGlympsService extends Service {
             }
             
             Log.d(TAG, "Settings loaded - Enabled: " + mEnabled + ", Source: " + mWallpaperSource + 
-                ", ChangeOn: " + (mChangeOn == 0 ? "screen-on" : "screen-off"));
+                ", ChangeOn: " + (mChangeOn == 0 ? "screen-on" : mChangeOn == 1 ? "screen-off" : "timer") +
+                ", TimerInterval: " + mTimerInterval + "ms");
         } catch (Exception e) {
             Log.e(TAG, "Error loading settings", e);
+        }
+    }
+    
+    private void startTimer() {
+        if (mHandler == null || mTimerInterval <= 0) return;
+        
+        stopTimer(); // Clear any existing timer
+        
+        mTimerRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (mExecutor != null && !mExecutor.isShutdown()) {
+                    mExecutor.execute(() -> changeWallpaper());
+                }
+                
+                // Schedule next run
+                if (mHandler != null && mTimerRunnable != null) {
+                    mHandler.postDelayed(mTimerRunnable, mTimerInterval);
+                }
+            }
+        };
+        
+        mHandler.postDelayed(mTimerRunnable, mTimerInterval);
+        Log.d(TAG, "Timer started with interval: " + mTimerInterval + "ms");
+    }
+    
+    private void stopTimer() {
+        if (mHandler != null && mTimerRunnable != null) {
+            mHandler.removeCallbacks(mTimerRunnable);
+            mTimerRunnable = null;
+            Log.d(TAG, "Timer stopped");
         }
     }
     
@@ -275,8 +328,6 @@ public class LockGlympsService extends Service {
             Log.w(TAG, "No URL available");
             return null;
         }
-        
-        Log.d(TAG, "Downloading from: " + url);
         
         HttpURLConnection connection = null;
         InputStream input = null;
