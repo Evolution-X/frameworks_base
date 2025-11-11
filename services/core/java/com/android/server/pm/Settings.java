@@ -910,7 +910,8 @@ public final class Settings implements Watchable, Snappable, ResilientAtomicFile
         }
         p.getPkgState().setUpdatedSystemApp(false);
         PackageSetting ret = addPackageLPw(name, p.getRealName(), p.getPath(), p.getAppId(),
-                p.getFlags(), p.getPrivateFlags(), mDomainVerificationManager.generateNewId());
+                p.getFlags(), p.getPrivateFlags(), mDomainVerificationManager.generateNewId(),
+                p.hasSharedUser());
         if (ret != null) {
             ret.setLegacyNativeLibraryPath(p.getLegacyNativeLibraryPath());
             ret.setPrimaryCpuAbi(p.getPrimaryCpuAbiLegacy());
@@ -929,6 +930,7 @@ public final class Settings implements Watchable, Snappable, ResilientAtomicFile
             ret.setTargetSdkVersion(p.getTargetSdkVersion());
             ret.setRestrictUpdateHash(p.getRestrictUpdateHash());
             ret.setScannedAsStoppedSystemApp(p.isScannedAsStoppedSystemApp());
+            ret.setSharedUserAppId(p.getSharedUserAppId());
         }
         mDisabledSysPackages.remove(name);
         return ret;
@@ -950,7 +952,8 @@ public final class Settings implements Watchable, Snappable, ResilientAtomicFile
     }
 
     PackageSetting addPackageLPw(String name, String realName, File codePath, int uid, int pkgFlags,
-                                 int pkgPrivateFlags, @NonNull UUID domainSetId) {
+                                 int pkgPrivateFlags, @NonNull UUID domainSetId,
+                                 boolean hasSharedUser) {
         PackageSetting p = mPackages.get(name);
         if (p != null) {
             if (p.getAppId() == uid) {
@@ -962,7 +965,7 @@ public final class Settings implements Watchable, Snappable, ResilientAtomicFile
         }
         p = new PackageSetting(name, realName, codePath, pkgFlags, pkgPrivateFlags, domainSetId)
                 .setAppId(uid);
-        if (mAppIds.registerExistingAppId(uid, p, name)) {
+        if (mAppIds.registerExistingAppId(uid, p, name) || hasSharedUser) {
             mPackages.put(name, p);
             return p;
         }
@@ -4160,7 +4163,7 @@ public final class Settings implements Watchable, Snappable, ResilientAtomicFile
             } else if (appId > 0 || (appId == Process.INVALID_UID && isSdkLibrary
                     && Flags.disallowSdkLibsToBeApps())) {
                 packageSetting = addPackageLPw(name.intern(), realName, new File(codePathStr),
-                        appId, pkgFlags, pkgPrivateFlags, domainSetId);
+                        appId, pkgFlags, pkgPrivateFlags, domainSetId, /* hasSharedUser= */ false);
                 if (PackageManagerService.DEBUG_SETTINGS)
                     Log.i(PackageManagerService.TAG, "Reading package " + name + ": appId="
                             + appId + " pkg=" + packageSetting);
