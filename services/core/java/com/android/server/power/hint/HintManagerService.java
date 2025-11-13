@@ -1028,10 +1028,11 @@ public final class HintManagerService extends SystemService {
             if (mConfig != null) {
                 try {
                     mPowerHal.closeSessionChannel(mTgid, mUid);
-                } catch (RemoteException e) {
-                    throw new IllegalStateException("Failed to close session channel!", e);
+                } catch (Exception e) {
+                    Slog.w(TAG, "Session channel already dead for uid " + mUid);
+                } finally {
+                    mConfig = null;
                 }
-                mConfig = null;
             }
         }
 
