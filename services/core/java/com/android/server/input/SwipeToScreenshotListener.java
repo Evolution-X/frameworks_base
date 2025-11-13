@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.server.policy;
+package com.android.server.input;
 
 import android.content.Context;
 import android.os.SystemProperties;
