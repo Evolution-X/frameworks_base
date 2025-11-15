@@ -124,7 +124,7 @@ object KeyguardPreviewSmartspaceViewBinder {
                                     when (clockSize) {
                                         ClockSizeSetting.DYNAMIC -> {
                                             if (viewModel.shouldDateWeatherBeBelowLargeClock) {
-                                                largeDateView.also { view ->
+                                                largeDateView?.also { view ->
                                                     constrainWidth(
                                                         view.id,
                                                         ConstraintSet.WRAP_CONTENT,
