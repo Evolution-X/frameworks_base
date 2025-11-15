@@ -309,7 +309,7 @@ constructor(
             "invocation_effect_animation_out_duration_ms"
         const val DEFAULT_INWARD_EFFECT_PADDING_DURATION_MS = 450L
         const val DEFAULT_OUTWARD_EFFECT_DURATION_MS = 400L
-        const val DEFAULT_INVOCATION_EFFECT_ENABLED_BY_ASSISTANT_PREFERENCE = false
+        const val DEFAULT_INVOCATION_EFFECT_ENABLED_BY_ASSISTANT_PREFERENCE = true
     }
 }
 
