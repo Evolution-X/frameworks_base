@@ -7033,6 +7033,68 @@ public final class Settings {
         public static final String UDFPS_ICON = "udfps_icon";
 
         /**
+         * Whether now playing is enabled
+         * @hide
+         */
+        public static final String NOWPLAYING_ENABLED = "nowplaying_enabled";
+
+        /**
+         * Whether to use accent color (true) or white (false)
+         * 0 = White (default), 1 = Accent color
+         * @hide
+         */
+        public static final String NOWPLAYING_USE_ACCENT_COLOR = "nowplaying_use_accent_color";
+
+        /**
+         * Whether to show app icon above track title.
+         * Shows music app icon or default music note icon.
+         * @hide
+         */
+        public static final String NOWPLAYING_ICON_STYLE = "nowplaying_icon_style";
+
+        /**
+         * Now playing track icon size
+         * @hide
+         */
+        public static final String NOWPLAYING_ICON_SIZE = "nowplaying_icon_size";
+
+        /**
+         * Whether to use compact single-line style.
+         * @hide
+         */
+        public static final String NOWPLAYING_USE_COMPACT_STYLE = "nowplaying_use_compact_style";
+
+        /**
+         * Now playing vertical position (0.0 - 1.0)
+         * @hide
+         */
+        public static final String NOWPLAYING_VERTICAL_POSITION = "nowplaying_vertical_position";
+
+        /**
+         * Now playing track text size
+         * @hide
+         */
+        public static final String NOWPLAYING_TRACK_TEXT_SIZE = "nowplaying_track_text_size";
+
+        /**
+         * Now playing artist text size
+         * @hide
+         */
+        public static final String NOWPLAYING_ARTIST_TEXT_SIZE = "nowplaying_artist_text_size";
+
+        /**
+         * Whether to show now playing on AOD
+         * @hide
+         */
+        public static final String NOWPLAYING_SHOW_ON_AOD = "nowplaying_show_on_aod";
+
+        /**
+         * Whether to show now playing on lockscreen
+         * @hide
+         */
+        public static final String NOWPLAYING_SHOW_ON_LOCKSCREEN = "nowplaying_show_on_lockscreen";
+
+        /**
          * Whether to show the battery bar
          * @hide
          */
