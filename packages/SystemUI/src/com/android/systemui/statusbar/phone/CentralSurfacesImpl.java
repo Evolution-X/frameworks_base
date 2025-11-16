@@ -133,6 +133,7 @@ import com.android.systemui.dagger.qualifiers.Main;
 import com.android.systemui.dagger.qualifiers.UiBackground;
 import com.android.systemui.demomode.DemoMode;
 import com.android.systemui.demomode.DemoModeController;
+import com.android.systemui.nowplaying.NowPlayingViewController;
 import com.android.systemui.emergency.EmergencyGesture;
 import com.android.systemui.emergency.EmergencyGestureModule.EmergencyGestureIntentFactory;
 import com.android.systemui.fragments.ExtensionFragmentListener;
@@ -439,6 +440,8 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
 
     private WallpaperDepthUtils mWallpaperDepthUtils;
 
+    private final NowPlayingViewController mNowPlayingViewController;
+
     private final DisplayMetrics mDisplayMetrics;
 
     private MediaViewController mMediaViewController;
@@ -672,7 +675,8 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
             SessionTracker sessionTracker,
             MediaViewController mediaViewController,
             PulseViewController pulseViewController,
-            WallpaperDepthUtils wallpaperDepthUtils
+            WallpaperDepthUtils wallpaperDepthUtils,
+            NowPlayingViewController nowPlayingViewController
     ) {
         mContext = context;
         mNotificationsController = notificationsController;
@@ -801,6 +805,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
         mMediaViewController = mediaViewController;
         mPulseViewController = pulseViewController;
         mWallpaperDepthUtils = wallpaperDepthUtils;
+        mNowPlayingViewController = nowPlayingViewController;
     }
 
     private void initBubbles(Bubbles bubbles) {
@@ -970,19 +975,20 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
 
     private void attachCustomOverlays() {
         ViewGroup overlay = getScrimOverlayContainer();
-        ViewGroup root = (ViewGroup) getNotificationShadeWindowView();
 
         detachFromParent(mMediaViewController.getMediaArtScrim());
         detachFromParent(mPulseViewController.getPulseView());
+        detachFromParent(mNowPlayingViewController.getNowPlayingView());
 
-        // Place Media Art in the true background (behind the lock screen scrim and clock)
-        View scrimBehind = root.findViewById(R.id.scrim_behind);
-        int scrimBehindIndex = Math.max(root.indexOfChild(scrimBehind), 0);
-        root.addView(mMediaViewController.getMediaArtScrim(), scrimBehindIndex,
+        overlay.addView(mMediaViewController.getMediaArtScrim(),
                 new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
         overlay.addView(mPulseViewController.getPulseView(),
+                new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+        overlay.addView(mNowPlayingViewController.getNowPlayingView(),
                 new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
