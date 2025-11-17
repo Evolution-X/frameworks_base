@@ -31,6 +31,7 @@ import com.android.internal.inputmethod.IInputMethodClient;
 import com.android.internal.inputmethod.IRemoteAccessibilityInputConnection;
 import com.android.internal.inputmethod.IRemoteInputConnection;
 import com.android.internal.inputmethod.InputBindResult;
+import com.android.internal.inputmethod.InputMethodInfoSafeList;
 
 /**
  * Public interface to the global input method manager, used by all client
@@ -40,20 +41,17 @@ interface IInputMethodManager {
     void addClient(in IInputMethodClient client, in IRemoteInputConnection inputmethod,
             int untrustedDisplayId);
 
-    // TODO: Use ParceledListSlice instead
     @JavaPassthrough(annotation="@android.annotation.RequiresPermission(value = "
             + "android.Manifest.permission.INTERACT_ACROSS_USERS_FULL, conditional = true)")
     InputMethodInfo getCurrentInputMethodInfoAsUser(int userId);
 
-    // TODO: Use ParceledListSlice instead
     @JavaPassthrough(annotation="@android.annotation.RequiresPermission(value = "
             + "android.Manifest.permission.INTERACT_ACROSS_USERS_FULL, conditional = true)")
-    List<InputMethodInfo> getInputMethodList(int userId, int directBootAwareness);
+    InputMethodInfoSafeList getInputMethodList(int userId, int directBootAwareness);
 
-    // TODO: Use ParceledListSlice instead
     @JavaPassthrough(annotation="@android.annotation.RequiresPermission(value = "
             + "android.Manifest.permission.INTERACT_ACROSS_USERS_FULL, conditional = true)")
-    List<InputMethodInfo> getEnabledInputMethodList(int userId);
+    InputMethodInfoSafeList getEnabledInputMethodList(int userId);
 
     @JavaPassthrough(annotation="@android.annotation.RequiresPermission(value = "
             + "android.Manifest.permission.INTERACT_ACROSS_USERS_FULL, conditional = true)")
