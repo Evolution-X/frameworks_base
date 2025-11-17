@@ -44,6 +44,7 @@ class ScrimUtils @Inject constructor(dumpManager: DumpManager) : Dumpable {
         fun onQsVisibilityChanged(visible: Boolean) {}
         fun onStartedWakingUp() {}
         fun onScreenTurnedOff() {}
+        fun onUserChanged() {}
         fun setPulsing(pulsing: Boolean) {}
         fun onNotificationPosted(sbn: StatusBarNotification) {}
     }
@@ -151,6 +152,10 @@ class ScrimUtils @Inject constructor(dumpManager: DumpManager) : Dumpable {
     fun onScreenTurnedOff() {
         mAwake = false
         listeners.notifyOnMain { it.onScreenTurnedOff() }
+    }
+
+    fun onUserChanged() {
+        listeners.notify { it.onUserChanged() }
     }
 
     fun onNotificationPosted(sbn: StatusBarNotification) {
