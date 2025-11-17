@@ -295,7 +295,7 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
     private fun startMarqueeAnimation() {
         if (marqueeAnimator?.isRunning == true) return
         
-        val maxWidth = width * 0.6f
+        val maxWidth = width * 0.55f
         val separator = if (artistName.isNotEmpty()) " ~ " else ""
         val fullText = "$trackTitle$separator$artistName"
         val textWidth = trackPaint.measureText(fullText)
@@ -342,7 +342,7 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
         val centerX = width / 2f
         val yPosition = height * verticalPosition
 
-        val maxWidth = width * 0.6f
+        val maxWidth = width * 0.55f
 
         if (useCompactStyle) {
             drawCompactStyleWithMarquee(canvas, centerX, yPosition, maxWidth)
