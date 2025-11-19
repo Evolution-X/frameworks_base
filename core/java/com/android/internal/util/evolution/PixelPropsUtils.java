@@ -39,8 +39,8 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.internal.R;
-import com.android.internal.util.evolution.KeyProviderManager;
 import com.android.internal.util.evolution.Utils;
+import com.android.internal.util.neoteric.KeyProviderManager;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -754,11 +754,9 @@ public final class PixelPropsUtils {
     }
 
     private static boolean isCallerSafetyNet() {
-        for (StackTraceElement e : Thread.currentThread().getStackTrace()) {
-            final String cn = e.getClassName();
-            if (cn != null && (cn.contains("DroidGuard") || cn.contains("droidguard"))) return true;
-        }
-        return false;
+        return Arrays.stream(Thread.currentThread().getStackTrace())
+                        .anyMatch(elem -> elem.getClassName().toLowerCase()
+                            .contains("droidguard"));
     }
 
     public static void onEngineGetCertificateChain() {
