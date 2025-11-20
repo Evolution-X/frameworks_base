@@ -232,42 +232,48 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
     fun show() {
         if (trackTitle.isEmpty()) return
         
-        visible = true
-        fadeAnimator?.cancel()
-        
-        fadeAnimator = ValueAnimator.ofFloat(currentAlpha, 1f).apply {
-            duration = 300
-            addUpdateListener { animator ->
-                currentAlpha = animator.animatedValue as Float
-                alpha = currentAlpha
-            }
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    fadeAnimator = null
-                    startMarqueeIfNeeded()
+        post {
+            visible = true
+            fadeAnimator?.cancel()
+            
+            fadeAnimator = ValueAnimator.ofFloat(currentAlpha, 1f).apply {
+                duration = 300
+                addUpdateListener { animator ->
+                    currentAlpha = animator.animatedValue as Float
+                    alpha = currentAlpha
                 }
-            })
-            start()
+                addListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        fadeAnimator = null
+                        startMarqueeIfNeeded()
+                    }
+                })
+                start()
+            }
         }
     }
 
     fun hide() {
-        fadeAnimator?.cancel()
-        stopMarquee()
-        
-        fadeAnimator = ValueAnimator.ofFloat(currentAlpha, 0f).apply {
-            duration = 300
-            addUpdateListener { animator ->
-                currentAlpha = animator.animatedValue as Float
-                alpha = currentAlpha
-            }
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    visible = false
-                    fadeAnimator = null
+        post {
+            fadeAnimator?.cancel()
+            stopMarquee()
+            
+            fadeAnimator = ValueAnimator.ofFloat(currentAlpha, 0f).apply {
+                duration = 300
+                addUpdateListener { animator ->
+                    currentAlpha = animator.animatedValue as Float
+                    alpha = currentAlpha
                 }
-            })
-            start()
+                addListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        post {
+                            visible = false
+                            fadeAnimator = null
+                        }
+                    }
+                })
+                start()
+            }
         }
     }
 
