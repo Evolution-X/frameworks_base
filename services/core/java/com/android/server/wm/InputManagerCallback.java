@@ -421,6 +421,16 @@ final class InputManagerCallback implements InputManagerService.WindowManagerCal
                 stalledTransactionInfo.bufferId, stalledTransactionInfo.frameNumber);
     }
 
+    @Override
+    public void registerPointerEventListener(WindowManagerPolicyConstants.PointerEventListener listener, int displayId) {
+        mService.registerPointerEventListener(listener, displayId);
+    }
+
+    @Override
+    public void unregisterPointerEventListener(WindowManagerPolicyConstants.PointerEventListener listener, int displayId) {
+        mService.unregisterPointerEventListener(listener, displayId);
+    }
+
     void dump(PrintWriter pw, String prefix) {
         if (mInputFreezeReason != null) {
             pw.println(prefix + "mInputFreezeReason=" + mInputFreezeReason);
