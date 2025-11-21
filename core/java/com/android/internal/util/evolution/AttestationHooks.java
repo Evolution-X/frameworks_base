@@ -52,7 +52,7 @@ public final class AttestationHooks {
         "DEVICE", "mustang",
         "PRODUCT", "mustang",
         "MODEL", "Pixel 10 Pro XL",
-        "FINGERPRINT", "google/mustang/mustang:16/BD3A.251005.003.W3/14147046:user/release-keys"
+        "FINGERPRINT", "google/mustang/mustang:16/CP1A.260305.018/14887507:user/release-keys"
     );
 
     private static final Map<String, Object> sPixel5aProps = Map.of(
