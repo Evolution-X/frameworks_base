@@ -174,6 +174,13 @@ public class LockGlympsService extends Service {
                 }
             } else if ("CLEAR_CACHE".equals(action)) {
                 mExecutor.execute(this::clearCache);
+            } else if ("APPLY_NOW".equals(action)) {
+                Log.d(TAG, "Manual wallpaper change requested");
+                if (mEnabled && mExecutor != null && !mExecutor.isShutdown()) {
+                    mExecutor.execute(this::changeWallpaper);
+                } else {
+                    Log.w(TAG, "Cannot apply wallpaper: feature disabled or executor unavailable");
+                }
             }
         }
         return START_STICKY;
