@@ -60,8 +60,13 @@ public class LockGlympsService extends Service {
     private static final String LOCK_GLYMPS_CUSTOM_URLS = "lock_glymps_custom_urls";
     private static final String LOCK_GLYMPS_CHANGE_ON = "lock_glymps_change_on";
     private static final String LOCK_GLYMPS_TIMER_INTERVAL = "lock_glymps_timer_interval";
+    private static final String LOCK_GLYMPS_WALLPAPER_TARGET = "lock_glymps_wallpaper_target";
     
     private static final String STORAGE_FOLDER = "Glymps";
+    
+    private static final int TARGET_LOCK_SCREEN = 0;
+    private static final int TARGET_HOME_SCREEN = 1;
+    private static final int TARGET_BOTH = 2;
     
     private WallpaperManager mWallpaperManager;
     private ExecutorService mExecutor;
@@ -78,6 +83,7 @@ public class LockGlympsService extends Service {
     private int mCacheSize = 5;
     private int mChangeOn = 1;
     private long mTimerInterval = 1800000; // 30 minutes default
+    private int mWallpaperTarget = TARGET_LOCK_SCREEN;
     private List<String> mCustomUrls = new ArrayList<>();
     
     private int mCurrentIndex = 0;
@@ -225,6 +231,7 @@ public class LockGlympsService extends Service {
             mCacheSize = Settings.System.getInt(getContentResolver(), LOCK_GLYMPS_CACHE_SIZE, 5);
             mChangeOn = Settings.System.getInt(getContentResolver(), LOCK_GLYMPS_CHANGE_ON, 1);
             mTimerInterval = Settings.System.getLong(getContentResolver(), LOCK_GLYMPS_TIMER_INTERVAL, 1800000L);
+            mWallpaperTarget = Settings.System.getInt(getContentResolver(), LOCK_GLYMPS_WALLPAPER_TARGET, TARGET_LOCK_SCREEN);
             
             String urls = Settings.System.getString(getContentResolver(), LOCK_GLYMPS_CUSTOM_URLS);
             mCustomUrls.clear();
@@ -238,9 +245,12 @@ public class LockGlympsService extends Service {
                 }
             }
             
+            String targetStr = mWallpaperTarget == TARGET_LOCK_SCREEN ? "lock screen" : 
+                              mWallpaperTarget == TARGET_HOME_SCREEN ? "home screen" : "both";
+            
             Log.d(TAG, "Settings loaded - Enabled: " + mEnabled + ", Source: " + mWallpaperSource + 
                 ", ChangeOn: " + (mChangeOn == 0 ? "screen-on" : mChangeOn == 1 ? "screen-off" : "timer") +
-                ", TimerInterval: " + mTimerInterval + "ms");
+                ", TimerInterval: " + mTimerInterval + "ms" + ", Target: " + targetStr);
         } catch (Exception e) {
             Log.e(TAG, "Error loading settings", e);
         }
@@ -249,7 +259,7 @@ public class LockGlympsService extends Service {
     private void startTimer() {
         if (mHandler == null || mTimerInterval <= 0) return;
         
-        stopTimer(); // Clear any existing timer
+        stopTimer();
         
         mTimerRunnable = new Runnable() {
             @Override
@@ -258,7 +268,6 @@ public class LockGlympsService extends Service {
                     mExecutor.execute(() -> changeWallpaper());
                 }
                 
-                // Schedule next run
                 if (mHandler != null && mTimerRunnable != null) {
                     mHandler.postDelayed(mTimerRunnable, mTimerInterval);
                 }
@@ -539,17 +548,35 @@ public class LockGlympsService extends Service {
         }
         
         try {
+            int flags = getWallpaperFlags();
+            
             int wallpaperId = mWallpaperManager.setBitmap(
                 bitmap,
                 null,
                 false,
-                WallpaperManager.FLAG_LOCK
+                flags
             );
             
-            Log.d(TAG, "Wallpaper changed successfully, ID: " + wallpaperId);
+            String targetStr = mWallpaperTarget == TARGET_LOCK_SCREEN ? "lock screen" : 
+                              mWallpaperTarget == TARGET_HOME_SCREEN ? "home screen" : "both";
+            
+            Log.d(TAG, "Wallpaper changed successfully for " + targetStr + ", ID: " + wallpaperId);
             
         } catch (IOException e) {
             Log.e(TAG, "Error setting wallpaper", e);
+        }
+    }
+    
+    private int getWallpaperFlags() {
+        switch (mWallpaperTarget) {
+            case TARGET_LOCK_SCREEN:
+                return WallpaperManager.FLAG_LOCK;
+            case TARGET_HOME_SCREEN:
+                return WallpaperManager.FLAG_SYSTEM;
+            case TARGET_BOTH:
+                return WallpaperManager.FLAG_LOCK | WallpaperManager.FLAG_SYSTEM;
+            default:
+                return WallpaperManager.FLAG_LOCK;
         }
     }
     
