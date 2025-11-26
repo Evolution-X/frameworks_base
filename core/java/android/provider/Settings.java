@@ -7095,6 +7095,46 @@ public final class Settings {
         public static final String NOWPLAYING_SHOW_ON_LOCKSCREEN = "nowplaying_show_on_lockscreen";
 
         /**
+         * @hide
+         */
+        public static final String CHARGING_ANIMATION_ENABLED = "charging_animation_enabled";
+
+        /**
+         * @hide
+         */
+        public static final String CHARGING_ANIMATION_STYLE = "charging_animation_style";
+
+        /**
+         * @hide
+         */
+        public static final String CHARGING_RIPPLE_OPACITY = "charging_ripple_opacity";
+
+        /**
+         * @hide
+         */
+        public static final String CHARGING_GLOW_INTENSITY = "charging_glow_intensity";
+
+        /**
+         * @hide
+         */
+        public static final String CHARGING_ARC_COUNT = "charging_arc_count";
+
+        /**
+         * @hide
+         */
+        public static final String CHARGING_COLOR_MODE = "charging_color_mode";
+
+        /**
+         * @hide
+         */
+        public static final String CHARGING_SHOW_ON_AOD = "charging_show_on_aod";
+
+        /**
+         * @hide
+         */
+        public static final String CHARGING_SHOW_ON_LOCKSCREEN = "charging_show_on_lockscreen";
+
+        /**
          * Whether to show the battery bar
          * @hide
          */
