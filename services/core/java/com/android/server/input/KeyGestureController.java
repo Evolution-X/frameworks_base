@@ -291,7 +291,9 @@ public final class KeyGestureController {
         mInputGestureManager = new InputGestureManager(mContext);
         mSwipeToScreenshot = new SwipeToScreenshotListener(mContext, () -> 
             mHandler.sendMessage(mHandler.obtainMessage(MSG_SCREENSHOT_SHORTCUT,
-                    SCREENSHOT_KEY_OTHER, DEFAULT_DISPLAY))
+                    new TakeScreenshotData(SCREENSHOT_KEY_OTHER,
+                            WindowManager.TAKE_SCREENSHOT_FULLSCREEN,
+                            DEFAULT_DISPLAY)))
         );
         mAccessibilityShortcutController = injector.getAccessibilityShortcutController(mContext,
                 mHandler);
