@@ -24,6 +24,8 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Typeface
+import android.os.Handler
+import android.os.Looper
 import android.text.TextPaint
 import android.text.TextUtils
 import android.util.Log
@@ -44,6 +46,7 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
         private const val MARQUEE_SPEED_PX_PER_SEC = 30f
         private const val MARQUEE_DELAY_MS = 1500L
         private const val MARQUEE_GAP_MULTIPLIER = 3f
+        private const val MAX_WIDTH_RATIO = 0.55f
     }
 
     private val trackPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -54,10 +57,23 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
         textAlign = Paint.Align.CENTER
     }
 
+    private val compactPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.LEFT
+    }
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var marqueeStartRunnable: Runnable? = null
+
     var trackTitle: String = ""
         set(value) {
             field = value
             resetMarquee()
+            if (value.isNotEmpty() && visible) {
+                post { 
+                    isVisible = true
+                    alpha = currentAlpha
+                }
+            }
             invalidate()
         }
 
@@ -73,6 +89,7 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
             field = value
             trackPaint.color = value
             artistPaint.color = value and 0x00FFFFFF or 0xB3000000.toInt()
+            compactPaint.color = value
             updateIconTint()
             invalidate()
         }
@@ -128,10 +145,18 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
     private var currentAlpha: Float = 0f
     private var marqueeOffset: Float = 0f
     private var needsMarquee: Boolean = false
+    private var cachedMaxWidth: Float = 0f
+    private var cachedWidth: Int = 0
 
     var visible: Boolean
         get() = isVisible
-        set(value) { isVisible = value }
+        set(value) { 
+            isVisible = value
+            if (!value) {
+                currentAlpha = 0f
+                alpha = 0f
+            }
+        }
 
     init {
         layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
@@ -141,6 +166,7 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
         val density = resources.displayMetrics.density
         trackPaint.textSize = 14f * density
         artistPaint.textSize = 12f * density
+        compactPaint.textSize = 14f * density
         textColor = 0xFFFFFFFF.toInt()
         updateFontFamily()
         updateIconSize()
@@ -155,11 +181,13 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
             val typeface = Typeface.create(fontFamily, Typeface.NORMAL)
             trackPaint.typeface = typeface
             artistPaint.typeface = typeface
+            compactPaint.typeface = typeface
         } catch (e: Exception) {
             Log.e(TAG, "Error loading system font, using default", e)
             val typeface = Typeface.create("sans-serif", Typeface.NORMAL)
             trackPaint.typeface = typeface
             artistPaint.typeface = typeface
+            compactPaint.typeface = typeface
         }
     }
 
@@ -189,7 +217,11 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
         defaultIconBitmap?.let { original ->
             try {
                 defaultIconTintedBitmap?.recycle()
-                val tintedBitmap = original.copy(Bitmap.Config.ARGB_8888, true)
+                defaultIconTintedBitmap = null
+                
+                val tintedBitmap = Bitmap.createBitmap(iconSize, iconSize, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(tintedBitmap)
+                
                 val paint = Paint().apply {
                     colorFilter = android.graphics.PorterDuffColorFilter(
                         textColor,
@@ -197,8 +229,7 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
                     )
                 }
                 
-                val canvas = Canvas(tintedBitmap)
-                canvas.drawBitmap(tintedBitmap, 0f, 0f, paint)
+                canvas.drawBitmap(original, 0f, 0f, paint)
                 defaultIconTintedBitmap = tintedBitmap
             } catch (e: Exception) {
                 Log.e(TAG, "Error tinting icon", e)
@@ -234,6 +265,7 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
         
         post {
             visible = true
+            isVisible = true
             fadeAnimator?.cancel()
             
             fadeAnimator = ValueAnimator.ofFloat(currentAlpha, 1f).apply {
@@ -245,6 +277,8 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
                 addListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
                         fadeAnimator = null
+                        currentAlpha = 1f
+                        alpha = 1f
                         startMarqueeIfNeeded()
                     }
                 })
@@ -268,6 +302,7 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
                     override fun onAnimationEnd(animation: Animator) {
                         post {
                             visible = false
+                            currentAlpha = 0f
                             fadeAnimator = null
                         }
                     }
@@ -286,22 +321,29 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
     private fun stopMarquee() {
         marqueeAnimator?.cancel()
         marqueeAnimator = null
+        marqueeStartRunnable?.let { mainHandler.removeCallbacks(it) }
+        marqueeStartRunnable = null
     }
 
     private fun startMarqueeIfNeeded() {
         if (!visible || !needsMarquee || useCompactStyle) return
         
-        postDelayed({
-            if (visible && needsMarquee) {
+        marqueeStartRunnable?.let { mainHandler.removeCallbacks(it) }
+        
+        marqueeStartRunnable = Runnable {
+            if (visible && needsMarquee && isAttachedToWindow) {
                 startMarqueeAnimation()
             }
-        }, MARQUEE_DELAY_MS)
+            marqueeStartRunnable = null
+        }
+        
+        mainHandler.postDelayed(marqueeStartRunnable!!, MARQUEE_DELAY_MS)
     }
 
     private fun startMarqueeAnimation() {
         if (marqueeAnimator?.isRunning == true) return
         
-        val maxWidth = width * 0.55f
+        val maxWidth = width * MAX_WIDTH_RATIO
         val separator = if (artistName.isNotEmpty()) " ~ " else ""
         val fullText = "$trackTitle$separator$artistName"
         val textWidth = trackPaint.measureText(fullText)
@@ -327,11 +369,21 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
         }
     }
 
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        cachedWidth = w
+        cachedMaxWidth = w * MAX_WIDTH_RATIO
+    }
+
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+        
         fadeAnimator?.cancel()
         fadeAnimator = null
         stopMarquee()
+        
+        mainHandler.removeCallbacksAndMessages(null)
+        
         appIconBitmap?.recycle()
         appIconBitmap = null
         defaultIconBitmap?.recycle()
@@ -348,12 +400,15 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
         val centerX = width / 2f
         val yPosition = height * verticalPosition
 
-        val maxWidth = width * 0.55f
+        if (cachedWidth != width) {
+            cachedWidth = width
+            cachedMaxWidth = width * MAX_WIDTH_RATIO
+        }
 
         if (useCompactStyle) {
-            drawCompactStyleWithMarquee(canvas, centerX, yPosition, maxWidth)
+            drawCompactStyleWithMarquee(canvas, centerX, yPosition, cachedMaxWidth)
         } else {
-            drawNormalStyle(canvas, centerX, yPosition, maxWidth)
+            drawNormalStyle(canvas, centerX, yPosition, cachedMaxWidth)
         }
     }
 
@@ -361,10 +416,9 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
         val separator = if (artistName.isNotEmpty()) " ~ " else ""
         val fullText = "$trackTitle$separator$artistName"
         
-        val compactPaint = TextPaint(trackPaint).apply {
-            textSize = trackPaint.textSize
-            textAlign = Paint.Align.LEFT
-        }
+        compactPaint.textSize = trackPaint.textSize
+        compactPaint.color = trackPaint.color
+        compactPaint.typeface = trackPaint.typeface
         
         val iconToDraw = when (iconStyle) {
             ICON_STYLE_APP -> appIconBitmap
@@ -378,45 +432,55 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
         
         needsMarquee = textWidth > availableTextWidth
         
-        if (needsMarquee) {
-            val gapWidth = compactPaint.measureText(" ") * MARQUEE_GAP_MULTIPLIER
-            val totalWidth = textWidth + gapWidth
-            
-            val startX = centerX - (maxWidth / 2f)
-            
-            if (iconToDraw != null) {
-                val iconX = startX
-                val iconY = yPosition - (iconSize / 2f) - (compactPaint.textSize / 4f)
-                canvas.drawBitmap(iconToDraw, iconX, iconY, null)
-            }
-            
-            val textStartX = startX + iconWidth
-            canvas.save()
-            canvas.clipRect(textStartX, 0f, startX + maxWidth, height.toFloat())
-            
-            val offset1 = -marqueeOffset
-            val offset2 = offset1 + totalWidth
-            
-            canvas.drawText(fullText, textStartX + offset1, yPosition, compactPaint)
-            canvas.drawText(fullText, textStartX + offset2, yPosition, compactPaint)
-            canvas.restore()
+        canvas.save()
+        try {
+            if (needsMarquee) {
+                val gapWidth = compactPaint.measureText(" ") * MARQUEE_GAP_MULTIPLIER
+                val totalWidth = textWidth + gapWidth
+                
+                val startX = centerX - (maxWidth / 2f)
+                
+                if (iconToDraw != null) {
+                    val iconX = startX
+                    val iconY = yPosition - (iconSize / 2f) - (compactPaint.textSize / 4f)
+                    canvas.drawBitmap(iconToDraw, iconX, iconY, null)
+                }
+                
+                val textStartX = startX + iconWidth
+                canvas.clipRect(textStartX, 0f, startX + maxWidth, height.toFloat())
+                
+                val offset1 = -marqueeOffset
+                val offset2 = offset1 + totalWidth
+                
+                canvas.drawText(fullText, textStartX + offset1, yPosition, compactPaint)
+                canvas.drawText(fullText, textStartX + offset2, yPosition, compactPaint)
 
-            if (visible && marqueeAnimator?.isRunning != true) {
-                postDelayed({ startMarqueeAnimation() }, MARQUEE_DELAY_MS)
+                if (visible && marqueeAnimator?.isRunning != true && isAttachedToWindow) {
+                    marqueeStartRunnable?.let { mainHandler.removeCallbacks(it) }
+                    marqueeStartRunnable = Runnable {
+                        if (isAttachedToWindow) {
+                            startMarqueeAnimation()
+                        }
+                        marqueeStartRunnable = null
+                    }
+                    mainHandler.postDelayed(marqueeStartRunnable!!, MARQUEE_DELAY_MS)
+                }
+            } else {
+                stopMarquee()
+                val totalContentWidth = iconWidth + textWidth
+                val startX = centerX - (totalContentWidth / 2f)
+                
+                if (iconToDraw != null) {
+                    val iconX = startX
+                    val iconY = yPosition - (iconSize / 2f) - (compactPaint.textSize / 4f)
+                    canvas.drawBitmap(iconToDraw, iconX, iconY, null)
+                }
+                
+                val textX = startX + iconWidth
+                canvas.drawText(fullText, textX, yPosition, compactPaint)
             }
-        } else {
-            stopMarquee()
-            val totalContentWidth = iconWidth + textWidth
-            val startX = centerX - (totalContentWidth / 2f)
-            
-            if (iconToDraw != null) {
-                val iconX = startX
-                val iconY = yPosition - (iconSize / 2f) - (compactPaint.textSize / 4f)
-                canvas.drawBitmap(iconToDraw, iconX, iconY, null)
-            }
-            
-            val textX = startX + iconWidth
-            canvas.drawText(fullText, textX, yPosition, compactPaint)
+        } finally {
+            canvas.restore()
         }
     }
 
@@ -438,38 +502,47 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
         val trackWidth = trackPaint.measureText(trackTitle)
         needsMarquee = trackWidth > maxWidth
         
-        if (needsMarquee) {
-            val gapWidth = trackPaint.measureText(" ") * MARQUEE_GAP_MULTIPLIER
-            val totalWidth = trackWidth + gapWidth
-            
-            canvas.save()
-            canvas.clipRect(centerX - maxWidth/2f, 0f, centerX + maxWidth/2f, height.toFloat())
-            
-            val offset1 = centerX - maxWidth/2f - marqueeOffset
-            val offset2 = offset1 + totalWidth
-            
-            val tempPaint = TextPaint(trackPaint).apply {
-                textAlign = Paint.Align.LEFT
+        canvas.save()
+        try {
+            if (needsMarquee) {
+                val gapWidth = trackPaint.measureText(" ") * MARQUEE_GAP_MULTIPLIER
+                val totalWidth = trackWidth + gapWidth
+                
+                canvas.clipRect(centerX - maxWidth/2f, 0f, centerX + maxWidth/2f, height.toFloat())
+                
+                val offset1 = centerX - maxWidth/2f - marqueeOffset
+                val offset2 = offset1 + totalWidth
+                
+                compactPaint.textSize = trackPaint.textSize
+                compactPaint.color = trackPaint.color
+                compactPaint.typeface = trackPaint.typeface
+                
+                canvas.drawText(trackTitle, offset1, currentY, compactPaint)
+                canvas.drawText(trackTitle, offset2, currentY, compactPaint)
+                
+                if (visible && marqueeAnimator?.isRunning != true && isAttachedToWindow) {
+                    marqueeStartRunnable?.let { mainHandler.removeCallbacks(it) }
+                    marqueeStartRunnable = Runnable {
+                        if (isAttachedToWindow) {
+                            startMarqueeAnimation()
+                        }
+                        marqueeStartRunnable = null
+                    }
+                    mainHandler.postDelayed(marqueeStartRunnable!!, MARQUEE_DELAY_MS)
+                }
+            } else {
+                stopMarquee()
+                val truncatedTrack = TextUtils.ellipsize(
+                    trackTitle,
+                    trackPaint,
+                    maxWidth,
+                    TextUtils.TruncateAt.END
+                ).toString()
+                
+                canvas.drawText(truncatedTrack, centerX, currentY, trackPaint)
             }
-            
-            canvas.drawText(trackTitle, offset1, currentY, tempPaint)
-            canvas.drawText(trackTitle, offset2, currentY, tempPaint)
-            
+        } finally {
             canvas.restore()
-            
-            if (visible && marqueeAnimator?.isRunning != true) {
-                postDelayed({ startMarqueeAnimation() }, MARQUEE_DELAY_MS)
-            }
-        } else {
-            stopMarquee()
-            val truncatedTrack = TextUtils.ellipsize(
-                trackTitle,
-                trackPaint,
-                maxWidth,
-                TextUtils.TruncateAt.END
-            ).toString()
-            
-            canvas.drawText(truncatedTrack, centerX, currentY, trackPaint)
         }
 
         if (artistName.isNotEmpty()) {
@@ -489,6 +562,7 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
         val density = resources.displayMetrics.density
         trackPaint.textSize = trackSize * density
         artistPaint.textSize = artistSize * density
+        compactPaint.textSize = trackSize * density
         resetMarquee()
         invalidate()
     }
