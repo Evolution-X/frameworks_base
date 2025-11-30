@@ -48,13 +48,16 @@ import java.text.NumberFormat;
 final class WirelessChargingLayout extends FrameLayout {
     private static final long CIRCLE_RIPPLE_ANIMATION_DURATION = 2200;
     private static final long ROUNDED_BOX_RIPPLE_ANIMATION_DURATION = 3000;
+    private static final long NT_ANIMATION_DURATION = 1100;
     private static final int SCRIM_COLOR = 0x4C000000;
     private static final int SCRIM_FADE_DURATION = 400;
     
     private static final int RIPPLE_SHAPE_CIRCLE = 0;
     private static final int RIPPLE_SHAPE_ROUNDED_BOX = 1;
+    private static final int RIPPLE_SHAPE_PNG = 2;
     
     private RippleView mRippleView;
+    private NTRippleView mNTRippleView;
     private RippleShader.SizeAtProgress[] mSizeAtProgressArray;
 
     WirelessChargingLayout(Context context, int transmittingBatteryLevel, int batteryLevel,
@@ -89,6 +92,8 @@ final class WirelessChargingLayout extends FrameLayout {
         switch (shapeValue) {
             case RIPPLE_SHAPE_ROUNDED_BOX:
                 return RippleShape.ROUNDED_BOX;
+            case RIPPLE_SHAPE_PNG:
+                return RippleShape.CIRCLE;
             case RIPPLE_SHAPE_CIRCLE:
             default:
                 return RippleShape.CIRCLE;
@@ -99,6 +104,8 @@ final class WirelessChargingLayout extends FrameLayout {
         switch (shapeValue) {
             case RIPPLE_SHAPE_ROUNDED_BOX:
                 return ROUNDED_BOX_RIPPLE_ANIMATION_DURATION;
+            case RIPPLE_SHAPE_PNG:
+                return NT_ANIMATION_DURATION;
             case RIPPLE_SHAPE_CIRCLE:
             default:
                 return CIRCLE_RIPPLE_ANIMATION_DURATION;
@@ -142,6 +149,7 @@ final class WirelessChargingLayout extends FrameLayout {
         
         final long animationDuration = getAnimationDuration(shapeValue);
         rippleShape = getRippleShapeFromSettings(context);
+        final boolean isNtAnimation = (shapeValue == RIPPLE_SHAPE_PNG);
 
         // set style based on background
         int style = R.style.ChargingAnim_Background;
@@ -157,7 +165,9 @@ final class WirelessChargingLayout extends FrameLayout {
         if (batteryLevel != WirelessChargingAnimation.UNKNOWN_BATTERY_LEVEL) {
             int dynamicColor;
 
-            if (isDynamicColorEnabled(context)) {
+            if (isNtAnimation) {
+                dynamicColor = Color.WHITE;
+            } else if (isDynamicColorEnabled(context)) {
                 dynamicColor = getDynamicRippleColor(context, batteryLevel);
             } else {
                 dynamicColor = Utils.getColorAttr(context, android.R.attr.colorAccent).getDefaultColor();
@@ -240,82 +250,100 @@ final class WirelessChargingLayout extends FrameLayout {
         // For tablet docking animation, we don't play the background scrim.
         // TODO(b/270524780): use utility to check for tablet instead. 
         if (!Utilities.isLargeScreen(context)) {
-        ValueAnimator scrimFadeInAnimator = ObjectAnimator.ofArgb(
-                this, "backgroundColor", Color.TRANSPARENT, SCRIM_COLOR);
-        scrimFadeInAnimator.setDuration(SCRIM_FADE_DURATION);
-        scrimFadeInAnimator.setInterpolator(Interpolators.LINEAR);
+            ValueAnimator scrimFadeInAnimator = ObjectAnimator.ofArgb(
+                    this, "backgroundColor", Color.TRANSPARENT, SCRIM_COLOR);
+            scrimFadeInAnimator.setDuration(SCRIM_FADE_DURATION);
+            scrimFadeInAnimator.setInterpolator(Interpolators.LINEAR);
 
-        long scrimFadeDuration;
-        long scrimFadeStartDelay;
+            long scrimFadeDuration;
+            long scrimFadeStartDelay;
 
-        if (rippleShape == RippleShape.CIRCLE) {
+            if (isNtAnimation) {
+                scrimFadeDuration = 300;
+                scrimFadeStartDelay = 800;
+            } else if (rippleShape == RippleShape.CIRCLE) {
                 scrimFadeDuration = 550;
                 scrimFadeStartDelay = animationDuration - 1000;
-        } else {
+            } else {
                 scrimFadeDuration = 850;
                 scrimFadeStartDelay = animationDuration - 1700;
-        }
-
-        ValueAnimator scrimFadeOutAnimator = ObjectAnimator.ofArgb(
-                this, "backgroundColor", SCRIM_COLOR, Color.TRANSPARENT);
-        scrimFadeOutAnimator.setDuration(scrimFadeDuration);
-        scrimFadeOutAnimator.setInterpolator(new PathInterpolator(0.4f, 0f, 0.2f, 1f));
-        scrimFadeOutAnimator.setStartDelay(scrimFadeStartDelay);
-
-        AnimatorSet animatorSetScrim = new AnimatorSet();
-        animatorSetScrim.playTogether(scrimFadeInAnimator, scrimFadeOutAnimator);
-        animatorSetScrim.start();
-        }
-
-        int color;
-        if (isDynamicColorEnabled(context)) {
-            color = getDynamicRippleColor(context, batteryLevel);
-        } else {
-            color = Utils.getColorAttr(context, android.R.attr.colorAccent).getDefaultColor();
-        }
-
-        mRippleView = findViewById(R.id.wireless_charging_ripple);
-        mRippleView.setupShader(rippleShape);
-        
-        if (mRippleView.getRippleShape() == RippleShape.ROUNDED_BOX) {
-            mRippleView.setDuration(ROUNDED_BOX_RIPPLE_ANIMATION_DURATION);
-            mRippleView.setSparkleStrength(0.3f);
-            mRippleView.setColor(color, 110); // 43% of opacity.
-            mRippleView.setBaseRingFadeParams(
-                    /* fadeInStart = */ 0f,
-                    /* fadeInEnd = */ 0f,
-                    /* fadeOutStart = */ 0.2f,
-                    /* fadeOutEnd= */ 0.47f
-            );
-            mRippleView.setSparkleRingFadeParams(
-                    /* fadeInStart = */ 0f,
-                    /* fadeInEnd = */ 0f,
-                    /* fadeOutStart = */ 0.2f,
-                    /* fadeOutEnd= */ 1f
-            );
-            mRippleView.setCenterFillFadeParams(
-                    /* fadeInStart = */ 0f,
-                    /* fadeInEnd = */ 0f,
-                    /* fadeOutStart = */ 0f,
-                    /* fadeOutEnd= */ 0.2f
-            );
-            mRippleView.setBlur(6.5f, 2.5f);
-        } else {
-            mRippleView.setDuration(CIRCLE_RIPPLE_ANIMATION_DURATION);
-            mRippleView.setColor(color, RippleShader.RIPPLE_DEFAULT_ALPHA);
-        }
-
-        OnAttachStateChangeListener listener = new OnAttachStateChangeListener() {
-            @Override
-            public void onViewAttachedToWindow(View view) {
-                mRippleView.startRipple();
-                mRippleView.removeOnAttachStateChangeListener(this);
             }
 
-            @Override
-            public void onViewDetachedFromWindow(View view) {}
-        };
-        mRippleView.addOnAttachStateChangeListener(listener);
+            ValueAnimator scrimFadeOutAnimator = ObjectAnimator.ofArgb(
+                    this, "backgroundColor", SCRIM_COLOR, Color.TRANSPARENT);
+            scrimFadeOutAnimator.setDuration(scrimFadeDuration);
+            scrimFadeOutAnimator.setInterpolator(new PathInterpolator(0.4f, 0f, 0.2f, 1f));
+            scrimFadeOutAnimator.setStartDelay(scrimFadeStartDelay);
+
+            AnimatorSet animatorSetScrim = new AnimatorSet();
+            animatorSetScrim.playTogether(scrimFadeInAnimator, scrimFadeOutAnimator);
+            animatorSetScrim.start();
+        }
+
+        if (isNtAnimation) {
+            setupAdvancedPngAnimation(context);
+            RippleView rippleView = findViewById(R.id.wireless_charging_ripple);
+            if (rippleView != null) {
+                ((FrameLayout) rippleView.getParent()).removeView(rippleView);
+            }
+        } else {
+            NTRippleView ntRippleView = findViewById(R.id.wireless_charging_nt_ripple);
+            if (ntRippleView != null) {
+                ntRippleView.setVisibility(View.GONE);
+            }
+            
+            int color;
+            if (isDynamicColorEnabled(context)) {
+                color = getDynamicRippleColor(context, batteryLevel);
+            } else {
+                color = Utils.getColorAttr(context, android.R.attr.colorAccent).getDefaultColor();
+            }
+
+            mRippleView = findViewById(R.id.wireless_charging_ripple);
+            if (mRippleView != null) {
+                mRippleView.setupShader(rippleShape);
+            
+            if (mRippleView.getRippleShape() == RippleShape.ROUNDED_BOX) {
+                mRippleView.setDuration(ROUNDED_BOX_RIPPLE_ANIMATION_DURATION);
+                mRippleView.setSparkleStrength(0.3f);
+                mRippleView.setColor(color, 110); // 43% of opacity.
+                mRippleView.setBaseRingFadeParams(
+                        /* fadeInStart = */ 0f,
+                        /* fadeInEnd = */ 0f,
+                        /* fadeOutStart = */ 0.2f,
+                        /* fadeOutEnd= */ 0.47f
+                );
+                mRippleView.setSparkleRingFadeParams(
+                        /* fadeInStart = */ 0f,
+                        /* fadeInEnd = */ 0f,
+                        /* fadeOutStart = */ 0.2f,
+                        /* fadeOutEnd= */ 1f
+                );
+                mRippleView.setCenterFillFadeParams(
+                        /* fadeInStart = */ 0f,
+                        /* fadeInEnd = */ 0f,
+                        /* fadeOutStart = */ 0f,
+                        /* fadeOutEnd= */ 0.2f
+                );
+                mRippleView.setBlur(6.5f, 2.5f);
+            } else {
+                mRippleView.setDuration(CIRCLE_RIPPLE_ANIMATION_DURATION);
+                mRippleView.setColor(color, RippleShader.RIPPLE_DEFAULT_ALPHA);
+            }
+
+            OnAttachStateChangeListener listener = new OnAttachStateChangeListener() {
+                @Override
+                public void onViewAttachedToWindow(View view) {
+                    mRippleView.startRipple();
+                    mRippleView.removeOnAttachStateChangeListener(this);
+                }
+
+                @Override
+                public void onViewDetachedFromWindow(View view) {}
+            };
+            mRippleView.addOnAttachStateChangeListener(listener);
+            }
+        }
 
         if (!showTransmittingBatteryLevel) {
             animatorSet.start();
@@ -389,6 +417,28 @@ final class WirelessChargingLayout extends FrameLayout {
         animatorSet.start();
         animatorSetTransmitting.start();
         animatorSetIcon.start();
+    }
+
+    private void setupAdvancedPngAnimation(Context context) {
+        mNTRippleView = findViewById(R.id.wireless_charging_nt_ripple);
+        if (mNTRippleView == null) {
+            return;
+        }
+
+        mNTRippleView.setVisibility(View.VISIBLE);
+        mNTRippleView.preloadRes();
+
+        OnAttachStateChangeListener listener = new OnAttachStateChangeListener() {
+            @Override
+            public void onViewAttachedToWindow(View view) {
+                mNTRippleView.startRipple(null);
+                mNTRippleView.removeOnAttachStateChangeListener(this);
+            }
+
+            @Override
+            public void onViewDetachedFromWindow(View view) {}
+        };
+        mNTRippleView.addOnAttachStateChangeListener(listener);
     }
 
     @Override
