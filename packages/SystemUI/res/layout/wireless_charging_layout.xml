@@ -21,7 +21,15 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
-
+    
+    <!-- NT Animation View -->
+    <com.android.systemui.charging.NTRippleView
+        android:id="@+id/wireless_charging_nt_ripple"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone" />
+    
+    <!-- Ripple View -->
     <com.android.systemui.surfaceeffects.ripple.RippleView
         android:id="@+id/wireless_charging_ripple"
         android:layout_width="match_parent"
