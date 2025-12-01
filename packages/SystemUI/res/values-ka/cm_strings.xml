@@ -71,5 +71,16 @@
     <string name="screenshot_delete_label">წაშლა</string>
     <string name="screenshot_delete_description">ეკრანის სურათის წაშლა</string>
     <string name="screenrecord_delete_label">წაშლა</string>
+    <string name="screenrecord_delete_description">ეკრანის ჩანაწერი წაიშალა</string>
+    <string name="screenrecord_stopdot_label">შეწყვეტის ღილაკის ჩვენება</string>
+    <string name="screenrecord_stopdot_summary">დიდხანს დააწექით გადასატანად</string>
+    <string name="screenrecord_lowquality_label">დაბალი ხარისხი</string>
+    <string name="screenrecord_lowquality_summary">ფაილის ზომის შესამცირებლად</string>
+    <string name="screenrecord_longer_timeout_switch_label">დიდი ფაილის ზღვრული ზომა</string>
+    <string name="screenrecord_longer_timeout_switch_summary">ჩანაწერის ზომად არაუმეტეს 15 ᲒᲑᲐᲘᲢᲘ</string>
+    <string name="screenrecord_skip_time_label">უკუთვლის არიდება</string>
+    <string name="screenrecord_skip_time_summary"> მოცილდება 3-წამიანი დაყოვნება</string>
+    <string name="screenrecord_hevc_switch_label">HEVC-დაშიფვრა</string>
+    <string name="screenrecord_hevc_switch_summary">გამოიყენებს მეტად შედეგიან HEVC-დამშიფრავს</string>
     <string name="battery_notification_channel_tv">ბატარეის გაფრთხილება</string>
 </resources>
