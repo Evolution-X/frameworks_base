@@ -69,10 +69,6 @@ open class ThemedBatteryDrawable(private val context: Context, frameColor: Int) 
     private val plusPath = Path()
     private val scaledPlus = Path()
 
-    // Exclamation sign (used for battery alert)
-    private val exclamationPath = Path()
-    private val scaledExclamation = Path()
-
     private var intrinsicHeight: Int
     private var intrinsicWidth: Int
 
@@ -112,12 +108,6 @@ open class ThemedBatteryDrawable(private val context: Context, frameColor: Int) 
         }
 
     var showPercent = false
-        set(value) {
-            field = value
-            postInvalidate()
-        }
-
-    var alertEnabled = false
         set(value) {
             field = value
             postInvalidate()
@@ -230,12 +220,6 @@ open class ThemedBatteryDrawable(private val context: Context, frameColor: Int) 
             if (!invertFillIcon) {
                 c.drawPath(scaledBolt, fillPaint)
             }
-        } else if (alertEnabled) {
-            // Clip out the exclamation shape
-            unifiedPath.op(scaledExclamation, Path.Op.DIFFERENCE)
-            if (!invertFillIcon) {
-                c.drawPath(scaledExclamation, fillPaint)
-            }
         }
 
         if (dualTone) {
@@ -271,12 +255,6 @@ open class ThemedBatteryDrawable(private val context: Context, frameColor: Int) 
             } else {
                 c.drawPath(scaledBolt, fillColorStrokeProtection)
             }
-        } else if (alertEnabled) {
-            c.clipOutPath(scaledExclamation)
-            c.drawPath(
-                scaledExclamation,
-                if (invertFillIcon) fillColorStrokePaint else fillColorStrokeProtection
-            )
         } else if (powerSaveEnabled) {
             // If power save is enabled draw the level path with colorError
             c.drawPath(levelPath, errorPaint)
@@ -428,7 +406,6 @@ open class ThemedBatteryDrawable(private val context: Context, frameColor: Int) 
         scaledFill.computeBounds(fillRect, true)
         boltPath.transform(scaleMatrix, scaledBolt)
         plusPath.transform(scaleMatrix, scaledPlus)
-        exclamationPath.transform(scaleMatrix, scaledExclamation)
 
         // It is expected that this view only ever scale by the same factor in each dimension, so
         // just pick one to scale the strokeWidths
@@ -463,10 +440,6 @@ open class ThemedBatteryDrawable(private val context: Context, frameColor: Int) 
         val plusPathString = context.resources.getString(
                 com.android.internal.R.string.config_batterymeterPowersavePath)
         plusPath.set(PathParser.createPathFromPathData(plusPathString))
-
-        val exclamationPathString = context.resources.getString(
-            R.string.config_batteryMeterExclamationPath)
-        exclamationPath.set(PathParser.createPathFromPathData(exclamationPathString))
 
         dualTone = context.resources.getBoolean(
                 com.android.internal.R.bool.config_batterymeterDualTone)

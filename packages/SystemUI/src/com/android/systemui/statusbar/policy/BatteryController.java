@@ -165,10 +165,6 @@ public interface BatteryController extends DemoMode,
         default void onIsIncompatibleChargingChanged(boolean isIncompatibleCharging) {
         }
 
-        /** Calls when the battery is in an alert state. */
-        default void onBatteryAlertStateChanged(boolean isAlert) {
-        }
-
         @Override
         default void dump(@NonNull PrintWriter pw, @NonNull String[] args) {
             pw.println(this);
