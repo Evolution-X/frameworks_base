@@ -23,14 +23,14 @@ import com.android.systemui.qs.tileimpl.QSTileImpl
 import com.android.systemui.qs.tiles.AmbientDisplayTile
 import com.android.systemui.qs.tiles.AODTile
 import com.android.systemui.qs.tiles.CaffeineTile
-import com.android.systemui.qs.tiles.CellularTile
+import com.android.systemui.qs.tiles.CellularTileLegacy
 import com.android.systemui.qs.tiles.HeadsUpTile
 import com.android.systemui.qs.tiles.PowerShareTile
 import com.android.systemui.qs.tiles.ProfilesTile
 import com.android.systemui.qs.tiles.ReadingModeTile
 import com.android.systemui.qs.tiles.SyncTile
 import com.android.systemui.qs.tiles.UsbTetherTile
-import com.android.systemui.qs.tiles.WifiTile
+import com.android.systemui.qs.tiles.WifiTileLegacy
 import com.android.systemui.qs.tiles.VpnTile
 import com.android.systemui.qs.tiles.base.shared.model.QSTileConfig
 import com.android.systemui.qs.tiles.base.shared.model.QSTileUIConfig
@@ -62,11 +62,11 @@ interface LineageModule {
     @StringKey(CaffeineTile.TILE_SPEC)
     fun bindCaffeineTile(caffeineTile: CaffeineTile): QSTileImpl<*>
 
-    /** Inject CellularTile into tileMap in QSModule */
+    /** Inject CellularTileLegacy into tileMap in QSModule */
     @Binds
     @IntoMap
-    @StringKey(CellularTile.TILE_SPEC)
-    fun bindCellularTile(cellularTile: CellularTile): QSTileImpl<*>
+    @StringKey(CellularTileLegacy.TILE_SPEC)
+    fun bindCellularTileLegacy(cellularTileLegacy: CellularTileLegacy): QSTileImpl<*>
 
     /** Inject HeadsUpTile into tileMap in QSModule */
     @Binds
@@ -104,11 +104,11 @@ interface LineageModule {
     @StringKey(UsbTetherTile.TILE_SPEC)
     fun bindUsbTetherTile(usbTetherTile: UsbTetherTile): QSTileImpl<*>
 
-    /** Inject WifiTile into tileMap in QSModule */
+    /** Inject WifiTileLegacy into tileMap in QSModule */
     @Binds
     @IntoMap
-    @StringKey(WifiTile.TILE_SPEC)
-    fun bindWifiTile(wifiTile: WifiTile): QSTileImpl<*>
+    @StringKey(WifiTileLegacy.TILE_SPEC)
+    fun bindWifiTileLegacy(wifiTileLegacy: WifiTileLegacy): QSTileImpl<*>
 
     /** Inject VpnTile into tileMap in QSModule */
     @Binds
@@ -120,14 +120,14 @@ interface LineageModule {
         const val AMBIENT_DISPLAY_TILE_SPEC = "ambient_display"
         const val AOD_TILE_SPEC = "aod"
         const val CAFFEINE_TILE_SPEC = "caffeine"
-        const val CELLULAR_TILE_SPEC = "cell"
+        const val CELLULAR_TILE_SPEC = "celllegacy"
         const val HEADS_UP_TILE_SPEC = "heads_up"
         const val POWERSHARE_TILE_SPEC = "powershare"
         const val PROFILES_TILE_SPEC = "profiles"
         const val READING_MODE_TILE_SPEC = "reading_mode"
         const val SYNC_TILE_SPEC = "sync"
         const val USB_TETHER_TILE_SPEC = "usb_tether"
-        const val WIFI_TILE_SPEC = "wifi"
+        const val WIFI_TILE_SPEC = "wifilegacy"
         const val VPN_TILE_SPEC = "vpn"
 
         @Provides
@@ -178,7 +178,7 @@ interface LineageModule {
         @Provides
         @IntoMap
         @StringKey(CELLULAR_TILE_SPEC)
-        fun provideCellularTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
+        fun provideCellularTileLegacyConfig(uiEventLogger: QsEventLogger): QSTileConfig =
             QSTileConfig(
                 tileSpec = TileSpec.create(CELLULAR_TILE_SPEC),
                 uiConfig =
@@ -298,7 +298,7 @@ interface LineageModule {
         @Provides
         @IntoMap
         @StringKey(WIFI_TILE_SPEC)
-        fun provideWifiTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
+        fun provideWifiTileLegacyConfig(uiEventLogger: QsEventLogger): QSTileConfig =
             QSTileConfig(
                 tileSpec = TileSpec.create(WIFI_TILE_SPEC),
                 uiConfig =
