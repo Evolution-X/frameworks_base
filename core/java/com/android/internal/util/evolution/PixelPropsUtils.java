@@ -610,17 +610,14 @@ public final class PixelPropsUtils {
             return;
         }
 
-        boolean isKeyBoxAvailable = KeyProviderManager.isKeyboxAvailable();
-
         boolean isPixelGmsEnabled = SystemProperties.getBoolean(SPOOF_GMS, true);
-        if (!isKeyBoxAvailable && !isPixelGmsEnabled) {
+        if (!isPixelGmsEnabled) {
             dlog("onEngineGetCertificateChain disabled by setting");
             return;
         }
 
         // If a keybox is found, don't block key attestation
-        if (isKeyBoxAvailable && Settings.Secure.getInt(context.getContentResolver(),
-                Settings.Secure.GMS_CERT_CHAIN, 0) == 1) {
+        if (KeyProviderManager.isKeyboxAvailable()) {
             dlog("Key attestation blocking is disabled because a keybox is defined to spoof");
             return;
         }

@@ -13972,13 +13972,6 @@ public final class Settings {
         public static final String VBOOT_HASH = "vboot_hash";
 
         /**
-         * Whether to allow gms to get certificate chain or not.
-         * @hide
-         */
-        @Readable
-        public static final String GMS_CERT_CHAIN = "gms_cert_chain";
-
-        /**
          * Control whether to hide ADB and Developer settings enable status.
          * @hide
          */
