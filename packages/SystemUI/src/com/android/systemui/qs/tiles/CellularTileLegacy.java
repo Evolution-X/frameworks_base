@@ -63,10 +63,10 @@ import com.android.systemui.statusbar.policy.KeyguardStateController;
 
 import javax.inject.Inject;
 
-/** Quick settings tile: Cellular **/
-public class CellularTile extends QSTileImpl<BooleanState> {
+/** Quick settings tile: Cellular (Legacy Java Implementation) **/
+public class CellularTileLegacy extends QSTileImpl<BooleanState> {
 
-    public static final String TILE_SPEC = "cell";
+    public static final String TILE_SPEC = "celllegacy";
 
     private static final String ENABLE_SETTINGS_DATA_PLAN = "enable.settings.data.plan";
 
@@ -76,7 +76,7 @@ public class CellularTile extends QSTileImpl<BooleanState> {
     private final CellSignalCallback mSignalCallback = new CellSignalCallback();
 
     @Inject
-    public CellularTile(
+    public CellularTileLegacy(
             QSHost host,
             QsEventLogger uiEventLogger,
             @Background Looper backgroundLooper,
