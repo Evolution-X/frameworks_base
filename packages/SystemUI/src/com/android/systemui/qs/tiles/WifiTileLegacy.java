@@ -56,10 +56,10 @@ import com.android.systemui.statusbar.connectivity.WifiIndicators;
 
 import javax.inject.Inject;
 
-/** Quick settings tile: Wifi **/
-public class WifiTile extends QSTileImpl<BooleanState> {
+/** Quick settings tile: Wifi (Legacy Java Implementation) **/
+public class WifiTileLegacy extends QSTileImpl<BooleanState> {
 
-    public static final String TILE_SPEC = "wifi";
+    public static final String TILE_SPEC = "wifilegacy";
 
     private static final Intent WIFI_SETTINGS = new Intent(Settings.ACTION_WIFI_SETTINGS);
 
@@ -71,7 +71,7 @@ public class WifiTile extends QSTileImpl<BooleanState> {
     private boolean mExpectDisabled;
 
     @Inject
-    public WifiTile(
+    public WifiTileLegacy(
             QSHost host,
             QsEventLogger uiEventLogger,
             @Background Looper backgroundLooper,
