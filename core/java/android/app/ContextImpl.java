@@ -922,7 +922,13 @@ class ContextImpl extends Context {
     public File getExternalFilesDir(String type) {
         // Operates on primary external storage
         final File[] dirs = getExternalFilesDirs(type);
-        return (dirs != null && dirs.length > 0) ? dirs[0] : null;
+        // Return first non-null external dir, fallback to internal storage if null
+        if (dirs != null && dirs.length > 0 && dirs[0] != null) {
+            return dirs[0];
+        } else {
+            Log.w("ContextImpl", "External files dir null — falling back to internal storage");
+            return getFilesDir(); // fallback
+        }
     }
 
     @Override
@@ -940,7 +946,13 @@ class ContextImpl extends Context {
     public File getObbDir() {
         // Operates on primary external storage
         final File[] dirs = getObbDirs();
-        return (dirs != null && dirs.length > 0) ? dirs[0] : null;
+        // Return first non-null external dir, fallback to internal storage if null
+        if (dirs != null && dirs.length > 0 && dirs[0] != null) {
+            return dirs[0];
+        } else {
+            Log.w("ContextImpl", "OBB dir null — falling back to internal storage");
+            return getFilesDir(); // fallback
+        }
     }
 
     @Override
@@ -3934,6 +3946,10 @@ class ContextImpl extends Context {
                             sm.mkdirs(dir);
                         }
                     }
+                } catch (IllegalStateException e) {
+                    // Android 16 QPR1: external storage may not be prepared yet.
+                    // This is a timing issue; do not null the dir.
+                    Log.w(TAG, "Deferring external dir creation for " + dir, e);
                 } catch (Exception e) {
                     Log.w(TAG, "Failed to ensure " + dir, e);
                     dir = null;
