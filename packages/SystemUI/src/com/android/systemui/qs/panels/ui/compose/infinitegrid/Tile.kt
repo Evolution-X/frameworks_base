@@ -112,6 +112,7 @@ import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.TileHeight
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.longPressLabelMoreDetails
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.longPressLabelSettings
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.CustomColorScheme
 import com.android.systemui.qs.tiles.impl.ringer.QSTileRingerSlider
 import com.android.systemui.qs.panels.ui.viewmodel.AccessibilityUiState
 import com.android.systemui.qs.panels.ui.viewmodel.BounceableTileViewModel
@@ -978,7 +979,7 @@ private object TileDefaults {
         val gradient = qsTileBackgroundBrush(gradientEnabled)
 
         return TileColors(
-            background = LocalAndroidColorScheme.current.surfaceEffect1,
+            background = CustomColorScheme.current.qsTileColor,
             iconBackground = MaterialTheme.colorScheme.primary,
             label = MaterialTheme.colorScheme.onSurface,
             secondaryLabel = MaterialTheme.colorScheme.onSurface,
@@ -992,7 +993,7 @@ private object TileDefaults {
     @ReadOnlyComposable
     fun inactiveDualTargetTileColors(): TileColors =
         TileColors(
-            background = LocalAndroidColorScheme.current.surfaceEffect1,
+            background = CustomColorScheme.current.qsTileColor,
             iconBackground = LocalAndroidColorScheme.current.surfaceEffect2,
             label = MaterialTheme.colorScheme.onSurface,
             secondaryLabel = MaterialTheme.colorScheme.onSurface,
@@ -1004,7 +1005,7 @@ private object TileDefaults {
     @ReadOnlyComposable
     fun inactiveTileColors(): TileColors =
         TileColors(
-            background = LocalAndroidColorScheme.current.surfaceEffect1,
+            background = CustomColorScheme.current.qsTileColor,
             iconBackground = Color.Transparent,
             label = MaterialTheme.colorScheme.onSurface,
             secondaryLabel = MaterialTheme.colorScheme.onSurface,

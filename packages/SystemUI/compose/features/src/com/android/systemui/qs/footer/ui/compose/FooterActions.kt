@@ -111,6 +111,7 @@ import com.android.systemui.qs.footer.ui.viewmodel.FooterActionsViewModel
 import com.android.systemui.qs.footer.ui.viewmodel.FooterTextButtonViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.TextFeedbackViewModel
 import com.android.systemui.qs.shared.ui.QuickSettings
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.CustomColorScheme
 import com.android.systemui.qs.ui.composable.QuickSettingsTheme
 import com.android.systemui.qs.ui.compose.borderOnFocus
 import com.android.systemui.res.R
@@ -732,7 +733,7 @@ private object FooterActionsDefaults {
     fun inactiveButtonColors(): ButtonColors =
         ButtonColors(
             icon = MaterialTheme.colorScheme.onSurface,
-            background = LocalAndroidColorScheme.current.surfaceEffect1,
+            background = CustomColorScheme.current.qsTileColor,
         )
 
     @Composable
@@ -740,7 +741,7 @@ private object FooterActionsDefaults {
     fun userSwitcherButtonColors(): ButtonColors =
         ButtonColors(
             icon = Color.Unspecified,
-            background = LocalAndroidColorScheme.current.surfaceEffect1,
+            background = CustomColorScheme.current.qsTileColor,
         )
 
     @Composable
@@ -748,7 +749,7 @@ private object FooterActionsDefaults {
     fun blurTextButtonColors(): TextButtonColors =
         TextButtonColors(
             content = MaterialTheme.colorScheme.onSurface,
-            background = LocalAndroidColorScheme.current.surfaceEffect1,
+            background = CustomColorScheme.current.qsTileColor,
             border = null,
         )
 
