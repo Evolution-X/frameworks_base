@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, The LineageOS Project
+ * Copyright (c) 2025 VoltageOS
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.database.ContentObserver;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.AdaptiveIconDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -76,6 +77,12 @@ public class OnGoingActionProgressController implements NotificationListener.Not
     private static final int STALE_PROGRESS_CHECK_INTERVAL_MS = 5000;
     private static final int PROGRESS_TIMEOUT_MS = 30000;
 
+    public interface StateCallback {
+        void onStateChanged(boolean isVisible, int progress, int maxProgress, 
+                          Drawable icon, boolean isIconAdaptive, String packageName,
+                          boolean isCompactMode, float opacity, boolean showMediaControls);
+    }
+
     private final Context mContext;
     private final ContentResolver mContentResolver;
     private final Handler mHandler;
@@ -86,6 +93,8 @@ public class OnGoingActionProgressController implements NotificationListener.Not
     private final IconFetcher mIconFetcher;
     private final MediaSessionManagerHelper mMediaSessionHelper;
     private final Executor mBackgroundExecutor;
+    private StateCallback mStateCallback = null;
+    private final boolean mIsComposeMode;
 
     private final ProgressBar mProgressBar;
     private final ProgressBar mCircularProgressBar;
@@ -105,7 +114,12 @@ public class OnGoingActionProgressController implements NotificationListener.Not
     private boolean mIsCompactModeEnabled = false;
     private int mCurrentProgress = 0;
     private int mCurrentProgressMax = 0;
+    private Drawable mCurrentIcon = null;
+    private boolean mCurrentIconIsAdaptive = false;
     private int mProgressBarOpacity = DEFAULT_OPACITY;
+    private boolean mIsMenuVisible = false;
+    private boolean mIsSystemChipVisible = false;
+
     private String mTrackedNotificationKey;
     private String mTrackedPackageName;
     private PopupWindow mMediaPopup;
@@ -141,6 +155,18 @@ public class OnGoingActionProgressController implements NotificationListener.Not
         }
     };
 
+    private final Runnable mCompactCollapseRunnable = () -> {
+        if (mIsCompactModeEnabled && mIsExpanded) {
+            mIsExpanded = false;
+            requestUiUpdate();
+        }
+    };
+
+    private final Runnable mMenuCollapseRunnable = () -> {
+        mIsMenuVisible = false;
+        notifyStateCallback();
+    };
+
     private final MediaSessionManagerHelper.MediaMetadataListener mMediaMetadataListener = 
             new MediaSessionManagerHelper.MediaMetadataListener() {
                 @Override
@@ -160,6 +186,9 @@ public class OnGoingActionProgressController implements NotificationListener.Not
             Context context, OnGoingActionProgressGroup progressGroup,
             NotificationListener notificationListener, KeyguardStateController keyguardStateController,
             HeadsUpManager headsUpManager) {
+
+        mIsComposeMode = (progressGroup.rootView == null && progressGroup.compactRootView == null);
+
         if (progressGroup == null) {
             Log.wtf(TAG, "progressGroup is null");
             throw new IllegalArgumentException("progressGroup cannot be null");
@@ -189,27 +218,26 @@ public class OnGoingActionProgressController implements NotificationListener.Not
         mIconFetcher = new IconFetcher(context);
         mMediaSessionHelper = MediaSessionManagerHelper.Companion.getInstance(context);
 
-        mGestureDetector = new GestureDetector(mContext, new MediaGestureListener());
-
+        mGestureDetector = mIsComposeMode ? null : new GestureDetector(mContext, new MediaGestureListener());
         mKeyguardStateController.addCallback(this);
         mHeadsUpManager.addListener(this);
         mNotificationListener.addNotificationHandler(this);
         mSettingsObserver.register();
-        
-        mProgressRootView.setOnTouchListener((v, event) -> mGestureDetector.onTouchEvent(event));
-        mCompactRootView.setOnTouchListener((v, event) -> mGestureDetector.onTouchEvent(event));
-        
-        mCompactRootView.setOnClickListener(v -> {
-            if (mIsCompactModeEnabled && !mIsExpanded) {
-                expandCompactView();
-            } else if (mShowMediaProgress && mMediaSessionHelper.isMediaPlaying()) {
-                showMediaPopup(mProgressRootView);
-            } else {
-                openTrackedApp();
+
+        if (!mIsComposeMode) {
+            if (mProgressRootView != null && mGestureDetector != null) {
+                mProgressRootView.setOnTouchListener((v, event) -> mGestureDetector.onTouchEvent(event));
             }
-            VibrationUtils.triggerVibration(mContext, 3);
-        });
-        
+
+            if (mCompactRootView != null && mGestureDetector != null) {
+                mCompactRootView.setOnTouchListener((v, event) -> mGestureDetector.onTouchEvent(event));
+
+                mCompactRootView.setOnClickListener(v -> {
+                    onInteraction();
+                });
+            }
+        }
+
         mMediaSessionHelper.addMediaMetadataListener(mMediaMetadataListener);
         
         mIsViewAttached = true;
@@ -218,33 +246,37 @@ public class OnGoingActionProgressController implements NotificationListener.Not
         mHandler.postDelayed(mStaleProgressChecker, STALE_PROGRESS_CHECK_INTERVAL_MS);
     }
 
-    private void expandCompactView() {
+    /**
+     * Sets a callback for Compose to receive state updates
+     * @param callback Callback to be notified of state changes, or null to unregister
+     */
+    public void setStateCallback(StateCallback callback) {
+        mStateCallback = callback;
+        notifyStateCallback();
+    }
+
+    public void expandCompactView() {
         mIsExpanded = true;
-        mCompactRootView.setVisibility(View.GONE);
-        mProgressRootView.setVisibility(View.VISIBLE);
         
-        mHandler.postDelayed(() -> {
-            if (mIsCompactModeEnabled && mIsExpanded) {
-                mIsExpanded = false;
-                requestUiUpdate();
-            }
-        }, 5000);
+        // Reset collapse timer
+        mHandler.removeCallbacks(mCompactCollapseRunnable);
+        mHandler.postDelayed(mCompactCollapseRunnable, 5000);
+
+        if (mIsComposeMode) {
+            notifyStateCallback();
+            return;
+        }
+
+        if (mCompactRootView != null) mCompactRootView.setVisibility(View.GONE);
+        if (mProgressRootView != null) mProgressRootView.setVisibility(View.VISIBLE);
+        
+        requestUiUpdate();
     }
 
     private class MediaGestureListener extends GestureDetector.SimpleOnGestureListener {
         @Override
         public boolean onSingleTapConfirmed(MotionEvent e) {
-            if (mIsCompactModeEnabled && !mIsExpanded) {
-                expandCompactView();
-                return true;
-            }
-            
-            if (mShowMediaProgress && mMediaSessionHelper.isMediaPlaying()) {
-                showMediaPopup(mProgressRootView);
-            } else {
-                openTrackedApp();
-            }
-            VibrationUtils.triggerVibration(mContext, 3);
+            onInteraction();
             return true;
         }
 
@@ -300,41 +332,90 @@ public class OnGoingActionProgressController implements NotificationListener.Not
         }
     }
 
+    /**
+     * Notifies the Compose callback of current state
+     */
+    private void notifyStateCallback() {
+        if (mStateCallback == null) {
+            return;
+        }
+
+        boolean isVisible = !mIsForceHidden && !mHeadsUpPinned && !mIsSystemChipVisible;
+
+        boolean isMediaPlaying = mShowMediaProgress && mMediaSessionHelper.isMediaPlaying();
+        boolean hasNotificationProgress = mIsEnabled && mIsTrackingProgress;
+
+        isVisible = isVisible && (isMediaPlaying || hasNotificationProgress);
+
+        if (isVisible) {
+            float opacity = mProgressBarOpacity / 255f;
+            boolean isCompact = mIsCompactModeEnabled && !mIsExpanded;
+            mStateCallback.onStateChanged(
+                true, mCurrentProgress, mCurrentProgressMax, 
+                mCurrentIcon, mCurrentIconIsAdaptive, mTrackedPackageName,
+                isCompact, opacity, mIsMenuVisible
+            );
+        } else {
+            mStateCallback.onStateChanged(false, 0, 0, null, false, null, false, 0f, false);
+        }
+    }
+
     private void updateViews() {
-        if (!mIsViewAttached) return;
-        
-        float opacity = mProgressBarOpacity / 255f;
-        mProgressRootView.setAlpha(opacity);
-        mCompactRootView.setAlpha(opacity);
-        
+        if (!mIsViewAttached) {
+            if (mIsComposeMode) {
+                notifyStateCallback();
+            }
+            return;
+        }
+
+        if (!mIsComposeMode && mProgressRootView != null && mCompactRootView != null) {
+            float opacity = mProgressBarOpacity / 255f;
+            mProgressRootView.setAlpha(opacity);
+            mCompactRootView.setAlpha(opacity);
+        }
+
         if (mIsForceHidden || mHeadsUpPinned) {
-            mProgressRootView.setVisibility(View.GONE);
-            mCompactRootView.setVisibility(View.GONE);
+            if (!mIsComposeMode) {
+                if (mProgressRootView != null) mProgressRootView.setVisibility(View.GONE);
+                if (mCompactRootView != null) mCompactRootView.setVisibility(View.GONE);
+            }
+            notifyStateCallback();
             return;
         }
 
         boolean isMediaPlaying = mShowMediaProgress && mMediaSessionHelper.isMediaPlaying();
         
         if (mIsCompactModeEnabled && !mIsExpanded) {
-            mProgressRootView.setVisibility(View.GONE);
-            
+            if (!mIsComposeMode && mProgressRootView != null) {
+                mProgressRootView.setVisibility(View.GONE);
+            }
+
             if (!mIsEnabled && !isMediaPlaying) {
-                mCompactRootView.setVisibility(View.GONE);
+                if (!mIsComposeMode && mCompactRootView != null) {
+                    mCompactRootView.setVisibility(View.GONE);
+                }
+                notifyStateCallback();
                 return;
             }
             
-            mCompactRootView.setVisibility(View.VISIBLE);
-            
+            if (!mIsComposeMode && mCompactRootView != null) {
+                mCompactRootView.setVisibility(View.VISIBLE);
+            }
+
             if (isMediaPlaying) {
                 updateMediaProgressCompact();
             } else {
                 updateNotificationProgressCompact();
             }
         } else {
-            mCompactRootView.setVisibility(View.GONE);
-            
+            if (!mIsComposeMode && mCompactRootView != null) {
+                mCompactRootView.setVisibility(View.GONE);
+            }
+
             if (isMediaPlaying) {
-                mProgressRootView.setVisibility(View.VISIBLE);
+                if (!mIsComposeMode && mProgressRootView != null) {
+                    mProgressRootView.setVisibility(View.VISIBLE);
+                }
 
                 if (mNeedsFullUiUpdate) {
                     updateMediaProgressFull();
@@ -346,180 +427,248 @@ public class OnGoingActionProgressController implements NotificationListener.Not
                 updateNotificationProgress();
             }
         }
+        notifyStateCallback();
     }
 
-private void updateMediaProgressOnly() {
-    if (!mIsViewAttached) return;
-    
-    long totalDuration = mMediaSessionHelper.getTotalDuration();
-    
-    android.media.session.PlaybackState playbackState = mMediaSessionHelper.getMediaControllerPlaybackState();
-    long currentProgress = 0;
-    
-    if (playbackState != null) {
-        currentProgress = playbackState.getPosition();
-    }
-            
-    // Update the standard progress bar if visible
-    if (mProgressRootView.getVisibility() == View.VISIBLE && mProgressBar != null && totalDuration > 0) {
-        mProgressBar.setMax((int) totalDuration);
-        mProgressBar.setProgress((int) currentProgress);
-    }
-    
-    // Also update the circular progress bar for compact mode
-    if (mCompactRootView.getVisibility() == View.VISIBLE && mCircularProgressBar != null && totalDuration > 0) {
-        mCircularProgressBar.setMax((int) totalDuration);
-        mCircularProgressBar.setProgress((int) currentProgress);
-    }
-}
+    private void updateMediaProgressOnly() {
+        if (!mIsViewAttached && !mIsComposeMode) {
+            return;
+        }
 
-private void updateMediaProgressFull() {
-    if (!mIsViewAttached) return;
-    
-    mProgressRootView.setVisibility(View.VISIBLE);
-    mMediaProgressHandler.removeCallbacks(mMediaProgressRunnable);
-    mMediaProgressHandler.post(mMediaProgressRunnable);
+        long totalDuration = mMediaSessionHelper.getTotalDuration();
 
-    Drawable mediaAppIcon = mMediaSessionHelper.getMediaAppIcon();
-    
-    if (mediaAppIcon != null) {
-        mIconView.setImageDrawable(mediaAppIcon);
-    } else {
-        String packageName = null;
-        
-        // Add null check for playback state before accessing extras
         android.media.session.PlaybackState playbackState = mMediaSessionHelper.getMediaControllerPlaybackState();
-        if (playbackState != null && playbackState.getExtras() != null) {
-            packageName = playbackState.getExtras().getString("package");
+        long currentProgress = 0;
+
+        if (playbackState != null) {
+            currentProgress = playbackState.getPosition();
         }
+
+        mCurrentProgress = (int) currentProgress;
+        mCurrentProgressMax = (int) totalDuration;
+        if (mCurrentProgressMax <= 0) mCurrentProgressMax = 100;
+
+        if (!mIsComposeMode && mProgressRootView != null && 
+            mProgressRootView.getVisibility() == View.VISIBLE && mProgressBar != null && totalDuration > 0) {
+            mProgressBar.setMax((int) totalDuration);
+            mProgressBar.setProgress((int) currentProgress);
+        }
+
+        if (!mIsComposeMode && mCompactRootView != null && 
+            mCompactRootView.getVisibility() == View.VISIBLE && mCircularProgressBar != null && totalDuration > 0) {
+            mCircularProgressBar.setMax((int) totalDuration);
+            mCircularProgressBar.setProgress((int) currentProgress);
+        }
+
+        if (mIsComposeMode) {
+            notifyStateCallback();
+        }
+    }
+
+    private void updateMediaProgressFull() {
+        if (!mIsViewAttached && !mIsComposeMode) return;
+
+        if (!mIsComposeMode && mProgressRootView != null) {
+            mProgressRootView.setVisibility(View.VISIBLE);
+        }
+
+        mMediaProgressHandler.removeCallbacks(mMediaProgressRunnable);
+        mMediaProgressHandler.post(mMediaProgressRunnable);
+
+        Drawable mediaAppIcon = mMediaSessionHelper.getMediaAppIcon();
+
+        if (mediaAppIcon != null) {
+            mCurrentIcon = mediaAppIcon;
+            mCurrentIconIsAdaptive = mediaAppIcon instanceof AdaptiveIconDrawable;
+            if (!mIsComposeMode && mIconView != null) mIconView.setImageDrawable(mediaAppIcon);
+        } else {
+            String packageName = null;
+
+            android.media.session.PlaybackState playbackState = mMediaSessionHelper.getMediaControllerPlaybackState();
+            if (playbackState != null && playbackState.getExtras() != null) {
+                packageName = playbackState.getExtras().getString("package");
+            }
+            if (packageName != null) {
+                loadIconInBackground(packageName, result -> {
+                    Drawable drawable = result != null ? result.drawable : null;
+                    boolean isAdaptive = result != null ? result.isAdaptive : false;
+
+                    if (drawable != null) {
+                        mCurrentIcon = drawable;
+                        mCurrentIconIsAdaptive = isAdaptive;
+                        if (!mIsComposeMode && mIconView != null) mIconView.setImageDrawable(drawable);
+                    } else {
+                        setDefaultMediaIcon();
+                    }
+                    if (mIsComposeMode) notifyStateCallback();
+                });
+            } else {
+                setDefaultMediaIcon();
+            }
+        }
+
+        updateMediaProgressOnly();
+    }
+
+    private void setDefaultMediaIcon() {
+        mCurrentIcon = mContext.getResources().getDrawable(R.drawable.ic_default_music_icon);
+        mCurrentIconIsAdaptive = false;
+        if (!mIsComposeMode && mIconView != null) mIconView.setImageDrawable(mCurrentIcon);
+    }
+
+    private void updateMediaProgressCompact() {
+        if (!mIsViewAttached && !mIsComposeMode) return;
+
+        if (!mIsComposeMode && mCompactRootView != null) {
+            mCompactRootView.setVisibility(View.VISIBLE);
+        }
+
+        mMediaProgressHandler.removeCallbacks(mMediaProgressRunnable);
+        mMediaProgressHandler.post(mMediaProgressRunnable);
+
+        long totalDuration = mMediaSessionHelper.getTotalDuration();
+
+        android.media.session.PlaybackState playbackState = mMediaSessionHelper.getMediaControllerPlaybackState();
+        long currentProgress = 0;
+
+        if (playbackState != null) {
+            currentProgress = playbackState.getPosition();
+        }
+
+        mCurrentProgress = (int) currentProgress;
+        mCurrentProgressMax = (int) totalDuration;
+        if (mCurrentProgressMax <= 0) mCurrentProgressMax = 100;
+
+        if (!mIsComposeMode && totalDuration > 0 && mCircularProgressBar != null) {
+            mCircularProgressBar.setMax((int) totalDuration);
+            mCircularProgressBar.setProgress((int) currentProgress);
+        }
+
+        Drawable mediaAppIcon = mMediaSessionHelper.getMediaAppIcon();
         
-        if (packageName != null) {
-            loadIconInBackground(packageName, drawable -> {
-                if (mIconView != null && drawable != null) {
-                    mIconView.setImageDrawable(drawable);
-                } else if (mIconView != null) {
-                    mIconView.setImageDrawable(mContext.getResources().getDrawable(R.drawable.ic_default_music_icon));
-                }
-            });
-        } else if (mIconView != null) {
-            mIconView.setImageDrawable(mContext.getResources().getDrawable(R.drawable.ic_default_music_icon));
-        }
-    }
-
-    updateMediaProgressOnly();
-}
-
-private void updateMediaProgressCompact() {
-    if (!mIsViewAttached) return;
-    
-    mCompactRootView.setVisibility(View.VISIBLE);
-    mMediaProgressHandler.removeCallbacks(mMediaProgressRunnable);
-    mMediaProgressHandler.post(mMediaProgressRunnable);
-
-    long totalDuration = mMediaSessionHelper.getTotalDuration();
-    
-    // Add null check for playback state before accessing position
-    android.media.session.PlaybackState playbackState = mMediaSessionHelper.getMediaControllerPlaybackState();
-    long currentProgress = 0;
-    
-    if (playbackState != null) {
-        currentProgress = playbackState.getPosition();
-    }
+        if (mediaAppIcon != null) {
+            mCurrentIcon = mediaAppIcon;
+            mCurrentIconIsAdaptive = mediaAppIcon instanceof AdaptiveIconDrawable;
+            if (!mIsComposeMode && mCompactIconView != null) {
+                mCompactIconView.setImageDrawable(mediaAppIcon);
+            }
+        } else {
+            String packageName = null;
+            if (playbackState != null && playbackState.getExtras() != null) {
+                packageName = playbackState.getExtras().getString("package");
+            }
             
-    if (totalDuration > 0 && mCircularProgressBar != null) {
-        mCircularProgressBar.setMax((int) totalDuration);
-        mCircularProgressBar.setProgress((int) currentProgress);
+            if (packageName != null) {
+                loadIconInBackground(packageName, result -> {
+                    Drawable drawable = result != null ? result.drawable : null;
+                    boolean isAdaptive = result != null ? result.isAdaptive : false;
+
+                    if (drawable != null) {
+                        mCurrentIcon = drawable;
+                        mCurrentIconIsAdaptive = isAdaptive;
+                        if (!mIsComposeMode && mCompactIconView != null) mCompactIconView.setImageDrawable(drawable);
+                    } else {
+                        setDefaultMediaIconCompact();
+                    }
+                    if (mIsComposeMode) notifyStateCallback();
+                });
+            } else {
+                setDefaultMediaIconCompact();
+            }
+        }
     }
 
-    Drawable mediaAppIcon = mMediaSessionHelper.getMediaAppIcon();
-    
-    if (mediaAppIcon != null) {
-        mCompactIconView.setImageDrawable(mediaAppIcon);
-    } else {
-        String packageName = null;
-        if (playbackState != null && playbackState.getExtras() != null) {
-            packageName = playbackState.getExtras().getString("package");
-        }
-        
-        if (packageName != null) {
-            loadIconInBackground(packageName, drawable -> {
-                if (mCompactIconView != null && drawable != null) {
-                    mCompactIconView.setImageDrawable(drawable);
-                } else if (mCompactIconView != null) {
-                    mCompactIconView.setImageDrawable(mContext.getResources().getDrawable(R.drawable.ic_default_music_icon));
-                }
-            });
-        } else if (mCompactIconView != null) {
-            mCompactIconView.setImageDrawable(mContext.getResources().getDrawable(R.drawable.ic_default_music_icon));
-        }
+    private void setDefaultMediaIconCompact() {
+        mCurrentIcon = mContext.getResources().getDrawable(R.drawable.ic_default_music_icon);
+        mCurrentIconIsAdaptive = false;
+        if (!mIsComposeMode && mCompactIconView != null) mCompactIconView.setImageDrawable(mCurrentIcon);
     }
-}
 
     private void updateNotificationProgress() {
-        if (!mIsViewAttached) return;
+        if (!mIsViewAttached && !mIsComposeMode) return;
         
         if (!mIsEnabled || !mIsTrackingProgress) {
-            mProgressRootView.setVisibility(View.GONE);
+            if (!mIsComposeMode && mProgressRootView != null) {
+                mProgressRootView.setVisibility(View.GONE);
+            }
             mMediaProgressHandler.removeCallbacks(mMediaProgressRunnable);
             return;
         }
 
-        mProgressRootView.setVisibility(View.VISIBLE);
+        if (!mIsComposeMode && mProgressRootView != null) {
+            mProgressRootView.setVisibility(View.VISIBLE);
+        }
         if (mCurrentProgressMax <= 0) {
             Log.w(TAG, "updateViews: invalid max progress " + mCurrentProgressMax + ", using 100");
             mCurrentProgressMax = 100;
         }
 
-        if (mProgressBar != null) {
+        if (!mIsComposeMode && mProgressBar != null) {
             mProgressBar.setMax(mCurrentProgressMax);
             mProgressBar.setProgress(mCurrentProgress);
         }
 
         if (mTrackedPackageName != null) {
-            loadIconInBackground(mTrackedPackageName, drawable -> {
-                if (mIconView != null && drawable != null) {
+            loadIconInBackground(mTrackedPackageName, result -> {
+                Drawable drawable = result != null ? result.drawable : null;
+                boolean isAdaptive = result != null ? result.isAdaptive : false;
+
+                mCurrentIcon = drawable;
+                mCurrentIconIsAdaptive = isAdaptive;
+                if (!mIsComposeMode && mIconView != null && drawable != null) {
                     mIconView.setImageDrawable(drawable);
                 }
+                if (mIsComposeMode) notifyStateCallback();
             });
         }
     }
     
     private void updateNotificationProgressCompact() {
-        if (!mIsViewAttached) return;
+        if (!mIsViewAttached && !mIsComposeMode) return;
         
         if (!mIsEnabled || !mIsTrackingProgress) {
-            mCompactRootView.setVisibility(View.GONE);
+            if (!mIsComposeMode && mCompactRootView != null) {
+                mCompactRootView.setVisibility(View.GONE);
+            }
             mMediaProgressHandler.removeCallbacks(mMediaProgressRunnable);
             return;
         }
 
-        mCompactRootView.setVisibility(View.VISIBLE);
+        if (!mIsComposeMode && mCompactRootView != null) {
+            mCompactRootView.setVisibility(View.VISIBLE);
+        }
         if (mCurrentProgressMax <= 0) {
             Log.w(TAG, "updateViews: invalid max progress " + mCurrentProgressMax + ", using 100");
             mCurrentProgressMax = 100;
         }
 
-        if (mCircularProgressBar != null) {
+        if (!mIsComposeMode && mCircularProgressBar != null) {
             mCircularProgressBar.setMax(mCurrentProgressMax);
             mCircularProgressBar.setProgress(mCurrentProgress);
         }
 
         if (mTrackedPackageName != null) {
-            loadIconInBackground(mTrackedPackageName, drawable -> {
-                if (mCompactIconView != null && drawable != null) {
+            loadIconInBackground(mTrackedPackageName, result -> {
+                Drawable drawable = result != null ? result.drawable : null;
+                boolean isAdaptive = result != null ? result.isAdaptive : false;
+
+                mCurrentIcon = drawable;
+                mCurrentIconIsAdaptive = isAdaptive;
+                if (!mIsComposeMode && mCompactIconView != null && drawable != null) {
                     mCompactIconView.setImageDrawable(drawable);
                 }
+                if (mIsComposeMode) notifyStateCallback();
             });
         }
     }
 
     private void loadIconInBackground(String packageName, IconCallback callback) {
         if (packageName == null) return;
-        
+
         if (mIconCache.containsKey(packageName)) {
             IconFetcher.AdaptiveDrawableResult cachedResult = mIconCache.get(packageName);
-            if (cachedResult != null && cachedResult.drawable != null) {
-                callback.onIconLoaded(cachedResult.drawable);
+            if (cachedResult != null) {
+                callback.onIconLoaded(cachedResult);
                 return;
             }
         }
@@ -532,14 +681,14 @@ private void updateMediaProgressCompact() {
                 mIconCache.put(packageName, iconResult);
                 
                 mHandler.post(() -> {
-                    callback.onIconLoaded(iconResult.drawable);
+                    callback.onIconLoaded(iconResult);
                 });
             }
         });
     }
     
     private interface IconCallback {
-        void onIconLoaded(@Nullable Drawable drawable);
+        void onIconLoaded(@Nullable IconFetcher.AdaptiveDrawableResult result);
     }
 
     private void extractProgress(Notification notification) {
@@ -623,7 +772,71 @@ private void updateMediaProgressCompact() {
                !indeterminate && maxProgressValid;
     }
 
+    public void onInteraction() {
+        if (mShowMediaProgress && mMediaSessionHelper.isMediaPlaying()) {
+            if (mIsComposeMode) {
+                mIsMenuVisible = !mIsMenuVisible;
+                notifyStateCallback();
+                if (mIsMenuVisible) {
+                    mHandler.removeCallbacks(mMenuCollapseRunnable);
+                    mHandler.postDelayed(mMenuCollapseRunnable, 5000);
+                }
+            } else {
+                showMediaPopup(mProgressRootView);
+            }
+        } else {
+            openTrackedApp();
+        }
+        VibrationUtils.triggerVibration(mContext, 3);
+    }
+
+    public void onLongPress() {
+        if (mShowMediaProgress && mMediaSessionHelper.isMediaPlaying()) {
+            openMediaApp();
+        } else {
+            openTrackedApp();
+        }
+        VibrationUtils.triggerVibration(mContext, 5);
+    }
+
+    public void onDoubleTap() {
+        if (mShowMediaProgress && mMediaSessionHelper.isMediaPlaying()) {
+            toggleMediaPlaybackState();
+            VibrationUtils.triggerVibration(mContext, 4);
+        }
+    }
+
+    public void onSwipe(boolean isNext) {
+        if (isNext) skipToNextTrack();
+        else skipToPreviousTrack();
+    }
+
+    public void onMediaAction(int action) {
+        if (action == 0) skipToPreviousTrack();
+        else if (action == 1) toggleMediaPlaybackState();
+        else if (action == 2) skipToNextTrack();
+        mHandler.removeCallbacks(mMenuCollapseRunnable);
+        mHandler.postDelayed(mMenuCollapseRunnable, 5000);
+    }
+
+    public void onMediaMenuDismiss() {
+        mIsMenuVisible = false;
+        notifyStateCallback();
+    }
+
+    public void setSystemChipVisible(boolean visible) {
+        if (mIsSystemChipVisible != visible) {
+            mIsSystemChipVisible = visible;
+            notifyStateCallback();
+            requestUiUpdate();
+        }
+    }
+
     private void showMediaPopup(View anchorView) {
+        if (mIsComposeMode || anchorView == null) {
+            return;
+        }
+
         if (mIsPopupActive) {
             if (mMediaPopup != null) {
                 mMediaPopup.dismiss();
@@ -736,6 +949,7 @@ private void updateMediaProgressCompact() {
         if (mIsForceHidden != forceHidden) {
             Log.d(TAG, "setForceHidden " + forceHidden);
             mIsForceHidden = forceHidden;
+            notifyStateCallback();
             requestUiUpdate();
         }
     }
@@ -782,6 +996,7 @@ private void updateMediaProgressCompact() {
      @Override
     public void onHeadsUpPinnedModeChanged(boolean inPinnedMode) {
         mHeadsUpPinned = inPinnedMode;
+        notifyStateCallback();
         requestUiUpdate();
     }
 
@@ -879,13 +1094,13 @@ private void updateMediaProgressCompact() {
         
         mIconCache.clear();
         
-        if (mIconView != null) {
+        if (!mIsComposeMode && mIconView != null) {
             mIconView.setImageDrawable(null);
         }
-        
-        if (mCompactIconView != null) {
+        if (!mIsComposeMode && mCompactIconView != null) {
             mCompactIconView.setImageDrawable(null);
         }
+        mCurrentIcon = null;
     }
 
     private static int getThemeColor(Context context, int attrResId) {
