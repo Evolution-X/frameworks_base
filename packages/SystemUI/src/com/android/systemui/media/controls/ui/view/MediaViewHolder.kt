@@ -72,7 +72,7 @@ class MediaViewHolder constructor(itemView: View) {
     val deviceSuggestionButton = itemView.findViewById<View>(R.id.device_suggestion_button)
 
     // Seekbar views
-    val seekBar = itemView.requireViewById<SeekBar>(R.id.media_progress_bar)
+    val seekBar = itemView.requireViewById<WaveformSeekBar>(R.id.media_progress_bar)
     // These views are only shown while the user is actively scrubbing
     val scrubbingElapsedTimeView: TextView =
         itemView.requireViewById(R.id.media_scrubbing_elapsed_time)
