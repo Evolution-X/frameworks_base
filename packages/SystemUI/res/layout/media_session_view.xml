@@ -282,9 +282,8 @@
 
     <!-- Seek Bar -->
     <!-- As per Material Design on Bidirectionality, this is forced to LTR in code -->
-    <SeekBar
+    <com.android.systemui.media.controls.ui.view.WaveformSeekBar
         android:id="@+id/media_progress_bar"
-        style="@style/MediaPlayer.ProgressBar"
         android:layout_width="0dp"
         android:layout_height="48dp"
         android:paddingTop="@dimen/qs_media_session_enabled_seekbar_vertical_padding"
