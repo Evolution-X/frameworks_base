@@ -337,6 +337,8 @@ private constructor(
         )
     }
 
+    fun getPhoneStatusBarView(): View = mView
+
     private fun addDarkReceivers() {
         darkIconDispatcher.addDarkReceiver(battery)
         darkIconDispatcher.addDarkReceiver(clock)

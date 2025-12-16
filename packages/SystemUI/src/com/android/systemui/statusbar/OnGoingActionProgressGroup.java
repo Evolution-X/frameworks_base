@@ -16,6 +16,8 @@
 
 package com.android.systemui.statusbar;
 
+import androidx.annotation.Nullable;
+
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
@@ -23,17 +25,19 @@ import android.widget.ProgressBar;
 /** On-going action progress chip view group stores all elements of chip */
 public class OnGoingActionProgressGroup {
     public final View rootView;
-    public final ImageView iconView;
-    public final ProgressBar progressBarView;
-
     public final View compactRootView;
+    public final ImageView iconView;
     public final ImageView compactIconView;
+    public final ProgressBar progressBarView;
     public final ProgressBar circularProgressBarView;
 
-    public OnGoingActionProgressGroup(View rootView, ImageView iconView,
-                                      ProgressBar progressBarView,
-                                      View compactRootView, ImageView compactIconView,
-                                      ProgressBar circularProgressBarView) {
+    public OnGoingActionProgressGroup(
+            @Nullable View rootView, 
+            @Nullable ImageView iconView,
+            @Nullable ProgressBar progressBarView,
+            @Nullable View compactRootView,
+            @Nullable ImageView compactIconView,
+            @Nullable ProgressBar circularProgressBarView) {
         this.rootView = rootView;
         this.iconView = iconView;
         this.progressBarView = progressBarView;

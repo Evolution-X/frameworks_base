@@ -35,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -81,6 +82,9 @@ import com.android.systemui.statusbar.chips.ui.compose.OngoingActivityChips
 import com.android.systemui.statusbar.core.NewStatusBarIcons
 import com.android.systemui.statusbar.core.RudimentaryBattery
 import com.android.systemui.statusbar.core.StatusBarConnectedDisplays
+import com.android.systemui.statusbar.NotificationListener
+import com.android.systemui.statusbar.OngoingActionProgress
+import com.android.systemui.statusbar.notification.headsup.HeadsUpManager
 import com.android.systemui.statusbar.core.StatusBarForDesktop
 import com.android.systemui.statusbar.events.domain.interactor.SystemStatusEventAnimationInteractor
 import com.android.systemui.statusbar.featurepods.popups.StatusBarPopupChips
@@ -95,6 +99,7 @@ import com.android.systemui.statusbar.phone.StatusBarLocation
 import com.android.systemui.statusbar.phone.StatusIconContainer
 import com.android.systemui.statusbar.phone.domain.interactor.IsAreaDark
 import com.android.systemui.statusbar.phone.ongoingcall.OngoingCallController
+import com.android.systemui.statusbar.policy.KeyguardStateController
 import com.android.systemui.statusbar.phone.ongoingcall.StatusBarChipsModernization
 import com.android.systemui.statusbar.phone.ui.DarkIconManager
 import com.android.systemui.statusbar.phone.ui.StatusBarIconController
@@ -140,6 +145,9 @@ constructor(
     @DisplayAware private val homeStatusBarViewBinder: HomeStatusBarViewBinder,
     @DisplayAware private val homeStatusBarViewModelFactory: HomeStatusBarViewModelFactory,
     private val statusBarRegionSamplingViewModelFactory: StatusBarRegionSamplingViewModel.Factory,
+    private val notificationListener: NotificationListener,
+    private val keyguardStateController: KeyguardStateController,
+    private val headsUpManager: HeadsUpManager,
 ) {
     fun create(root: ViewGroup, andThen: (ViewGroup) -> Unit): ComposeView {
         val composeView = ComposeView(root.context)
@@ -165,6 +173,9 @@ constructor(
                         statusBarRegionSamplingViewModelFactory =
                             statusBarRegionSamplingViewModelFactory,
                         onViewCreated = andThen,
+                        notificationListener = notificationListener,
+                        keyguardStateController = keyguardStateController,
+                        headsUpManager = headsUpManager,
                         modifier = Modifier.sysUiResTagContainer(),
                     )
                 }
@@ -204,6 +215,9 @@ fun StatusBarRoot(
     mediaViewModelFactory: MediaViewModel.Factory,
     statusBarRegionSamplingViewModelFactory: StatusBarRegionSamplingViewModel.Factory,
     onViewCreated: (ViewGroup) -> Unit,
+    notificationListener: NotificationListener,
+    keyguardStateController: KeyguardStateController,
+    headsUpManager: HeadsUpManager,
     modifier: Modifier = Modifier,
 ) {
     val displayId = parent.context.displayId
@@ -263,6 +277,9 @@ fun StatusBarRoot(
                         statusBarViewModel = statusBarViewModel,
                         iconViewStore = iconViewStore,
                         appHandlesViewModel = appHandlesViewModel,
+                        notificationListener = notificationListener,
+                        keyguardStateController = keyguardStateController,
+                        headsUpManager = headsUpManager,
                         context = context,
                     )
                 }
@@ -404,6 +421,9 @@ private fun addStartSideComposable(
     statusBarViewModel: HomeStatusBarViewModel,
     iconViewStore: NotificationIconContainerViewBinder.IconViewStore?,
     appHandlesViewModel: AppHandlesViewModel,
+    notificationListener: NotificationListener,
+    keyguardStateController: KeyguardStateController,
+    headsUpManager: HeadsUpManager,
     context: Context,
 ) {
     val startSideExceptHeadsUp =
@@ -485,7 +505,21 @@ private fun addStartSideComposable(
                         )
                     }
 
-                val chipsVisibilityModel = statusBarViewModel.ongoingActivityChips
+                val progressController = remember {
+                    com.android.systemui.statusbar.OnGoingActionProgressComposeController(
+                        context,
+                        notificationListener,
+                        keyguardStateController,
+                        headsUpManager
+                    )
+                }
+                
+val chipsVisibilityModel = statusBarViewModel.ongoingActivityChips
+val hasSystemChips = chipsVisibilityModel.chips.active.isNotEmpty()
+progressController.setSystemChipVisible(hasSystemChips)
+
+OngoingActionProgress(controller = progressController)
+
                 if (chipsVisibilityModel.areChipsAllowed) {
                     OngoingActivityChips(
                         chips = chipsVisibilityModel.chips,
