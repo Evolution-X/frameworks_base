@@ -26,6 +26,7 @@ import com.android.app.tracing.TraceStateLogger
 import com.android.internal.annotations.VisibleForTesting
 import com.android.systemui.media.controls.ui.drawable.SquigglyProgress
 import com.android.systemui.media.controls.ui.view.MediaViewHolder
+import com.android.systemui.media.controls.ui.view.WaveformSeekBar
 import com.android.systemui.media.controls.ui.viewmodel.SeekBarViewModel
 import com.android.systemui.res.R
 
@@ -120,6 +121,14 @@ open class SeekBarObserver(private val holder: MediaViewHolder) :
         progressDrawable?.animate =
             data.playing && !data.scrubbing && animationEnabled && data.listening
         progressDrawable?.transitionEnabled = !data.seekAvailable
+        
+        val waveformSeekBar = holder.seekBar as? WaveformSeekBar
+        if (data.playing && !data.scrubbing) {
+            waveformSeekBar?.startWaveAnimation()
+        } else {
+            waveformSeekBar?.stopWaveAnimation()
+        }
+
 
         if (holder.seekBar.maxHeight != seekBarEnabledMaxHeight) {
             holder.seekBar.maxHeight = seekBarEnabledMaxHeight
