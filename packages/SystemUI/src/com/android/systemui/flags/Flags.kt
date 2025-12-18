@@ -176,7 +176,7 @@ object Flags {
     val ALWAYS_SHOW_HOME_CONTROLS_ON_DREAMS = releasedFlag("always_show_home_controls_on_dreams")
 
     // TODO(b/293252410) : Tracking Bug
-    @JvmField val LOCKSCREEN_ENABLE_LANDSCAPE = unreleasedFlag("lockscreen.enable_landscape")
+    @JvmField val LOCKSCREEN_ENABLE_LANDSCAPE = releasedFlag("lockscreen.enable_landscape")
 
     // 1200 - predictive back
     @Keep
