@@ -945,8 +945,8 @@ class AppLockManagerService(
                 }
                 return false
             }
-            val isManaged = clearAndExecute {
-                userManagerInternal.isUserManaged(userId)
+            val isManaged = clearAndExecute<Boolean> {
+                userManagerInternal.getUserInfo(userId)?.isManagedProfile == true
             }
             if (isManaged) {
                 logD {
