@@ -152,16 +152,19 @@ object KeyguardRootViewBinder {
                     if (deviceEntryHapticsInteractor != null && vibratorHelper != null) {
                         launch {
                             deviceEntryHapticsInteractor.playSuccessHapticOnDeviceEntry.collect {
-                                if (msdlFeedback()) {
-                                    msdlPlayer?.playToken(
-                                        MSDLToken.UNLOCK,
-                                        authInteractionProperties,
-                                    )
-                                } else {
-                                    var FingerprintVib : Boolean = Settings.System.getIntForUser(
-                                                context.contentResolver,
-                                                Settings.System.FP_SUCCESS_VIBRATE, 1, UserHandle.USER_CURRENT) == 1
-                                    if (FingerprintVib) {
+                                val fpSuccessVibrate = Settings.System.getIntForUser(
+                                    context.contentResolver,
+                                    Settings.System.FP_SUCCESS_VIBRATE,
+                                    1,
+                                    UserHandle.USER_CURRENT
+                                ) == 1
+                                if (fpSuccessVibrate) {
+                                    if (msdlFeedback()) {
+                                        msdlPlayer?.playToken(
+                                            MSDLToken.UNLOCK,
+                                            authInteractionProperties,
+                                        )
+                                    } else {
                                         vibratorHelper.performHapticFeedback(
                                             view,
                                             HapticFeedbackConstants.BIOMETRIC_CONFIRM,
@@ -173,16 +176,19 @@ object KeyguardRootViewBinder {
 
                         launch {
                             deviceEntryHapticsInteractor.playErrorHaptic.collect {
-                                if (msdlFeedback()) {
-                                    msdlPlayer?.playToken(
-                                        MSDLToken.FAILURE,
-                                        authInteractionProperties,
-                                    )
-                                } else {
-                                    var FingerprintVibErr : Boolean = Settings.System.getIntForUser(
-                                                context.contentResolver,
-                                                Settings.System.FP_ERROR_VIBRATE, 1, UserHandle.USER_CURRENT) == 1
-                                    if (FingerprintVibErr) {
+                                val fpErrorVibrate = Settings.System.getIntForUser(
+                                    context.contentResolver,
+                                    Settings.System.FP_ERROR_VIBRATE,
+                                    1,
+                                    UserHandle.USER_CURRENT
+                                ) == 1
+                                if (fpErrorVibrate) {
+                                    if (msdlFeedback()) {
+                                        msdlPlayer?.playToken(
+                                            MSDLToken.FAILURE,
+                                            authInteractionProperties,
+                                        )
+                                    } else {
                                         vibratorHelper.performHapticFeedback(
                                             view,
                                             HapticFeedbackConstants.BIOMETRIC_REJECT,
