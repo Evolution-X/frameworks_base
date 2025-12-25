@@ -110,6 +110,10 @@ open class SeekBarObserver(private val holder: MediaViewHolder) :
             holder.seekBar.contentDescription = ""
             holder.scrubbingElapsedTimeView.text = ""
             holder.scrubbingTotalTimeView.text = ""
+            
+            val waveformSeekBar = holder.seekBar as? WaveformSeekBar
+            waveformSeekBar?.stopWaveAnimation()
+            
             return
         }
 
