@@ -12,10 +12,13 @@ import android.content.pm.PackageManager;
 import android.content.pm.Signature;
 import android.hardware.security.keymint.Algorithm;
 import android.hardware.security.keymint.EcCurve;
+import android.hardware.security.keymint.KeyOrigin;
+import android.os.SystemProperties;
 import android.hardware.security.keymint.KeyParameter;
 import android.hardware.security.keymint.Tag;
 import android.os.Binder;
 import android.os.Build;
+import android.os.UserHandle;
 import android.security.keystore.KeyProperties;
 import android.system.keystore2.KeyDescriptor;
 import android.util.Log;
@@ -144,14 +147,25 @@ public final class KeyboxChainGenerator {
         try {
             SecureRandom random = new SecureRandom();
 
-            byte[] bytes1 = new byte[32];
-            byte[] bytes2 = new byte[32];
+            byte[] verifiedBootKey = new byte[32];
+            random.nextBytes(verifiedBootKey);
 
-            random.nextBytes(bytes1);
-            random.nextBytes(bytes2);
+            byte[] verifiedBootHash;
+            String vbmetaProp = SystemProperties.get("ro.boot.vbmeta.digest", "");
 
-            ASN1Encodable[] rootOfTrustEncodables = {new DEROctetString(bytes1), ASN1Boolean.TRUE,
-                    new ASN1Enumerated(0), new DEROctetString(bytes2)};
+            if (vbmetaProp != null && vbmetaProp.length() == 64) {
+                verifiedBootHash = hexStringToByteArray(vbmetaProp);
+            } else {
+                verifiedBootHash = new byte[32];
+                random.nextBytes(verifiedBootHash);
+            }
+
+            ASN1Encodable[] rootOfTrustEncodables = {
+                    new DEROctetString(verifiedBootKey),
+                    ASN1Boolean.TRUE,
+                    new ASN1Enumerated(0),
+                    new DEROctetString(verifiedBootHash)
+            };
 
             ASN1Sequence rootOfTrustSeq = new DERSequence(rootOfTrustEncodables);
 
@@ -161,17 +175,14 @@ public final class KeyboxChainGenerator {
             var Adigest = new DERSet(fromIntList(params.digest));
             var AecCurve = new ASN1Integer(params.ecCurve);
             var AnoAuthRequired = DERNull.INSTANCE;
+            var Aorigin = new ASN1Integer(0);
 
             // To be loaded
             var AosVersion = new ASN1Integer(getOsVersion());
             var AosPatchLevel = new ASN1Integer(getPatchLevel());
 
-            var AapplicationID = createApplicationId(uid);
             var AbootPatchlevel = new ASN1Integer(getPatchLevelLong());
             var AvendorPatchLevel = new ASN1Integer(getPatchLevelLong());
-
-            var AcreationDateTime = new ASN1Integer(System.currentTimeMillis());
-            var Aorigin = new ASN1Integer(0);
 
             var purpose = new DERTaggedObject(true, 1, Apurpose);
             var algorithm = new DERTaggedObject(true, 2, Aalgorithm);
@@ -179,12 +190,10 @@ public final class KeyboxChainGenerator {
             var digest = new DERTaggedObject(true, 5, Adigest);
             var ecCurve = new DERTaggedObject(true, 10, AecCurve);
             var noAuthRequired = new DERTaggedObject(true, 503, AnoAuthRequired);
-            var creationDateTime = new DERTaggedObject(true, 701, AcreationDateTime);
             var origin = new DERTaggedObject(true, 702, Aorigin);
             var rootOfTrust = new DERTaggedObject(true, 704, rootOfTrustSeq);
             var osVersion = new DERTaggedObject(true, 705, AosVersion);
             var osPatchLevel = new DERTaggedObject(true, 706, AosPatchLevel);
-            var applicationID = new DERTaggedObject(true, 709, AapplicationID);
             var vendorPatchLevel = new DERTaggedObject(true, 718, AvendorPatchLevel);
             var bootPatchLevel = new DERTaggedObject(true, 719, AbootPatchlevel);
 
@@ -212,7 +221,13 @@ public final class KeyboxChainGenerator {
                         bootPatchLevel};
             }
 
-            ASN1Encodable[] softwareEnforced = {applicationID, creationDateTime};
+            var AcreationDateTime = new ASN1Integer(System.currentTimeMillis());
+            var AapplicationID = createApplicationId(uid);
+
+            var creationDateTime = new DERTaggedObject(true, 701, AcreationDateTime);
+            var applicationID = new DERTaggedObject(true, 709, AapplicationID);
+
+            ASN1Encodable[] softwareEnforced = {creationDateTime, applicationID};
 
             ASN1OctetString keyDescriptionOctetStr = getAsn1OctetString(teeEnforcedEncodables, softwareEnforced, params);
 
@@ -273,7 +288,7 @@ public final class KeyboxChainGenerator {
         ASN1Integer keymasterVersion = new ASN1Integer(100);
         ASN1Enumerated keymasterSecurityLevel = new ASN1Enumerated(1);
         ASN1OctetString attestationChallenge = new DEROctetString(params.attestationChallenge);
-        ASN1OctetString uniqueId = new DEROctetString("".getBytes());
+        ASN1OctetString uniqueId = new DEROctetString(new byte[0]);
         ASN1Encodable softwareEnforced = new DERSequence(softwareEnforcedEncodables);
         ASN1Sequence teeEnforced = new DERSequence(teeEnforcedEncodables);
 
@@ -316,8 +331,10 @@ public final class KeyboxChainGenerator {
                     new ASN1Integer(info.getLongVersionCode());
             packageInfoAA[i] = new DERSequence(arr);
 
-            for (Signature s : info.signatures) {
-                signatures.add(new Digest(dg.digest(s.toByteArray())));
+            if (info != null && info.signatures != null) {
+                for (Signature s : info.signatures) {
+                    if (s != null) signatures.add(new Digest(dg.digest(s.toByteArray())));
+                }
             }
         }
 
@@ -369,6 +386,18 @@ public final class KeyboxChainGenerator {
         return kpg.generateKeyPair();
     }
 
+    private static byte[] hexStringToByteArray(String hex) {
+        int len = hex.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            int high = Character.digit(hex.charAt(i), 16);
+            int low = Character.digit(hex.charAt(i + 1), 16);
+            if (high == -1 || low == -1) throw new IllegalArgumentException("Invalid hex");
+            data[i / 2] = (byte) ((high << 4) + low);
+        }
+        return data;
+    }
+
     private static void dlog(String msg) {
         if (DEBUG) Log.d(TAG, msg);
     }
@@ -396,6 +425,14 @@ public final class KeyboxChainGenerator {
         public byte[] model;
 
         public int securityLevel;
+
+        public int osVersion = KeyboxChainGenerator.getOsVersion();
+        public int osPatchLevel = KeyboxChainGenerator.getPatchLevel();
+        public int vendorPatchLevel = KeyboxChainGenerator.getPatchLevelLong();
+        public int bootPatchLevel = KeyboxChainGenerator.getPatchLevelLong();
+        public long creationDateTime = System.currentTimeMillis();
+        public int userId = UserHandle.myUserId();
+        public int origin = KeyOrigin.GENERATED;
 
         public KeyGenParameters(KeyParameter[] params) {
             for (KeyParameter kp : params) {
