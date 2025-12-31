@@ -24,6 +24,7 @@ import android.content.res.ColorStateList;
 import android.database.ContentObserver;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.AdaptiveIconDrawable;
+import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -676,17 +677,25 @@ public class OnGoingActionProgressController implements NotificationListener.Not
         mBackgroundExecutor.execute(() -> {
             final IconFetcher.AdaptiveDrawableResult iconResult = 
                     mIconFetcher.getMonotonicPackageIcon(packageName);
-            
+
             if (iconResult != null && iconResult.drawable != null) {
+                if (mIsComposeMode) {
+                    int sizePx = (int) (24 * mContext.getResources().getDisplayMetrics().density);
+                    iconResult.drawable.setBounds(0, 0, sizePx, sizePx);
+
+                    if (iconResult.isAdaptive && iconResult.drawable instanceof AdaptiveIconDrawable) {
+                    }
+                }
+
                 mIconCache.put(packageName, iconResult);
-                
+
                 mHandler.post(() -> {
                     callback.onIconLoaded(iconResult);
                 });
             }
         });
     }
-    
+
     private interface IconCallback {
         void onIconLoaded(@Nullable IconFetcher.AdaptiveDrawableResult result);
     }
