@@ -17,6 +17,7 @@
 package com.android.systemui.statusbar
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -84,10 +85,10 @@ fun OngoingActionProgress(
     AnimatedVisibility(
         visible = state.isVisible,
         enter = fadeIn(),
-        exit = fadeOut()
+        exit = fadeOut(),
+        modifier = modifier
     ) {
         Box(
-            modifier = modifier,
             contentAlignment = Alignment.Center
         ) {
             val progressValue = if (state.maxProgress > 0) {
@@ -155,7 +156,8 @@ fun OngoingActionProgress(
                         Image(
                             bitmap = iconBitmap,
                             contentDescription = "App icon",
-                            modifier = Modifier.size(14.dp),
+                            modifier = Modifier.size(14.dp)
+                                .clip(RoundedCornerShape(14.dp)),
                             colorFilter = null 
                         )
                     }
@@ -164,13 +166,9 @@ fun OngoingActionProgress(
                 Row(
                     modifier = Modifier
                         .width(86.dp)
-                        .height(24.dp)
-                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                        .height(26.dp)
+                        .padding(horizontal = 6.dp, vertical = 4.dp)
                         .alpha(state.opacity)
-                        .background(
-                            color = Color(0x4D808080), 
-                            shape = RoundedCornerShape(12.dp)
-                        )
                         .then(gestureModifier),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -180,18 +178,19 @@ fun OngoingActionProgress(
                             contentDescription = "App icon",
                             modifier = Modifier
                                 .size(16.dp)
-                                .padding(start = 2.dp),
+                                .clip(RoundedCornerShape(16.dp)) // Clip to prevent rendering artifacts
+                                .padding(start = 1.dp),
                             colorFilter = null 
                         )
                         
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(5.dp))
                     }
                     
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(6.dp)
-                            .padding(end = 4.dp)
+                            .padding(end = 3.dp)
                             .clip(RoundedCornerShape(3.dp))
                             .background(Color(0x33FFFFFF))
                     ) {
@@ -306,8 +305,20 @@ class OnGoingActionProgressComposeController(
             javaController.setStateCallback { isVisible, progress, maxProgress, icon, isAdaptive, packageName, isCompact, opacity, showMenu ->
                 Log.d(TAG, "State callback: isVisible=$isVisible, compact=$isCompact, showMenu=$showMenu")
                 
+                val iconSizePx = if (isCompact) {
+                    (14 * context.resources.displayMetrics.density).toInt() * 2 
+                } else {
+                    (16 * context.resources.displayMetrics.density).toInt() * 2 
+                }
+
                 val iconBitmap = try {
-                    icon?.toBitmap()?.asImageBitmap()
+                    icon?.let { drawable ->
+                        drawable.toBitmap(
+                            width = iconSizePx,
+                            height = iconSizePx,
+                            config = Bitmap.Config.ARGB_8888
+                        ).asImageBitmap()
+                    }
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to convert icon to bitmap", e)
                     null
