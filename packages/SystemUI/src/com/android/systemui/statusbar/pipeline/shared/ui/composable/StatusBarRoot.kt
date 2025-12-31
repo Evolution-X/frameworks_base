@@ -439,11 +439,11 @@ private fun addStartSideComposable(
             layoutParams =
                 LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.WRAP_CONTENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.MATCH_PARENT,
                     )
                     .apply {
+                        gravity = android.view.Gravity.CENTER_VERTICAL
                         if (showDate) {
-                            gravity = android.view.Gravity.CENTER_VERTICAL
                         }
                     }
 
@@ -518,7 +518,7 @@ val chipsVisibilityModel = statusBarViewModel.ongoingActivityChips
 val hasSystemChips = chipsVisibilityModel.chips.active.isNotEmpty()
 progressController.setSystemChipVisible(hasSystemChips)
 
-OngoingActionProgress(controller = progressController)
+                OngoingActionProgress(controller = progressController)
 
                 if (chipsVisibilityModel.areChipsAllowed) {
                     OngoingActivityChips(
