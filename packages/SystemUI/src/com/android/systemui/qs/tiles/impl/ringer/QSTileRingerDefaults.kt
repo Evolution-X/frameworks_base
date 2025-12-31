@@ -31,12 +31,18 @@ class QSTileRingerTheme(
     
     override val neutralBg: Color
         @Composable get() = LocalAndroidColorScheme.current.surfaceEffect2
-    
+
     override val activeIcon: Color
         @Composable get() = MaterialTheme.colorScheme.onPrimary
     
     override val neutralIcon: Color
         @Composable get() = MaterialTheme.colorScheme.onSurface
+
+    override val dndBg: Color
+        @Composable get() = MaterialTheme.colorScheme.primary
+    
+    override val dndIcon: Color
+        @Composable get() = MaterialTheme.colorScheme.onPrimary
     
     override val dozeStroke: Dp = 2.dp
 }
