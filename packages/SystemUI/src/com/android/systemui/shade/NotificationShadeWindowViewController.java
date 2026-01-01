@@ -469,11 +469,10 @@ public class NotificationShadeWindowViewController implements Dumpable {
 
                 mFalsingCollector.onTouchEvent(ev);
                 mQQSGestureHandler.onTouchEvent(ev);
-                // Pass touch events to the pulsing gesture listener only if it's dozing,
-                // otherwise lockscreen DT2S and AOD DT2W will conflict.
-                if (!SceneContainerFlag.isEnabled() && mStatusBarStateController.isDozing()) {
+                if (!SceneContainerFlag.isEnabled()
+                        && mStatusBarStateController.isDozing()) {
                     mPulsingWakeupGestureHandler.onTouchEvent(ev);
-                }
+                 }
 
                 if (!SceneContainerFlag.isEnabled()
                         // External touches are never intended to go the hub, only for opening the
