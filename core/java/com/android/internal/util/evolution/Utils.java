@@ -17,9 +17,7 @@
 package com.android.internal.util.evolution;
 
 import android.app.ActivityManager;
-import android.app.ActivityThread;
 import android.app.IActivityManager;
-import android.app.role.RoleManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.om.OverlayManager;
@@ -36,8 +34,6 @@ import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.util.Log;
-
-import com.android.internal.util.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -145,20 +141,6 @@ public class Utils {
             needsNav = true;
         }
         return needsNav;
-    }
-
-    public static String getDefaultLauncher(Context context) {
-        final RoleManager roleManager = context.getSystemService(RoleManager.class);
-        final String packageName = CollectionUtils.firstOrNull(
-                roleManager.getRoleHolders(RoleManager.ROLE_HOME));
-        return packageName != null ? packageName : "";
-    }
-
-    public static void forceStopDefaultLauncher(Context context) {
-        final ActivityManager activityManager = context.getSystemService(ActivityManager.class);
-        try {
-            activityManager.forceStopPackageAsUser(getDefaultLauncher(context), UserHandle.USER_CURRENT);
-        } catch (Exception ignored) {}
     }
 
     public static void toggleOverlay(Context context, String overlayName, boolean enable) {
