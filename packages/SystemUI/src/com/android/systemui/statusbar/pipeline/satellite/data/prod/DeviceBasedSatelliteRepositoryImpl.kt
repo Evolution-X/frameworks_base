@@ -337,7 +337,14 @@ constructor(
                     )
                     registered = true
                 } catch (e: Exception) {
-                    logBuffer.e("error registering for supported state change", e)
+                    if (e is IllegalStateException && e.message == "telephony service is null.") {
+                        logBuffer.i {
+                            "SatelliteManager registration failed: telephony service is null. " +
+                                "Assuming not supported."
+                        }
+                    } else {
+                        logBuffer.e("error registering for supported state change", e)
+                    }
                 }
 
                 awaitClose {
@@ -515,6 +522,17 @@ constructor(
             try {
                 requestIsSupported(bgDispatcher.asExecutor(), cb)
             } catch (error: Exception) {
+                if (error is SatelliteManager.SatelliteException ||
+                        (error is IllegalStateException && error.message == "telephony service is null.")
+                ) {
+                    logBuffer.i {
+                        "Exception when checking for satellite support. " +
+                            "Assuming it is not supported for this device. Error: ${error.message}"
+                    }
+                    continuation.resume(NotSupported)
+                    return@suspendCancellableCoroutine
+                }
+
                 logBuffer.e(
                     "Exception when checking for satellite support. " +
                         "Assuming it is not supported for this device.",
