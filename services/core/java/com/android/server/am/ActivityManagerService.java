@@ -3865,12 +3865,25 @@ public class ActivityManagerService extends IActivityManager.Stub
             int userRunningFlags, String reason) {
         if (checkCallingPermission(android.Manifest.permission.FORCE_STOP_PACKAGES)
                 != PackageManager.PERMISSION_GRANTED) {
-            String msg = "Permission Denial: forceStopPackage() from pid="
-                    + Binder.getCallingPid()
-                    + ", uid=" + Binder.getCallingUid()
-                    + " requires " + android.Manifest.permission.FORCE_STOP_PACKAGES;
-            Slog.w(TAG, msg);
-            throw new SecurityException(msg);
+            int callingUid = Binder.getCallingUid();
+            int callingUserId = UserHandle.getUserId(callingUid);
+            ComponentName homeActivity = getPackageManagerInternal()
+                    .getDefaultHomeActivity(callingUserId);
+            String callingPackage = null;
+            String[] packages = mContext.getPackageManager().getPackagesForUid(callingUid);
+            if (packages != null && packages.length > 0) {
+                callingPackage = packages[0];
+            }
+            boolean isHomeApp = homeActivity != null && callingPackage != null
+                    && callingPackage.equals(homeActivity.getPackageName());
+            if (!isHomeApp) {
+                String msg = "Permission Denial: forceStopPackage() from pid="
+                        + Binder.getCallingPid()
+                        + ", uid=" + callingUid
+                        + " requires " + android.Manifest.permission.FORCE_STOP_PACKAGES;
+                Slog.w(TAG, msg);
+                throw new SecurityException(msg);
+            }
         }
         final int callingPid = Binder.getCallingPid();
         userId = mUserController.handleIncomingUser(callingPid, Binder.getCallingUid(),
