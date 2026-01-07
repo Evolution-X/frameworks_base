@@ -18,8 +18,10 @@ package com.android.packageinstaller.v2.ui
 
 import android.app.NotificationManager
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.os.Process
+import android.provider.Settings
 import android.util.Log
 import android.view.WindowManager
 import android.widget.Toast
@@ -200,6 +202,18 @@ class UninstallLaunch : FragmentActivity(), UninstallActionListener {
             Log.d(LOG_TAG, "Staring uninstall")
         }
         uninstallViewModel!!.initiateUninstall(keepData)
+    }
+
+    override fun onAppSnippetClick() {
+        if (localLogv) {
+            Log.d(LOG_TAG, "onAppSnippetClick")
+        }
+        val repository = uninstallViewModel!!.repository
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            setData(Uri.fromParts("package", repository.targetPackageName!!, null))
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        startActivityAsUser(intent, repository.uninstalledUser!!)
     }
 
     override fun onNegativeResponse() {
