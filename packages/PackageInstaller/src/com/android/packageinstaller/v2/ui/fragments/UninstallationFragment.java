@@ -169,6 +169,10 @@ public class UninstallationFragment extends DialogFragment {
             UninstallUserActionRequired uninstallStage) {
         mAppSnippet.setVisibility(View.VISIBLE);
 
+        mAppSnippet.setOnClickListener(view -> {
+            mUninstallActionListener.onAppSnippetClick();
+        });
+
         // Set app icon and label
         mAppIcon.setImageDrawable(uninstallStage.getAppIcon());
         mAppLabelTextView.setText(uninstallStage.getAppLabel(requireContext()));

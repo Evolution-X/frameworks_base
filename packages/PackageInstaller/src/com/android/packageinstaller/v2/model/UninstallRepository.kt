@@ -65,13 +65,15 @@ class UninstallRepository(private val context: Context) {
     private val notificationManager: NotificationManager? =
         context.getSystemService(NotificationManager::class.java)
     val uninstallResult = MutableLiveData<UninstallStage?>()
-    private var uninstalledUser: UserHandle? = null
+    var uninstalledUser: UserHandle? = null
+        private set
     private var callback: PackageManager.UninstallCompleteCallback? = null
     private var targetAppInfo: ApplicationInfo? = null
     private var targetActivityInfo: ActivityInfo? = null
     private lateinit var intent: Intent
     private lateinit var targetAppLabel: CharSequence
-    private var targetPackageName: String? = null
+    var targetPackageName: String? = null
+        private set
     private var callingActivity: String? = null
     private var uninstallFromAllUsers = false
     private var isClonedApp = false

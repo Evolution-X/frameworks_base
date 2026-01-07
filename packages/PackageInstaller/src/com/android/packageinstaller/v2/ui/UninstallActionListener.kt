@@ -18,5 +18,6 @@ package com.android.packageinstaller.v2.ui
 
 interface UninstallActionListener {
     fun onPositiveResponse(keepData: Boolean)
+    fun onAppSnippetClick()
     fun onNegativeResponse()
 }
