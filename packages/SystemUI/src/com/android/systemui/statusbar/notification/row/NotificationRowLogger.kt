@@ -227,6 +227,7 @@ constructor(
         from: MagneticNotificationRowManagerImpl.State,
         to: MagneticNotificationRowManagerImpl.State,
     ) {
+        if (from == to) return
         buffer.log(
             TAG,
             LogLevel.DEBUG,
