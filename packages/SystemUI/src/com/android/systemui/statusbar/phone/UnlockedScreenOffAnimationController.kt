@@ -354,8 +354,8 @@ constructor(
             return false
         }
 
-        // If animations are disabled system-wide, don't play this one either.
-        if (globalSettings.getFloat(Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f) {
+        // If animations are sped up, don't play this one either to avoid flickering.
+        if (globalSettings.getFloat(Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 1f) {
             return false
         }
 
