@@ -53,7 +53,7 @@ class WeatherViewController(
 
             val weatherEnabled = weatherSettingsFlow.value.weatherEnabled
 
-            if (mDozing || !weatherEnabled) {
+            if (!weatherEnabled) {
                 hideAllViews()
                 OmniJawsClient.get().removeObserver(context, this@WeatherViewController)
             } else {
@@ -110,7 +110,7 @@ class WeatherViewController(
         Settings.System.getIntForUser(context.contentResolver, setting, defaultValue, UserHandle.USER_CURRENT) != 0
 
     private fun applyWeatherSettings(settings: WeatherSettings) {
-        if (mDozing || !settings.weatherEnabled) {
+        if (!settings.weatherEnabled) {
             hideAllViews()
             OmniJawsClient.get().removeObserver(context, this@WeatherViewController)
         } else {
