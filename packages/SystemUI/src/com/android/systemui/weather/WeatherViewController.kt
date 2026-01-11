@@ -16,6 +16,8 @@
 package com.android.systemui.weather
 
 import android.content.Context
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
 import android.os.UserHandle
 import android.provider.Settings
 import android.view.View
@@ -48,19 +50,8 @@ class WeatherViewController(
         override fun onStateChanged(newState: Int) {}
 
         override fun onDozingChanged(dozing: Boolean) {
-            if (mDozing == dozing) return
             mDozing = dozing
-
-            val weatherEnabled = weatherSettingsFlow.value.weatherEnabled
-
-            if (!weatherEnabled) {
-                hideAllViews()
-                OmniJawsClient.get().removeObserver(context, this@WeatherViewController)
-            } else {
-                OmniJawsClient.get().addObserver(context, this@WeatherViewController)
-                updateWeather()
-                showAllViews()
-            }
+            updateIconTint()
         }
     }
 
@@ -122,6 +113,16 @@ class WeatherViewController(
 
     override fun weatherUpdated() = updateWeather()
 
+    private fun updateIconTint() {
+        if (mDozing) {
+            val matrix = ColorMatrix()
+            matrix.setSaturation(0f)
+            weatherIcon.colorFilter = ColorMatrixColorFilter(matrix)
+        } else {
+            weatherIcon.colorFilter = null
+        }
+    }
+
     private fun updateWeather() {
         if (!weatherSettingsFlow.value.weatherEnabled) {
             hideAllViews()
@@ -135,6 +136,7 @@ class WeatherViewController(
                 weatherIcon.setImageDrawable(
                     OmniJawsClient.get().getWeatherConditionImage(context, 
                     info.conditionCode))
+                updateIconTint()
                 weatherTemp.text = buildWeatherText(info)
                 weatherTemp.isSelected = true
             }
