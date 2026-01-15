@@ -16216,6 +16216,10 @@ public class ActivityManagerService extends IActivityManager.Stub
     @NeverCompile // Avoid size overhead of debugging code.
     public void dumpBitmapsProto(ParcelFileDescriptor fd, String[] processes, int userId,
                             boolean allPkgs, String dumpFormat) {
+        // note: re-use the same permission as dumpHeap until its own permission is available
+        enforceCallingPermission(android.Manifest.permission.SET_ACTIVITY_WATCHER,
+                "dumpBitmapsProto()");
+
         ProtoOutputStream proto = new ProtoOutputStream(fd.getFileDescriptor());
         final ArrayList<ProcessRecord> procs = collectProcesses(null, 0, allPkgs, processes);
         if (procs == null) {
@@ -16232,6 +16236,13 @@ public class ActivityManagerService extends IActivityManager.Stub
                 if (thread == null) {
                     continue;
                 }
+
+                // check process debuggability
+                if (!Build.IS_DEBUGGABLE && !r.isDebuggable()) {
+                    Slog.w(TAG, "Process not debuggable: " + r.info.packageName);
+                    continue;
+                }
+
                 try {
                     if (pid == Process.myPid()) {
                         // Directly dump to target proto for local dump to avoid hang.
