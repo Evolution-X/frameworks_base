@@ -34,6 +34,7 @@
 #include <utils/Trace.h>
 #include <signal.h>
 #include <time.h>
+#include <unistd.h>
 
 #include <cutils/properties.h>
 
@@ -722,6 +723,19 @@ bool BootAnimation::preloadAnimation() {
 bool BootAnimation::findBootAnimationFileInternal(const std::vector<std::string> &files) {
     ATRACE_CALL();
     for (const std::string& f : files) {
+        if (f.find("/data/") == 0) {
+            int attempts = 0;
+            const int max_attempts = 100; // 100 * 100ms = 10 seconds max wait
+            const int sleep_interval_us = 100000; // 100ms
+
+            while (access(f.c_str(), R_OK) != 0 && attempts < max_attempts) {
+                if (attempts % 10 == 0) {
+                    ALOGW("Custom bootanim: Waiting for %s... (%d/%d)", f.c_str(), attempts + 1, max_attempts);
+                }
+                usleep(sleep_interval_us);
+                attempts++;
+            }
+        }
         if (access(f.c_str(), R_OK) == 0) {
             mZipFileName = f.c_str();
             return true;
