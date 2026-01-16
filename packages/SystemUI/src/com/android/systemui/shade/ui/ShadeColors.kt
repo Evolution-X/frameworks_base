@@ -17,6 +17,10 @@
 package com.android.systemui.shade.ui
 
 import android.content.Context
+import android.content.res.Configuration
+import android.graphics.Color
+import android.os.UserHandle
+import android.provider.Settings
 import com.android.internal.graphics.ColorUtils
 import com.android.systemui.res.R
 
@@ -72,8 +76,17 @@ object ShadeColors {
     }
 
     @JvmStatic
-    private fun shadePanelFallback(context: Context): Int {
-        return context.getColor(R.color.shade_panel_fallback)
+     private fun shadePanelFallback(context: Context): Int {
+        val isNightMode = (context.resources.configuration.uiMode and
+                Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val useBlackTheme = Settings.Secure.getIntForUser(
+            context.contentResolver, "berry_black_theme", 0, UserHandle.USER_CURRENT
+        ) == 1
+        return if (useBlackTheme && isNightMode) {
+            Color.BLACK
+        } else {
+            context.getColor(R.color.shade_panel_fallback)
+        }
     }
 
     @JvmStatic
