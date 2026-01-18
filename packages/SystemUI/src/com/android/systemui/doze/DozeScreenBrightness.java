@@ -168,8 +168,10 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
         mScreenBrightnessMinimumDimAmount = context.getResources().getFloat(
                 R.dimen.config_screenBrightnessMinimumDimAmountFloat);
 
-        mDefaultDozeBrightness = mDisplayManager.getDefaultDozeBrightness(mContext.getDisplayId());
-        
+        mDefaultDozeBrightness = BrightnessSynchronizer.brightnessIntToFloat(
+                context.getResources().getInteger(
+                        com.android.internal.R.integer.config_screenBrightnessDoze));
+
         // Custom Pulse Brightness configuration
         int defaultPulseBrightness = context.getResources().getInteger(
                 com.android.internal.R.integer.config_screenBrightnessPulse);
