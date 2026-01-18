@@ -127,6 +127,6 @@ constructor(
     override fun availability(user: UserHandle): Flow<Boolean> = flowOf(isAvailable())
 
     fun isAvailable(): Boolean {
-        return AconfigFlags.qsSplitInternetTile()
+        return true
     }
 }

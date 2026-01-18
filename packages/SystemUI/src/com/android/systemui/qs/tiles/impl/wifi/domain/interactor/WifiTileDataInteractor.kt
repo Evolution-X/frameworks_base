@@ -267,7 +267,7 @@ constructor(
 
     override fun availability(user: UserHandle): Flow<Boolean> = flowOf(isAvailable())
 
-    fun isAvailable(): Boolean = AconfigFlags.qsSplitInternetTile()
+    fun isAvailable(): Boolean = true
 
     private companion object {
         fun removeDoubleQuotes(string: String?): String? {
