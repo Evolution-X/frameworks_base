@@ -339,6 +339,22 @@ public class AudioService extends IAudioService.Stub
     private static final String TAG = "AS.AudioService";
 
     private final AudioSystemAdapter mAudioSystem;
+
+    // --- BT SCO call routing workaround ---
+    // On some builds, Telecom/Telephony may keep AudioPolicy in MODE_NORMAL during a voice call.
+    // When Bluetooth SCO is selected as the communication device, remaining in MODE_NORMAL can
+    // prevent proper call routing until a manual reroute (e.g. toggling speaker).
+    //
+    // We force MODE_IN_COMMUNICATION when BT SCO is selected while MODE_NORMAL is still active.
+    // We also revert back to MODE_NORMAL when the communication device is cleared (only if we
+    // were the one forcing the mode and there is no other mode owner).
+    private final Object mBtScoModeLock = new Object();
+    @GuardedBy("mBtScoModeLock")
+    private boolean mBtScoForcedInCommunication = false;
+
+    // Small retry delay (ms) when forcing mode for BT SCO. This helps when SCO setup races with
+    // policy/route evaluation while A2DP media is active.
+    private static final int BT_SCO_FORCE_MODE_RETRY_DELAY_MS = 350;
     private final SystemServerAdapter mSystemServer;
     private final SettingsAdapter mSettings;
     private final AudioPolicyFacade mAudioPolicy;
@@ -7705,10 +7721,100 @@ public class AudioService extends IAudioService.Stub
                 == PackageManager.PERMISSION_GRANTED;
         final long ident = Binder.clearCallingIdentity();
         try {
-            return mDeviceBroker.setCommunicationDevice(
+            final boolean res = mDeviceBroker.setCommunicationDevice(
                     cb, attributionSource, device, isPrivileged, eventSource);
+            // Workaround: ensure BT SCO call routing is not stuck in MODE_NORMAL.
+            maybeUpdateModeForBtScoCommunicationDevice(device, /*cleared=*/ device == null);
+            return res;
         } finally {
             Binder.restoreCallingIdentity(ident);
+        }
+    }
+
+    /**
+     * Workaround to avoid BT SCO call audio being stuck until a manual reroute (speaker toggle).
+     *
+     * Some device/stack combinations may keep AudioPolicy in MODE_NORMAL during a voice call.
+     * When Bluetooth SCO is selected as the communication device while MODE_NORMAL is still
+     * active, the native stack may not fully transition into voice routing until a reroute is
+     * manually triggered.
+     */
+    private void maybeUpdateModeForBtScoCommunicationDevice(@Nullable AudioDeviceInfo device,
+            boolean cleared) {
+        final boolean isBtSco = device != null && device.getType() == AudioDeviceInfo.TYPE_BLUETOOTH_SCO;
+
+        // Only act on BT SCO selection/clear events.
+        if (!isBtSco && !cleared) {
+            return;
+        }
+
+        synchronized (mBtScoModeLock) {
+            if (isBtSco) {
+                // If we are still in MODE_NORMAL, force MODE_IN_COMMUNICATION through the regular
+                // mode update pipeline (so AudioPolicy, DeviceBroker, and listeners stay in sync).
+                //
+                // Doing this as a direct setPhoneState() has proven too racy when A2DP media is
+                // active: policy may evaluate routes before SCO is fully set up, resulting in a
+                // "silent" call until the user forces a reroute (speaker toggle).
+                if (!mBtScoForcedInCommunication && mMode.get() == AudioSystem.MODE_NORMAL) {
+                    mBtScoForcedInCommunication = true;
+                    final String pkg = mContext.getPackageName();
+                    final int pid = android.os.Process.myPid();
+                    // Immediate force.
+                    postUpdateAudioMode(SENDMSG_REPLACE,
+                            AudioSystem.MODE_IN_COMMUNICATION,
+                            pid,
+                            pkg,
+                            /*signal=*/ false,
+                            /*delay=*/ 0,
+                            /*force=*/ true);
+                    // Short retry to catch SCO becoming active slightly after device selection.
+                    postUpdateAudioMode(SENDMSG_QUEUE,
+                            AudioSystem.MODE_IN_COMMUNICATION,
+                            pid,
+                            pkg,
+                            /*signal=*/ false,
+                            /*delay=*/ BT_SCO_FORCE_MODE_RETRY_DELAY_MS,
+                            /*force=*/ true);
+                    Slog.w(TAG, "BT SCO selected while MODE_NORMAL, forced MODE_IN_COMMUNICATION (with retry)");
+                }
+
+                // If music is actively streaming (A2DP), force a quick reroute for communications
+                // to avoid getting stuck in a silent state until the user toggles speaker.
+                if (mAudioSystem.isStreamActive(AudioSystem.STREAM_MUSIC, 0)) {
+                    mDeviceBroker.setForceUse_Async(AudioSystem.FOR_COMMUNICATION,
+                            AudioSystem.FORCE_SPEAKER,
+                            "bt-sco-autofix-reroute-pre");
+                    mAudioHandler.postDelayed(() -> mDeviceBroker.setForceUse_Async(
+                                    AudioSystem.FOR_COMMUNICATION,
+                                    AudioSystem.FORCE_NONE,
+                                    "bt-sco-autofix-reroute-post"),
+                            150);
+                }
+
+                return;
+            }
+
+            // Communication device cleared.
+            if (cleared && mBtScoForcedInCommunication) {
+                // Only revert if no other mode owner exists.
+                synchronized (mDeviceBroker.mSetModeLock) {
+                    if (getAudioModeOwnerHandler() != null) {
+                        return;
+                    }
+                }
+                mBtScoForcedInCommunication = false;
+                final String pkg = mContext.getPackageName();
+                final int pid = android.os.Process.myPid();
+                postUpdateAudioMode(SENDMSG_REPLACE,
+                        AudioSystem.MODE_NORMAL,
+                        pid,
+                        pkg,
+                        /*signal=*/ false,
+                        /*delay=*/ 0,
+                        /*force=*/ true);
+                Slog.i(TAG, "BT communication device cleared, requested MODE_NORMAL");
+            }
         }
     }
 
