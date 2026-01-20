@@ -236,7 +236,7 @@ public class KeyguardSliceProvider extends SliceProvider implements
                 }
                 slice = builder.build();
             }
-        } catch (IllegalStateException e) {
+        } catch (Exception e) {
             Log.w(TAG, "Could not initialize slice", e);
         } finally {
             Trace.endSection();
