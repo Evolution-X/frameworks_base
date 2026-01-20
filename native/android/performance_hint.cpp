@@ -443,7 +443,7 @@ int APerformanceHintManager::createSessionUsingConfig(ASessionCreationConfig* se
     sessionCreationConfig->layerTokens.clear();
 
     if (!ret.isOk() || !returnValue.session) {
-        ALOGE("%s: PerformanceHint cannot create session. %s", __FUNCTION__, ret.getMessage());
+        //ALOGE("%s: PerformanceHint cannot create session. %s", __FUNCTION__, ret.getMessage());
         switch (ret.getExceptionCode()) {
             case binder::Status::EX_UNSUPPORTED_OPERATION:
                 return ENOTSUP;
