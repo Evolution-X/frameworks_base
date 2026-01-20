@@ -264,7 +264,7 @@ public class AconfigFlags {
             try {
                 return AconfigPackage.load(p);
             } catch (Exception e) {
-                Slog.e(LOG_TAG, "Failed to load aconfig package " + p, e);
+                //Slog.e(LOG_TAG, "Failed to load aconfig package " + p, e);
                 return null;
             }
         });
