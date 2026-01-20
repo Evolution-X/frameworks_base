@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 VoltageOS
+ * Copyright (C) 2025-2026 VoltageOS
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,7 +52,6 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -76,20 +75,20 @@ private const val TAG = "OngoingActionProgressCompose"
 @Composable
 fun OngoingActionProgress(
     controller: OnGoingActionProgressComposeController,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val state by controller.state.collectAsState()
-    
+
     val accentColor = MaterialTheme.colorScheme.primary
 
     AnimatedVisibility(
         visible = state.isVisible,
         enter = fadeIn(),
         exit = fadeOut(),
-        modifier = modifier
+        modifier = modifier,
     ) {
         Box(
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             val progressValue = if (state.maxProgress > 0) {
                 (state.progress.toFloat() / state.maxProgress.toFloat()).coerceIn(0f, 1f)
@@ -102,9 +101,10 @@ fun OngoingActionProgress(
                 detectHorizontalDragGestures(
                     onDragStart = { dragOffset = 0f },
                     onDragEnd = {
-                        if (dragOffset < -50) controller.onSwipe(true) 
-                        else if (dragOffset > 50) controller.onSwipe(false) 
-                    }
+                        if (dragOffset < -50) {
+                            controller.onSwipe(true)
+                        } else if (dragOffset > 50) controller.onSwipe(false)
+                    },
                 ) { _, dragAmount ->
                     dragOffset += dragAmount
                 }
@@ -112,7 +112,7 @@ fun OngoingActionProgress(
                 detectTapGestures(
                     onDoubleTap = { controller.onDoubleTap() },
                     onLongPress = { controller.onLongPress() },
-                    onTap = { controller.onInteraction() }
+                    onTap = { controller.onInteraction() },
                 )
             }
 
@@ -122,7 +122,7 @@ fun OngoingActionProgress(
                         .size(26.dp)
                         .alpha(state.opacity)
                         .then(gestureModifier),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val strokeWidthPx = 3.dp.toPx()
@@ -138,7 +138,7 @@ fun OngoingActionProgress(
                             useCenter = false,
                             topLeft = topLeftOffset,
                             size = arcSize,
-                            style = Stroke(width = strokeWidthPx)
+                            style = Stroke(width = strokeWidthPx),
                         )
 
                         drawArc(
@@ -148,7 +148,7 @@ fun OngoingActionProgress(
                             useCenter = false,
                             topLeft = topLeftOffset,
                             size = arcSize,
-                            style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round)
+                            style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round),
                         )
                     }
 
@@ -158,7 +158,7 @@ fun OngoingActionProgress(
                             contentDescription = "App icon",
                             modifier = Modifier.size(14.dp)
                                 .clip(RoundedCornerShape(14.dp)),
-                            colorFilter = null 
+                            colorFilter = null,
                         )
                     }
                 }
@@ -170,7 +170,7 @@ fun OngoingActionProgress(
                         .padding(horizontal = 6.dp, vertical = 4.dp)
                         .alpha(state.opacity)
                         .then(gestureModifier),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     state.icon?.let { iconBitmap ->
                         Image(
@@ -178,27 +178,27 @@ fun OngoingActionProgress(
                             contentDescription = "App icon",
                             modifier = Modifier
                                 .size(16.dp)
-                                .clip(RoundedCornerShape(16.dp)) // Clip to prevent rendering artifacts
+                                .clip(RoundedCornerShape(16.dp))
                                 .padding(start = 1.dp),
-                            colorFilter = null 
+                            colorFilter = null,
                         )
-                        
+
                         Spacer(modifier = Modifier.width(5.dp))
                     }
-                    
+
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(6.dp)
                             .padding(end = 3.dp)
                             .clip(RoundedCornerShape(3.dp))
-                            .background(Color(0x33FFFFFF))
+                            .background(Color(0x33FFFFFF)),
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .fillMaxWidth(progressValue)
-                                .background(accentColor) 
+                                .background(accentColor),
                         )
                     }
                 }
@@ -207,7 +207,7 @@ fun OngoingActionProgress(
             if (state.showMediaControls) {
                 Popup(
                     alignment = Alignment.BottomCenter,
-                    onDismissRequest = { controller.onMediaMenuDismiss() }
+                    onDismissRequest = { controller.onMediaMenuDismiss() },
                 ) {
                     Row(
                         modifier = Modifier
@@ -218,7 +218,7 @@ fun OngoingActionProgress(
                             .background(Color(0xFF202020), RoundedCornerShape(24.dp))
                             .padding(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Box(modifier = Modifier.size(32.dp).clickable { controller.onMediaAction(0) }, contentAlignment = Alignment.Center) {
                             Canvas(modifier = Modifier.size(12.dp)) {
@@ -270,7 +270,7 @@ data class ProgressState(
     val isIconAdaptive: Boolean = false,
     val isCompactMode: Boolean = false,
     val opacity: Float = 1f,
-    val showMediaControls: Boolean = false
+    val showMediaControls: Boolean = false,
 )
 
 /**
@@ -281,34 +281,34 @@ class OnGoingActionProgressComposeController(
     context: Context,
     notificationListener: NotificationListener,
     keyguardStateController: KeyguardStateController,
-    headsUpManager: HeadsUpManager
+    headsUpManager: HeadsUpManager,
 ) {
     private val _state = MutableStateFlow(ProgressState())
     val state: StateFlow<ProgressState> = _state
-    
+
     private val javaController: OnGoingActionProgressController
-    
+
     init {
         Log.d(TAG, "Initializing OnGoingActionProgressComposeController")
-        
+
         val dummyGroup = OnGoingActionProgressGroup(null, null, null, null, null, null)
-        
+
         try {
             javaController = OnGoingActionProgressController(
                 context,
                 dummyGroup,
                 notificationListener,
                 keyguardStateController,
-                headsUpManager
+                headsUpManager,
             )
-            
+
             javaController.setStateCallback { isVisible, progress, maxProgress, icon, isAdaptive, packageName, isCompact, opacity, showMenu ->
                 Log.d(TAG, "State callback: isVisible=$isVisible, compact=$isCompact, showMenu=$showMenu")
-                
+
                 val iconSizePx = if (isCompact) {
-                    (14 * context.resources.displayMetrics.density).toInt() * 2 
+                    (14 * context.resources.displayMetrics.density).toInt() * 2
                 } else {
-                    (16 * context.resources.displayMetrics.density).toInt() * 2 
+                    (16 * context.resources.displayMetrics.density).toInt() * 2
                 }
 
                 val iconBitmap = try {
@@ -316,14 +316,14 @@ class OnGoingActionProgressComposeController(
                         drawable.toBitmap(
                             width = iconSizePx,
                             height = iconSizePx,
-                            config = Bitmap.Config.ARGB_8888
+                            config = Bitmap.Config.ARGB_8888,
                         ).asImageBitmap()
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to convert icon to bitmap", e)
                     null
                 }
-                
+
                 _state.value = ProgressState(
                     isVisible = isVisible,
                     progress = progress,
@@ -333,17 +333,17 @@ class OnGoingActionProgressComposeController(
                     isIconAdaptive = isAdaptive,
                     isCompactMode = isCompact,
                     opacity = opacity,
-                    showMediaControls = showMenu
+                    showMediaControls = showMenu,
                 )
             }
-            
+
             Log.d(TAG, "OnGoingActionProgressComposeController initialized successfully")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize OnGoingActionProgressController", e)
             throw e
         }
     }
-    
+
     fun destroy() {
         javaController.destroy()
     }
