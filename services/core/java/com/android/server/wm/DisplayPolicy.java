@@ -1496,6 +1496,17 @@ public class DisplayPolicy {
         // This window might be in the simulated environment.
         // We invoke this to get the proper DisplayFrames.
         displayFrames = win.getDisplayFrames(displayFrames);
+        
+        if (win.mActivityRecord != null) {
+            final int cutoutMode = mService.mAtmService.getCutoutMode(
+                    win.mAttrs.layoutInDisplayCutoutMode,
+                    win.mActivityRecord.packageName,
+                    displayFrames.mWidth,
+                    displayFrames.mHeight);
+            if (cutoutMode != win.mAttrs.layoutInDisplayCutoutMode) {
+                win.mAttrs.layoutInDisplayCutoutMode = cutoutMode;
+            }
+        }
 
         final WindowManager.LayoutParams attrs = win.mAttrs.forRotation(displayFrames.mRotation);
         sTmpClientFrames.attachedFrame = attached != null ? attached.getFrame() : null;
