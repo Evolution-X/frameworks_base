@@ -179,11 +179,14 @@ class AppCompatAspectRatioPolicy {
     }
 
     float getMaxAspectRatio() {
-        if (mActivityRecord.shouldForceLongScreen()) {
-            return 0;
-        }
         if (mTransparentPolicy.isRunning()) {
             return mTransparentPolicy.getInheritedMaxAspectRatio();
+        }
+        final float overrideValue = mActivityRecord.mAtmService.overrideMaxAspectRatio(
+                mActivityRecord.packageName,
+                mActivityRecord.info.applicationInfo.targetSdkVersion);
+        if (overrideValue != -1.0f) {
+            return overrideValue;
         }
         final float maxAspectRatio = mActivityRecord.info.getMaxAspectRatio();
         if (maxAspectRatio == 0 || mActivityRecord.isUniversalResizeable()) {
@@ -401,6 +404,7 @@ class AppCompatAspectRatioPolicy {
         outBounds.set(left, top, right, bottom);
         if (mActivityRecord.shouldForceLongScreen()) {
             outBounds.set(mActivityRecord.getRequestedOverrideBounds());
+            return true;
         }
         return true;
     }
