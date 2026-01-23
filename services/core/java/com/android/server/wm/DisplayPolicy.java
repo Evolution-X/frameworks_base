@@ -39,7 +39,6 @@ import static android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACK
 import static android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
 import static android.view.WindowManager.LayoutParams.INVALID_WINDOW_TYPE;
 import static android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
-import static android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
 import static android.view.WindowManager.LayoutParams.PRIVATE_FLAG_CONSUME_IME_INSETS;
 import static android.view.WindowManager.LayoutParams.PRIVATE_FLAG_FORCE_DRAW_BAR_BACKGROUNDS;
 import static android.view.WindowManager.LayoutParams.PRIVATE_FLAG_IMMERSIVE_CONFIRMATION_WINDOW;
@@ -1483,13 +1482,15 @@ public class DisplayPolicy {
         // This window might be in the simulated environment.
         // We invoke this to get the proper DisplayFrames.
         displayFrames = win.getDisplayFrames(displayFrames);
-
-        if (win.mActivityRecord != null 
-            && win.mActivityRecord.shouldForceLongScreen(win.getOwningPackage())) {
-            int forceFullCutoutMode = LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
-            if (win.mAttrs.layoutInDisplayCutoutMode != forceFullCutoutMode) {
-                win.mAttrs.layoutInDisplayCutoutMode = forceFullCutoutMode;
-                Slog.d("ForceFullImpl", "layoutWindowLw: forcing to fullscreen: package=" + win.getOwningPackage());
+        
+        if (win.mActivityRecord != null) {
+            final int cutoutMode = mService.mAtmService.getCutoutMode(
+                    win.mAttrs.layoutInDisplayCutoutMode,
+                    win.mActivityRecord.packageName,
+                    displayFrames.mWidth,
+                    displayFrames.mHeight);
+            if (cutoutMode != win.mAttrs.layoutInDisplayCutoutMode) {
+                win.mAttrs.layoutInDisplayCutoutMode = cutoutMode;
             }
         }
 
