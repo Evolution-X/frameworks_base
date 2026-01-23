@@ -135,7 +135,7 @@ constructor(
 
     private var isHomeFocused = true
 
-    val maxBlurRadiusPx = blurUtils.maxBlurRadius
+    val maxBlurRadiusPx get() = blurUtils.maxBlurRadius
 
     // Shade expansion offset that happens when pulling down on a HUN.
     var panelPullDownMinFraction = 0f
@@ -502,6 +502,11 @@ constructor(
                     // Update wake and unlock radius only if the previous value comes from wake-up.
                     updateWakeBlurRadius(prevDozeAmount)
                 }
+            }
+        }
+        applicationScope.launch {
+            blurUtils.maxBlurRadiusFlow.collect {
+                scheduleUpdate()
             }
         }
         initBlurListeners()
