@@ -8249,4 +8249,15 @@ public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
     public boolean shouldForceLongScreen(String packageName) {
         return mLineageActivityManager.shouldForceLongScreen(packageName);
     }
+
+    public float overrideMaxAspectRatio(String packageName, int targetSdkVersion) {
+        return mLineageActivityManager.overrideMaxAspectRatio(packageName, targetSdkVersion);
+    }
+
+    public int getCutoutMode(int original, String packageName, int width, int height) {
+        if (!mLineageActivityManager.shouldForceLongScreen(packageName)) {
+            return original;
+        }
+        return width > height ? 3 : 1;
+    }
 }
