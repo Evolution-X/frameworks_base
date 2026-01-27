@@ -38,6 +38,9 @@ interface SecureSettingsRepository {
      */
     fun stringSetting(name: String, defaultValue: String? = null): Flow<String?>
 
+    /** Returns a [Flow] tracking the value of a setting as a [String]. */
+    fun stringSetting(name: String): Flow<String?>
+
     /** Updates the value of the setting with the given name. */
     suspend fun setInt(name: String, value: Int)
 
