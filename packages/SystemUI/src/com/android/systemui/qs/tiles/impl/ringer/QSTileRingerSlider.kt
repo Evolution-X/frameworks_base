@@ -19,12 +19,14 @@ import android.app.NotificationManager
 import android.content.Context
 import android.media.AudioManager
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.android.systemui.common.ringer.RingerSliderWidget
 import com.android.systemui.common.ringer.RingerModeInteractorImpl
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.InactiveCornerRadius
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.TileHeight
 
 @Composable
@@ -46,6 +48,8 @@ fun QSTileRingerSlider(
         modifier = Modifier.fillMaxWidth(),
         isDozing = false,
         border = border,
+        containerShape = RoundedCornerShape(InactiveCornerRadius),
+        thumbShape = RoundedCornerShape(InactiveCornerRadius),
         onLongClick = {
             interactor.toggleDnd()
         }
