@@ -44,6 +44,8 @@ fun RingerSliderWidget(
     modifier: Modifier = Modifier,
     isDozing: Boolean = false,
     border: Modifier = Modifier,
+    containerShape: Shape = RoundedCornerShape(24.dp),
+    thumbShape: Shape = RoundedCornerShape(16.dp),
     onLongClick: (() -> Unit)? = null
 ) {
     val mode by interactor.ringerMode.collectAsState(initial = interactor.getCurrentMode())
@@ -83,12 +85,12 @@ fun RingerSliderWidget(
                     isDndEnabled -> theme.dndBg
                     else -> theme.neutralBg
                 },
-                RoundedCornerShape(24.dp)
+                containerShape
             )
-            .clip(RoundedCornerShape(24.dp))
+            .clip(containerShape)
             .then(
                 if (isDozing)
-                    Modifier.border(theme.dozeStroke, Color.White, RoundedCornerShape(24.dp))
+                    Modifier.border(theme.dozeStroke, Color.White, containerShape)
                 else border
             )
 .pointerInput(Unit) {
@@ -193,16 +195,16 @@ fun RingerSliderWidget(
                             isDndEnabled -> theme.dndBg
                             else -> theme.activeBg
                         },
-                        RoundedCornerShape(16.dp)
+                        thumbShape
                     )
                     .then(
                         when {
                             isDozing ->
-                            Modifier.border(theme.dozeStroke, Color.White, RoundedCornerShape(16.dp))
+                            Modifier.border(theme.dozeStroke, Color.White, thumbShape)
                             isDndEnabled ->
-                                Modifier.border(2.dp, theme.dndBg, RoundedCornerShape(16.dp))
+                                Modifier.border(2.dp, theme.dndBg, thumbShape)
                             else ->
-                                Modifier.border(2.dp, theme.activeBg, RoundedCornerShape(16.dp))
+                                Modifier.border(2.dp, theme.activeBg, thumbShape)
                         }
                     ),
                 contentAlignment = Alignment.Center
