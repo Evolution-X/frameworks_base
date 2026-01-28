@@ -30,7 +30,7 @@ class QSTileRingerTheme(
         @Composable get() = MaterialTheme.colorScheme.primary
     
     override val neutralBg: Color
-        @Composable get() = LocalAndroidColorScheme.current.surfaceEffect2
+        @Composable get() = LocalAndroidColorScheme.current.surfaceEffect1
 
     override val activeIcon: Color
         @Composable get() = MaterialTheme.colorScheme.onPrimary
