@@ -22,4 +22,9 @@
 
     <!-- Extra bottom offset for the Dynamic Bar keyguard chip -->
     <dimen name="ax_dynamic_bar_keyguard_chip_extra_bottom_margin">0dp</dimen>
+
+    <!-- Sb Chip -->
+    <dimen name="chip_corner_radius">28dp</dimen>
+    <dimen name="status_bar_clock_chip_tb_padding">0dp</dimen>
+    <dimen name="status_bar_clock_chip_lr_padding">8dp</dimen>
 </resources>
