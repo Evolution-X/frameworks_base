@@ -301,4 +301,9 @@
         <item>#1AA64A</item>
         <item>#D37B00</item>
     </array>
+
+    <!-- Statusbar clock chip colors -->
+    <color name="rippleDark">#1F000000</color>
+    <color name="neumorph_outline_start">#FFFFFFFF</color>
+    <color name="neumorph_outline_end">#00FFFFFF</color>
 </resources>
