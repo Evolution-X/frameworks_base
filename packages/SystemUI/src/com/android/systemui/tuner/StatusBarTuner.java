@@ -24,7 +24,7 @@ import androidx.annotation.Nullable;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
 
-import com.android.crdroid.utils.IconTinterUtils;
+import com.android.evolution.utils.IconTinterUtils;
 
 import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
