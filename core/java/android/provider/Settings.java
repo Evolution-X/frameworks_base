@@ -7203,11 +7203,6 @@ public final class Settings {
         /**
          * @hide
          */
-        public static final String AMBIENT_MEDIA_ART_ENABLED = "ambient_media_art_enabled";
-
-        /**
-         * @hide
-         */
         public static final String LS_MEDIA_ART_FILTER = "ls_media_art_filter";
 
         /**
@@ -7219,6 +7214,21 @@ public final class Settings {
          * @hide
          */
         public static final String LS_MEDIA_ART_BLUR_LEVEL = "ls_media_art_blur_level";
+
+        /**
+         * @hide
+         */
+        public static final String LS_MEDIA_ART_PIXEL_SIZE = "ls_media_art_pixel_size";
+
+        /**
+         * @hide
+         */
+        public static final String LS_MEDIA_ART_AOD_ENABLED = "ls_media_art_aod_enabled";
+
+        /**
+         * @hide
+         */
+        public static final String LS_MEDIA_ART_AOD_DIM_LEVEL = "ls_media_art_aod_dim_level";
 
         /**
          * Whether edge light is enabled
