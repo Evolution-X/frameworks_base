@@ -14563,12 +14563,6 @@ public final class Settings {
         public static final String LOCKSCREEN_PULSE_ENABLED = "lockscreen_pulse_enabled";
 
         /**
-         * Pulse lockscreen music visualizer on ambient display
-         * @hide
-         */
-        public static final String AMBIENT_PULSE_ENABLED = "ambient_pulse_enabled";
-
-        /**
          * @hide
          */
         public static final String PULSE_BAR_COUNT = "pulse_bar_count";
@@ -14587,6 +14581,21 @@ public final class Settings {
          * @hide
          */
         public static final String PULSE_RENDERER = "pulse_renderer";
+
+        /**
+         * @hide
+         */
+        public static final String PULSE_SHOW_ON_AMBIENT = "pulse_show_on_ambient";
+
+        /**
+         * @hide
+         */
+        public static final String PULSE_HEIGHT_MULTIPLIER = "pulse_height_multiplier";
+
+        /**
+         * @hide
+         */
+        public static final String PULSE_CUSTOM_COLOR = "pulse_custom_color";
 
         /**
          * @hide
