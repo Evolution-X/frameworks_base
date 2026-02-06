@@ -46,6 +46,7 @@ import static android.app.AppOpsManager.OP_RECEIVE_AMBIENT_TRIGGER_AUDIO;
 import static android.app.AppOpsManager.OP_RECORD_AUDIO;
 import static android.app.AppOpsManager.OP_RECORD_AUDIO_HOTWORD;
 import static android.app.AppOpsManager.OP_RECORD_AUDIO_SANDBOXED;
+import static android.app.AppOpsManager.OP_RESERVED_FOR_TESTING;
 import static android.app.AppOpsManager.OP_VIBRATE;
 import static android.app.AppOpsManager.OnOpStartedListener.START_TYPE_FAILED;
 import static android.app.AppOpsManager.OnOpStartedListener.START_TYPE_STARTED;
@@ -244,6 +245,7 @@ public class AppOpsService extends IAppOpsService.Stub {
             OP_RECORD_AUDIO,
             OP_CAMERA,
             OP_VIBRATE,
+            OP_RESERVED_FOR_TESTING,
     };
 
     private static final int MAX_UNFORWARDED_OPS = 10;
@@ -3064,6 +3066,10 @@ public class AppOpsService extends IAppOpsService.Stub {
             return new SyncNotedAppOp(AppOpsManager.MODE_ERRORED, code, attributionTag,
                     packageName);
         }
+        if (isOpRestrictedDueToSuspend(code, packageName, uid)) {
+            return new SyncNotedAppOp(AppOpsManager.MODE_IGNORED, code, attributionTag,
+                    packageName);
+        }
         if (proxyAttributionTag != null
                 && !isAttributionTagDefined(packageName, proxyPackageName, proxyAttributionTag)) {
             proxyAttributionTag = null;
@@ -3680,6 +3686,10 @@ public class AppOpsService extends IAppOpsService.Stub {
             return new SyncNotedAppOp(AppOpsManager.MODE_ERRORED, code, attributionTag,
                     packageName);
         }
+        if (isOpRestrictedDueToSuspend(code, packageName, uid)) {
+            return new SyncNotedAppOp(AppOpsManager.MODE_IGNORED, code, attributionTag,
+                    packageName);
+        }
         if (proxyAttributionTag != null
                 && !isAttributionTagDefined(packageName, proxyPackageName, proxyAttributionTag)) {
             proxyAttributionTag = null;
@@ -3810,6 +3820,10 @@ public class AppOpsService extends IAppOpsService.Stub {
                 Slog.e(TAG, "Cannot startOperation", e);
             }
             return new SyncNotedAppOp(AppOpsManager.MODE_ERRORED, code, attributionTag,
+                    packageName);
+        }
+        if (isOpRestrictedDueToSuspend(code, packageName, uid)) {
+            return new SyncNotedAppOp(AppOpsManager.MODE_IGNORED, code, attributionTag,
                     packageName);
         }
 
