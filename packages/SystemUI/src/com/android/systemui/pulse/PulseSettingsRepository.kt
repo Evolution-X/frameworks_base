@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2025 The AxionAOSP Project
  *           (C) 2025-2026 crDroid Android Project
+ *           (C) 2024-2026 Lunaris AOSP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +19,7 @@ package com.android.systemui.pulse
 
 import android.content.Context
 import android.database.ContentObserver
+import android.graphics.Color
 import android.net.Uri
 import android.os.Handler
 import android.os.UserHandle
@@ -28,19 +30,24 @@ class PulseSettingsRepository(private val context: Context) {
 
     companion object {
         private const val PULSE_ENABLED = Settings.Secure.LOCKSCREEN_PULSE_ENABLED
-        private const val PULSE_AMBIENT_ENABLED = Settings.Secure.AMBIENT_PULSE_ENABLED
         private const val PULSE_BAR_COUNT = Settings.Secure.PULSE_BAR_COUNT
         private const val PULSE_ROUNDED_BARS = Settings.Secure.PULSE_ROUNDED_BARS
         private const val PULSE_COLOR = Settings.Secure.PULSE_COLOR
+        private const val PULSE_CUSTOM_COLOR = Settings.Secure.PULSE_CUSTOM_COLOR
         private const val PULSE_RENDERER = Settings.Secure.PULSE_RENDERER
+        private const val PULSE_SHOW_ON_AMBIENT = Settings.Secure.PULSE_SHOW_ON_AMBIENT
+        private const val PULSE_HEIGHT_MULTIPLIER = Settings.Secure.PULSE_HEIGHT_MULTIPLIER
         private const val PULSE_BASS_HAPTICS = Settings.Secure.PULSE_BASS_HAPTICS
 
         private const val DEFAULT_ENABLED = false
-        private const val DEFAULT_AMBIENT_ENABLED = true
         private const val DEFAULT_BAR_COUNT = 32
         private const val DEFAULT_ROUNDED_BARS = false
         private const val DEFAULT_COLOR = "lavalamp"
+        private const val DEFAULT_CUSTOM_COLOR = Color.WHITE
         private const val DEFAULT_RENDERER = "solid"
+        private const val DEFAULT_SHOW_ON_AMBIENT = true
+        private const val DEFAULT_HEIGHT_MULTIPLIER = 100 // 100 = 1.0x (normal height)
+        private const val DEFAULT_HAPTICS_ENABLED = false
         private const val DEFAULT_HAPTICS_MODE = 0
     }
 
@@ -49,11 +56,14 @@ class PulseSettingsRepository(private val context: Context) {
     private var onSettingsChangedListener: (() -> Unit)? = null
 
     private var cachedEnabled: Boolean? = null
-    private var cachedAmbientEnabled: Boolean? = null
     private var cachedBarCount: Int? = null
     private var cachedRoundedBars: Boolean? = null
     private var cachedColorMode: String? = null
+    private var cachedCustomColor: Int? = null
     private var cachedRenderer: String? = null
+    private var cachedShowOnAmbient: Boolean? = null
+    private var cachedHeightMultiplier: Float? = null
+    private var cachedHapticsEnabled: Boolean? = null
     private var cachedHapticsMode: Int? = null
 
     fun startObserving() {
@@ -63,10 +73,13 @@ class PulseSettingsRepository(private val context: Context) {
 
         listOf(
             Settings.Secure.getUriFor(PULSE_ENABLED),
-            Settings.Secure.getUriFor(PULSE_AMBIENT_ENABLED),
             Settings.Secure.getUriFor(PULSE_BAR_COUNT),
             Settings.Secure.getUriFor(PULSE_ROUNDED_BARS),
             Settings.Secure.getUriFor(PULSE_COLOR),
+            Settings.Secure.getUriFor(PULSE_CUSTOM_COLOR),
+            Settings.Secure.getUriFor(PULSE_RENDERER),
+            Settings.Secure.getUriFor(PULSE_SHOW_ON_AMBIENT),
+            Settings.Secure.getUriFor(PULSE_HEIGHT_MULTIPLIER),
             Settings.Secure.getUriFor(PULSE_RENDERER),
             Settings.Secure.getUriFor(PULSE_BASS_HAPTICS)
         ).forEach { uri ->
@@ -93,13 +106,6 @@ class PulseSettingsRepository(private val context: Context) {
         return cachedEnabled!!
     }
 
-    fun isPulseAmbientEnabled(): Boolean {
-        if (cachedAmbientEnabled == null) {
-            cachedAmbientEnabled = getSecureSetting(PULSE_AMBIENT_ENABLED, DEFAULT_AMBIENT_ENABLED)
-        }
-        return cachedAmbientEnabled!!
-    }
-
     fun getBarCount(): Int {
         if (cachedBarCount == null) {
             cachedBarCount = getSecureSetting(PULSE_BAR_COUNT, DEFAULT_BAR_COUNT).coerceIn(8, 64)
@@ -121,6 +127,20 @@ class PulseSettingsRepository(private val context: Context) {
         return cachedColorMode!!
     }
 
+    fun getCustomColor(): Int {
+        if (cachedCustomColor == null) {
+            cachedCustomColor = getSecureSetting(PULSE_CUSTOM_COLOR, DEFAULT_CUSTOM_COLOR)
+        }
+        return cachedCustomColor!!
+    }
+
+    fun isPulseShowOnAmbient(): Boolean {
+        if (cachedShowOnAmbient == null) {
+            cachedShowOnAmbient = getSecureSetting(PULSE_SHOW_ON_AMBIENT, DEFAULT_SHOW_ON_AMBIENT)
+        }
+        return cachedShowOnAmbient!!
+    }
+
     fun getStyleMode(): String {
         // Valid values: "solid", "fading", "neon", "retro", "minimal",
         //               "sparkle", "matrix", "particle", "waveform"
@@ -135,6 +155,15 @@ class PulseSettingsRepository(private val context: Context) {
         return cachedRenderer!!
     }
 
+    fun getHeightMultiplier(): Float {
+        if (cachedHeightMultiplier == null) {
+            val value = getSecureSetting(PULSE_HEIGHT_MULTIPLIER, DEFAULT_HEIGHT_MULTIPLIER)
+            // Clamp between 25% and 200% (values 25-200)
+            cachedHeightMultiplier = value.coerceIn(25, 200) / 100f
+        }
+        return cachedHeightMultiplier!!
+    }
+
     fun getPulseHapticsMode(): Int {
         if (cachedHapticsMode == null) {
             cachedHapticsMode = getSecureSetting(PULSE_BASS_HAPTICS, DEFAULT_HAPTICS_MODE)
@@ -144,11 +173,14 @@ class PulseSettingsRepository(private val context: Context) {
 
     fun invalidateCache() {
         cachedEnabled = null
-        cachedAmbientEnabled = null
         cachedBarCount = null
         cachedRoundedBars = null
         cachedColorMode = null
+        cachedCustomColor = null
         cachedRenderer = null
+        cachedShowOnAmbient = null
+        cachedHeightMultiplier = null
+        cachedHapticsEnabled = null
         cachedHapticsMode = null
         onSettingsChangedListener?.invoke()
     }
