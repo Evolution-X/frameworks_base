@@ -82,8 +82,11 @@ public class MobileSignalController extends SignalController<MobileState, Mobile
             "system:" + Settings.System.DATA_DISABLED_ICON;
     private static final String SHOW_FOURG_ICON =
             "system:" + Settings.System.SHOW_FOURG_ICON;
+    private static final String DISABLE_STACKED_MOBILE_ICONS =
+        "system:" + Settings.System.DISABLE_STACKED_MOBILE_ICONS;
 
     private boolean mDataDisabledIcon;
+    private boolean mDisableStackedMobileIcons;
 
     private MobileIconGroup mDefaultIcons;
     private Config mConfig;
@@ -176,6 +179,7 @@ public class MobileSignalController extends SignalController<MobileState, Mobile
 
         Dependency.get(TunerService.class).addTunable(this, DATA_DISABLED_ICON);
         Dependency.get(TunerService.class).addTunable(this, SHOW_FOURG_ICON);
+        Dependency.get(TunerService.class).addTunable(this, DISABLE_STACKED_MOBILE_ICONS);
     }
 
     @Override
@@ -189,6 +193,11 @@ public class MobileSignalController extends SignalController<MobileState, Mobile
             case SHOW_FOURG_ICON:
                 mConfig = Config.readConfig(mContext);
                 setConfiguration(mConfig);
+                notifyListeners();
+                break;
+            case DISABLE_STACKED_MOBILE_ICONS:
+                mDisableStackedMobileIcons =
+                    TunerService.parseIntegerSwitch(newValue, false);
                 notifyListeners();
                 break;
             default:
