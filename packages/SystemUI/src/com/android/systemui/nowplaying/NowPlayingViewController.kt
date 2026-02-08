@@ -45,6 +45,7 @@ constructor(
 
     private val mediaSessionManager = context.getSystemService(MediaSessionManager::class.java)!!
     private var activeController: MediaController? = null
+    private var bouncerShowingOrKeyguardDismissing = false
     private var currentTrackTitle: String = ""
     private var currentArtist: String = ""
     private var currentPackageName: String = ""
@@ -175,6 +176,7 @@ constructor(
 
         val shouldShow = when {
             !isPlaying || currentTrackTitle.isEmpty() -> false
+            bouncerShowingOrKeyguardDismissing -> false
             !isPanelCollapsed -> false
             isDozing -> currentSettings.showOnAod
             isKeyguardShowing -> currentSettings.showOnLockscreen
@@ -191,6 +193,33 @@ constructor(
     override fun onKeyguardShowingChanged(showing: Boolean) {
         isKeyguardShowing = showing
         updateVisibility()
+    }
+
+    override fun onPrimaryBouncerShowingChanged(showing: Boolean) {
+        bouncerShowingOrKeyguardDismissing = showing
+        if (showing) {
+            nowPlayingView.hide()
+        } else {
+            updateVisibility()
+        }
+    }
+
+    override fun onKeyguardGoingAwayChanged(goingAway: Boolean) {
+        bouncerShowingOrKeyguardDismissing = goingAway
+        if (goingAway) {
+            nowPlayingView.hide()
+        } else {
+            updateVisibility()
+        }
+    }
+
+    override fun onKeyguardFadingAwayChanged(fadingAway: Boolean) {
+        bouncerShowingOrKeyguardDismissing = fadingAway
+        if (fadingAway) {
+            nowPlayingView.hide()
+        } else {
+            updateVisibility()
+        }
     }
 
     override fun onDozingChanged(dozing: Boolean) {
