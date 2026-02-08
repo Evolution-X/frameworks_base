@@ -154,6 +154,8 @@ interface MobileIconInteractor {
     val isVoWifiForceHidden: Flow<Boolean>
 
     val shouldShowFourgIcon: StateFlow<Boolean>
+
+    val disableStackedMobileIcons: Flow<Boolean>
 }
 
 /** Interactor for a single mobile connection. This connection _should_ have one subscription ID */
@@ -214,6 +216,9 @@ class MobileIconInteractorImpl(
     private final val SHOW_FOURG_ICON: String =
             "system:" + Settings.System.SHOW_FOURG_ICON;
 
+    private final val DISABLE_STACKED_MOBILE_ICONS: String =
+        "system:" + Settings.System.DISABLE_STACKED_MOBILE_ICONS
+
     override val shouldShowFourgIcon: StateFlow<Boolean> =
         conflatedCallbackFlow {
                 val callback =
@@ -234,6 +239,29 @@ class MobileIconInteractorImpl(
                 started = SharingStarted.WhileSubscribed(),
                 true
             )
+
+    private val _disableStackedMobileIcons: StateFlow<Boolean> =
+        conflatedCallbackFlow {
+                val callback =
+                    object : TunerService.Tunable {
+                        override fun onTuningChanged(key: String, newValue: String?) {
+                            when (key) {
+                                DISABLE_STACKED_MOBILE_ICONS -> 
+                                    trySend(TunerService.parseIntegerSwitch(newValue, false))
+                            }
+                        }
+                    }
+                Dependency.get(TunerService::class.java).addTunable(callback, DISABLE_STACKED_MOBILE_ICONS)
+
+                awaitClose { Dependency.get(TunerService::class.java).removeTunable(callback) }
+            }
+            .stateIn(
+                scope,
+                started = SharingStarted.WhileSubscribed(),
+                false
+            )
+
+    override val disableStackedMobileIcons: Flow<Boolean> = _disableStackedMobileIcons
 
     // True if there exists _any_ icon override for this carrierId. Note that overrides can include
     // any or none of the icon groups defined in MobileMappings, so we still need to check on a
