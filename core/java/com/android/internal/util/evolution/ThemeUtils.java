@@ -255,37 +255,61 @@ public class ThemeUtils {
     }
 
     public static String getCPUTemp(Context context) {
-        String value;
-        if (fileExists(context.getResources().getString(
-            com.android.internal.R.string.config_cpu_temp_path))) {
-               value = readOneLine(context.getResources().getString(
-                  com.android.internal.R.string.config_cpu_temp_path));
-        } else {
-            value = "Error";
+        String value = null;
+        String cpuTempPath = context.getResources().getString(
+                com.android.internal.R.string.config_cpu_temp_path);
+        
+        if (fileExists(cpuTempPath)) {
+            value = readOneLine(cpuTempPath);
         }
-        int cpuTempMultiplier = context.getResources().getInteger(
-                com.android.internal.R.integer.config_sysCPUTempMultiplier);
-        return value == "Error" ? "N/A" : String.format("%s", Integer.parseInt(value) / cpuTempMultiplier) + "°C";
+        
+        if (value == null || value.isEmpty()) {
+            return "N/A";
+        }
+        
+        try {
+            int cpuTempMultiplier = context.getResources().getInteger(
+                    com.android.internal.R.integer.config_sysCPUTempMultiplier);
+            
+            if (cpuTempMultiplier == 0) {
+                cpuTempMultiplier = 1;
+            }
+            
+            int temp = Integer.parseInt(value.trim()) / cpuTempMultiplier;
+            return String.format("%d°C", temp);
+        } catch (NumberFormatException | Resources.NotFoundException e) {
+            Log.w("ThemeUtils", "Failed to parse CPU temperature: " + value, e);
+            return "N/A";
+        }
     }
+
     public static boolean fileExists(String filename) {
-        if (filename == null) {
+        if (filename == null || filename.isEmpty()) {
             return false;
         }
         return new File(filename).exists();
     }
+
     public static String readOneLine(String fname) {
-        BufferedReader br;
-        String line = null;
-        try {
-            br = new BufferedReader(new FileReader(fname), 512);
-            try {
-                line = br.readLine();
-            } finally {
-                br.close();
-            }
-        } catch (Exception e) {
+        if (fname == null || fname.isEmpty()) {
             return null;
         }
-        return line;
+        
+        BufferedReader br = null;
+        try {
+            br = new BufferedReader(new FileReader(fname), 512);
+            return br.readLine();
+        } catch (Exception e) {
+            Log.w("ThemeUtils", "Failed to read file: " + fname, e);
+            return null;
+        } finally {
+            if (br != null) {
+                try {
+                    br.close();
+                } catch (IOException e) {
+                    // Ignore close errors
+                }
+            }
+        }
     }
 }
