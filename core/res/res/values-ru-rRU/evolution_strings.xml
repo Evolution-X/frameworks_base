@@ -8,10 +8,6 @@
     <string name="aerr_copy">Скопировать URL журнала ошибки</string>
     <string name="url_copy_success">Ссылка скопирована успешно</string>
     <string name="url_copy_failed">Произошла ошибка во время загрузки лога на Hastebin</string>
-    <!-- Lock gesture -->
-    <string name="gesture_locked_warning">Проведите еще раз, чтобы разблокировать жесты</string>
-    <!-- Cycle through ringer modes -->
-    <string name="volume_dialog_ringer_guidance_normal">Звуковой сигнал для звонков и уведомлений</string>
     <!-- Settings Restart -->
     <string name="settings_restart_title">Требуется перезапуск настроек</string>
     <string name="settings_restart_message">Чтобы все изменения вступили в силу, требуется перезапуск настроек. Перезапустить настройки сейчас?</string>
@@ -24,8 +20,12 @@
     <!-- Launcher Restart -->
     <string name="launcher_restart_title">Требуется перезапуск лаунчера</string>
     <string name="launcher_restart_message">Чтобы все изменения вступили в силу, требуется перезагрузка лаунчера. Перезапустить лаунчер сейчас?</string>
+    <!-- Lock gesture -->
+    <string name="gesture_locked_warning">Проведите еще раз, чтобы разблокировать жесты</string>
+    <!-- Cycle through ringer modes -->
+    <string name="volume_dialog_ringer_guidance_normal">Звуковой сигнал для звонков и уведомлений</string>
     <!-- Game Space -->
-    <string name="gamespace_new_game_added"><xliff:g id="name" example="MyApp">%s</xliff:g> добавлена в GameSpace</string>
+    <string name="gamespace_new_game_added"><xliff:g id="name" example="MyApp">%s</xliff:g> Добавлено в GameSpace</string>
     <!-- PowerOffAlarmService -->
     <string name="notification_channel_poweroff_alarm">Будильник при выключенном устройстве</string>
     <string name="poweroff_alarm_title">Будильник при выключенном устройстве</string>
