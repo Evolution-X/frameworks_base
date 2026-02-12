@@ -148,20 +148,20 @@
     <string name="smartspace_role_desc">Widok</string>
     <!-- Kill button in notification guts -->
     <string name="force_stop_dlg_title">Wymusić zatrzymanie?</string>
-    <string name="force_stop_dlg_text">Jeśli wymusisz zatrzymanie aplikacji, może ona działać nieprawidłowo.</string>
+    <string name="force_stop_dlg_text">Jeśli wymusisz zatrzymanie aplikacji, może się ona zachowywać nieprawidłowo.</string>
     <!-- On The Go -->
-    <string name="onthego_notif_ticker">Tryb \"W ruchu\" aktywowany</string>
-    <string name="onthego_notif_title">Tryb \"W ruchu\" jest aktywny</string>
+    <string name="onthego_notif_ticker">Tryb \"w ruchu\" aktywowany</string>
+    <string name="onthego_notif_title">Tryb \"w ruchu\" jest aktywny</string>
     <string name="onthego_notif_stop">Zatrzymaj</string>
     <string name="onthego_notif_options">Opcje</string>
-    <string name="onthego_notif_error">Nie można uruchomić trybu \"W ruchu\"</string>
-    <string name="onthego_notif_restart">Zrestartuj tryb \"W ruchu\"</string>
+    <string name="onthego_notif_error">Nie można uruchomić trybu \"w ruchu\"</string>
+    <string name="onthego_notif_restart">Zrestartuj tryb \"w ruchu\"</string>
     <string name="onthego_notif_camera_changed">Zmieniono tryb aparatu</string>
     <string name="onthego_transparency">Przeźroczysty</string>
     <string name="onthego_front_camera">Użyj przedniej kamery</string>
     <string name="onthego_service_toggle">Automatycznie restartuj usługę</string>
     <string name="onthego_channel_name">Główny</string>
-    <string name="global_action_onthego">W ruchu</string>
+    <string name="global_action_onthego">Tryb \"w ruchu\"</string>
     <!-- Privacy Indicator -->
     <string name="mic_camera_privacy_indicator_title">Wskaźnik prywatności mikrofonu i kamery</string>
     <string name="location_privacy_indicator_title">Wskaźnik prywatności lokalizacji</string>
