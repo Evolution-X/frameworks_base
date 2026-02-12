@@ -8,10 +8,6 @@
     <string name="aerr_copy">复制崩溃日志链接</string>
     <string name="url_copy_success">已成功复制链接</string>
     <string name="url_copy_failed">将日志上传到 Pasty 时出错</string>
-    <!-- Lock gesture -->
-    <string name="gesture_locked_warning">再次滑动以解锁手势</string>
-    <!-- Cycle through ringer modes -->
-    <string name="volume_dialog_ringer_guidance_normal">来电和通知时将响铃</string>
     <!-- Settings Restart -->
     <string name="settings_restart_title">需要重启设置</string>
     <string name="settings_restart_message">要使所有更改生效，需要重新启动“设置”应用。 立即重启设置？</string>
@@ -24,6 +20,10 @@
     <!-- Launcher Restart -->
     <string name="launcher_restart_title">需要重启启动器</string>
     <string name="launcher_restart_message">要使所有更改生效，需要重新启动启动器。现在重新启动启动器吗？</string>
+    <!-- Lock gesture -->
+    <string name="gesture_locked_warning">再次滑动以解锁手势</string>
+    <!-- Cycle through ringer modes -->
+    <string name="volume_dialog_ringer_guidance_normal">来电和通知时将响铃</string>
     <!-- Game Space -->
     <string name="gamespace_new_game_added"><xliff:g id="name" example="MyApp">%s</xliff:g> 已添加到游戏空间</string>
     <!-- PowerOffAlarmService -->
