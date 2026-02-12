@@ -8,10 +8,6 @@
     <string name="aerr_copy">Copie o URL do registro de falhas</string>
     <string name="url_copy_success">URL copiado com sucesso</string>
     <string name="url_copy_failed">Ocorreu um erro durante o upload do log para o Pasty</string>
-    <!-- Lock gesture -->
-    <string name="gesture_locked_warning">Deslize novamente para desbloquear os gestos</string>
-    <!-- Cycle through ringer modes -->
-    <string name="volume_dialog_ringer_guidance_normal">Chamadas e notificações tocarão</string>
     <!-- Settings Restart -->
     <string name="settings_restart_title">É necessário reiniciar o app de configurações</string>
     <string name="settings_restart_message">Para que todas as alterações tenham efeito, é necessário reiniciar o app de configurações. Reiniciar agora?</string>
@@ -24,6 +20,10 @@
     <!-- Launcher Restart -->
     <string name="launcher_restart_title">É necessário reiniciar o launcher</string>
     <string name="launcher_restart_message">Para que todas as alterações tenham efeito, é necessário reiniciar o launcher. Reiniciar o launcher agora?</string>
+    <!-- Lock gesture -->
+    <string name="gesture_locked_warning">Deslize novamente para desbloquear os gestos</string>
+    <!-- Cycle through ringer modes -->
+    <string name="volume_dialog_ringer_guidance_normal">Chamadas e notificações tocarão</string>
     <!-- Game Space -->
     <string name="gamespace_new_game_added"><xliff:g id="name" example="MyApp">%s</xliff:g> adicionado ao GameSpace</string>
     <!-- PowerOffAlarmService -->
