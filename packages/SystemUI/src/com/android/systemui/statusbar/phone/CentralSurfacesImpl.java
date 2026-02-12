@@ -75,10 +75,12 @@ import android.view.SurfaceControl;
 import android.view.ThreadedRenderer;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.view.WindowManager;
 import android.view.WindowManagerGlobal;
 import android.view.accessibility.AccessibilityManager;
 import android.widget.DateTimeView;
+import android.widget.FrameLayout;
 import android.window.IRemoteTransition;
 
 import androidx.annotation.NonNull;
@@ -899,14 +901,52 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
                 (requestTopUi, componentTag) -> mMainExecutor.execute(
                         () -> mTopUiController.setRequestTopUi(requestTopUi, componentTag)
                 )));
-        getNotifContainerParentView().addView(mMediaViewController.getMediaArtScrim(), 0);
-        getNotifContainerParentView().addView(mPulseViewController.getPulseView(), 1);
+        attachCustomOverlays();
     }
 
-    private ViewGroup getNotifContainerParentView() {
-        ViewGroup rootView = (ViewGroup) getNotificationShadeWindowView().findViewById(R.id.scrim_behind).getParent();
-        ViewGroup targetView = rootView.findViewById(R.id.notification_container_parent);
-        return targetView;
+    private ViewGroup getScrimOverlayContainer() {
+        ViewGroup root = (ViewGroup) getNotificationShadeWindowView();
+
+        FrameLayout container = root.findViewById(R.id.custom_overlay_container);
+        if (container != null) {
+            return container;
+        }
+
+        container = new FrameLayout(mContext);
+        container.setId(R.id.custom_overlay_container);
+        container.setLayoutParams(new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+
+        View scrimInFront = root.findViewById(R.id.scrim_in_front);
+        int scrimIndex = Math.max(root.indexOfChild(scrimInFront) - 3, 0);
+        root.addView(container, scrimIndex);
+
+        return container;
+    }
+
+    private void attachCustomOverlays() {
+        ViewGroup overlay = getScrimOverlayContainer();
+
+        detachFromParent(mMediaViewController.getMediaArtScrim());
+        detachFromParent(mPulseViewController.getPulseView());
+
+        overlay.addView(mMediaViewController.getMediaArtScrim(),
+                new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+        overlay.addView(mPulseViewController.getPulseView(),
+                new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
+    private static void detachFromParent(View v) {
+        if (v == null) return;
+        final ViewParent p = v.getParent();
+        if (p instanceof ViewGroup) {
+            ((ViewGroup) p).removeView(v);
+        }
     }
 
     @VisibleForTesting
