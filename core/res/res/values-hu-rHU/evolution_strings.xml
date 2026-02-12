@@ -8,10 +8,6 @@
     <string name="aerr_copy">Az összeomlási napló URL-jének másolása</string>
     <string name="url_copy_success">Az URL sikeresen másolva</string>
     <string name="url_copy_failed">Hiba történt a napló feltöltése során</string>
-    <!-- Lock gesture -->
-    <string name="gesture_locked_warning">A vezérlők feloldásához csúsztasson újból</string>
-    <!-- Cycle through ringer modes -->
-    <string name="volume_dialog_ringer_guidance_normal">A hívások és értesítések rezegni fognak</string>
     <!-- Settings Restart -->
     <string name="settings_restart_title">A Beállítások újraindítása szükséges</string>
     <string name="settings_restart_message">Az összes módosítás érvénybe léptetéséhez szükséges a Beállítások újraindítása. Újraindítja most?</string>
@@ -24,6 +20,10 @@
     <!-- Launcher Restart -->
     <string name="launcher_restart_title">Launcher-újraindítás szükséges</string>
     <string name="launcher_restart_message">Az összes módosítás érvénybe léptetéséhez Launcher-újraindítás szükséges. Újraindítja most?</string>
+    <!-- Lock gesture -->
+    <string name="gesture_locked_warning">A vezérlők feloldásához csúsztasson újból</string>
+    <!-- Cycle through ringer modes -->
+    <string name="volume_dialog_ringer_guidance_normal">A hívások és értesítések rezegni fognak</string>
     <!-- Game Space -->
     <string name="gamespace_new_game_added"><xliff:g id="name" example="MyApp">%s</xliff:g> hozzáadva a Játéktérhez</string>
     <!-- PowerOffAlarmService -->
