@@ -8,10 +8,6 @@
     <string name="aerr_copy">Копіювати URL лог збою</string>
     <string name="url_copy_success">URL успішно скопійовано</string>
     <string name="url_copy_failed">Помилка під час завантаження файла звіту до pasty</string>
-    <!-- Lock gesture -->
-    <string name="gesture_locked_warning">Проведіть ще раз, щоб розблокувати жести</string>
-    <!-- Cycle through ringer modes -->
-    <string name="volume_dialog_ringer_guidance_normal">Звуковий сигнал для викликів і сповіщень увімкнено</string>
     <!-- Settings Restart -->
     <string name="settings_restart_title">Налаштування потребують перезавантаження</string>
     <string name="settings_restart_message">Для застосування змін потрібно перезаватажити інтерфейс системи. Перезавантажити зараз?</string>
@@ -24,6 +20,10 @@
     <!-- Launcher Restart -->
     <string name="launcher_restart_title">Необхідне перезавантаження інтерфейсу системи</string>
     <string name="launcher_restart_message">Для застосування змін потрібно перезаватажити системний інтерфейс. Перезавантажити зараз?</string>
+    <!-- Lock gesture -->
+    <string name="gesture_locked_warning">Проведіть ще раз, щоб розблокувати жести</string>
+    <!-- Cycle through ringer modes -->
+    <string name="volume_dialog_ringer_guidance_normal">Звуковий сигнал для викликів і сповіщень увімкнено</string>
     <!-- Game Space -->
     <string name="gamespace_new_game_added"><xliff:g id="name" example="MyApp">%s</xliff:g> додано до ігрової області</string>
     <!-- PowerOffAlarmService -->
