@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2019-2024 The Evolution X Project
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <!-- Button that copies the url to the log of a crashed application -->
+    <string name="aerr_copy">Salin tautan log kerusakan</string>
+    <string name="url_copy_success">Tautan berhasil disalin</string>
+    <string name="url_copy_failed">Terjadi kesalahan pada saat mengunggah log ke dogbin</string>
+    <!-- Settings Restart -->
+    <string name="settings_restart_title">Mulai ulang Setelan diperlukan</string>
+    <string name="settings_restart_message">Untuk melihat semua perubahan, diperlukan memulai ulang Setelan. Mulai ulang Setelan sekarang?</string>
+    <!-- System Reboot -->
+    <string name="system_restart_title">Diperlukan memulai ulang Sistem</string>
+    <string name="system_restart_message">Agar semua perubahan diterapkan, diperlukan mulai ulang sistem. Lakukan mulai ulang sistem sekarang?</string>
+    <!-- SystemUI Restart -->
+    <string name="systemui_restart_title">Diperlukan memulai ulang SistemUI</string>
+    <string name="systemui_restart_message">Untuk melihat semua perubahan, diperlukan memulai ulang SistemUI. Mulai ulang sekarang?</string>
+    <!-- Launcher Restart -->
+    <string name="launcher_restart_title">Diperlukan mulai ulang peluncur</string>
+    <string name="launcher_restart_message">Untuk melihat semua perubahan, diperlukan memulai ulang Peluncur. Mulai ulang Peluncur sekarang?</string>
+    <!-- Lock gesture -->
+    <string name="gesture_locked_warning">Gesek lagi untuk membuka kunci gestur</string>
+    <!-- Cycle through ringer modes -->
+    <string name="volume_dialog_ringer_guidance_normal">Panggilan dan notifikasi akan berdering</string>
+    <!-- Game Space -->
+    <string name="gamespace_new_game_added"><xliff:g id="name" example="MyApp">%s</xliff:g> ditambahkan ke Ruang Game</string>
+    <!-- PowerOffAlarmService -->
+    <string name="notification_channel_poweroff_alarm">Alarm perangkat mati</string>
+    <string name="poweroff_alarm_title">Setel alarm perangkat mati</string>
+    <string name="poweroff_alarm_body">Alarm terdeteksi dan perangkat akan menyala 2 menit sebelum waktunya</string>
+    <!-- Pocket Lock -->
+    <string name="pocket_mode_title">Mode saku aktif</string>
+    <string name="pocket_mode_illustration_description">Ilustrasi telepon di saku</string>
+    <string name="pocket_mode_instructions_header">Untuk mengaktifkan ponsel Anda:</string>
+    <string name="pocket_mode_instruction_step1">1. Pastikan area hijau (sensor jarak) yang ditunjukkan di atas tidak terhalang dan bebas dari kotoran atau debu.</string>
+    <string name="pocket_mode_instruction_step2">2. Tekan dan tahan tombol daya untuk keluar dari mode saku.</string>
+    <!-- App lock -->
+    <string name="unlock_application">Buka <xliff:g id="label" example="Telegram">%1$s</xliff:g></string>
+</resources>
