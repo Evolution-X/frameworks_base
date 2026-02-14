@@ -124,8 +124,6 @@ constructor(
         val leftClock: Clock = view.requireViewById(R.id.clock)
         val centerClock: Clock = view.findViewById(R.id.clock_center)
         val rightClock: Clock = view.findViewById(R.id.clock_right)
-        val networkTrafficCenterView = view.findViewById<View>(R.id.network_traffic_holder_center)
-        val networkTrafficStartView = view.findViewById<View>(R.id.network_traffic_holder_start)
         val notificationIconsArea = view.requireViewById<View>(R.id.notificationIcons)
         val batteryView = view.findViewById<View>(R.id.battery_composable_view)
 
@@ -510,19 +508,13 @@ constructor(
                             // animating, then we can use the baseVis default animation
                             if (animState.isAnimatingChip()) {
                                 // Just apply the visibility of the view, but don't animate
-                                networkTrafficCenterView.visibility = baseVis.visibility
-                                networkTrafficStartView.visibility = baseVis.visibility
                                 systemInfoView.visibility = baseVis.visibility
                                 // Now apply the animation state, with its animator
                                 when (animState) {
                                     AnimatingIn -> {
-                                        systemEventChipAnimateIn?.invoke(networkTrafficCenterView)
-                                        systemEventChipAnimateIn?.invoke(networkTrafficStartView)
                                         systemEventChipAnimateIn?.invoke(systemInfoView)
                                     }
                                     AnimatingOut -> {
-                                        systemEventChipAnimateOut?.invoke(networkTrafficCenterView)
-                                        systemEventChipAnimateOut?.invoke(networkTrafficStartView)
                                         systemEventChipAnimateOut?.invoke(systemInfoView)
                                     }
                                     else -> {
@@ -530,8 +522,6 @@ constructor(
                                     }
                                 }
                             } else {
-                                networkTrafficCenterView.adjustVisibility(baseVis)
-                                networkTrafficStartView.adjustVisibility(baseVis)
                                 systemInfoView.adjustVisibility(baseVis)
                             }
                         }
