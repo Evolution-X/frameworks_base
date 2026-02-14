@@ -62,6 +62,7 @@ import android.graphics.Insets;
 import android.graphics.Rect;
 import android.graphics.Region;
 import android.graphics.RenderEffect;
+import android.graphics.drawable.Animatable;
 import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.TransitionDrawable;
@@ -4528,12 +4529,48 @@ public final class NotificationPanelViewController implements
                 mQsHeaderImageView.setImageAlpha( (int)
                     (mShadeHeaderExpansion * (255 - mHeaderImageShadow)));
             }
+            startHeaderAnimIfPossible();
         } else {
             mQsHeaderLayout.setVisibility(View.GONE);
+            stopHeaderAnimIfRunning();
+        }
+    }
+
+    private void stopHeaderAnimIfRunning() {
+        Drawable drawable = mQsHeaderImageView.getDrawable();
+        if (drawable instanceof Animatable anim && anim.isRunning()) {
+            anim.stop();
+        }
+        if (drawable != null) {
+            drawable.setVisible(false, false);
+        }
+    }
+
+    private void startHeaderAnimIfPossible() {
+        Drawable drawable = mQsHeaderImageView.getDrawable();
+        if (drawable == null) return;
+
+        // Only animate when we are actually showing it
+        if (mQsHeaderLayout.getVisibility() != View.VISIBLE || mQsHeaderImageView.getVisibility() != View.VISIBLE) {
+            return;
+        }
+
+        drawable.setVisible(true, true);
+        if (drawable instanceof Animatable anim && !anim.isRunning()) {
+            anim.start();
         }
     }
 
     private void setNotificationPanelHeaderBackground(Drawable dw, boolean force) {
+        // Stop previous anim, if any, before swapping
+        stopHeaderAnimIfRunning();
+
+        // Avoid TransitionDrawable if new is animatable, but do not start here
+        if (dw instanceof Animatable) {
+            mQsHeaderImageView.setImageDrawable(dw);
+            return;
+        }
+
         if (mQsHeaderImageView.getDrawable() != null && !force) {
             Drawable[] layers = new Drawable[]{mQsHeaderImageView.getDrawable(), dw};
             TransitionDrawable transitionDrawable = new TransitionDrawable(layers);
