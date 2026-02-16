@@ -488,6 +488,7 @@ android_library {
     static_libs: [
         "//frameworks/libs/systemui:compilelib",
         "com.android.systemui.bundle.phone_api",
+        "ax_platform_hooks",
         "SystemUI-res",
         "WifiTrackerLib",
         "WindowManager-Shell",
