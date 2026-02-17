@@ -140,4 +140,6 @@
 
     <!-- Keyboard shortcut helper dialog -->
     <color name="ksh_key_item_color">@*android:color/system_on_surface_variant_dark</color>
+
+    <color name="privacy_chip_background">@android:color/system_accent1_400</color>
 </resources>
