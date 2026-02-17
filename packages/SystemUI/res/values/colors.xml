@@ -255,7 +255,7 @@
     <color name="screenrecord_status_color">#E94235</color>
     <color name="screenrecord_icon_color">#D93025</color><!-- red 600 -->
 
-    <color name="privacy_chip_background">@android:color/system_accent1_200</color>
+    <color name="privacy_chip_background">@android:color/system_accent1_500</color>
     <color name="privacy_chip_location_only_background">#3dbaf4</color>
 
     <!-- Accessibility floating menu -->
