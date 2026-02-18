@@ -143,7 +143,7 @@
     <string name="accessibility_smartspace_page">Strona %1$d z %2$d</string>
     <string name="active_mode_content_description">%1$s jest włączony</string>
     <string name="music_controls_no_title">Bez tytułu</string>
-    <string name="smartspace_content_desc">W skrócie</string>
+    <string name="smartspace_content_desc">Szybki podgląd</string>
     <string name="smartspace_flight_qr_code">Kod QR</string>
     <string name="smartspace_role_desc">Widok</string>
     <!-- Kill button in notification guts -->
