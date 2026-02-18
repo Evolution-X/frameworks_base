@@ -1384,6 +1384,10 @@ final class KeyGestureController {
                 mAccessibilityShortcutController.performAccessibilityShortcut();
                 break;
             case MSG_SCREENSHOT_SHORTCUT:
+                if (msg.obj == null) {
+                    takeScreenshot(msg.arg1, WindowManager.TAKE_SCREENSHOT_FULLSCREEN, msg.arg2);
+                    break;
+                }
                 TakeScreenshotData data = (TakeScreenshotData) msg.obj;
                 takeScreenshot(data.source, data.type, data.displayId);
                 break;
