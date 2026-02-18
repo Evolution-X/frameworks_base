@@ -1,15 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-     Copyright (C) 2019-2024 The Evolution X Project
+     Copyright (C) 2019-2025 Evolution X
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <!-- Statusbar Icons -->
+    <string name="status_bar_nfc">NFC</string>
     <!-- Indication on the keyguard that is shown when the device is charging with a dash charger. Should match keyguard_plugged_in_dash_charging [CHAR LIMIT=40]-->
     <!-- Indication on the keyguard that is shown when the device is charging with a warp charger. Should match keyguard_plugged_in_warp_charging [CHAR LIMIT=40]-->
     <!-- Indication on the keyguard that is shown when the device is charging with a VOOC charger. Should match keyguard_plugged_in_vooc_charging [CHAR LIMIT=40]-->
     <!-- Indication on the keyguard that is shown when the device is charging with a turbo power charger. Should match keyguard_plugged_in_turbo_charging [CHAR LIMIT=40]-->
-    <!-- Statusbar Icons -->
-    <string name="status_bar_nfc">NFC</string>
+    <!-- Text while recognizing face -->
+    <string name="face_unlock_recognizing">Reconhecendo rosto...</string>
+    <!-- Alert slide extras -->
+    <string name="volume_ringer_priority_only">Prioridade</string>
+    <string name="volume_ringer_alarms_only">Alarmes</string>
+    <string name="volume_ringer_dnd">Não Perturbe</string>
+    <string name="tristate_flashlight">Lanterna</string>
+    <string name="tristate_flashlight_on">Lanterna ligada</string>
+    <string name="tristate_flashlight_off">Lanterna desligada</string>
+    <string name="tristate_flashlight_blink">Piscar lanterna</string>
+    <string name="tristate_brightness_bright">Brilho máximo</string>
+    <string name="tristate_brightness_dark">Brilho mínimo</string>
+    <string name="tristate_brightness_auto">Brilho automático</string>
+    <string name="tristate_rotation_auto">Girar automaticamente</string>
+    <string name="tristate_rotation_0">Retrato</string>
+    <string name="tristate_rotation_90">Paisagem (90°)</string>
+    <string name="tristate_rotation_270">Paisagem (270°)</string>
+    <!-- Flashlight Strength -->
+    <string name="flashlight_strength_title">Potência da lanterna</string>
+    <string name="flashlight_strength_turn_off">Desligar</string>
+    <string name="flashlight_strength_turn_on">Ligar</string>
     <!-- Button to restart SystemUI, within the Restart Options dialog -->
     <string name="global_action_restart_systemui">Interface do sistema</string>
     <!-- Sound QS Tile -->
@@ -41,6 +62,7 @@
     <string name="gigabytespersecond_short">GB/s</string>
     <!-- Refresh Rate Tile -->
     <string name="refresh_rate_tile_label">Taxa de atualização</string>
+    <string name="refresh_rate_unknown">Desconhecido</string>
     <string name="auto_mode_label">Automático</string>
     <!-- Compass QS Tile -->
     <string name="quick_settings_compass_label">Bússola</string>
@@ -56,21 +78,6 @@
     <string name="quick_settings_compass_NW">NO</string>
     <!-- Screenshot Tile -->
     <string name="screenshot_long_press">Toque longo - região selecionada</string>
-    <!-- Alert slide extras -->
-    <string name="volume_ringer_priority_only">Prioridade</string>
-    <string name="volume_ringer_alarms_only">Alarmes</string>
-    <string name="volume_ringer_dnd">Não Perturbe</string>
-    <string name="tristate_flashlight">Lanterna</string>
-    <string name="tristate_flashlight_on">Lanterna ligada</string>
-    <string name="tristate_flashlight_off">Lanterna desligada</string>
-    <string name="tristate_flashlight_blink">Piscar lanterna</string>
-    <string name="tristate_brightness_bright">Brilho máximo</string>
-    <string name="tristate_brightness_dark">Brilho mínimo</string>
-    <string name="tristate_brightness_auto">Brilho automático</string>
-    <string name="tristate_rotation_auto">Girar automaticamente</string>
-    <string name="tristate_rotation_0">Retrato</string>
-    <string name="tristate_rotation_90">Paisagem (90°)</string>
-    <string name="tristate_rotation_270">Paisagem (270°)</string>
     <!-- CPUInfo tile -->
     <string name="quick_settings_cpuinfo_label">Informações da CPU</string>
     <!-- FPS Info tile -->
@@ -85,14 +92,6 @@
     <string name="usb_use_tethering">Compartilhamento por USB</string>
     <string name="usb_use_MIDI">MIDI</string>
     <string name="usb_use">Usar USB para</string>
-    <!-- Text while recognizing face -->
-    <string name="face_unlock_recognizing">Reconhecendo rosto...</string>
-    <!-- Name of the roaming status bar icon. -->
-    <string name="status_bar_roaming">Indicador de roaming</string>
-    <!-- Name of the HD calling status bar icon. -->
-    <string name="status_bar_hd_calling">Chamada HD (VoLTE/VoNR)</string>
-    <!-- Name of the VoWiFi status bar icon. -->
-    <string name="status_bar_vowifi">Chamada Wi-Fi (VoWiFi)</string>
     <!-- Autobrightness tile -->
     <string name="quick_settings_autobrightness_label">Brilho automático</string>
     <!-- Label for notification action to delete a screen recording file [CHAR LIMIT=35] -->
@@ -103,31 +102,20 @@
     <string name="vpn_tethering_label">Compartilhamento de VPN</string>
     <string name="vpn_tethering_changed_off">O compartilhamento de VPN foi desligado.</string>
     <string name="vpn_tethering_changed_on">O compartilhamento de VPN foi ligado.</string>
-    <!-- Data usage info in QS footer -->
-    <string name="usage_data">usado hoje</string>
-    <string name="usage_data_weekly">usado esta semana</string>
-    <string name="usage_data_default_suffix">Dados</string>
-    <string name="usage_wifi_default_suffix">Wi-Fi</string>
-    <!-- Notification counter -->
+    <!-- Name of the roaming status bar icon. -->
+    <string name="status_bar_roaming">Indicador de roaming</string>
+    <!-- Name of the HD calling status bar icon. -->
+    <string name="status_bar_hd_calling">Chamada HD (VoLTE/VoNR)</string>
+    <!-- Name of the VoWiFi status bar icon. -->
+    <string name="status_bar_vowifi">Chamada Wi-Fi (VoWiFi)</string>
     <!-- Data disabled icon -->
     <string name="data_disabled_icon_title">Exibir ícone de dados desativados</string>
-    <!-- Privacy Indicator -->
-    <string name="mic_camera_privacy_indicator_title">Indicador de privacidade do microfone e da câmera</string>
-    <string name="location_privacy_indicator_title">Indicador de privacidade da localização</string>
-    <string name="projection_privacy_indicator_title">Indicador de privacidade para transmissão de tela</string>
     <!-- 4G icon -->
     <string name="show_fourg_icon_title">Ícone 4G</string>
-    <!-- WiFi Standard icon -->
-    <string name="wifi_standard_icon_title">Padrão da rede Wi-Fi</string>
-    <!-- Flashlight strength dialog -->
-    <string name="flashlight_strength_dialog_title">Brilho da lanterna</string>
-    <string name="flashlight_strength_off">Desativado</string>
-    <string name="flashlight_turn_on">Ligar</string>
-    <string name="flashlight_turn_off">Desligar</string>
-    <!-- Volume QS Tile -->
-    <string name="quick_settings_volume_label">Volume</string>
-    <string name="qs_volume_dialog_title">Controle de volume</string>
-    <string name="qs_volume_dialog_mute">Mudo</string>
+    <!-- Notification counter -->
+    <!-- Smart Pixels QS Tile -->
+    <string name="quick_settings_smart_pixels">Pixels Inteligentes</string>
+    <string name="quick_settings_smart_pixels_on_power_save">Ativação automática dos Pixels Inteligentes</string>
     <!-- QuickSettings: InternetDialog: Summary for how many devices are connected to the hotspot [CHAR LIMIT=NONE] -->
     <plurals name="quick_settings_internet_hotspot_summary_num_devices">
         <item quantity="one">%d dispositivo conectado</item>
@@ -135,7 +123,43 @@
     </plurals>
     <!-- 5G toggle in Internet Dialog -->
     <string name="enable_fiveg">Ativar 5G</string>
-    <!-- Smart Pixels QS Tile -->
-    <string name="quick_settings_smart_pixels">Pixels Inteligentes</string>
-    <string name="quick_settings_smart_pixels_on_power_save">Ativação automática dos Pixels Inteligentes</string>
+    <!-- WiFi Standard icon -->
+    <string name="wifi_standard_icon_title">Padrão da rede Wi-Fi</string>
+    <!-- Volume QS Tile -->
+    <string name="quick_settings_volume_label">Volume</string>
+    <string name="qs_volume_dialog_title">Controle de volume</string>
+    <string name="qs_volume_dialog_mute">Mudo</string>
+    <!-- Data usage info in QS footer -->
+    <string name="usage_data">usado hoje</string>
+    <string name="usage_data_weekly">usado esta semana</string>
+    <string name="usage_data_default_suffix">Dados</string>
+    <string name="usage_wifi_default_suffix">Wi-Fi</string>
+    <!-- Smartspace -->
+    <string name="accessibility_next_alarm">Próximo alarme: %s</string>
+    <string name="accessibility_smartspace_page">Página %1$d de %2$d</string>
+    <string name="active_mode_content_description">%1$s está ativado</string>
+    <string name="music_controls_no_title">Sem título</string>
+    <string name="smartspace_content_desc">Resumo</string>
+    <string name="smartspace_flight_qr_code">Código QR</string>
+    <string name="smartspace_role_desc">Visualizar</string>
+    <!-- Kill button in notification guts -->
+    <string name="force_stop_dlg_title">Forçar parada?</string>
+    <string name="force_stop_dlg_text">Se você forçar a parada de um app, ele pode apresentar mau funcionamento.</string>
+    <!-- On The Go -->
+    <string name="onthego_notif_ticker">On-The-Go ativado</string>
+    <string name="onthego_notif_title">On-The-Go está ativo</string>
+    <string name="onthego_notif_stop">Parar</string>
+    <string name="onthego_notif_options">Opções</string>
+    <string name="onthego_notif_error">Não é possível iniciar On-The-Go</string>
+    <string name="onthego_notif_restart">Reiniciar On-The-Go</string>
+    <string name="onthego_notif_camera_changed">Modo de câmera alterado</string>
+    <string name="onthego_transparency">Transparência</string>
+    <string name="onthego_front_camera">Usar câmera frontal</string>
+    <string name="onthego_service_toggle">Reiniciar automaticamente o serviço</string>
+    <string name="onthego_channel_name">Principal</string>
+    <string name="global_action_onthego">On-The-Go</string>
+    <!-- Privacy Indicator -->
+    <string name="mic_camera_privacy_indicator_title">Indicador de privacidade do microfone e da câmera</string>
+    <string name="location_privacy_indicator_title">Indicador de privacidade da localização</string>
+    <string name="projection_privacy_indicator_title">Indicador de privacidade para transmissão de tela</string>
 </resources>
