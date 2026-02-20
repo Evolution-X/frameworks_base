@@ -620,6 +620,16 @@ public class PersistentDataBlockService extends SystemService {
                 return true;
             }
 
+            // Vanilla SetupWizard cannot deactivate FRP by presenting an FRP secret,
+            // thus deactivate FRP and set the secret to the default value on Vanilla builds.
+            if (isVanilla()) {
+                Slog.w(TAG, "Vanilla build detected, defaulting FRP secret");
+                writeFrpMagicAndDefaultSecret();
+                mFrpActive = false;
+                setOldSettingForBackworkCompatibility(mFrpActive);
+                return true;
+            }
+
             Slog.e(TAG, "Did not find valid FRP secret, FRP remains active.");
             return false;
         }
@@ -1252,6 +1262,22 @@ public class PersistentDataBlockService extends SystemService {
 
         return packageManagerInternal
                 .isUpgradingFromLowerThan(Build.VERSION_CODES.VANILLA_ICE_CREAM);
+    }
+
+    boolean isVanilla() {
+        PackageManager packageManager =
+                mContext.getPackageManager();
+        if (packageManager == null) {
+            Slog.e(TAG, "Unable to retrieve PackageManager");
+            return false;
+        }
+
+        try {
+            packageManager.getPackageInfo("org.lineageos.setupwizard", 0);
+            return true;
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
     }
 
     private InternalService mInternalService = new InternalService();
