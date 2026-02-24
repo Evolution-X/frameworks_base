@@ -35,6 +35,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.MutableIntState
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
@@ -60,6 +61,8 @@ import com.android.compose.theme.PlatformTheme
 import com.android.compose.theme.colorAttr
 import com.android.keyguard.AlphaOptimizedLinearLayout
 import com.android.systemui.Flags
+import com.android.systemui.axdynamicbar.ui.AxDynamicBarChipViewModel
+import com.android.systemui.axdynamicbar.ui.compose.AxDynamicBarChip
 import com.android.systemui.clock.ui.viewmodel.AmPmStyle
 import com.android.systemui.clock.ui.viewmodel.ClockViewModel
 import com.android.systemui.compose.modifiers.sysUiResTagContainer
@@ -156,6 +159,7 @@ constructor(
     private val headsUpManager: HeadsUpManager,
     private val shadeRepository: ShadeRepository,
     private val vibrator: VibratorHelper,
+    private val axDynamicBarChipViewModel: AxDynamicBarChipViewModel,
 ) {
     fun create(root: ViewGroup, andThen: (ViewGroup) -> Unit): ComposeView {
         val composeView = ComposeView(root.context)
@@ -180,6 +184,7 @@ constructor(
                         mediaViewModelFactory = mediaViewModelFactory,
                         statusBarRegionSamplingViewModelFactory =
                             statusBarRegionSamplingViewModelFactory,
+                        axDynamicBarChipViewModel = axDynamicBarChipViewModel,
                         onViewCreated = andThen,
                         notificationListener = notificationListener,
                         keyguardStateController = keyguardStateController,
@@ -224,6 +229,7 @@ fun StatusBarRoot(
     mediaHost: MediaHost,
     mediaViewModelFactory: MediaViewModel.Factory,
     statusBarRegionSamplingViewModelFactory: StatusBarRegionSamplingViewModel.Factory,
+    axDynamicBarChipViewModel: AxDynamicBarChipViewModel,
     onViewCreated: (ViewGroup) -> Unit,
     notificationListener: NotificationListener,
     keyguardStateController: KeyguardStateController,
@@ -294,6 +300,7 @@ fun StatusBarRoot(
                         headsUpManager = headsUpManager,
                         vibrator = vibrator,
                         shadeRepository = shadeRepository,
+                        axDynamicBarChipViewModel = axDynamicBarChipViewModel,
                         context = context,
                     )
                 }
@@ -440,6 +447,7 @@ private fun addStartSideComposable(
     headsUpManager: HeadsUpManager,
     shadeRepository: ShadeRepository,
     vibrator: VibratorHelper,
+    axDynamicBarChipViewModel: AxDynamicBarChipViewModel,
     context: Context,
 ) {
     val startSideExceptHeadsUp =
@@ -458,9 +466,7 @@ private fun addStartSideComposable(
                         LinearLayout.LayoutParams.WRAP_CONTENT,
                     )
                     .apply {
-                        if (showDate) {
-                            gravity = android.view.Gravity.CENTER_VERTICAL
-                        }
+                        gravity = android.view.Gravity.CENTER_VERTICAL
                     }
 
             setContent {
@@ -537,6 +543,13 @@ private fun addStartSideComposable(
                     progressController.setPanelExpanded(shadeExpansion > 0f)
                 }
 
+                val axEnabled by axDynamicBarChipViewModel.interactor.settings.isEnabled.collectAsState()
+                if (axEnabled) {
+                    AxDynamicBarChip(
+                        viewModel = axDynamicBarChipViewModel,
+                        modifier = Modifier.widthIn(max = chipsMaxWidth),
+                    )
+                }
                 val chipsVisibilityModel = statusBarViewModel.ongoingActivityChips
                 val hasSystemChips = chipsVisibilityModel.chips.active.isNotEmpty()
                 progressController.setSystemChipVisible(hasSystemChips)
@@ -548,9 +561,6 @@ private fun addStartSideComposable(
                         chips = chipsVisibilityModel.chips,
                         iconViewStore = iconViewStore,
                         onChipBoundsChanged = statusBarViewModel::onChipBoundsChanged,
-                        // TODO(b/393581408): Now that we always enforce a max width on the chips,
-                        //  we should be able to convert the chips to a LazyRow and get some
-                        //  animations for free.
                         modifier = Modifier.sysUiResTagContainer().widthIn(max = chipsMaxWidth),
                     )
                 }
