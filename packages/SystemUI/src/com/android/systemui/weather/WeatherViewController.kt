@@ -91,6 +91,7 @@ class WeatherViewController(
 
     private fun getWeatherSettings() = WeatherSettings(
         weatherEnabled = getSystemSetting(LOCKSCREEN_WEATHER_ENABLED),
+        clockFaceEnabled = getSecureSetting(CLOCK_STYLE),
         showWeatherLocation = getSystemSetting(LOCKSCREEN_WEATHER_LOCATION),
         showWeatherText = getSystemSetting(LOCKSCREEN_WEATHER_TEXT, defaultValue = 1),
         showWindInfo = getSystemSetting(LOCKSCREEN_WEATHER_WIND_INFO),
@@ -100,6 +101,9 @@ class WeatherViewController(
     private fun getSystemSetting(setting: String, defaultValue: Int = 0) =
         Settings.System.getIntForUser(context.contentResolver, setting, defaultValue, UserHandle.USER_CURRENT) != 0
 
+    private fun getSecureSetting(setting: String, defaultValue: Int = 0) =
+        Settings.Secure.getIntForUser(context.contentResolver, setting, defaultValue, UserHandle.USER_CURRENT) != 0
+
     private fun applyWeatherSettings(settings: WeatherSettings) {
         if (!settings.weatherEnabled) {
             hideAllViews()
@@ -108,6 +112,14 @@ class WeatherViewController(
             OmniJawsClient.get().addObserver(context, this@WeatherViewController)
             updateWeather()
             showAllViews()
+            // When a clock face style is active, hide the default weather views
+            // so they don't overlap the clock face layout (mirrors risingOS behaviour).
+            if (weatherIcon.id == R.id.default_weather_image) {
+                scope.launch { updateViewVisibility(weatherIcon, !settings.clockFaceEnabled) }
+            }
+            if (weatherTemp.id == R.id.default_weather_text) {
+                scope.launch { updateViewVisibility(weatherTemp, !settings.clockFaceEnabled) }
+            }
         }
     }
 
@@ -194,6 +206,7 @@ class WeatherViewController(
 
     data class WeatherSettings(
         val weatherEnabled: Boolean,
+        val clockFaceEnabled: Boolean,
         val showWeatherLocation: Boolean,
         val showWeatherText: Boolean,
         val showWindInfo: Boolean,
@@ -206,6 +219,7 @@ class WeatherViewController(
         private const val LOCKSCREEN_WEATHER_TEXT = "lockscreen_weather_text"
         private const val LOCKSCREEN_WEATHER_WIND_INFO = "lockscreen_weather_wind_info"
         private const val LOCKSCREEN_WEATHER_HUMIDITY_INFO = "lockscreen_weather_humidity_info"
+        private const val CLOCK_STYLE = "clock_style"
 
         private val WEATHER_CONDITIONS = mapOf(
             "clouds" to R.string.weather_condition_clouds,
