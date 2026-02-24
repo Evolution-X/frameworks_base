@@ -33,6 +33,9 @@ import com.android.systemui.keyguard.ui.view.layout.sections.DefaultShortcutsSec
 import com.android.systemui.keyguard.ui.view.layout.sections.DefaultStatusBarSection
 import com.android.systemui.keyguard.ui.view.layout.sections.AxDynamicBarKeyguardChipSection
 import com.android.systemui.keyguard.ui.view.layout.sections.KeyguardSectionsModule
+import com.android.systemui.keyguard.ui.view.layout.sections.InfoWidgetsSection
+import com.android.systemui.keyguard.ui.view.layout.sections.KeyguardClockStyleSection
+import com.android.systemui.keyguard.ui.view.layout.sections.AODStyleSection
 import com.android.systemui.keyguard.ui.view.layout.sections.KeyguardSliceViewSection
 import com.android.systemui.keyguard.ui.view.layout.sections.KeyguardWeatherViewSection
 import com.android.systemui.keyguard.ui.view.layout.sections.SmartspaceSection
@@ -73,6 +76,9 @@ constructor(
     clockSection: ClockSection,
     keyguardSliceViewSection: KeyguardSliceViewSection,
     smartspaceSection: SmartspaceSection,
+    infoWidgetsSection: InfoWidgetsSection,
+    keyguardClockStyleSection: KeyguardClockStyleSection,
+    aodStyleSection: AODStyleSection,
     mediaSection: SplitShadeMediaSection,
     keyguardWeatherViewSection: KeyguardWeatherViewSection,
     axDynamicBarKeyguardChipSection: AxDynamicBarKeyguardChipSection,
@@ -100,6 +106,9 @@ constructor(
             clockSection,
             keyguardWeatherViewSection,
             keyguardSliceViewSection,
+            infoWidgetsSection,
+            keyguardClockStyleSection,
+            aodStyleSection,
             mediaSection,
             defaultDeviceEntrySection, // Add LAST: Intentionally has z-order above other views.
         )

@@ -60,7 +60,7 @@ import com.android.systemui.statusbar.window.StatusBarWindowControllerStore;
 import com.android.systemui.tuner.TunerService;
 import com.android.systemui.statusbar.policy.HotspotController;
 import com.android.systemui.plugins.ActivityStarter;
-import com.android.systemui.bluetooth.qsdialog.BluetoothDetailsContentViewModel;
+import com.android.systemui.bluetooth.ui.viewModel.BluetoothDetailsContentViewModel;
 import com.android.systemui.statusbar.connectivity.AccessPointController;
 import com.android.systemui.statusbar.connectivity.NetworkController;
 import com.android.systemui.qs.tiles.dialog.InternetDialogManager;
