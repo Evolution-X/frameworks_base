@@ -2,7 +2,7 @@
 <com.android.systemui.lockscreen.LockScreenWidgets
   xmlns:android="http://schemas.android.com/apk/res/android"
   xmlns:systemui="http://schemas.android.com/apk/res-auto"
-  android:id="@+id/lockscreen_widgets"
+  android:id="@+id/keyguard_widgets"
   android:gravity="center"
   android:clipChildren="false"
   android:clipToPadding="false"
