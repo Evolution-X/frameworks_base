@@ -81,6 +81,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.Collections;
 
 /*
  * TODO(code review): Curious question... Why are a lot of these
@@ -4035,8 +4036,12 @@ public final class SmsManager {
     @SuppressLint("MissingPermission")
     private static List<String> getSmsOtpAppOpPackages(Context context) {
         AppOpsManager aom = context.getSystemService(AppOpsManager.class);
-        return aom.getPackagesWithNonDefaultUidMode(
-                AppOpsManager.OP_READ_OTP_SMS, AppOpsManager.MODE_ALLOWED);
+        try {
+            return aom.getPackagesWithNonDefaultUidMode(
+                    AppOpsManager.OP_READ_OTP_SMS, AppOpsManager.MODE_ALLOWED);
+        } catch (SecurityException e) {
+            return Collections.emptyList();
+        }
     }
 
     private static boolean isSystemApp(Context context, String packageName) {
