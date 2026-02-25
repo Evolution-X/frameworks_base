@@ -105,6 +105,7 @@ import com.android.systemui.navigationbar.NavigationBarComponent;
 import com.android.systemui.navigationbar.gestural.dagger.GestureModule;
 import com.android.systemui.notetask.NoteTaskModule;
 import com.android.systemui.people.PeopleModule;
+import com.android.systemui.cutoutprogress.dagger.CutoutProgressModule;
 import com.android.systemui.plugins.BcSmartspaceConfigPlugin;
 import com.android.systemui.plugins.BcSmartspaceDataPlugin;
 import com.android.systemui.privacy.PrivacyModule;
@@ -343,6 +344,7 @@ import javax.inject.Named;
         LowLightClockModule.class,
         PerDisplayRepositoriesModule.class,
         InputDeviceModule.class,
+        CutoutProgressModule.class,
 },
         subcomponents = {
                 ComplicationComponent.class,
