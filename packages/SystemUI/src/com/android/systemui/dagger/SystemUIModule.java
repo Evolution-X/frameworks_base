@@ -59,6 +59,7 @@ import com.android.systemui.communal.dagger.CommunalModule;
 import com.android.systemui.complication.dagger.ComplicationComponent;
 import com.android.systemui.compose.ComposeModule;
 import com.android.systemui.controls.dagger.ControlsModule;
+import com.android.systemui.cutoutprogress.dagger.CutoutProgressModule;
 import com.android.systemui.dagger.qualifiers.Application;
 import com.android.systemui.dagger.qualifiers.Main;
 import com.android.systemui.dagger.qualifiers.SystemUser;
@@ -315,6 +316,7 @@ import javax.inject.Named;
         LowLightClockModule.class,
         PerDisplayRepositoriesModule.class,
         InputDeviceModule.class,
+        CutoutProgressModule.class,
 },
         subcomponents = {
                 ComplicationComponent.class,
