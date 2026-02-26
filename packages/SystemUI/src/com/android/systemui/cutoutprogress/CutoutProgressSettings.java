@@ -27,6 +27,8 @@ public final class CutoutProgressSettings {
 
     public static final String KEY_ENABLED = "cutout_progress_enabled";
 
+    public static final String KEY_RING_COLOR_MODE = "cutout_progress_ring_color_mode";
+
     public static final String KEY_RING_COLOR = "cutout_progress_ring_color";
 
     public static final String KEY_ERROR_COLOR = "cutout_progress_error_color";
@@ -113,7 +115,11 @@ public final class CutoutProgressSettings {
 
     public static final String KEY_CHARGING_PULSE_ENABLED = "cutout_progress_charging_pulse_enabled";
 
+    public static final int RING_COLOR_MODE_ACCENT = 0;
+    public static final int RING_COLOR_MODE_RAINBOW = 1;
+    public static final int RING_COLOR_MODE_CUSTOM = 2;
     private static final boolean DEF_ENABLED = false;
+    private static final int DEF_RING_COLOR_MODE = RING_COLOR_MODE_ACCENT;
     private static final int DEF_RING_COLOR = 0xFF2196F3;
     private static final int DEF_ERROR_COLOR = 0xFFF44336;
     private static final int DEF_FINISH_FLASH_COLOR = Color.WHITE;
@@ -197,6 +203,11 @@ public final class CutoutProgressSettings {
 
     public boolean isEnabled() {
         return getInt(KEY_ENABLED, DEF_ENABLED ? 1 : 0) != 0;
+    }
+
+    public int getRingColorMode() {
+        return clamp(getInt(KEY_RING_COLOR_MODE, DEF_RING_COLOR_MODE),
+                RING_COLOR_MODE_ACCENT, RING_COLOR_MODE_CUSTOM);
     }
 
     public int getRingColor() {
@@ -383,6 +394,10 @@ public final class CutoutProgressSettings {
 
     public void setEnabled(boolean value) {
         putInt(KEY_ENABLED, value ? 1 : 0);
+    }
+
+    public void setRingColorMode(int mode) {
+        putInt(KEY_RING_COLOR_MODE, clamp(mode, RING_COLOR_MODE_ACCENT, RING_COLOR_MODE_CUSTOM));
     }
 
     public void setRingColor(int argb) {
