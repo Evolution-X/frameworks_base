@@ -18,12 +18,16 @@ package com.android.systemui.cutoutprogress.ring;
 
 import android.animation.ValueAnimator;
 import android.content.Context;
+import android.content.res.Configuration;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.LinearGradient;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
+import android.graphics.Shader;
+import android.graphics.SweepGradient;
 import android.graphics.Typeface;
 import android.text.TextPaint;
 import android.util.TypedValue;
@@ -43,6 +47,17 @@ public final class CutoutRingView extends View {
 
     private static final long CHARGING_PULSE_INTERVAL_MS = 1500L;
     private static final long CHARGING_PULSE_DURATION_MS = 900L;
+
+    private static final int[] RAINBOW_COLORS = {
+            0xFFFF0000,
+            0xFFFF7F00,
+            0xFFFFFF00,
+            0xFF00FF00,
+            0xFF00FFFF,
+            0xFF0000FF,
+            0xFF8B00FF,
+            0xFFFF0000,
+    };
 
     private final float mDp;
 
@@ -66,6 +81,11 @@ public final class CutoutRingView extends View {
     private final TextPaint mPercentPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
     private final TextPaint mFilenamePaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
 
+    private final Paint mRainbowPaint = makePaint();
+    private SweepGradient mRainbowShader = null;
+    private float mRainbowCx = Float.NaN;
+    private float mRainbowCy = Float.NaN;
+
     private int mProgress = 0;
     private int mDownloadCount = 0;
     private String mFilenameHint = null;
@@ -82,6 +102,7 @@ public final class CutoutRingView extends View {
     private float mChargingDisplayPct = 0f;
     private ValueAnimator mChargingLevelAnim = null;
 
+    private int sCfgRingColorMode;
     private int sCfgRingColor;
     private int sCfgErrorColor;
     private int sCfgFlashColor;
@@ -136,6 +157,7 @@ public final class CutoutRingView extends View {
     }
 
     public void applySettings(CutoutProgressSettings s) {
+        sCfgRingColorMode = s.getRingColorMode();
         sCfgRingColor = s.getRingColor();
         sCfgErrorColor = s.getErrorColor();
         sCfgFlashColor = s.getFinishFlashColor();
@@ -192,9 +214,75 @@ public final class CutoutRingView extends View {
         }
         mChargingPulseEnabled = sCfgChargingPulse;
 
+        if (sCfgRingColorMode != CutoutProgressSettings.RING_COLOR_MODE_RAINBOW) {
+            mRainbowShader = null;
+            mRainbowCx = Float.NaN;
+        }
+
         refreshPaints();
         recalcScaledPath();
         invalidate();
+    }
+
+    private int resolveRingColor() {
+        switch (sCfgRingColorMode) {
+            case CutoutProgressSettings.RING_COLOR_MODE_ACCENT:
+                return resolveAccentColor();
+            case CutoutProgressSettings.RING_COLOR_MODE_RAINBOW:
+                return RAINBOW_COLORS[0];
+            default:
+                return sCfgRingColor;
+        }
+    }
+
+    private int resolveAccentColor() {
+        TypedValue tv = new TypedValue();
+        boolean resolved = getContext().getTheme()
+                .resolveAttribute(android.R.attr.colorAccent, tv, true);
+        int base = resolved ? tv.data : 0xFF2196F3;
+
+        boolean isDark = (getContext().getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+
+        if (isDark) {
+            return lightenColor(base, 0.50f);
+        } else {
+            return base;
+        }
+    }
+
+    private static int lightenColor(int color, float fraction) {
+        int r = Color.red(color);
+        int g = Color.green(color);
+        int b = Color.blue(color);
+        r = (int)(r + (255 - r) * fraction);
+        g = (int)(g + (255 - g) * fraction);
+        b = (int)(b + (255 - b) * fraction);
+        return Color.argb(Color.alpha(color),
+                Math.min(255, r), Math.min(255, g), Math.min(255, b));
+    }
+
+    private SweepGradient requireRainbowShader(float cx, float cy) {
+        if (mRainbowShader == null
+                || Math.abs(cx - mRainbowCx) > 0.5f
+                || Math.abs(cy - mRainbowCy) > 0.5f) {
+            mRainbowShader = new SweepGradient(cx, cy, RAINBOW_COLORS, null);
+            mRainbowCx = cx;
+            mRainbowCy = cy;
+        }
+        return mRainbowShader;
+    }
+
+    private void applyRainbowShader(Paint paint, float cx, float cy) {
+        SweepGradient shader = requireRainbowShader(cx, cy);
+        Matrix m = new Matrix();
+        m.setRotate(-90f, cx, cy);
+        shader.setLocalMatrix(m);
+        paint.setShader(shader);
+    }
+
+    private static void clearShader(Paint paint) {
+        paint.setShader(null);
     }
 
     public void setChargingState(boolean charging, int batteryPct) {
@@ -362,6 +450,9 @@ public final class CutoutRingView extends View {
             mHasCutout = true;
         }
 
+        mRainbowShader = null;
+        mRainbowCx = Float.NaN;
+
         recalcScaledPath();
         invalidate();
         return super.onApplyWindowInsets(insets);
@@ -420,16 +511,28 @@ public final class CutoutRingView extends View {
                     mArcBounds.centerX(), mArcBounds.centerY());
         }
 
+        int activeRingColor = resolveRingColor();
+
         mAnimPaint.set(mRingPaint);
+        mAnimPaint.setColor(activeRingColor);
+        mAnimPaint.setStrokeWidth(sCfgStrokeDp * mDp);
         int alpha = (int)(sCfgOpacity * 255f / 100f
                 * mAnim.displayAlpha * mAnim.completionPulseAlpha);
         mAnimPaint.setAlpha(alpha);
 
+        computeArcBounds();
+        if (sCfgRingColorMode == CutoutProgressSettings.RING_COLOR_MODE_RAINBOW) {
+            applyRainbowShader(mAnimPaint, mArcBounds.centerX(), mArcBounds.centerY());
+        } else {
+            clearShader(mAnimPaint);
+        }
+
         if (mAnim.successColorBlend > 0f) {
-            int successColor = sCfgFinishFlash ? sCfgFlashColor
-                    : brighten(sCfgRingColor, mAnim.successColorBlend);
-            mAnimPaint.setColor(blendColors(sCfgRingColor, successColor,
+            int flashColor = sCfgFinishFlash ? sCfgFlashColor
+                    : brighten(activeRingColor, mAnim.successColorBlend);
+            mAnimPaint.setColor(blendColors(activeRingColor, flashColor,
                     mAnim.successColorBlend));
+            clearShader(mAnimPaint);
         }
 
         boolean isActive = effectivePct > 0 && effectivePct < 100
@@ -437,23 +540,19 @@ public final class CutoutRingView extends View {
                 || mAnim.isDynamicPreviewActive();
 
         if (sCfgBgRing && !mAnim.isFinishAnimating && isActive) {
-            computeArcBounds();
             mRenderer.updateBounds(mArcBounds);
             mBgPaint.setAlpha((int)(sCfgBgOpacity * 255 / 100 * mAnim.displayAlpha));
             mRenderer.drawFullRing(canvas, mBgPaint);
         }
 
+        mRenderer.updateBounds(mArcBounds);
         if (mAnim.isFinishAnimating) {
-            computeArcBounds();
-            mRenderer.updateBounds(mArcBounds);
             drawFinish(canvas, mAnimPaint);
         } else {
-            computeArcBounds();
-            mRenderer.updateBounds(mArcBounds);
             float sweep = eased(effectivePct, sCfgEasing);
             mRenderer.drawProgress(canvas, sweep, sCfgClockwise, mAnimPaint);
 
-            if (isActive) drawLabels(canvas, effectivePct);
+            if (isActive) drawLabels(canvas, effectivePct, activeRingColor);
         }
 
         boolean showBadge = !mAnim.isDynamicPreviewActive() && sCfgShowBadge
@@ -519,7 +618,7 @@ public final class CutoutRingView extends View {
         }
     }
 
-    private void drawLabels(Canvas canvas, int pct) {
+    private void drawLabels(Canvas canvas, int pct, int ringColor) {
         float pad = 4f * mDp;
         int alpha = sCfgOpacity * 255 / 100;
 
@@ -527,7 +626,7 @@ public final class CutoutRingView extends View {
             String text = pct + "%";
             float tw = mPercentPaint.measureText(text);
             float[] pos = labelXY(sCfgPctPos, pad, mPercentPaint.getTextSize(), tw);
-            mPercentPaint.setColor(sCfgRingColor);
+            mPercentPaint.setColor(ringColor);
             mPercentPaint.setAlpha(alpha);
             canvas.drawText(text, pos[0] + sCfgPctOffXDp * mDp,
                     pos[1] + sCfgPctOffYDp * mDp, mPercentPaint);
@@ -540,7 +639,7 @@ public final class CutoutRingView extends View {
         if (sCfgFname && fname != null && (mDownloadCount <= 1 || geoPreview)) {
             String display = truncate(fname, sCfgFnameMaxChars, sCfgFnameTruncate);
             float[] pos = labelXY(sCfgFnamePos, pad, mFilenamePaint.getTextSize(), null);
-            mFilenamePaint.setColor(sCfgRingColor);
+            mFilenamePaint.setColor(ringColor);
             mFilenamePaint.setAlpha(alpha);
             canvas.drawText(display, pos[0] + sCfgFnameOffXDp * mDp,
                     pos[1] + sCfgFnameOffYDp * mDp, mFilenamePaint);
@@ -606,6 +705,7 @@ public final class CutoutRingView extends View {
     }
 
     private void initPaints() {
+        sCfgRingColorMode = CutoutProgressSettings.RING_COLOR_MODE_ACCENT;
         sCfgRingColor = 0xFF2196F3;
         sCfgErrorColor = 0xFFF44336;
         sCfgFlashColor = Color.WHITE;
@@ -635,11 +735,19 @@ public final class CutoutRingView extends View {
 
     private void refreshPaints() {
         float stroke = sCfgStrokeDp * mDp;
-        applyStroke(mRingPaint, sCfgRingColor, stroke, sCfgOpacity * 255 / 100);
+        int baseColor = (sCfgRingColorMode == CutoutProgressSettings.RING_COLOR_MODE_CUSTOM)
+                ? sCfgRingColor : resolveRingColor();
+        applyStroke(mRingPaint, baseColor, stroke, sCfgOpacity * 255 / 100);
         applyStroke(mShinePaint, sCfgFlashColor, stroke * 1.2f, 255);
         applyStroke(mErrorPaint, sCfgErrorColor, stroke * 1.5f, 255);
         applyStroke(mBgPaint, sCfgBgColor, stroke, sCfgBgOpacity * 255 / 100);
-        applyStroke(mChargingPaint, sCfgRingColor, stroke, sCfgOpacity * 255 / 100);
+        applyStroke(mChargingPaint, baseColor, stroke, sCfgOpacity * 255 / 100);
+
+        mRainbowPaint.setStyle(Paint.Style.STROKE);
+        mRainbowPaint.setAntiAlias(true);
+        mRainbowPaint.setStrokeWidth(stroke);
+        mRainbowPaint.setStrokeCap(Paint.Cap.BUTT);
+        mRainbowPaint.setAlpha(sCfgOpacity * 255 / 100);
 
         mPercentPaint.setTypeface(sCfgPctBold
                 ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
@@ -651,7 +759,7 @@ public final class CutoutRingView extends View {
         mFilenamePaint.setTextSize(spToPx(sCfgFnameSp));
         mFilenamePaint.setTextAlign(Paint.Align.LEFT);
 
-        mBadge.applyConfig(sCfgRingColor, sCfgBadgeSp, mDp);
+        mBadge.applyConfig(baseColor, sCfgBadgeSp, mDp);
     }
 
     private static void applyStroke(Paint p, int color, float width, int alpha) {
