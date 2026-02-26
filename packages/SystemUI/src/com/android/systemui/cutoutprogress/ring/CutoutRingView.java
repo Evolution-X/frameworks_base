@@ -16,6 +16,7 @@
 
 package com.android.systemui.cutoutprogress.ring;
 
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -30,6 +31,7 @@ import android.view.DisplayCutout;
 import android.view.Surface;
 import android.view.View;
 import android.view.WindowInsets;
+import android.view.animation.LinearInterpolator;
 
 import com.android.systemui.cutoutprogress.CutoutProgressSettings;
 
@@ -38,6 +40,9 @@ import java.util.Objects;
 public final class CutoutRingView extends View {
 
     private static final long BURN_IN_HIDE_MS = 10_000L;
+
+    private static final long CHARGING_PULSE_INTERVAL_MS = 1500L;
+    private static final long CHARGING_PULSE_DURATION_MS = 900L;
 
     private final float mDp;
 
@@ -57,6 +62,7 @@ public final class CutoutRingView extends View {
     private final Paint mErrorPaint = makePaint();
     private final Paint mAnimPaint = makePaint();
     private final Paint mBgPaint = makePaint();
+    private final Paint mChargingPaint = makePaint();
     private final TextPaint mPercentPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
     private final TextPaint mFilenamePaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
 
@@ -67,6 +73,14 @@ public final class CutoutRingView extends View {
     private long mDownloadStartMs = 0L;
     private long mLastProgressMs = 0L;
     private Runnable mPendingFinish = null;
+
+    private boolean mIsCharging = false;
+    private int mBatteryPct = 0;
+    private boolean mChargingPulseEnabled = true;
+    private float mChargingPulsePhase = 0f;
+    private ValueAnimator mChargingPulseAnim = null;
+    private float mChargingDisplayPct = 0f;
+    private ValueAnimator mChargingLevelAnim = null;
 
     private int sCfgRingColor;
     private int sCfgErrorColor;
@@ -107,8 +121,10 @@ public final class CutoutRingView extends View {
     private float sCfgFnameOffXDp;
     private float sCfgFnameOffYDp;
     private int sCfgFnameMaxChars;
-    private String sCfgFnameTruncate;
-    private String sCfgEasing;
+    private String  sCfgFnameTruncate;
+    private String  sCfgEasing;
+    private boolean sCfgChargingRing;
+    private boolean sCfgChargingPulse;
 
     public CutoutRingView(Context ctx) {
         super(ctx);
@@ -161,6 +177,8 @@ public final class CutoutRingView extends View {
         sCfgFnameMaxChars= s.getFilenameMaxChars();
         sCfgFnameTruncate= s.getFilenameTruncateMode();
         sCfgEasing = s.getProgressEasing();
+        sCfgChargingRing = s.isChargingRingEnabled();
+        sCfgChargingPulse = s.isChargingPulseEnabled();
 
         boolean needPath = sCfgPathMode;
         if (needPath && !(mRenderer instanceof CapsuleRingRenderer)) {
@@ -169,9 +187,100 @@ public final class CutoutRingView extends View {
             mRenderer = new CircleRingRenderer();
         }
 
+        if (!sCfgChargingRing && mIsCharging) {
+            stopChargingAnimations();
+        }
+        mChargingPulseEnabled = sCfgChargingPulse;
+
         refreshPaints();
         recalcScaledPath();
         invalidate();
+    }
+
+    public void setChargingState(boolean charging, int batteryPct) {
+        boolean wasCharging = mIsCharging;
+        mIsCharging = charging;
+        mBatteryPct = batteryPct;
+
+        if (!charging) {
+            stopChargingAnimations();
+            invalidate();
+            return;
+        }
+
+        if (!wasCharging) {
+            mChargingDisplayPct = 0f;
+        }
+
+        animateChargingLevelTo(batteryPct);
+
+        if (mChargingPulseEnabled && sCfgChargingPulse && mChargingPulseAnim == null) {
+            startChargingPulse();
+        }
+        invalidate();
+    }
+
+    public void setChargingPulseEnabled(boolean enabled) {
+        mChargingPulseEnabled = enabled;
+        sCfgChargingPulse = enabled;
+        if (!enabled) {
+            stopChargingPulse();
+        } else if (mIsCharging && mChargingPulseAnim == null) {
+            startChargingPulse();
+        }
+    }
+
+    private void animateChargingLevelTo(int targetPct) {
+        if (mChargingLevelAnim != null) mChargingLevelAnim.cancel();
+        float start = mChargingDisplayPct;
+        float end = Math.max(0f, Math.min(100f, targetPct));
+        if (Math.abs(end - start) < 0.5f) {
+            mChargingDisplayPct = end;
+            invalidate();
+            return;
+        }
+        long dur = (long)(Math.abs(end - start) * 12f);
+        dur = Math.max(200L, Math.min(dur, 1200L));
+        mChargingLevelAnim = ValueAnimator.ofFloat(start, end);
+        mChargingLevelAnim.setDuration(dur);
+        mChargingLevelAnim.setInterpolator(new LinearInterpolator());
+        mChargingLevelAnim.addUpdateListener(a -> {
+            mChargingDisplayPct = (float) a.getAnimatedValue();
+            invalidate();
+        });
+        mChargingLevelAnim.start();
+    }
+
+    private void startChargingPulse() {
+        stopChargingPulse();
+        mChargingPulseAnim = ValueAnimator.ofFloat(0f, 1f);
+        mChargingPulseAnim.setDuration(CHARGING_PULSE_DURATION_MS);
+        mChargingPulseAnim.setRepeatCount(ValueAnimator.INFINITE);
+        mChargingPulseAnim.setRepeatMode(ValueAnimator.REVERSE);
+        mChargingPulseAnim.setInterpolator(new LinearInterpolator());
+        mChargingPulseAnim.setStartDelay(0);
+        mChargingPulseAnim.addUpdateListener(a -> {
+            mChargingPulsePhase = (float) a.getAnimatedValue();
+            invalidate();
+        });
+        mChargingPulseAnim.start();
+    }
+
+    private void stopChargingPulse() {
+        if (mChargingPulseAnim != null) {
+            mChargingPulseAnim.cancel();
+            mChargingPulseAnim = null;
+        }
+        mChargingPulsePhase = 0f;
+    }
+
+    private void stopChargingAnimations() {
+        stopChargingPulse();
+        if (mChargingLevelAnim != null) {
+            mChargingLevelAnim.cancel();
+            mChargingLevelAnim = null;
+        }
+        mChargingDisplayPct = 0f;
     }
 
     public void setProgress(int value) {
@@ -294,7 +403,15 @@ public final class CutoutRingView extends View {
                 || (effectivePct > 0 && effectivePct < 100 && !burnedOut)
                 || mPendingFinish != null;
 
-        if (!shouldDraw) return;
+        boolean showCharging = mIsCharging && sCfgChargingRing && !mAnim.isFinishAnimating
+                && !mAnim.isErrorAnimating && effectivePct == 0 && mProgress == 0;
+
+        if (!shouldDraw && !showCharging) return;
+
+        if (showCharging) {
+            drawChargingRing(canvas);
+            return;
+        }
 
         if (mAnim.displayScale != 1f) {
             mScaledPath.computeBounds(mArcBounds, true);
@@ -350,6 +467,43 @@ public final class CutoutRingView extends View {
         }
 
         if (mAnim.displayScale != 1f) canvas.restore();
+    }
+
+    private void drawChargingRing(Canvas canvas) {
+        computeArcBounds();
+        mRenderer.updateBounds(mArcBounds);
+
+        int baseAlpha = sCfgOpacity * 255 / 100;
+
+        if (sCfgBgRing) {
+            mBgPaint.setAlpha(sCfgBgOpacity * 255 / 100);
+            mRenderer.drawFullRing(canvas, mBgPaint);
+        }
+
+        int levelColor = chargingColor(mChargingDisplayPct);
+        applyStroke(mChargingPaint, levelColor, sCfgStrokeDp * mDp, baseAlpha);
+
+        if (mChargingPulseEnabled && sCfgChargingPulse && mChargingPulseAnim != null) {
+            float drawFraction = mChargingPulsePhase * (mChargingDisplayPct / 100f);
+            drawSymmetricArc(canvas, drawFraction, mChargingPaint);
+        } else {
+            drawSymmetricArc(canvas, mChargingDisplayPct / 100f, mChargingPaint);
+        }
+    }
+
+    private void drawSymmetricArc(Canvas canvas, float fraction, Paint paint) {
+        if (fraction <= 0f) return;
+        fraction = Math.min(fraction, 1f);
+        float sweep = fraction * 180f;
+
+        canvas.drawArc(mArcBounds, 90f - sweep, sweep, false, paint);
+        canvas.drawArc(mArcBounds, 90f, sweep, false, paint);
+    }
+
+    private static int chargingColor(float pct) {
+        if (pct < 30f) return 0xFFF44336;
+        if (pct < 60f) return 0xFFFF9800;
+        return 0xFF4CAF50;
     }
 
     private void drawFinish(Canvas canvas, Paint paint) {
@@ -474,6 +628,8 @@ public final class CutoutRingView extends View {
         sCfgScaleX = sCfgScaleY = 1f;
         sCfgBgRing = sCfgMinVis = true;
         sCfgMinVisMs = 500;
+        sCfgChargingRing = true;
+        sCfgChargingPulse = true;
         refreshPaints();
     }
 
@@ -483,6 +639,7 @@ public final class CutoutRingView extends View {
         applyStroke(mShinePaint, sCfgFlashColor, stroke * 1.2f, 255);
         applyStroke(mErrorPaint, sCfgErrorColor, stroke * 1.5f, 255);
         applyStroke(mBgPaint, sCfgBgColor, stroke, sCfgBgOpacity * 255 / 100);
+        applyStroke(mChargingPaint, sCfgRingColor, stroke, sCfgOpacity * 255 / 100);
 
         mPercentPaint.setTypeface(sCfgPctBold
                 ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
