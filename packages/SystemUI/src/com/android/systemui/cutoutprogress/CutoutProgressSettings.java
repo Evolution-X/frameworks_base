@@ -109,6 +109,10 @@ public final class CutoutProgressSettings {
 
     public static final String KEY_PROGRESS_EASING = "cutout_progress_easing";
 
+    public static final String KEY_CHARGING_RING_ENABLED = "cutout_progress_charging_ring_enabled";
+
+    public static final String KEY_CHARGING_PULSE_ENABLED = "cutout_progress_charging_pulse_enabled";
+
     private static final boolean DEF_ENABLED = false;
     private static final int DEF_RING_COLOR = 0xFF2196F3;
     private static final int DEF_ERROR_COLOR = 0xFFF44336;
@@ -144,6 +148,8 @@ public final class CutoutProgressSettings {
     private static final int DEF_FILENAME_MAX_CHARS = 20;
     private static final int DEF_FILENAME_TRUNCATE = 0;
     private static final int DEF_EASING = 0;
+    private static final boolean DEF_CHARGING_RING_ENABLED = true;
+    private static final boolean DEF_CHARGING_PULSE_ENABLED = true;
 
     static final String[] POSITION_NAMES = {
             "right", "left", "top", "bottom",
@@ -365,6 +371,14 @@ public final class CutoutProgressSettings {
         int idx = clamp(getInt(KEY_PROGRESS_EASING, DEF_EASING), 0,
                 EASING_NAMES.length - 1);
         return EASING_NAMES[idx];
+    }
+
+    public boolean isChargingRingEnabled() {
+        return getInt(KEY_CHARGING_RING_ENABLED, DEF_CHARGING_RING_ENABLED ? 1 : 0) != 0;
+    }
+
+    public boolean isChargingPulseEnabled() {
+        return getInt(KEY_CHARGING_PULSE_ENABLED, DEF_CHARGING_PULSE_ENABLED ? 1 : 0) != 0;
     }
 
     public void setEnabled(boolean value) {
