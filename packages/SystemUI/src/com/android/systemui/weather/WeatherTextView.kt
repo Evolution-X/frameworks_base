@@ -24,35 +24,33 @@ import com.android.systemui.res.R
 class WeatherTextView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
-    defStyle: Int = 0
+    defStyle: Int = 0,
+    isCustomClock: Boolean = true,
 ) : TextView(context, attrs, defStyle) {
 
     private val mWeatherViewController: WeatherViewController
-    private val mWeatherText: String?
 
     init {
-        val a = context.obtainStyledAttributes(attrs, R.styleable.WeatherTextView, defStyle, 0)
-        mWeatherText = a.getString(R.styleable.WeatherTextView_weatherText)
-        a.recycle()
-
-        mWeatherViewController = WeatherViewController(context, null, this, mWeatherText)
-
-        text = if (!mWeatherText.isNullOrEmpty()) mWeatherText else ""
         visibility = View.GONE
-    }
 
-    fun setWeatherEnabled(enabled: Boolean) {
-        visibility = if (enabled) View.VISIBLE else View.GONE
+        val stubIcon = android.widget.ImageView(context)
+
+        mWeatherViewController = WeatherViewController(
+            context = context,
+            weatherIcon = stubIcon,
+            weatherTemp = this,
+            weatherInfoView = this,
+            isCustomClock = isCustomClock,
+        )
     }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        mWeatherViewController.updateWeatherSettings()
+        mWeatherViewController.init()
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
-        mWeatherViewController.disableUpdates()
         mWeatherViewController.removeObserver()
     }
 }
