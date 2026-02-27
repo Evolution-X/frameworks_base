@@ -17,37 +17,45 @@ package com.android.systemui.weather
 
 import android.content.Context
 import android.util.AttributeSet
-import android.util.DisplayMetrics
 import android.view.View
 import android.view.View.MeasureSpec
 import android.widget.ImageView
+import android.widget.TextView
 import com.android.systemui.res.R
 
 class WeatherImageView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
-    defStyle: Int = 0
+    defStyle: Int = 0,
+    isCustomClock: Boolean = true,
 ) : ImageView(context, attrs, defStyle) {
 
-    private val maxSizePx: Int = context.resources.getDimension(R.dimen.weather_image_max_size).toInt()
-    private val weatherViewController: WeatherViewController = WeatherViewController(context, this, null, null)
+    private val maxSizePx: Int =
+        context.resources.getDimension(R.dimen.weather_image_max_size).toInt()
+
+    private val weatherViewController: WeatherViewController
 
     init {
         visibility = View.GONE
-    }
-    
-    fun setWeatherEnabled(enabled: Boolean) {
-        visibility = if (enabled) View.VISIBLE else View.GONE
+
+        val stubText = TextView(context)
+
+        weatherViewController = WeatherViewController(
+            context = context,
+            weatherIcon = this,
+            weatherTemp = stubText,
+            weatherInfoView = this,
+            isCustomClock = isCustomClock,
+        )
     }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        weatherViewController.updateWeatherSettings()
+        weatherViewController.init()
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
-        weatherViewController.disableUpdates()
         weatherViewController.removeObserver()
     }
 
