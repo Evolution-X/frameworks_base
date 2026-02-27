@@ -100,7 +100,19 @@ constructor(
     override val forcedClockSize: Flow<ClockSize?> =
         if (featureFlags.isEnabled(Flags.LOCKSCREEN_ENABLE_LANDSCAPE)) {
             configurationRepository.onAnyConfigurationChange.map {
-                if (context.resources.getBoolean(R.bool.force_small_clock_on_lockscreen)) {
+                if (
+                    context.resources.getBoolean(R.bool.force_small_clock_on_lockscreen) ||
+                    secureSettings.getIntForUser(
+                        "clock_style",
+                        0, // Default value
+                        UserHandle.USER_CURRENT
+                    ) != 0 ||
+                    systemSettings.getIntForUser(
+                        "lockscreen_widgets_enabled",
+                        0, // Default value
+                        UserHandle.USER_CURRENT
+                    ) != 0
+                ) {
                     ClockSize.SMALL
                 } else {
                     null
