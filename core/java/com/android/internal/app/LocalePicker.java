@@ -155,8 +155,8 @@ public class LocalePicker extends ListFragment {
                     || l.getLanguage().isEmpty() || l.getCountry().isEmpty()) {
                 continue;
             }
-            // Don't show the pseudolocales unless we're in developer mode. http://b/17190407.
-            if (!isInDeveloperMode && LocaleList.isPseudoLocale(l)) {
+            // Don't show the pseudolocales
+            if (LocaleList.isPseudoLocale(l)) {
                 continue;
             }
 
