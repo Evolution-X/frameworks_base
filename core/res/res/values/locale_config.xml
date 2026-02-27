@@ -79,7 +79,6 @@
         <item>ar-TD-u-nu-latn</item> <!-- Arabic (Chad, Western Digits) -->
         <item>ar-TN</item> <!-- Arabic (Tunisia) -->
         <item>ar-TN-u-nu-arab</item> <!-- Arabic (Tunisia, Arabic-Indic Digits) -->
-        <item>ar-XB</item> <!-- Arabic (Pseudo-Bidi) -->
         <item>ar-YE</item> <!-- Arabic (Yemen) -->
         <item>ar-YE-u-nu-latn</item> <!-- Arabic (Yemen, Western Digits) -->
         <item>as-IN</item> <!-- Assamese (India) -->
@@ -268,7 +267,6 @@
         <item>en-VI</item> <!-- English (U.S. Virgin Islands) -->
         <item>en-VU</item> <!-- English (Vanuatu) -->
         <item>en-WS</item> <!-- English (Samoa) -->
-        <item>en-XA</item> <!-- English (Pseudo-Accents) -->
         <item>en-ZA</item> <!-- English (South Africa) -->
         <item>en-ZM</item> <!-- English (Zambia) -->
         <item>en-ZW</item> <!-- English (Zimbabwe) -->
