@@ -111,34 +111,14 @@ constructor(
                 )
             }
             
-            // Apply consistent top margin to clock_ls whether AOD is visible or not
             if (constraintSet.getConstraint(R.id.clock_ls) != null) {
-                // If AOD is present, position clock below it
-                // If AOD is hidden/gone, ensure clock still has proper top margin
-                val clockTopMargin = if (aodStyleView?.visibility == View.VISIBLE) {
-                    8 // Small gap below AOD
-                } else {
-                    topMargin // Same margin as AOD would have had
-                }
-                
-                if (aodStyleView?.visibility == View.VISIBLE) {
-                    connect(
-                        R.id.clock_ls,
-                        ConstraintSet.TOP,
-                        R.id.aod_ls,
-                        ConstraintSet.BOTTOM,
-                        clockTopMargin
-                    )
-                } else {
-                    // When AOD is hidden, position clock at top with proper margin
-                    connect(
-                        R.id.clock_ls,
-                        ConstraintSet.TOP,
-                        ConstraintSet.PARENT_ID,
-                        ConstraintSet.TOP,
-                        clockTopMargin
-                    )
-                }
+                connect(
+                    R.id.clock_ls,
+                    ConstraintSet.TOP,
+                    R.id.aod_ls,
+                    ConstraintSet.BOTTOM,
+                    8
+                )
             }
             
             // Update the barrier to include AOD style for proper notification positioning
