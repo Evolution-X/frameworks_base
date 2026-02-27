@@ -139,8 +139,8 @@
     <string name="usage_data_default_suffix">Dane mobilne</string>
     <string name="usage_wifi_default_suffix">Wi-Fi</string>
     <!-- Smartspace -->
-    <string name="accessibility_next_alarm">Następny alarm o %s</string>
-    <string name="accessibility_smartspace_page">Strona %1$d z %2$d</string>
+    <string name="accessibility_next_alarm">Następny alarm o %s</string>
+    <string name="accessibility_smartspace_page">Strona %1$d z %2$d</string>
     <string name="active_mode_content_description">%1$s jest włączony</string>
     <string name="music_controls_no_title">Bez tytułu</string>
     <string name="smartspace_content_desc">Szybki podgląd</string>
@@ -150,18 +150,18 @@
     <string name="force_stop_dlg_title">Wymusić zatrzymanie?</string>
     <string name="force_stop_dlg_text">Jeśli wymusisz zatrzymanie aplikacji, może się ona zachowywać nieprawidłowo.</string>
     <!-- On The Go -->
-    <string name="onthego_notif_ticker">Tryb \"w ruchu\" aktywowany</string>
-    <string name="onthego_notif_title">Tryb \"w ruchu\" jest aktywny</string>
+    <string name="onthego_notif_ticker">Przeźroczysty ekran aktywowany</string>
+    <string name="onthego_notif_title">Przeźroczysty ekran jest aktywny</string>
     <string name="onthego_notif_stop">Zatrzymaj</string>
     <string name="onthego_notif_options">Opcje</string>
-    <string name="onthego_notif_error">Nie można uruchomić trybu \"w ruchu\"</string>
-    <string name="onthego_notif_restart">Zrestartuj tryb \"w ruchu\"</string>
+    <string name="onthego_notif_error">Nie można uruchomić przeźroczystego ekranu</string>
+    <string name="onthego_notif_restart">Zrestartuj przeźroczysty ekran</string>
     <string name="onthego_notif_camera_changed">Zmieniono tryb aparatu</string>
     <string name="onthego_transparency">Przeźroczysty</string>
     <string name="onthego_front_camera">Użyj przedniej kamery</string>
     <string name="onthego_service_toggle">Automatycznie restartuj usługę</string>
     <string name="onthego_channel_name">Główny</string>
-    <string name="global_action_onthego">Tryb \"w ruchu\"</string>
+    <string name="global_action_onthego">Przeźroczysty ekran</string>
     <!-- Privacy Indicator -->
     <string name="mic_camera_privacy_indicator_title">Wskaźnik prywatności mikrofonu i kamery</string>
     <string name="location_privacy_indicator_title">Wskaźnik prywatności lokalizacji</string>
