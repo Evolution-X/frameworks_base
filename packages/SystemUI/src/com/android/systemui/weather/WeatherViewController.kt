@@ -38,6 +38,7 @@ class WeatherViewController(
     private val weatherIcon: ImageView,
     private val weatherTemp: TextView,
     private val weatherInfoView: View,
+    private val isCustomClock: Boolean = false,
 ) : OmniJawsClient.OmniJawsObserver {
 
     private var weatherInfo: OmniJawsClient.WeatherInfo? = null
@@ -91,11 +92,11 @@ class WeatherViewController(
 
     private fun getWeatherSettings() = WeatherSettings(
         weatherEnabled = getSystemSetting(LOCKSCREEN_WEATHER_ENABLED),
-        clockFaceEnabled = getSecureSetting(CLOCK_STYLE),
         showWeatherLocation = getSystemSetting(LOCKSCREEN_WEATHER_LOCATION),
         showWeatherText = getSystemSetting(LOCKSCREEN_WEATHER_TEXT, defaultValue = 1),
         showWindInfo = getSystemSetting(LOCKSCREEN_WEATHER_WIND_INFO),
-        showHumidityInfo = getSystemSetting(LOCKSCREEN_WEATHER_HUMIDITY_INFO)
+        showHumidityInfo = getSystemSetting(LOCKSCREEN_WEATHER_HUMIDITY_INFO),
+        customClockWeather = getSecureSetting(CUSTOM_CLOCK_WEATHER, defaultValue = 1),
     )
 
     private fun getSystemSetting(setting: String, defaultValue: Int = 0) =
@@ -112,14 +113,6 @@ class WeatherViewController(
             OmniJawsClient.get().addObserver(context, this@WeatherViewController)
             updateWeather()
             showAllViews()
-            // When a clock face style is active, hide the default weather views
-            // so they don't overlap the clock face layout (mirrors risingOS behaviour).
-            if (weatherIcon.id == R.id.default_weather_image) {
-                scope.launch { updateViewVisibility(weatherIcon, !settings.clockFaceEnabled) }
-            }
-            if (weatherTemp.id == R.id.default_weather_text) {
-                scope.launch { updateViewVisibility(weatherTemp, !settings.clockFaceEnabled) }
-            }
         }
     }
 
@@ -153,6 +146,8 @@ class WeatherViewController(
                 weatherTemp.isSelected = true
             }
         } catch (e: Exception) {}
+
+        applyElementVisibility(weatherSettingsFlow.value)
     }
 
     private fun hideAllViews() {
@@ -168,6 +163,18 @@ class WeatherViewController(
             listOf(weatherInfoView, weatherIcon, weatherTemp).forEach {
                 it.visibility = View.VISIBLE
             }
+            applyElementVisibility(weatherSettingsFlow.value)
+        }
+    }
+
+    private fun applyElementVisibility(settings: WeatherSettings) {
+        scope.launch {
+            val show = settings.weatherEnabled && (
+                if (isCustomClock) settings.customClockWeather
+                else !settings.customClockWeather
+            )
+            updateViewVisibility(weatherIcon, show)
+            updateViewVisibility(weatherTemp, show)
         }
     }
 
@@ -206,11 +213,11 @@ class WeatherViewController(
 
     data class WeatherSettings(
         val weatherEnabled: Boolean,
-        val clockFaceEnabled: Boolean,
         val showWeatherLocation: Boolean,
         val showWeatherText: Boolean,
         val showWindInfo: Boolean,
-        val showHumidityInfo: Boolean
+        val showHumidityInfo: Boolean,
+        val customClockWeather: Boolean,
     )
 
     companion object {
@@ -219,7 +226,7 @@ class WeatherViewController(
         private const val LOCKSCREEN_WEATHER_TEXT = "lockscreen_weather_text"
         private const val LOCKSCREEN_WEATHER_WIND_INFO = "lockscreen_weather_wind_info"
         private const val LOCKSCREEN_WEATHER_HUMIDITY_INFO = "lockscreen_weather_humidity_info"
-        private const val CLOCK_STYLE = "clock_style"
+        const val CUSTOM_CLOCK_WEATHER = "custom_clock_weather"
 
         private val WEATHER_CONDITIONS = mapOf(
             "clouds" to R.string.weather_condition_clouds,
