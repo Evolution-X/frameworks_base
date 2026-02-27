@@ -53,7 +53,7 @@ class KeyguardWeatherViewSection @Inject constructor(
     }
 
     private fun createWeatherViews(constraintLayout: ConstraintLayout) {
-        weatherImageView = WeatherImageView(context).apply {
+        weatherImageView = WeatherImageView(context, isCustomClock = false).apply {
             id = R.id.default_weather_image
             layoutParams = ConstraintLayout.LayoutParams(
                 ConstraintLayout.LayoutParams.WRAP_CONTENT,
@@ -62,7 +62,7 @@ class KeyguardWeatherViewSection @Inject constructor(
             visibility = View.GONE
         }
 
-        weatherTextView = WeatherTextView(context).apply {
+        weatherTextView = WeatherTextView(context, isCustomClock = false).apply {
             id = R.id.default_weather_text
             layoutParams = ConstraintLayout.LayoutParams(
                 ConstraintLayout.LayoutParams.WRAP_CONTENT,
