@@ -71,8 +71,10 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
     public static final String CLOCK_STYLE_KEY = "clock_style";
     public static final String CLOCK_TEXT_COLOR_KEY = "clock_text_accent_color";
     public static final String CLOCK_TEXT_OPACITY_KEY = "clock_text_opacity";
-    
+    public static final String CLOCK_FRAME_MARGIN_TOP_KEY = "custom_clock_frame_margin_top";
+
     private static final int DEFAULT_OPACITY = 100;
+    private static final int DEFAULT_MARGIN_TOP = 15;
 
     private final Context mContext;
     private final KeyguardManager mKeyguardManager;
@@ -85,6 +87,7 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
     private int mClockStyle;  
     private boolean mUseAccentColor = false;
     private int mClockOpacity = DEFAULT_OPACITY;
+    private int mClockFrameMarginTop = DEFAULT_MARGIN_TOP;
 
     private static final long UPDATE_INTERVAL_MILLIS = 15 * 1000;
     private long lastUpdateTimeMillis = 0;
@@ -166,7 +169,8 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
         if (!mCallbacksRegistered) {
-            mTunerService.addTunable(this, CLOCK_STYLE_KEY, CLOCK_TEXT_COLOR_KEY, CLOCK_TEXT_OPACITY_KEY);
+            mTunerService.addTunable(this, CLOCK_STYLE_KEY, CLOCK_TEXT_COLOR_KEY,
+                    CLOCK_TEXT_OPACITY_KEY, CLOCK_FRAME_MARGIN_TOP_KEY);
             mStatusBarStateController.addCallback(mStatusBarStateListener);
             mStatusBarStateListener.onDozingChanged(mStatusBarStateController.isDozing());
             IntentFilter filter = new IntentFilter();
@@ -234,6 +238,16 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
         }
     }
 
+    private void updateClockFrameMargin() {
+        RelativeLayout clockFrame = findViewById(R.id.clock_frame);
+        if (clockFrame != null) {
+            ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) clockFrame.getLayoutParams();
+            int marginPx = (int) (mClockFrameMarginTop * mContext.getResources().getDisplayMetrics().density);
+            params.topMargin = marginPx;
+            clockFrame.setLayoutParams(params);
+        }
+    }
+
     private void updateTextClockColor(View view) {
         if (view instanceof ViewGroup) {
             ViewGroup viewGroup = (ViewGroup) view;
@@ -242,7 +256,7 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
                 updateTextClockColor(childView);
             }
         }
-        
+
         if (view instanceof TextClock) {
             TextClock textClock = (TextClock) view;
             
@@ -295,6 +309,7 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
                     ((LinearLayout) currentClockView).setGravity(gravity);
                 }
                 updateClockTextColor();
+                updateClockFrameMargin();
             }
         }
         onTimeChanged();
@@ -321,6 +336,11 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
                 // Keep opacity within valid range (0-100)
                 mClockOpacity = Math.max(0, Math.min(100, mClockOpacity));
                 updateClockTextColor();
+                break;
+            case CLOCK_FRAME_MARGIN_TOP_KEY:
+                mClockFrameMarginTop = TunerService.parseInteger(newValue, DEFAULT_MARGIN_TOP);
+                mClockFrameMarginTop = Math.max(0, Math.min(100, mClockFrameMarginTop));
+                updateClockFrameMargin();
                 break;
         }
     }
