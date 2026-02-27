@@ -184,6 +184,11 @@ constructor(
                 UserHandle.USER_CURRENT,
             )
         )
+        val isDoubleLineClock = secureSettings.getIntForUser(
+            Settings.Secure.LOCKSCREEN_USE_DOUBLE_LINE_CLOCK,
+            1, // Default value
+            UserHandle.USER_CURRENT
+        )
         val clockStyleEnabled = secureSettings.getIntForUser(
             "clock_style",
             0, // Default value
