@@ -21,7 +21,7 @@ import android.view.ViewGroup
 import androidx.constraintlayout.widget.Barrier
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
-import com.android.systemui.customization.R as custR
+import com.android.systemui.customization.clocks.R as custR
 import com.android.systemui.keyguard.shared.model.KeyguardSection
 import com.android.systemui.res.R
 import com.android.systemui.weather.WeatherImageView
@@ -69,7 +69,7 @@ class KeyguardWeatherViewSection @Inject constructor(
                 ConstraintLayout.LayoutParams.WRAP_CONTENT
             )
             setTextColor(context.getColor(android.R.color.white))
-            textSize = 20f
+            textSize = 16f
             visibility = View.GONE
         }
 
@@ -139,11 +139,9 @@ class KeyguardWeatherViewSection @Inject constructor(
     private fun applyWeatherTextConstraints(constraintSet: ConstraintSet) {
         if (constraintSet.getConstraint(R.id.default_weather_text) != null) {
             constraintSet.apply {
-                connect(R.id.default_weather_text, ConstraintSet.START, R.id.default_weather_image, ConstraintSet.END,
-                    context.resources.getDimensionPixelSize(R.dimen.weather_text_margin_start))
+                connect(R.id.default_weather_text, ConstraintSet.START, R.id.default_weather_image, ConstraintSet.END, 12)
                 connect(R.id.default_weather_text, ConstraintSet.TOP, R.id.default_weather_image, ConstraintSet.TOP)
                 connect(R.id.default_weather_text, ConstraintSet.BOTTOM, R.id.default_weather_image, ConstraintSet.BOTTOM)
-                connect(R.id.default_weather_text, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
                 constrainHeight(R.id.default_weather_text, ConstraintSet.WRAP_CONTENT)
                 constrainWidth(R.id.default_weather_text, ConstraintSet.WRAP_CONTENT)
             }
