@@ -25,8 +25,10 @@ import android.os.UserHandle;
 import android.provider.Settings;
 import android.util.AttributeSet;
 import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.view.ViewStub;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
@@ -77,6 +79,9 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
     private final TunerService mTunerService;
 
     private View currentClockView;
+    private ViewStub mClockStub;
+    private ViewGroup mClockContainer;
+
     private int mClockStyle;  
     private boolean mUseAccentColor = false;
     private int mClockOpacity = DEFAULT_OPACITY;
@@ -94,6 +99,8 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
     private final Handler mBurnInProtectionHandler = new Handler();
     private int mCurrentShiftX = 0;
     private int mCurrentShiftY = 0;
+
+    private boolean mCallbacksRegistered = false;
 
     private final BroadcastReceiver mScreenReceiver = new BroadcastReceiver() {
         @Override
@@ -145,31 +152,43 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
         mContext = context;
         mKeyguardManager = (KeyguardManager) context.getSystemService(Context.KEYGUARD_SERVICE);
         mTunerService = Dependency.get(TunerService.class);
-        mTunerService.addTunable(this, CLOCK_STYLE_KEY, CLOCK_TEXT_COLOR_KEY, CLOCK_TEXT_OPACITY_KEY);
         mStatusBarStateController = Dependency.get(StatusBarStateController.class);
-        mStatusBarStateController.addCallback(mStatusBarStateListener);
-        mStatusBarStateListener.onDozingChanged(mStatusBarStateController.isDozing());
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(Intent.ACTION_SCREEN_ON);
-        filter.addAction(Intent.ACTION_TIME_TICK);
-        filter.addAction(Intent.ACTION_TIME_CHANGED);
-        filter.addAction("com.android.systemui.doze.pulse");
-        mContext.registerReceiver(mScreenReceiver, filter, Context.RECEIVER_EXPORTED);
     }
 
     @Override
     protected void onFinishInflate() {
         super.onFinishInflate();
+        mClockStub = findViewById(R.id.clock_view_stub);
         updateClockView();
     }
-    
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        if (!mCallbacksRegistered) {
+            mTunerService.addTunable(this, CLOCK_STYLE_KEY, CLOCK_TEXT_COLOR_KEY, CLOCK_TEXT_OPACITY_KEY);
+            mStatusBarStateController.addCallback(mStatusBarStateListener);
+            mStatusBarStateListener.onDozingChanged(mStatusBarStateController.isDozing());
+            IntentFilter filter = new IntentFilter();
+            filter.addAction(Intent.ACTION_SCREEN_ON);
+            filter.addAction(Intent.ACTION_TIME_TICK);
+            filter.addAction(Intent.ACTION_TIME_CHANGED);
+            filter.addAction("com.android.systemui.doze.pulse");
+            mContext.registerReceiver(mScreenReceiver, filter, Context.RECEIVER_EXPORTED);
+            mCallbacksRegistered = true;
+        }
+    }
+
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        mStatusBarStateController.removeCallback(mStatusBarStateListener);
-        mTunerService.removeTunable(this);
-        mBurnInProtectionHandler.removeCallbacks(mBurnInProtectionRunnable);
-        mContext.unregisterReceiver(mScreenReceiver);
+        if (mCallbacksRegistered) {
+            mStatusBarStateController.removeCallback(mStatusBarStateListener);
+            mTunerService.removeTunable(this);
+            mBurnInProtectionHandler.removeCallbacks(mBurnInProtectionRunnable);
+            mContext.unregisterReceiver(mScreenReceiver);
+            mCallbacksRegistered = false;
+        }
     }
 
     private void startBurnInProtection() {
@@ -253,14 +272,24 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
 
     private void updateClockView() {
         if (currentClockView != null) {
-            ((ViewGroup) currentClockView.getParent()).removeView(currentClockView);
+            ViewParent parent = currentClockView.getParent();
+            if (parent instanceof ViewGroup) {
+                ((ViewGroup) parent).removeView(currentClockView);
+            }
             currentClockView = null;
         }
         if (mClockStyle > 0 && mClockStyle < CLOCK_LAYOUTS.length) {
-            ViewStub stub = findViewById(R.id.clock_view_stub);
-            if (stub != null) {
-                stub.setLayoutResource(CLOCK_LAYOUTS[mClockStyle]);
-                currentClockView = stub.inflate();
+            if (mClockStub != null) {
+                mClockStub.setLayoutResource(CLOCK_LAYOUTS[mClockStyle]);
+                currentClockView = mClockStub.inflate();
+                mClockContainer = (ViewGroup) currentClockView.getParent();
+                mClockStub = null;
+            } else if (mClockContainer != null) {
+                currentClockView = LayoutInflater.from(mContext)
+                        .inflate(CLOCK_LAYOUTS[mClockStyle], mClockContainer, false);
+                mClockContainer.addView(currentClockView);
+            }
+            if (currentClockView != null) {
                 int gravity = isCenterClock(mClockStyle) ? Gravity.CENTER : Gravity.START;
                 if (currentClockView instanceof LinearLayout) {
                     ((LinearLayout) currentClockView).setGravity(gravity);
