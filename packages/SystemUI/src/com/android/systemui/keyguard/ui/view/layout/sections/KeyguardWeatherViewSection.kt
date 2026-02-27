@@ -42,9 +42,11 @@ class KeyguardWeatherViewSection @Inject constructor(
         if (weatherContainer != null) {
             weatherImageView = weatherContainer.findViewById(R.id.default_weather_image)
             weatherTextView = weatherContainer.findViewById(R.id.default_weather_text)
-            
-            (weatherContainer.parent as? ViewGroup)?.removeView(weatherContainer)
-            constraintLayout.addView(weatherContainer)
+
+            if (weatherContainer.parent !== constraintLayout) {
+                (weatherContainer.parent as? ViewGroup)?.removeView(weatherContainer)
+                constraintLayout.addView(weatherContainer)
+            }
         } else {
             createWeatherViews(constraintLayout)
         }
