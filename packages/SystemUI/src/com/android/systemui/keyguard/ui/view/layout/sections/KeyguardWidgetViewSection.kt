@@ -160,9 +160,7 @@ constructor(
                 
                 var positioned = false
                 for (anchorId in anchorViews) {
-                    try {
-                        // Check if the constraint exists by trying to get it
-                        constraintSet.getConstraint(anchorId)
+                    if (constraintSet.getConstraint(anchorId) != null) {
                         connect(
                             R.id.keyguard_widgets,
                             ConstraintSet.TOP,
@@ -173,9 +171,6 @@ constructor(
                         positioned = true
                         Log.d(TAG, "Positioned widgets below anchor: ${context.resources.getResourceEntryName(anchorId)}")
                         break
-                    } catch (e: Exception) {
-                        // Continue to next anchor if this one fails
-                        continue
                     }
                 }
                 
@@ -204,7 +199,6 @@ constructor(
                 
                 // Update barrier to include widgets
                 try {
-                    val barrierViews = mutableListOf<Int>()
                     val potentialBarrierViews = listOf(
                         R.id.keyguard_slice_view,
                         R.id.keyguard_weather,
@@ -212,29 +206,22 @@ constructor(
                         R.id.keyguard_info_widgets,
                         R.id.keyguard_widgets
                     )
-                    
-                    potentialBarrierViews.forEach { viewId ->
-                        try {
-                            constraintSet.getConstraint(viewId)
-                            barrierViews.add(viewId)
-                        } catch (e: Exception) {
-                            // Skip this view if it doesn't exist
-                        }
-                    }
+                    val barrierViews = potentialBarrierViews
+                        .filter { constraintSet.getConstraint(it) != null }
+                        .toIntArray()
                     
                     if (barrierViews.isNotEmpty()) {
                         createBarrier(
                             R.id.smart_space_barrier_bottom,
                             Barrier.BOTTOM,
                             0,
-                            *barrierViews.toIntArray()
+                            *barrierViews
                         )
                         Log.d(TAG, "Created barrier with ${barrierViews.size} views")
                     }
                     
                     // Position notification icons below barrier
-                    try {
-                        constraintSet.getConstraint(R.id.left_aligned_notification_icon_container)
+                    if (constraintSet.getConstraint(R.id.left_aligned_notification_icon_container) != null) {
                         connect(
                             R.id.left_aligned_notification_icon_container,
                             ConstraintSet.TOP,
@@ -246,8 +233,6 @@ constructor(
                                 8 // fallback margin
                             }
                         )
-                    } catch (e: Exception) {
-                        // Notification container doesn't exist, skip
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to create barrier", e)
