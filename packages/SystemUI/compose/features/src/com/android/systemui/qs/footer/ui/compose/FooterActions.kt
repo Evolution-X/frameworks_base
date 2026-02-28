@@ -149,6 +149,8 @@ fun ContentScope.FooterActionsWithAnimatedVisibility(
     }
 }
 
+private val ZeroAlphaProvider: () -> Float = { 0f }
+
 @Composable
 fun rememberSystemSettingEnabled(
     key: String,
@@ -219,7 +221,7 @@ fun FooterActions(viewModel: FooterActionsViewModel, modifier: Modifier = Modifi
 
     val backgroundColor =
         if (!notificationShadeBlur()) colorAttr(R.attr.underSurface) else Color.Transparent
-    val backgroundAlphaValue = if (!notificationShadeBlur()) backgroundAlpha::value else ({ 0f })
+    val backgroundAlphaValue = if (!notificationShadeBlur()) backgroundAlpha::value else ZeroAlphaProvider
     val contentColor = MaterialTheme.colorScheme.onSurface
     val backgroundTopRadius = dimensionResource(R.dimen.qs_corner_radius)
     val backgroundModifier =
@@ -232,18 +234,8 @@ fun FooterActions(viewModel: FooterActionsViewModel, modifier: Modifier = Modifi
         }
 
     val horizontalPadding = dimensionResource(R.dimen.qs_content_horizontal_padding)
-    Row(
-        modifier
-            .fillMaxWidth()
-            .graphicsLayer { this.alpha = alpha }
-            .then(backgroundModifier)
-            .padding(
-                top = dimensionResource(R.dimen.qs_footer_actions_top_padding),
-                bottom = dimensionResource(R.dimen.qs_footer_actions_bottom_padding),
-                start = horizontalPadding,
-                end = horizontalPadding,
-            )
-            .layout { measurable, constraints ->
+    val layoutModifier = remember {
+        Modifier.layout { measurable, constraints ->
                 // All buttons have a 4dp padding to increase their touch size. To be consistent
                 // with the View implementation, we want to left-most and right-most buttons to be
                 // visually aligned with the left and right sides of this row. So we let this
@@ -261,7 +253,21 @@ fun FooterActions(viewModel: FooterActionsViewModel, modifier: Modifier = Modifi
                 val width = constraints.constrainWidth(placeable.width - additionalWidth)
                 val height = constraints.constrainHeight(placeable.height)
                 layout(width, height) { placeable.place(-inset, 0) }
-            },
+            }
+    }
+
+    Row(
+        modifier
+            .fillMaxWidth()
+            .graphicsLayer { this.alpha = alpha }
+            .then(backgroundModifier)
+            .padding(
+                top = dimensionResource(R.dimen.qs_footer_actions_top_padding),
+                bottom = dimensionResource(R.dimen.qs_footer_actions_bottom_padding),
+                start = horizontalPadding,
+                end = horizontalPadding,
+            )
+            .then(layoutModifier),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         CompositionLocalProvider(LocalContentColor provides contentColor) {
@@ -447,7 +453,10 @@ private fun FooterIcon(icon: Icon, modifier: Modifier = Modifier, tint: Color) {
     val contentDescription = icon.contentDescription?.load()
     when (icon) {
         is Icon.Loaded -> {
-            Icon(icon.drawable.toBitmap().asImageBitmap(), contentDescription, modifier, tint)
+            val imageBitmap = remember(icon.drawable) {
+                icon.drawable.toBitmap().asImageBitmap()
+            }
+            Icon(imageBitmap, contentDescription, modifier, tint)
         }
         is Icon.Resource -> Icon(painterResource(icon.resId), contentDescription, modifier, tint)
     }
@@ -481,7 +490,7 @@ private fun NumberButton(
         Box(Modifier.size(FooterButtonHeight)) {
             Box(
                 Modifier.fillMaxSize()
-                    .clip(CircleShape)
+                    .graphicsLayer { clip = true; shape = CircleShape }
                     .indication(interactionSource, LocalIndication.current)
             ) {
                 Text(

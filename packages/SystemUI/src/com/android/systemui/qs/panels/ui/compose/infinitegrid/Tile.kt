@@ -74,6 +74,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalConfiguration
@@ -482,8 +483,10 @@ private fun TileExpandable(
         modifier = modifier
             .verticalSquish(squishiness)
             .thenIf(!classicStyle) {
-                Modifier
-                    .clip(shape)
+                Modifier.graphicsLayer {
+                    clip = true
+                    this.shape = shape
+                }
             },
         useModifierBasedImplementation = true,
     ) {
@@ -541,9 +544,14 @@ fun LargeStaticTile(
 
     val colors = TileDefaults.getColorForState(uiState = uiState, iconOnly = false)
 
+    val tileShape by TileDefaults.animateTileShapeAsState(state = uiState.state, shapeMode = shapeMode)
+
     Box(
         modifier
-            .clip(TileDefaults.animateTileShapeAsState(state = uiState.state, shapeMode = shapeMode).value)
+            .graphicsLayer {
+                clip = true
+                this.shape = tileShape
+            }
             .drawBehind {
                 val brush = colors.iconBackgroundGradient
                 if (brush != null) {

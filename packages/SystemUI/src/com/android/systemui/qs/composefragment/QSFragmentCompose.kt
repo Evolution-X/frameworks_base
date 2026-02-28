@@ -55,6 +55,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -180,6 +181,8 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -1482,26 +1485,27 @@ private fun ContentScope.MediaObject(
                         )
                     }
 
-                    view.update()
-                    if (!Flags.mediaFrameDimensionsFix()) {
-                        // Update layout params if host view bounds are higher than its child.
-                        val height = mediaHost.hostView.height
-                        val width = mediaHost.hostView.width
-                        var measure = false
-                        mediaHost.hostView.children.forEach { child ->
-                            if (
-                                child is FrameLayout &&
+                    if (view.height != mediaHost.hostView.height || view.width != mediaHost.hostView.width) {
+                        view.update()
+                        if (!Flags.mediaFrameDimensionsFix()) {
+                            val height = mediaHost.hostView.height
+                            val width = mediaHost.hostView.width
+                            var measure = false
+                            mediaHost.hostView.children.forEach { child ->
+                                if (
+                                    child is FrameLayout &&
                                     (height > child.height || width > child.width)
-                            ) {
-                                measure = true
-                                child.layoutParams = FrameLayout.LayoutParams(width, height)
+                                ) {
+                                    measure = true
+                                    child.layoutParams = FrameLayout.LayoutParams(width, height)
+                                }
                             }
-                        }
-                        if (measure) {
-                            mediaHost.hostView.measurementManager.onMeasure(
-                                MeasurementInput(width, height)
-                            )
-                            mediaLogger.logMediaSize("update size in compose", width, height)
+                            if (measure) {
+                                mediaHost.hostView.measurementManager.onMeasure(
+                                    MeasurementInput(width, height)
+                                )
+                                mediaLogger.logMediaSize("update size in compose", width, height)
+                            }
                         }
                     }
                 },
@@ -1696,13 +1700,15 @@ private fun AlwaysDarkMode(content: @Composable () -> Unit) {
         content()
     } else {
         val currentConfig = LocalConfiguration.current
-        val darkConfig =
-            Configuration(currentConfig).apply {
-                uiMode =
-                    (uiMode and (Configuration.UI_MODE_NIGHT_MASK.inv())) or
+        val context = LocalContext.current
+
+        val (darkConfig, newContext) = remember(currentConfig, context) {
+            val config = Configuration(currentConfig).apply {
+                uiMode = (uiMode and (Configuration.UI_MODE_NIGHT_MASK.inv())) or
                         Configuration.UI_MODE_NIGHT_YES
             }
-        val newContext = LocalContext.current.createConfigurationContext(darkConfig)
+            config to context.createConfigurationContext(config)
+        }
         CompositionLocalProvider(
             LocalConfiguration provides darkConfig,
             LocalContext provides newContext,
@@ -1717,36 +1723,39 @@ private fun rememberQsBrightnessSettings(): QsBrightnessSettings {
     val context = LocalContext.current
     val cr = remember { context.contentResolver }
 
-    fun readCurrent(): QsBrightnessSettings {
-        val position = runCatching {
-            LineageSettings.Secure.getIntForUser(
-                cr, LineageSettings.Secure.QS_BRIGHTNESS_SLIDER_POSITION,
-                0, UserHandle.USER_CURRENT
-            )
-        }.getOrElse { 0 }
+    return produceState(
+        initialValue = QsBrightnessSettings(sliderAtTop = false, showSlider = 1),
+        key1 = cr
+    ) {
+        val readSettings = suspend {
+            withContext(Dispatchers.IO) {
+                val position = runCatching {
+                    LineageSettings.Secure.getIntForUser(
+                        cr, LineageSettings.Secure.QS_BRIGHTNESS_SLIDER_POSITION,
+                        0, UserHandle.USER_CURRENT
+                    )
+                }.getOrElse { 0 }
 
-        val showSliderValue = runCatching {
-            LineageSettings.Secure.getIntForUser(
-                cr, LineageSettings.Secure.QS_SHOW_BRIGHTNESS_SLIDER,
-                1, UserHandle.USER_CURRENT
-            )
-        }.getOrElse { 1 }
+                val showSliderValue = runCatching {
+                    LineageSettings.Secure.getIntForUser(
+                        cr, LineageSettings.Secure.QS_SHOW_BRIGHTNESS_SLIDER,
+                        1, UserHandle.USER_CURRENT
+                    )
+                }.getOrElse { 1 }
 
-        return QsBrightnessSettings(
-            sliderAtTop = position == 0,
-            showSlider = showSliderValue,
-        )
-    }
+                QsBrightnessSettings(
+                    sliderAtTop = position == 0,
+                    showSlider = showSliderValue,
+                )
+            }
+        }
 
-    var state by remember {
-        mutableStateOf(readCurrent())
-    }
+        value = readSettings()
 
-    DisposableEffect(Unit) {
         val observer = object : ContentObserver(null) {
             override fun onChange(selfChange: Boolean) {
-                context.mainExecutor.execute {
-                    state = readCurrent()
+                launch {
+                    value = readSettings()
                 }
             }
         }
@@ -1760,12 +1769,10 @@ private fun rememberQsBrightnessSettings(): QsBrightnessSettings {
             false, observer, UserHandle.USER_ALL
         )
 
-        onDispose {
+        awaitDispose {
             cr.unregisterContentObserver(observer)
         }
-    }
-
-    return state
+    }.value
 }
 
 private data class QsBrightnessSettings(
