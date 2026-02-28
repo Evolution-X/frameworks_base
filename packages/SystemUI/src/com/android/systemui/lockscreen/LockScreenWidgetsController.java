@@ -250,6 +250,7 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
                 return;
             }
             mDozing = dozing;
+            updateWidgetViews();
             updateContainerVisibility();
         }
     };
@@ -421,8 +422,41 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
     private void updateMainWidgetResources(LaunchableFAB efab, boolean active) {
         if (efab == null) return;
         efab.setElevation(0);
+
+        if (mDozing) {
+            int bgRes;
+            switch (mThemeStyle) {
+                case 1:
+                case 2:
+                    bgRes = R.drawable.lockscreen_widget_background_square_aod;
+                    break;
+                case 0:
+                case 3:
+                default:
+                    bgRes = R.drawable.lockscreen_widget_background_circle_aod;
+                    break;
+            }
+            efab.setBackgroundTintList(null);
+            efab.setBackgroundDrawable(mContext.getDrawable(bgRes));
+        } else {
+            int bgRes;
+            switch (mThemeStyle) {
+                case 1:
+                case 2:
+                    bgRes = R.drawable.lockscreen_widget_background_square;
+                    break;
+                case 0:
+                case 3:
+                default:
+                    bgRes = R.drawable.lockscreen_widget_background_circle;
+                    break;
+            }
+            efab.setBackgroundDrawable(mContext.getDrawable(bgRes));
+        }
+
         setButtonActiveState(null, efab, false);
-        long visibleWidgetCount = mMainWidgetsList.stream().filter(widget -> !"none".equals(widget)).count();
+        long visibleWidgetCount = mMainWidgetsList.stream()
+                .filter(widget -> !"none".equals(widget)).count();
         ViewGroup.LayoutParams params = efab.getLayoutParams();
         if (params instanceof LinearLayout.LayoutParams) {
             LinearLayout.LayoutParams layoutParams = (LinearLayout.LayoutParams) params;
@@ -465,7 +499,7 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
         if (secondaryWidgetsContainer != null) {
             secondaryWidgetsContainer.setVisibility(isSecondaryWidgetsEmpty ? View.GONE : View.VISIBLE);
         }
-        final boolean shouldHideContainer = isEmpty || mDozing || !mLockscreenWidgetsEnabled;
+        final boolean shouldHideContainer = isEmpty || !mLockscreenWidgetsEnabled;
         mView.setVisibility(shouldHideContainer ? View.GONE : View.VISIBLE);
     }
     
@@ -473,16 +507,30 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
         if (iv == null) return;
         final int themeStyle = mThemeStyle;
         int bgRes;
-        switch (themeStyle) {
-            case 0:
-            case 3:
-            default:
-                bgRes = R.drawable.lockscreen_widget_background_circle;
-                break;
-            case 1:
-            case 2:
-                bgRes = R.drawable.lockscreen_widget_background_square;
-                break;
+        if (mDozing) {
+            switch (themeStyle) {
+                case 1:
+                case 2:
+                    bgRes = R.drawable.lockscreen_widget_background_square_aod;
+                    break;
+                case 0:
+                case 3:
+                default:
+                    bgRes = R.drawable.lockscreen_widget_background_circle_aod;
+                    break;
+            }
+        } else {
+            switch (themeStyle) {
+                case 0:
+                case 3:
+                default:
+                    bgRes = R.drawable.lockscreen_widget_background_circle;
+                    break;
+                case 1:
+                case 2:
+                    bgRes = R.drawable.lockscreen_widget_background_square;
+                    break;
+            }
         }
         iv.setBackgroundResource(bgRes);
         setButtonActiveState(iv, null, false);
@@ -660,6 +708,23 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
     }
 
     private void setButtonActiveState(LaunchableImageView iv, LaunchableFAB efab, boolean active) {
+        if (mDozing) {
+            if (iv != null) {
+                iv.setBackgroundTintList(null);
+                iv.setImageTintList(ColorStateList.valueOf(Color.WHITE));
+            }
+            if (efab != null) {
+                efab.setBackgroundTintList(null);
+                if (efab != weatherButtonFab) {
+                    efab.setIconTint(ColorStateList.valueOf(Color.WHITE));
+                } else {
+                    efab.setIconTint(null);
+                }
+                efab.setTextColor(Color.WHITE);
+            }
+            return;
+        }
+
         int bgTint;
         int tintColor;
         if (mThemeStyle == 2 || mThemeStyle == 3) {
@@ -682,17 +747,17 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
         if (iv != null) {
             iv.setBackgroundTintList(ColorStateList.valueOf(bgTint));
             if (iv != weatherButton) {
-            	iv.setImageTintList(ColorStateList.valueOf(tintColor));
+                iv.setImageTintList(ColorStateList.valueOf(tintColor));
             } else {
-            	iv.setImageTintList(null);
+                iv.setImageTintList(null);
             }
         }
         if (efab != null) {
             efab.setBackgroundTintList(ColorStateList.valueOf(bgTint));
             if (efab != weatherButtonFab) {
-            	efab.setIconTint(ColorStateList.valueOf(tintColor));
+                efab.setIconTint(ColorStateList.valueOf(tintColor));
             } else {
-            	efab.setIconTint(null);
+                efab.setIconTint(null);
             }
             efab.setTextColor(tintColor);
         }
