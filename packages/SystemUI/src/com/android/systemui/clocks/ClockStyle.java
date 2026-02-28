@@ -82,6 +82,7 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
     private static final int DEFAULT_OPACITY = 100;
     private static final int DEFAULT_MARGIN_TOP = 15;
     private static final int DEFAULT_CUSTOM_COLOR = Color.WHITE;
+    private static final int AOD_OPACITY_CAP = 70;
 
     private final Context mContext;
     private final KeyguardManager mKeyguardManager;
@@ -150,6 +151,7 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
                 return;
             }
             mDozing = dozing;
+            applyClockAlpha();
             if (mDozing) {
                 startBurnInProtection();
             } else {
@@ -258,10 +260,15 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
         }
     }
 
+    private void applyClockAlpha() {
+        if (currentClockView == null) return;
+        int effective = (mDozing && mClockOpacity > AOD_OPACITY_CAP) ? AOD_OPACITY_CAP : mClockOpacity;
+        currentClockView.setAlpha(effective / 100f);
+    }
+
     private void updateClockAppearance() {
         if (currentClockView == null) return;
-        float alpha = mClockOpacity / 100f;
-        currentClockView.setAlpha(alpha);
+        applyClockAlpha();
         applyTextClockColor(currentClockView);
     }
 
@@ -362,9 +369,7 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
             case CLOCK_TEXT_OPACITY_KEY:
                 mClockOpacity = TunerService.parseInteger(newValue, DEFAULT_OPACITY);
                 mClockOpacity = Math.max(0, Math.min(100, mClockOpacity));
-                if (currentClockView != null) {
-                    currentClockView.setAlpha(mClockOpacity / 100f);
-                }
+                applyClockAlpha();
                 break;
             case CLOCK_FRAME_MARGIN_TOP_KEY:
                 mClockFrameMarginTop = TunerService.parseInteger(newValue, DEFAULT_MARGIN_TOP);
