@@ -51,6 +51,9 @@ fun ContentScope.QuickQuickSettings(
     val scope = rememberCoroutineScope()
     val classicStyle = rememberQSPanelStyle()
 
+    val bounceables = remember(sizedTiles) { List(sizedTiles.size) { BounceableTileViewModel() } }
+    val spans by remember(sizedTiles) { derivedStateOf { sizedTiles.fastMap { it.width } } }
+
     Box(modifier = modifier) {
         GridAnchor()
 
@@ -79,9 +82,6 @@ fun ContentScope.QuickQuickSettings(
                 )
             }
         } else {
-            val bounceables =
-                remember(sizedTiles) { List(sizedTiles.size) { BounceableTileViewModel() } }
-            val spans by remember(sizedTiles) { derivedStateOf { sizedTiles.fastMap { it.width } } }
             VerticalSpannedGrid(
                 columns = columns,
                 columnSpacing = dimensionResource(R.dimen.qs_tile_margin_horizontal),

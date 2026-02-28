@@ -462,16 +462,22 @@ private fun CutoutAwareShadeHeader(
 ) {
     val cutoutProvider = LocalDisplayCutout.current
     val statusBarHeight = ShadeHeader.Dimensions.StatusBarHeight
+
+    val cutoutData = remember(cutoutProvider) {
+        val c = cutoutProvider()
+        CutoutData(c.width, c.height, c.top, c.location)
+    }
+
     Layout(
         modifier = modifier.sysuiResTag(ShadeHeader.TestTags.Root),
         contents = listOf(startContent, endContent),
     ) { measurables, constraints ->
         val cutout = cutoutProvider()
 
-        val cutoutWidth = cutout.width
-        val cutoutHeight = cutout.height
-        val cutoutTop = cutout.top
-        val cutoutLocation = cutout.location
+        val cutoutWidth = cutoutData.width
+        val cutoutHeight = cutoutData.height
+        val cutoutTop = cutoutData.top
+        val cutoutLocation = cutoutData.location
 
         check(constraints.hasBoundedWidth)
         check(measurables.size == 2)
@@ -516,6 +522,7 @@ private fun ContentScope.Clock(
     textColor: Color? = null,
 ) {
     val layoutDirection = LocalLayoutDirection.current
+    val origin = remember(layoutDirection) { TransformOrigin(if (layoutDirection == LayoutDirection.Ltr) 0f else 1f, 0.5f) }
 
     ElementWithValues(key = ShadeHeader.Elements.Clock, modifier = modifier) {
         val animatedScale by animateElementFloatAsState(scale, ClockScale, canOverflow = false)
@@ -545,14 +552,7 @@ private fun ContentScope.Clock(
                         .graphicsLayer {
                             scaleX = animatedScale
                             scaleY = animatedScale
-                            transformOrigin =
-                                TransformOrigin(
-                                    when (layoutDirection) {
-                                        LayoutDirection.Ltr -> 0f
-                                        LayoutDirection.Rtl -> 1f
-                                    },
-                                    0.5f,
-                                )
+                            transformOrigin = origin
                         }
                         .thenIf(onClick != null) { Modifier.clickable { onClick?.invoke() } },
             )
@@ -598,8 +598,7 @@ private fun BatteryIconLegacy(
     NewStatusBarIcons.assertInLegacyMode()
 
     val localContext = LocalContext.current
-    val themedContext =
-        ContextThemeWrapper(localContext, R.style.Theme_SystemUI_QuickSettings_Header)
+    val themedContext = remember(localContext) { ContextThemeWrapper(localContext, R.style.Theme_SystemUI_QuickSettings_Header) }
     val primaryColor =
         Utils.getColorAttrDefaultColor(themedContext, android.R.attr.textColorPrimary)
     val inverseColor =
@@ -643,6 +642,8 @@ private fun BatteryIconLegacy(
         modifier = modifier,
     )
 }
+
+private data class CutoutData(val width: Int, val height: Int, val top: Int, val location: CutoutLocation)
 
 @OptIn(ExperimentalKairosApi::class)
 @Composable
