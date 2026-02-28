@@ -998,6 +998,10 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
     private static ThreadPriorityBooster sThreadPriorityBooster = new ThreadPriorityBooster(
             Process.THREAD_PRIORITY_FOREGROUND, LockGuard.INDEX_PACKAGES);
 
+    private static final String VELVET_PACKAGE = "com.google.android.googlequicksearchbox";
+    private static final String VELVET_NEW_SEARCH_CLASS = VELVET_PACKAGE + ".OneSearchAimActivity";
+    private static final String VELVET_SEARCH_MODIFY_PROP = "persist.sys.velvet.force_onesearch";
+
     /**
      * Boost the priority of the thread before holding PM traced lock.
      * @hide
@@ -4036,6 +4040,18 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
                         throw new SecurityException(
                                 "Shell cannot change component state for "
                                         + setting.getComponentName() + " to " + newState);
+                    }
+                }
+                if (setting.getPackageName().equals(VELVET_PACKAGE) && setting.isComponent()) {
+                    ComponentName velvetComponent = setting.getComponentName();
+                    if (velvetComponent.getClassName().equals(VELVET_NEW_SEARCH_CLASS) 
+                    && SystemProperties.getBoolean(VELVET_SEARCH_MODIFY_PROP, true)) {
+                        final int newState = setting.getEnabledState();
+                        if (newState != COMPONENT_ENABLED_STATE_ENABLED 
+                        && newState != COMPONENT_ENABLED_STATE_DEFAULT) {
+                            Slog.w(TAG, "Blocking disable of component: " + velvetComponent.flattenToString());
+                            updateAllowed[i] = false;
+                        }
                     }
                 }
                 pkgSettings.put(packageName, pkgSetting);
