@@ -258,17 +258,23 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
         }
     }
 
-    private void updateClockTextColor() {
-        if (currentClockView != null) {
-            updateTextClockColor(currentClockView);
-        }
+    private void updateClockAppearance() {
+        if (currentClockView == null) return;
+        float alpha = mClockOpacity / 100f;
+        currentClockView.setAlpha(alpha);
+        applyTextClockColor(currentClockView);
     }
 
-    private void updateTextClockColor(View view) {
+    private void updateClockTextColor() {
+        if (currentClockView == null) return;
+        applyTextClockColor(currentClockView);
+    }
+
+    private void applyTextClockColor(View view) {
         if (view instanceof ViewGroup) {
             ViewGroup viewGroup = (ViewGroup) view;
             for (int i = 0; i < viewGroup.getChildCount(); i++) {
-                updateTextClockColor(viewGroup.getChildAt(i));
+                applyTextClockColor(viewGroup.getChildAt(i));
             }
         }
 
@@ -284,10 +290,7 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
 
         if ((originalColor & 0x00FFFFFF) != (whiteColor & 0x00FFFFFF)) return;
 
-        int color = resolveClockColor();
-        int alpha = Math.round((mClockOpacity / 100f) * 255);
-        color = (color & 0x00FFFFFF) | (alpha << 24);
-        textClock.setTextColor(color);
+        textClock.setTextColor(resolveClockColor());
     }
 
     private void updateClockFrameMargin() {
@@ -326,7 +329,7 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
                 if (currentClockView instanceof LinearLayout) {
                     ((LinearLayout) currentClockView).setGravity(gravity);
                 }
-                updateClockTextColor();
+                updateClockAppearance();
                 updateClockFrameMargin();
             }
         }
@@ -358,9 +361,10 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
                 break;
             case CLOCK_TEXT_OPACITY_KEY:
                 mClockOpacity = TunerService.parseInteger(newValue, DEFAULT_OPACITY);
-                // Keep opacity within valid range (0-100)
                 mClockOpacity = Math.max(0, Math.min(100, mClockOpacity));
-                updateClockTextColor();
+                if (currentClockView != null) {
+                    currentClockView.setAlpha(mClockOpacity / 100f);
+                }
                 break;
             case CLOCK_FRAME_MARGIN_TOP_KEY:
                 mClockFrameMarginTop = TunerService.parseInteger(newValue, DEFAULT_MARGIN_TOP);
