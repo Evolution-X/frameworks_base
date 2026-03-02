@@ -45,35 +45,22 @@ public class WallpaperUtils {
         float maxScale = 1.10f;
         int targetWidth = Math.round(screenWidth * maxScale);
         int targetHeight = Math.round(screenHeight * maxScale);
-        
-        Bitmap resized = bitmap;
-        if (bitmap.getWidth() != targetWidth || bitmap.getHeight() != targetHeight) {
-            resized = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true);
+        if (bitmap.getWidth() == targetWidth && bitmap.getHeight() == targetHeight) {
+            return bitmap;
         }
-        
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        resized.compress(Bitmap.CompressFormat.PNG, 90, byteArrayOutputStream);
-        byte[] byteArray = byteArrayOutputStream.toByteArray();
-        
-        if (resized != bitmap) {
-            resized.recycle();
-        }
-        
-        return BitmapFactory.decodeByteArray(byteArray, 0, byteArray.length);
+        return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true);
     }
 
     public static Bitmap getDimmedBitmap(Bitmap bitmap, int dimLevel) {
-        Bitmap mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, false);
         float dimFactor = 1 - (Math.max(0, Math.min(dimLevel, 100)) / 100f);
-        Bitmap dimmedBitmap = Bitmap.createBitmap(mutableBitmap.getWidth(), mutableBitmap.getHeight(), Bitmap.Config.ARGB_8888);
+        Bitmap dimmedBitmap = Bitmap.createBitmap(bitmap.getWidth(), bitmap.getHeight(), Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(dimmedBitmap);
         Paint paint = new Paint();
         ColorMatrix colorMatrix = new ColorMatrix();
         colorMatrix.setScale(dimFactor, dimFactor, dimFactor, 1.0f);
         ColorMatrixColorFilter colorFilter = new ColorMatrixColorFilter(colorMatrix);
         paint.setColorFilter(colorFilter);
-        canvas.drawBitmap(mutableBitmap, 0, 0, paint);
-        mutableBitmap.recycle();
+        canvas.drawBitmap(bitmap, 0, 0, paint);
         return dimmedBitmap;
     }
 
@@ -193,9 +180,10 @@ public class WallpaperUtils {
         float centerY = height / 2f;
         float maxRadius = (float) Math.sqrt(centerX * centerX + centerY * centerY);
         
+        int vignetteAlpha = (int)(intensity * 255) & 0xff;
         RadialGradient gradient = new RadialGradient(
             centerX, centerY, maxRadius,
-            new int[]{0x00000000, (int)(intensity * 255) << 24},
+            new int[]{0x00000000, (vignetteAlpha << 24) | 0x00000000},
             new float[]{0.5f, 1.0f},
             Shader.TileMode.CLAMP
         );
@@ -277,6 +265,7 @@ public class WallpaperUtils {
         };
         
         int[] result = new int[width * height];
+        System.arraycopy(pixels, 0, result, 0, pixels.length);
         
         for (int y = 1; y < height - 1; y++) {
             for (int x = 1; x < width - 1; x++) {
@@ -361,6 +350,12 @@ public class WallpaperUtils {
                 float dirX = x - centerX;
                 float dirY = y - centerY;
                 float distance = (float) Math.sqrt(dirX * dirX + dirY * dirY);
+                
+                if (distance == 0) {
+                    result.setPixel(x, y, pixels[y * width + x]);
+                    continue;
+                }
+                
                 float blurAmount = distance * strength;
                 
                 float totalRed = 0, totalGreen = 0, totalBlue = 0, totalAlpha = 0;
