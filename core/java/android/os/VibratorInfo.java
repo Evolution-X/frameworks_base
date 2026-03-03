@@ -690,6 +690,15 @@ public class VibratorInfo implements Parcelable {
 
             mResonantFrequencyHz = resonantFrequencyHz;
 
+            if (frequenciesHz == null && outputAccelerationsGs == null) {
+                mFrequenciesHz = null;
+                mOutputAccelerationsGs = null;
+                mMinFrequencyHz = Float.NaN;
+                mMaxFrequencyHz = Float.NaN;
+                mMaxOutputAccelerationGs = Float.NaN;
+                return;
+            }
+
             boolean isValid = (frequenciesHz != null && outputAccelerationsGs != null)
                     && (frequenciesHz.length == outputAccelerationsGs.length)
                     && (frequenciesHz.length > 0);
