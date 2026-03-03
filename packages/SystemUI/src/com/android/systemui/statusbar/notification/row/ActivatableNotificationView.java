@@ -165,10 +165,6 @@ public abstract class ActivatableNotificationView extends ExpandableOutlineView 
                 R.color.notification_ripple_tinted_color);
         mNormalRippleColor = mContext.getColor(
                 R.color.notification_ripple_untinted_color);
-        // Reset background color tint and override tint, as they are from an old theme
-        mBgTint = NO_COLOR;
-        mOverrideTint = NO_COLOR;
-        mOverrideAmount = 0.0f;
     }
 
     /**
@@ -305,8 +301,7 @@ public abstract class ActivatableNotificationView extends ExpandableOutlineView 
     public void setOverrideTintColor(int color, float overrideAmount) {
         mOverrideTint = color;
         mOverrideAmount = overrideAmount;
-        int newColor = calculateBgColor();
-        setBackgroundTintColor(newColor);
+        updateBackgroundTint(false /* animated */);
     }
 
     protected void updateBackgroundTint() {
@@ -767,11 +762,11 @@ public abstract class ActivatableNotificationView extends ExpandableOutlineView 
     }
 
     private int getRippleColor() {
-        if (mBgTint != 0) {
-            return mTintedRippleColor;
-        } else {
-            return mNormalRippleColor;
-        }
+        final boolean hasExplicitTint =
+                mBgTint != NO_COLOR
+                || (mOverrideTint != NO_COLOR && mOverrideAmount > 0f);
+
+        return hasExplicitTint ? mTintedRippleColor : mNormalRippleColor;
     }
 
     /**
