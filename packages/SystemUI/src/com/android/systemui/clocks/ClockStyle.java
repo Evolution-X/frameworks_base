@@ -22,6 +22,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Color;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.UserHandle;
 import android.provider.Settings;
 import android.util.AttributeSet;
@@ -51,7 +52,7 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
             R.layout.keyguard_clock_ide,
             R.layout.keyguard_clock_moto,
             R.layout.keyguard_clock_label,
-            R.layout.keyguard_clock_ios, 
+            R.layout.keyguard_clock_ios,
             R.layout.keyguard_clock_num,
             R.layout.keyguard_clock_taden,
             R.layout.keyguard_clock_mont,
@@ -66,7 +67,7 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
             R.layout.keyguard_clock_a9
     };
 
-    private final static int[] mCenterClocks = {2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
+    private static final int[] mCenterClocks = {2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
 
     public static final String CLOCK_STYLE_KEY = "clock_style";
     public static final String CLOCK_COLOR_MODE_KEY = "clock_color_mode";
@@ -84,6 +85,10 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
     private static final int DEFAULT_CUSTOM_COLOR = Color.WHITE;
     private static final int AOD_OPACITY_CAP = 70;
 
+    private static final long AOD_UPDATE_INTERVAL_MILLIS = 60_000L;
+
+    private static final long UPDATE_INTERVAL_MILLIS = 15_000L;
+
     private final Context mContext;
     private final KeyguardManager mKeyguardManager;
     private final TunerService mTunerService;
@@ -98,17 +103,16 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
     private int mClockOpacity = DEFAULT_OPACITY;
     private int mClockFrameMarginTop = DEFAULT_MARGIN_TOP;
 
-    private static final long UPDATE_INTERVAL_MILLIS = 15 * 1000;
     private long lastUpdateTimeMillis = 0;
 
     private final StatusBarStateController mStatusBarStateController;
-
     private boolean mDozing;
 
+    private final Handler mHandler = new Handler(Looper.getMainLooper());
+
     // Burn-in protection
-    private static final int BURN_IN_PROTECTION_INTERVAL = 10000; // 10 seconds
-    private static final int BURN_IN_PROTECTION_MAX_SHIFT = 4; // 4 pixels
-    private final Handler mBurnInProtectionHandler = new Handler();
+    private static final int BURN_IN_PROTECTION_INTERVAL = 10_000;
+    private static final int BURN_IN_PROTECTION_MAX_SHIFT = 4;
     private int mCurrentShiftX = 0;
     private int mCurrentShiftY = 0;
 
@@ -117,26 +121,45 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
     private final BroadcastReceiver mScreenReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (mKeyguardManager != null 
-                && mKeyguardManager.isKeyguardLocked()) {
+            final String action = intent.getAction();
+            if (Intent.ACTION_SCREEN_ON.equals(action)) {
+                forceTimeUpdate();
+            } else if (Intent.ACTION_TIME_TICK.equals(action)
+                    || Intent.ACTION_TIME_CHANGED.equals(action)) {
+                onTimeChanged();
+            } else if ("com.android.systemui.doze.pulse".equals(action)) {
                 onTimeChanged();
             }
+        }
+    };
+
+    private final Runnable mAodTickRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!mDozing || mClockStyle == 0) return;
+
+            forceTimeUpdate();
+
+            long now = System.currentTimeMillis();
+            long nextMinute = ((now / AOD_UPDATE_INTERVAL_MILLIS) + 1) * AOD_UPDATE_INTERVAL_MILLIS;
+            mHandler.postDelayed(this, nextMinute - now);
         }
     };
 
     private final Runnable mBurnInProtectionRunnable = new Runnable() {
         @Override
         public void run() {
-            if (mDozing) {
-                mCurrentShiftX = (int) (Math.random() * BURN_IN_PROTECTION_MAX_SHIFT * 2) - BURN_IN_PROTECTION_MAX_SHIFT;
-                mCurrentShiftY = (int) (Math.random() * BURN_IN_PROTECTION_MAX_SHIFT * 2) - BURN_IN_PROTECTION_MAX_SHIFT;
-                if (currentClockView != null) {
-                    currentClockView.setTranslationX(mCurrentShiftX);
-                    currentClockView.setTranslationY(mCurrentShiftY);
-                }
-                invalidate();
-                mBurnInProtectionHandler.postDelayed(this, BURN_IN_PROTECTION_INTERVAL);
+            if (!mDozing) return;
+            mCurrentShiftX = (int) (Math.random() * BURN_IN_PROTECTION_MAX_SHIFT * 2)
+                    - BURN_IN_PROTECTION_MAX_SHIFT;
+            mCurrentShiftY = (int) (Math.random() * BURN_IN_PROTECTION_MAX_SHIFT * 2)
+                    - BURN_IN_PROTECTION_MAX_SHIFT;
+            if (currentClockView != null) {
+                currentClockView.setTranslationX(mCurrentShiftX);
+                currentClockView.setTranslationY(mCurrentShiftY);
             }
+            invalidate();
+            mHandler.postDelayed(this, BURN_IN_PROTECTION_INTERVAL);
         }
     };
 
@@ -147,15 +170,16 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
 
         @Override
         public void onDozingChanged(boolean dozing) {
-            if (mDozing == dozing) {
-                return;
-            }
+            if (mDozing == dozing) return;
             mDozing = dozing;
             applyClockAlpha();
             if (mDozing) {
                 startBurnInProtection();
+                startAodTick();
             } else {
                 stopBurnInProtection();
+                stopAodTick();
+                forceTimeUpdate();
             }
         }
     };
@@ -186,7 +210,9 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
                     CLOCK_TEXT_OPACITY_KEY,
                     CLOCK_FRAME_MARGIN_TOP_KEY);
             mStatusBarStateController.addCallback(mStatusBarStateListener);
-            mStatusBarStateListener.onDozingChanged(mStatusBarStateController.isDozing());
+            mDozing = mStatusBarStateController.isDozing();
+            mStatusBarStateListener.onDozingChanged(mDozing);
+
             IntentFilter filter = new IntentFilter();
             filter.addAction(Intent.ACTION_SCREEN_ON);
             filter.addAction(Intent.ACTION_TIME_TICK);
@@ -203,20 +229,34 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
         if (mCallbacksRegistered) {
             mStatusBarStateController.removeCallback(mStatusBarStateListener);
             mTunerService.removeTunable(this);
-            mBurnInProtectionHandler.removeCallbacks(mBurnInProtectionRunnable);
+            mHandler.removeCallbacks(mBurnInProtectionRunnable);
+            mHandler.removeCallbacks(mAodTickRunnable);
             mContext.unregisterReceiver(mScreenReceiver);
             mCallbacksRegistered = false;
         }
     }
 
+    private void startAodTick() {
+        if (mClockStyle == 0) return;
+        mHandler.removeCallbacks(mAodTickRunnable);
+        long now = System.currentTimeMillis();
+        long nextMinute = ((now / AOD_UPDATE_INTERVAL_MILLIS) + 1) * AOD_UPDATE_INTERVAL_MILLIS;
+        mHandler.postDelayed(mAodTickRunnable, nextMinute - now);
+    }
+
+    private void stopAodTick() {
+        mHandler.removeCallbacks(mAodTickRunnable);
+    }
+
     private void startBurnInProtection() {
         if (mClockStyle == 0) return;
-        mBurnInProtectionHandler.post(mBurnInProtectionRunnable);
+        mHandler.removeCallbacks(mBurnInProtectionRunnable);
+        mHandler.postDelayed(mBurnInProtectionRunnable, BURN_IN_PROTECTION_INTERVAL);
     }
 
     private void stopBurnInProtection() {
         if (mClockStyle == 0) return;
-        mBurnInProtectionHandler.removeCallbacks(mBurnInProtectionRunnable);
+        mHandler.removeCallbacks(mBurnInProtectionRunnable);
         if (currentClockView != null) {
             currentClockView.setTranslationX(0);
             currentClockView.setTranslationY(0);
@@ -225,24 +265,27 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
 
     private void updateTextClockViews(View view) {
         if (view instanceof ViewGroup) {
-            ViewGroup viewGroup = (ViewGroup) view;
-            for (int i = 0; i < viewGroup.getChildCount(); i++) {
-                View childView = viewGroup.getChildAt(i);
-                updateTextClockViews(childView);
-                if (childView instanceof TextClock) {
-                    ((TextClock) childView).refreshTime();
-                }
+            ViewGroup vg = (ViewGroup) view;
+            for (int i = 0; i < vg.getChildCount(); i++) {
+                updateTextClockViews(vg.getChildAt(i));
             }
+        }
+        if (view instanceof TextClock) {
+            ((TextClock) view).refreshTime();
         }
     }
 
     public void onTimeChanged() {
-        long currentTimeMillis = System.currentTimeMillis();
-        if (currentTimeMillis - lastUpdateTimeMillis >= UPDATE_INTERVAL_MILLIS) {
-            if (currentClockView != null) {
-                updateTextClockViews(currentClockView);
-                lastUpdateTimeMillis = currentTimeMillis;
-            }
+        long now = System.currentTimeMillis();
+        if (now - lastUpdateTimeMillis >= UPDATE_INTERVAL_MILLIS) {
+            forceTimeUpdate();
+        }
+    }
+
+    private void forceTimeUpdate() {
+        if (currentClockView != null) {
+            updateTextClockViews(currentClockView);
+            lastUpdateTimeMillis = System.currentTimeMillis();
         }
     }
 
@@ -279,25 +322,20 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
 
     private void applyTextClockColor(View view) {
         if (view instanceof ViewGroup) {
-            ViewGroup viewGroup = (ViewGroup) view;
-            for (int i = 0; i < viewGroup.getChildCount(); i++) {
-                applyTextClockColor(viewGroup.getChildAt(i));
+            ViewGroup vg = (ViewGroup) view;
+            for (int i = 0; i < vg.getChildCount(); i++) {
+                applyTextClockColor(vg.getChildAt(i));
             }
         }
-
         if (!(view instanceof TextClock)) return;
-        TextClock textClock = (TextClock) view;
-
-        if (textClock.getTag(R.id.original_text_color) == null) {
-            textClock.setTag(R.id.original_text_color, textClock.getCurrentTextColor());
+        TextClock tc = (TextClock) view;
+        if (tc.getTag(R.id.original_text_color) == null) {
+            tc.setTag(R.id.original_text_color, tc.getCurrentTextColor());
         }
-
-        int originalColor = (Integer) textClock.getTag(R.id.original_text_color);
+        int originalColor = (Integer) tc.getTag(R.id.original_text_color);
         int whiteColor    = mContext.getColor(android.R.color.white);
-
         if ((originalColor & 0x00FFFFFF) != (whiteColor & 0x00FFFFFF)) return;
-
-        textClock.setTextColor(resolveClockColor());
+        tc.setTextColor(resolveClockColor());
     }
 
     private void updateClockFrameMargin() {
@@ -340,8 +378,12 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
                 updateClockFrameMargin();
             }
         }
-        onTimeChanged();
+        forceTimeUpdate();
         setVisibility(mClockStyle != 0 ? View.VISIBLE : View.GONE);
+
+        if (mDozing && mClockStyle != 0) {
+            startAodTick();
+        }
     }
 
     @Override
