@@ -61,6 +61,7 @@ import com.android.systemui.animation.view.LaunchableImageView;
 import com.android.systemui.animation.view.LaunchableFAB;
 import com.android.systemui.plugins.ActivityStarter;
 import com.android.systemui.plugins.statusbar.StatusBarStateController;
+import com.android.systemui.statusbar.StatusBarState;
 import com.android.systemui.bluetooth.ui.viewModel.BluetoothDetailsContentViewModel;
 import com.android.systemui.qs.tiles.dialog.InternetDialogManager;
 import com.android.systemui.statusbar.policy.BluetoothController;
@@ -111,7 +112,7 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
             R.id.kg_item_placeholder3,
             R.id.kg_item_placeholder4
     };
-    
+
     public static final int BT_ACTIVE = R.drawable.qs_bluetooth_icon_on;
     public static final int BT_INACTIVE = R.drawable.qs_bluetooth_icon_off;
     public static final int DATA_ACTIVE = R.drawable.ic_signal_cellular_alt_24;
@@ -177,7 +178,7 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
     private String mLastTrackTitle = null;
 
     private boolean mDozing;
-    
+
     private boolean mIsInflated = false;
     private GestureDetector mGestureDetector;
     private boolean mIsLongPress = false;
@@ -221,7 +222,7 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
 
         mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
         mCameraManager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
-        
+
         initResources();
 
         // FIX 1: OmniJawsClient no longer takes Context in constructor; use get()
@@ -243,17 +244,44 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
     private final StatusBarStateController.StateListener mStatusBarStateListener =
             new StatusBarStateController.StateListener() {
         @Override
-        public void onStateChanged(int newState) {}
+        public void onStateChanged(int newState) {
+            if (newState == StatusBarState.KEYGUARD) {
+                syncAllTileStatesOnKeyguard();
+            }
+        }
         @Override
         public void onDozingChanged(boolean dozing) {
-            if (mDozing == dozing) {
-                return;
-            }
+            if (mDozing == dozing) return;
             mDozing = dozing;
             updateWidgetViews();
             updateContainerVisibility();
         }
     };
+
+    private void syncAllTileStatesOnKeyguard() {
+        if (isWidgetEnabled("wifi")) {
+            mNetworkController.removeCallback(mWifiSignalCallback);
+            mNetworkController.addCallback(mWifiSignalCallback);
+        }
+        if (isWidgetEnabled("data")) {
+            mNetworkController.removeCallback(mCellSignalCallback);
+            mNetworkController.addCallback(mCellSignalCallback);
+            updateMobileDataState(isMobileDataEnabled());
+        }
+        if (isWidgetEnabled("bt")) {
+            updateBtState();
+        }
+        if (isWidgetEnabled("torch")) {
+            isFlashOn = mFlashlightController.isEnabled();
+            updateTorchButtonState();
+        }
+        if (isWidgetEnabled("ringer")) {
+            updateRingerButtonState();
+        }
+        if (isWidgetEnabled("hotspot")) {
+            updateHotspotState();
+        }
+    }
 
     private final FlashlightController.FlashlightListener mFlashlightCallback =
             new FlashlightController.FlashlightListener() {
@@ -284,7 +312,7 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
         mDarkColorActive = mContext.getResources().getColor(R.color.lockscreen_widget_active_color_dark);
         mLightColorActive = mContext.getResources().getColor(R.color.lockscreen_widget_active_color_light);
     }
-    
+
     public void registerCallbacks() {
         if (isWidgetEnabled("hotspot")) {
             mHotspotController.addCallback(mHotspotCallback);
@@ -300,6 +328,8 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
         }
         if (isWidgetEnabled("torch")) {
             mFlashlightController.addCallback(mFlashlightCallback);
+            isFlashOn = mFlashlightController.isEnabled();
+            updateTorchButtonState();
         }
         mConfigurationController.addCallback(mConfigurationListener);
         mStatusBarStateController.addCallback(mStatusBarStateListener);
@@ -309,10 +339,10 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
         updateWidgetViews();
         updateMediaPlaybackState();
     }
-    
+
     public void unregisterCallbacks() {
         if (isWidgetEnabled("weather")) {
-        	disableWeatherUpdates();
+            disableWeatherUpdates();
         }
         if (isWidgetEnabled("wifi")) {
             mNetworkController.removeCallback(mWifiSignalCallback);
@@ -339,7 +369,7 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
         mHandler.removeCallbacksAndMessages(null);
         mMediaSessionManagerHelper.removeMediaMetadataListener(this);
     }
-    
+
     public void initViews() {
         mMainWidgetViews = new LaunchableFAB[MAIN_WIDGETS_VIEW_IDS.length];
         for (int i = 0; i < mMainWidgetViews.length; i++) {
@@ -352,42 +382,23 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
         mIsInflated = true;
         updateWidgetViews();
     }
-    
+
     public void updateWidgetViews() {
         if (!mIsInflated) return;
-        
-        // Forcefully hide all widgets if lockscreen widgets are disabled
         if (!mLockscreenWidgetsEnabled) {
-            // Hide all main widget views
             if (mMainWidgetViews != null) {
-                for (int i = 0; i < mMainWidgetViews.length; i++) {
-                    if (mMainWidgetViews[i] != null) {
-                        mMainWidgetViews[i].setVisibility(View.GONE);
-                    }
-                }
+                for (LaunchableFAB v : mMainWidgetViews) { if (v != null) v.setVisibility(View.GONE); }
             }
-            // Hide all secondary widget views
             if (mSecondaryWidgetViews != null) {
-                for (int i = 0; i < mSecondaryWidgetViews.length; i++) {
-                    if (mSecondaryWidgetViews[i] != null) {
-                        mSecondaryWidgetViews[i].setVisibility(View.GONE);
-                    }
-                }
+                for (LaunchableImageView v : mSecondaryWidgetViews) { if (v != null) v.setVisibility(View.GONE); }
             }
-            // Hide all containers
-            final View mainWidgetsContainer = mView.findViewById(R.id.main_widgets_container);
-            if (mainWidgetsContainer != null) {
-                mainWidgetsContainer.setVisibility(View.GONE);
-            }
-            final View secondaryWidgetsContainer = mView.findViewById(R.id.secondary_widgets_container);
-            if (secondaryWidgetsContainer != null) {
-                secondaryWidgetsContainer.setVisibility(View.GONE);
-            }
-            // Hide the main view itself
+            final View mc = mView.findViewById(R.id.main_widgets_container);
+            if (mc != null) mc.setVisibility(View.GONE);
+            final View sc = mView.findViewById(R.id.secondary_widgets_container);
+            if (sc != null) sc.setVisibility(View.GONE);
             mView.setVisibility(View.GONE);
             return;
         }
-        
         if (mMainWidgetViews != null && mMainWidgetsList != null) {
             for (int i = 0; i < mMainWidgetViews.length; i++) {
                 if (mMainWidgetViews[i] != null) {
@@ -396,7 +407,7 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
             }
             for (int i = 0; i < Math.min(mMainWidgetsList.size(), mMainWidgetViews.length); i++) {
                 String widgetType = mMainWidgetsList.get(i);
-                if (widgetType != null && i < mMainWidgetViews.length && mMainWidgetViews[i] != null) {
+                if (widgetType != null && mMainWidgetViews[i] != null) {
                     setUpWidgetWiews(null, mMainWidgetViews[i], widgetType);
                     updateMainWidgetResources(mMainWidgetViews[i], false);
                 }
@@ -410,7 +421,7 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
             }
             for (int i = 0; i < Math.min(mSecondaryWidgetsList.size(), mSecondaryWidgetViews.length); i++) {
                 String widgetType = mSecondaryWidgetsList.get(i);
-                if (widgetType != null && i < mSecondaryWidgetViews.length && mSecondaryWidgetViews[i] != null) {
+                if (widgetType != null && mSecondaryWidgetViews[i] != null) {
                     setUpWidgetWiews(mSecondaryWidgetViews[i], null, widgetType);
                     updateWidgetsResources(mSecondaryWidgetViews[i]);
                 }
@@ -422,115 +433,63 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
     private void updateMainWidgetResources(LaunchableFAB efab, boolean active) {
         if (efab == null) return;
         efab.setElevation(0);
-
         if (mDozing) {
-            int bgRes;
-            switch (mThemeStyle) {
-                case 1:
-                case 2:
-                    bgRes = R.drawable.lockscreen_widget_background_square_aod;
-                    break;
-                case 0:
-                case 3:
-                default:
-                    bgRes = R.drawable.lockscreen_widget_background_circle_aod;
-                    break;
-            }
+            int bgRes = (mThemeStyle == 1 || mThemeStyle == 2)
+                    ? R.drawable.lockscreen_widget_background_square_aod
+                    : R.drawable.lockscreen_widget_background_circle_aod;
             efab.setBackgroundTintList(null);
             efab.setBackgroundDrawable(mContext.getDrawable(bgRes));
         } else {
-            int bgRes;
-            switch (mThemeStyle) {
-                case 1:
-                case 2:
-                    bgRes = R.drawable.lockscreen_widget_background_square;
-                    break;
-                case 0:
-                case 3:
-                default:
-                    bgRes = R.drawable.lockscreen_widget_background_circle;
-                    break;
-            }
+            int bgRes = (mThemeStyle == 1 || mThemeStyle == 2)
+                    ? R.drawable.lockscreen_widget_background_square
+                    : R.drawable.lockscreen_widget_background_circle;
             efab.setBackgroundDrawable(mContext.getDrawable(bgRes));
         }
-
         setButtonActiveState(null, efab, false);
-        long visibleWidgetCount = mMainWidgetsList.stream()
-                .filter(widget -> !"none".equals(widget)).count();
+        long visibleWidgetCount = mMainWidgetsList.stream().filter(w -> !"none".equals(w)).count();
         ViewGroup.LayoutParams params = efab.getLayoutParams();
         if (params instanceof LinearLayout.LayoutParams) {
-            LinearLayout.LayoutParams layoutParams = (LinearLayout.LayoutParams) params;
+            LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) params;
             if (efab.getVisibility() == View.VISIBLE && visibleWidgetCount == 1) {
-                layoutParams.width = mContext.getResources().getDimensionPixelSize(R.dimen.kg_widget_main_width);
-                layoutParams.height = mContext.getResources().getDimensionPixelSize(R.dimen.kg_widget_main_height);
+                lp.width = mContext.getResources().getDimensionPixelSize(R.dimen.kg_widget_main_width);
+                lp.height = mContext.getResources().getDimensionPixelSize(R.dimen.kg_widget_main_height);
             } else {
-                layoutParams.width = 0;
-                layoutParams.weight = 1;
+                lp.width = 0;
+                lp.weight = 1;
             }
-            efab.setLayoutParams(layoutParams);
+            efab.setLayoutParams(lp);
         }
     }
 
     private void updateContainerVisibility() {
-        // If widgets are disabled, forcefully hide everything
         if (!mLockscreenWidgetsEnabled) {
-            final View mainWidgetsContainer = mView.findViewById(R.id.main_widgets_container);
-            if (mainWidgetsContainer != null) {
-                mainWidgetsContainer.setVisibility(View.GONE);
-            }
-            final View secondaryWidgetsContainer = mView.findViewById(R.id.secondary_widgets_container);
-            if (secondaryWidgetsContainer != null) {
-                secondaryWidgetsContainer.setVisibility(View.GONE);
-            }
+            final View mc = mView.findViewById(R.id.main_widgets_container);
+            if (mc != null) mc.setVisibility(View.GONE);
+            final View sc = mView.findViewById(R.id.secondary_widgets_container);
+            if (sc != null) sc.setVisibility(View.GONE);
             mView.setVisibility(View.GONE);
             return;
         }
-        
-        final boolean isMainWidgetsEmpty = mMainLockscreenWidgetsList == null 
-            || TextUtils.isEmpty(mMainLockscreenWidgetsList);
-        final boolean isSecondaryWidgetsEmpty = mSecondaryLockscreenWidgetsList == null 
-            || TextUtils.isEmpty(mSecondaryLockscreenWidgetsList);
-        final boolean isEmpty = isMainWidgetsEmpty && isSecondaryWidgetsEmpty;
-        final View mainWidgetsContainer = mView.findViewById(R.id.main_widgets_container);
-        if (mainWidgetsContainer != null) {
-            mainWidgetsContainer.setVisibility(isMainWidgetsEmpty ? View.GONE : View.VISIBLE);
-        }
-        final View secondaryWidgetsContainer = mView.findViewById(R.id.secondary_widgets_container);
-        if (secondaryWidgetsContainer != null) {
-            secondaryWidgetsContainer.setVisibility(isSecondaryWidgetsEmpty ? View.GONE : View.VISIBLE);
-        }
-        final boolean shouldHideContainer = isEmpty || !mLockscreenWidgetsEnabled;
-        mView.setVisibility(shouldHideContainer ? View.GONE : View.VISIBLE);
+        final boolean isMainEmpty = mMainLockscreenWidgetsList == null || TextUtils.isEmpty(mMainLockscreenWidgetsList);
+        final boolean isSecondaryEmpty = mSecondaryLockscreenWidgetsList == null || TextUtils.isEmpty(mSecondaryLockscreenWidgetsList);
+        final View mc = mView.findViewById(R.id.main_widgets_container);
+        if (mc != null) mc.setVisibility(isMainEmpty ? View.GONE : View.VISIBLE);
+        final View sc = mView.findViewById(R.id.secondary_widgets_container);
+        if (sc != null) sc.setVisibility(isSecondaryEmpty ? View.GONE : View.VISIBLE);
+        mView.setVisibility((isMainEmpty && isSecondaryEmpty) ? View.GONE : View.VISIBLE);
     }
-    
+
     private void updateWidgetsResources(LaunchableImageView iv) {
         if (iv == null) return;
-        final int themeStyle = mThemeStyle;
         int bgRes;
         if (mDozing) {
-            switch (themeStyle) {
-                case 1:
-                case 2:
-                    bgRes = R.drawable.lockscreen_widget_background_square_aod;
-                    break;
-                case 0:
-                case 3:
-                default:
-                    bgRes = R.drawable.lockscreen_widget_background_circle_aod;
-                    break;
-            }
+            bgRes = (mThemeStyle == 1 || mThemeStyle == 2)
+                    ? R.drawable.lockscreen_widget_background_square_aod
+                    : R.drawable.lockscreen_widget_background_circle_aod;
         } else {
-            switch (themeStyle) {
-                case 0:
-                case 3:
-                default:
-                    bgRes = R.drawable.lockscreen_widget_background_circle;
-                    break;
-                case 1:
-                case 2:
-                    bgRes = R.drawable.lockscreen_widget_background_square;
-                    break;
-            }
+            bgRes = (mThemeStyle == 1 || mThemeStyle == 2)
+                    ? R.drawable.lockscreen_widget_background_square
+                    : R.drawable.lockscreen_widget_background_circle;
         }
         iv.setBackgroundResource(bgRes);
         setButtonActiveState(iv, null, false);
@@ -538,10 +497,9 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
 
     private boolean isNightMode() {
         final Configuration config = mContext.getResources().getConfiguration();
-        return (config.uiMode & Configuration.UI_MODE_NIGHT_MASK)
-                == Configuration.UI_MODE_NIGHT_YES;
+        return (config.uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
     }
-    
+
     private void setUpWidgetWiews(LaunchableImageView iv, LaunchableFAB efab, String type) {
         View.OnClickListener clickListener = null;
         View.OnLongClickListener longClickListener = null;
@@ -555,10 +513,7 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
                 return;
             case "wifi":
                 clickListener = v -> toggleWiFi();
-                longClickListener = v -> {
-                    showInternetDialog(v);
-                    return true;
-                };
+                longClickListener = v -> { showInternetDialog(v); return true; };
                 drawableRes = WIFI_INACTIVE;
                 stringRes = R.string.quick_settings_wifi_label;
                 if (iv != null) wifiButton = iv;
@@ -566,10 +521,7 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
                 break;
             case "data":
                 clickListener = v -> toggleMobileData();
-                longClickListener = v -> {
-                    showInternetDialog(v);
-                    return true;
-                };
+                longClickListener = v -> { showInternetDialog(v); return true; };
                 drawableRes = DATA_INACTIVE;
                 stringRes = DATA_LABEL_INACTIVE;
                 if (iv != null) dataButton = iv;
@@ -584,10 +536,7 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
                 break;
             case "bt":
                 clickListener = v -> toggleBluetoothState();
-                longClickListener = v -> {
-                    showBluetoothDialog(v);
-                    return true;
-                };
+                longClickListener = v -> { showBluetoothDialog(v); return true; };
                 drawableRes = BT_INACTIVE;
                 stringRes = BT_LABEL_INACTIVE;
                 if (iv != null) btButton = iv;
@@ -612,10 +561,7 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
                 break;
             case "media":
                 clickListener = v -> toggleMediaPlaybackState();
-                longClickListener = v -> {
-                    showMediaDialog(v);
-                    return true;
-                };
+                longClickListener = v -> { showMediaDialog(v); return true; };
                 drawableRes = R.drawable.ic_media_play;
                 stringRes = R.string.controls_media_button_play;
                 if (iv != null) mediaButton = iv;
@@ -631,10 +577,7 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
                 break;
             case "hotspot":
                 clickListener = v -> toggleHotspot();
-                longClickListener = v -> {
-                    showInternetDialog(v);
-                    return true;
-                };
+                longClickListener = v -> { showInternetDialog(v); return true; };
                 drawableRes = HOTSPOT_INACTIVE;
                 stringRes = HOTSPOT_LABEL;
                 if (iv != null) hotspotButton = iv;
@@ -661,7 +604,6 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
             if (longClickListener != null) efab.setOnLongClickListener(longClickListener);
             if (mediaButtonFab == efab) attachSwipeGesture(efab);
         }
-
         if (iv != null) {
             iv.setOnClickListener(clickListener);
             if (longClickListener != null) iv.setOnLongClickListener(longClickListener);
@@ -670,7 +612,8 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
     }
 
     private void attachSwipeGesture(LaunchableFAB efab) {
-        final GestureDetector gestureDetector = new GestureDetector(mContext, new GestureDetector.SimpleOnGestureListener() {
+        final GestureDetector gestureDetector = new GestureDetector(mContext,
+                new GestureDetector.SimpleOnGestureListener() {
             private static final int SWIPE_THRESHOLD = 100;
             private static final int SWIPE_VELOCITY_THRESHOLD = 100;
             @Override
@@ -679,11 +622,10 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
                 if (Math.abs(diffX) > SWIPE_THRESHOLD && Math.abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
                     if (diffX > 0) {
                         dispatchMediaKeyWithWakeLockToMediaSession(KeyEvent.KEYCODE_MEDIA_PREVIOUS);
-                        VibrationUtils.triggerVibration(mContext, 2);
                     } else {
                         dispatchMediaKeyWithWakeLockToMediaSession(KeyEvent.KEYCODE_MEDIA_NEXT);
-                        VibrationUtils.triggerVibration(mContext, 2);
                     }
+                    VibrationUtils.triggerVibration(mContext, 2);
                     return true;
                 }
                 return false;
@@ -693,9 +635,7 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
                 super.onLongPress(e);
                 mIsLongPress = true;
                 showMediaDialog(efab);
-                mHandler.postDelayed(() -> {
-                    mIsLongPress = false;
-                }, 2500);
+                mHandler.postDelayed(() -> mIsLongPress = false, 2500);
             }
         });
         efab.setOnTouchListener((v, event) -> {
@@ -715,50 +655,26 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
             }
             if (efab != null) {
                 efab.setBackgroundTintList(null);
-                if (efab != weatherButtonFab) {
-                    efab.setIconTint(ColorStateList.valueOf(Color.WHITE));
-                } else {
-                    efab.setIconTint(null);
-                }
+                efab.setIconTint(efab == weatherButtonFab ? null : ColorStateList.valueOf(Color.WHITE));
                 efab.setTextColor(Color.WHITE);
             }
             return;
         }
-
-        int bgTint;
-        int tintColor;
+        int bgTint, tintColor;
         if (mThemeStyle == 2 || mThemeStyle == 3) {
-            if (active) {
-                bgTint = Utils.applyAlpha(mTransparency, mDarkColorActive);
-                tintColor = mDarkColorActive;
-            } else {
-                bgTint = Utils.applyAlpha(mTransparency, Color.WHITE);
-                tintColor = Color.WHITE;
-            }
+            bgTint = active ? Utils.applyAlpha(mTransparency, mDarkColorActive) : Utils.applyAlpha(mTransparency, Color.WHITE);
+            tintColor = active ? mDarkColorActive : Color.WHITE;
         } else {
-            if (active) {
-                bgTint = isNightMode() ? mDarkColorActive : mLightColorActive;
-                tintColor = isNightMode() ? mDarkColor : mLightColor;
-            } else {
-                bgTint = isNightMode() ? mDarkColor : mLightColor;
-                tintColor = isNightMode() ? mLightColor : mDarkColor;
-            }
+            bgTint = active ? (isNightMode() ? mDarkColorActive : mLightColorActive) : (isNightMode() ? mDarkColor : mLightColor);
+            tintColor = active ? (isNightMode() ? mDarkColor : mLightColor) : (isNightMode() ? mLightColor : mDarkColor);
         }
         if (iv != null) {
             iv.setBackgroundTintList(ColorStateList.valueOf(bgTint));
-            if (iv != weatherButton) {
-                iv.setImageTintList(ColorStateList.valueOf(tintColor));
-            } else {
-                iv.setImageTintList(null);
-            }
+            iv.setImageTintList(iv == weatherButton ? null : ColorStateList.valueOf(tintColor));
         }
         if (efab != null) {
             efab.setBackgroundTintList(ColorStateList.valueOf(bgTint));
-            if (efab != weatherButtonFab) {
-                efab.setIconTint(ColorStateList.valueOf(tintColor));
-            } else {
-                efab.setIconTint(null);
-            }
+            efab.setIconTint(efab == weatherButtonFab ? null : ColorStateList.valueOf(tintColor));
             efab.setTextColor(tintColor);
         }
     }
@@ -770,33 +686,30 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
             dispatchMediaKeyWithWakeLockToMediaSession(KeyEvent.KEYCODE_MEDIA_PLAY);
         }
     }
-    
+
     private void showMediaDialog(View view) {
         String lastMediaPkg = getLastUsedMedia();
         if (TextUtils.isEmpty(lastMediaPkg)) return;
         if (!(mView instanceof LockScreenWidgets)) return;
         mHandler.post(() -> {
             ((LockScreenWidgets) mView).showMediaDialog(view, lastMediaPkg);
-            VibrationUtils.triggerVibration(mContext, 2); // Trigger vibration
+            VibrationUtils.triggerVibration(mContext, 2);
         });
     }
-    
+
     private String getLastUsedMedia() {
-        return Settings.System.getString(mContext.getContentResolver(),
-                    "media_session_last_package_name");
+        return Settings.System.getString(mContext.getContentResolver(), "media_session_last_package_name");
     }
 
     private void dispatchMediaKeyWithWakeLockToMediaSession(final int keycode) {
         final MediaSessionLegacyHelper helper = MediaSessionLegacyHelper.getHelper(mContext);
         if (helper == null) return;
-        KeyEvent event = new KeyEvent(SystemClock.uptimeMillis(),
-                SystemClock.uptimeMillis(), KeyEvent.ACTION_DOWN, keycode, 0);
+        KeyEvent event = new KeyEvent(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(),
+                KeyEvent.ACTION_DOWN, keycode, 0);
         helper.sendMediaButtonEvent(event, true);
         event = KeyEvent.changeAction(event, KeyEvent.ACTION_UP);
         helper.sendMediaButtonEvent(event, true);
-        mHandler.postDelayed(() -> {
-            updateMediaPlaybackState();
-        }, 250);
+        mHandler.postDelayed(this::updateMediaPlaybackState, 250);
     }
 
     private void updateMediaPlaybackState() {
@@ -807,14 +720,14 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
             setButtonActiveState(mediaButton, null, isPlaying);
         }
         if (mediaButtonFab != null) {
-            MediaMetadata mMediaMetadata = mMediaSessionManagerHelper.getCurrentMediaMetadata();
-            String trackTitle = mMediaMetadata != null ? mMediaMetadata.getString(MediaMetadata.METADATA_KEY_TITLE) : "";
-            if (!TextUtils.isEmpty(trackTitle) && mLastTrackTitle != trackTitle) {
+            MediaMetadata meta = mMediaSessionManagerHelper.getCurrentMediaMetadata();
+            String trackTitle = meta != null ? meta.getString(MediaMetadata.METADATA_KEY_TITLE) : "";
+            if (!TextUtils.isEmpty(trackTitle) && !trackTitle.equals(mLastTrackTitle)) {
                 mLastTrackTitle = trackTitle;
             }
-            final boolean canShowTrackTitle = isPlaying || !TextUtils.isEmpty(mLastTrackTitle);
-            mediaButtonFab.setIcon(mContext.getDrawable(isPlaying ? R.drawable.ic_media_pause : R.drawable.ic_media_play));
-            mediaButtonFab.setText(canShowTrackTitle ? mLastTrackTitle : mContext.getResources().getString(R.string.controls_media_button_play));
+            final boolean canShowTitle = isPlaying || !TextUtils.isEmpty(mLastTrackTitle);
+            mediaButtonFab.setIcon(mContext.getDrawable(stateIcon));
+            mediaButtonFab.setText(canShowTitle ? mLastTrackTitle : mContext.getString(R.string.controls_media_button_play));
             setButtonActiveState(null, mediaButtonFab, isPlaying);
         }
     }
@@ -822,18 +735,22 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
     private void toggleFlashlight() {
         if (torchButton == null && torchButtonFab == null) return;
         try {
-            boolean newState = !isFlashOn;
+            final boolean newState = !isFlashOn;
+            isFlashOn = newState;
+            updateTorchButtonState();
             mFlashlightController.setFlashlight(newState);
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            isFlashOn = mFlashlightController.isEnabled();
+            updateTorchButtonState();
+        }
     }
 
     private void toggleWiFi() {
         final WifiCallbackInfo cbi = mWifiSignalCallback.mInfo;
-        mNetworkController.setWifiEnabled(!cbi.enabled);
-        updateWiFiButtonState(!cbi.enabled);
-        mHandler.postDelayed(() -> {
-            updateWiFiButtonState(cbi.enabled);
-        }, 250);
+        final boolean newEnabled = !cbi.enabled;
+        cbi.enabled = newEnabled;
+        mNetworkController.setWifiEnabled(newEnabled);
+        updateWiFiButtonState(newEnabled);
     }
 
     private boolean isMobileDataEnabled() {
@@ -841,13 +758,12 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
     }
 
     private void toggleMobileData() {
-        mDataController.setMobileDataEnabled(!isMobileDataEnabled());
-        updateMobileDataState(!isMobileDataEnabled());
-        mHandler.postDelayed(() -> {
-            updateMobileDataState(isMobileDataEnabled());
-        }, 250);
+        final boolean newEnabled = !isMobileDataEnabled();
+        mDataController.setMobileDataEnabled(newEnabled);
+        updateMobileDataState(newEnabled);
+        mHandler.postDelayed(() -> updateMobileDataState(isMobileDataEnabled()), 250);
     }
-    
+
     private void showInternetDialog(View view) {
         mHandler.post(() -> mInternetDialogManager.create(true,
                 mAccessPointController.canConfigMobileData(),
@@ -856,46 +772,38 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
     }
 
     private void toggleRingerMode() {
-        if (mAudioManager != null) {
-            int mode = mAudioManager.getRingerMode();
-            if (mode == mAudioManager.RINGER_MODE_NORMAL) {
-                mAudioManager.setRingerMode(AudioManager.RINGER_MODE_VIBRATE);
-            } else {
-                mAudioManager.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
-            }
-            updateRingerButtonState();
-        }
+        if (mAudioManager == null) return;
+        int mode = mAudioManager.getRingerMode();
+        mAudioManager.setRingerMode(mode == AudioManager.RINGER_MODE_NORMAL
+                ? AudioManager.RINGER_MODE_VIBRATE : AudioManager.RINGER_MODE_NORMAL);
+        updateRingerButtonState();
     }
 
-    private void updateTileButtonState(
-            LaunchableImageView iv, LaunchableFAB efab, 
+    private void updateTileButtonState(LaunchableImageView iv, LaunchableFAB efab,
             boolean active, int activeResource, int inactiveResource,
             String activeString, String inactiveString) {
-        mHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                if (iv != null) {
-                    iv.setImageResource(active ? activeResource : inactiveResource);
-                    setButtonActiveState(iv, null, active);
-                }
-                if (efab != null) {
-                    efab.setIcon(mContext.getDrawable(active ? activeResource : inactiveResource));
-                    efab.setText(active ? activeString : inactiveString);
-                    setButtonActiveState(null, efab, active);
-                }
+        mHandler.post(() -> {
+            if (iv != null) {
+                iv.setImageResource(active ? activeResource : inactiveResource);
+                setButtonActiveState(iv, null, active);
+            }
+            if (efab != null) {
+                efab.setIcon(mContext.getDrawable(active ? activeResource : inactiveResource));
+                efab.setText(active ? activeString : inactiveString);
+                setButtonActiveState(null, efab, active);
             }
         });
     }
-    
+
     public void updateTorchButtonState() {
         if (!isWidgetEnabled("torch")) return;
         String activeString = mContext.getResources().getString(TORCH_LABEL_ACTIVE);
         String inactiveString = mContext.getResources().getString(TORCH_LABEL_INACTIVE);
-        updateTileButtonState(torchButton, torchButtonFab, isFlashOn, 
-            TORCH_RES_ACTIVE, TORCH_RES_INACTIVE, activeString, inactiveString);
+        updateTileButtonState(torchButton, torchButtonFab, isFlashOn,
+                TORCH_RES_ACTIVE, TORCH_RES_INACTIVE, activeString, inactiveString);
     }
 
-    private BroadcastReceiver mRingerModeReceiver = new BroadcastReceiver() {
+    private final BroadcastReceiver mRingerModeReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             updateRingerButtonState();
@@ -918,66 +826,64 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
         if (wifiButton == null && wifiButtonFab == null) return;
         final WifiCallbackInfo cbi = mWifiSignalCallback.mInfo;
         String inactiveString = mContext.getResources().getString(WIFI_LABEL_INACTIVE);
-        updateTileButtonState(wifiButton, wifiButtonFab, enabled, 
-            WIFI_ACTIVE, WIFI_INACTIVE, cbi.ssid != null ? removeDoubleQuotes(cbi.ssid) : inactiveString, inactiveString);
+        updateTileButtonState(wifiButton, wifiButtonFab, enabled,
+                WIFI_ACTIVE, WIFI_INACTIVE,
+                cbi.ssid != null ? removeDoubleQuotes(cbi.ssid) : inactiveString,
+                inactiveString);
     }
 
     private void updateRingerButtonState() {
         if (!isWidgetEnabled("ringer")) return;
         if (ringerButton == null && ringerButtonFab == null) return;
-        if (mAudioManager != null) {
-            boolean isVibrateActive = mAudioManager.getRingerMode() == AudioManager.RINGER_MODE_VIBRATE;
-            String inactiveString = mContext.getResources().getString(RINGER_LABEL_INACTIVE);
-            updateTileButtonState(ringerButton, ringerButtonFab, isVibrateActive, 
+        if (mAudioManager == null) return;
+        boolean isVibrateActive = mAudioManager.getRingerMode() == AudioManager.RINGER_MODE_VIBRATE;
+        String inactiveString = mContext.getResources().getString(RINGER_LABEL_INACTIVE);
+        updateTileButtonState(ringerButton, ringerButtonFab, isVibrateActive,
                 RINGER_ACTIVE, RINGER_INACTIVE, inactiveString, inactiveString);
-        }
     }
 
     private void updateMobileDataState(boolean enabled) {
         if (!isWidgetEnabled("data")) return;
         if (dataButton == null && dataButtonFab == null) return;
         String networkName = mNetworkController == null ? "" : mNetworkController.getMobileDataNetworkName();
-        boolean hasNetwork = !TextUtils.isEmpty(networkName) && mNetworkController != null 
-            && mNetworkController.hasMobileDataFeature();
+        boolean hasNetwork = !TextUtils.isEmpty(networkName) && mNetworkController != null
+                && mNetworkController.hasMobileDataFeature();
         String inactiveString = mContext.getResources().getString(DATA_LABEL_INACTIVE);
-        updateTileButtonState(dataButton, dataButtonFab, enabled, 
-            DATA_ACTIVE, DATA_INACTIVE, hasNetwork && enabled ? networkName : inactiveString, inactiveString);
+        updateTileButtonState(dataButton, dataButtonFab, enabled,
+                DATA_ACTIVE, DATA_INACTIVE,
+                hasNetwork && enabled ? networkName : inactiveString,
+                inactiveString);
     }
-    
+
     private void toggleBluetoothState() {
-        mBluetoothController.setBluetoothEnabled(!isBluetoothEnabled());
+        final boolean newEnabled = !mBluetoothController.isBluetoothEnabled();
+        mBluetoothController.setBluetoothEnabled(newEnabled);
         updateBtState();
-        mHandler.postDelayed(() -> {
-            updateBtState();
-        }, 250);
     }
-    
+
     private void showBluetoothDialog(View view) {
-        mHandler.post(() -> 
-            mBluetoothDetailsContentViewModel.showDialog(Expandable.fromView(view)));
+        mHandler.post(() -> mBluetoothDetailsContentViewModel.showDialog(Expandable.fromView(view)));
         VibrationUtils.triggerVibration(mContext, 2);
     }
-    
+
     private void updateBtState() {
         if (!isWidgetEnabled("bt")) return;
         if (btButton == null && btButtonFab == null) return;
-        String deviceName = isBluetoothEnabled() ? mBluetoothController.getConnectedDeviceName() : "";
+        final boolean btEnabled = mBluetoothController.isBluetoothEnabled();
+        String deviceName = btEnabled ? mBluetoothController.getConnectedDeviceName() : "";
         boolean isConnected = !TextUtils.isEmpty(deviceName);
         String inactiveString = mContext.getResources().getString(BT_LABEL_INACTIVE);
-        updateTileButtonState(btButton, btButtonFab, isBluetoothEnabled(), 
-            BT_ACTIVE, BT_INACTIVE, isConnected ? deviceName : inactiveString, inactiveString);
-    }
-    
-    private boolean isBluetoothEnabled() {
-        final BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        return mBluetoothAdapter != null && mBluetoothAdapter.isEnabled();
+        updateTileButtonState(btButton, btButtonFab, btEnabled,
+                BT_ACTIVE, BT_INACTIVE,
+                isConnected ? deviceName : inactiveString,
+                inactiveString);
     }
 
     @Nullable
     private static String removeDoubleQuotes(String string) {
         if (string == null) return null;
         final int length = string.length();
-        if ((length > 1) && (string.charAt(0) == '"') && (string.charAt(length - 1) == '"')) {
+        if (length > 1 && string.charAt(0) == '"' && string.charAt(length - 1) == '"') {
             return string.substring(1, length - 1);
         }
         return string;
@@ -985,8 +891,7 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
 
     protected static final class WifiCallbackInfo {
         boolean enabled;
-        @Nullable
-        String ssid;
+        @Nullable String ssid;
     }
 
     protected final class WifiSignalCallback implements SignalCallback {
@@ -994,6 +899,8 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
         @Override
         public void setWifiIndicators(@NonNull WifiIndicators indicators) {
             if (indicators.qsIcon == null) {
+                mInfo.enabled = false;
+                mInfo.ssid = null;
                 updateWiFiButtonState(false);
                 return;
             }
@@ -1062,32 +969,29 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
             mWeatherClient.queryWeather(mContext);
             mWeatherInfo = mWeatherClient.getWeatherInfo();
             if (mWeatherInfo != null) {
-                // OpenWeatherMap
                 String formattedCondition = mWeatherInfo.condition;
                 if (formattedCondition.toLowerCase().contains("clouds")) {
-                    formattedCondition = mContext.getResources().getString(R.string.weather_condition_clouds);
+                    formattedCondition = mContext.getString(R.string.weather_condition_clouds);
                 } else if (formattedCondition.toLowerCase().contains("rain")) {
-                    formattedCondition = mContext.getResources().getString(R.string.weather_condition_rain);
+                    formattedCondition = mContext.getString(R.string.weather_condition_rain);
                 } else if (formattedCondition.toLowerCase().contains("clear")) {
-                    formattedCondition = mContext.getResources().getString(R.string.weather_condition_clear);
+                    formattedCondition = mContext.getString(R.string.weather_condition_clear);
                 } else if (formattedCondition.toLowerCase().contains("storm")) {
-                    formattedCondition = mContext.getResources().getString(R.string.weather_condition_storm);
+                    formattedCondition = mContext.getString(R.string.weather_condition_storm);
                 } else if (formattedCondition.toLowerCase().contains("snow")) {
-                    formattedCondition = mContext.getResources().getString(R.string.weather_condition_snow);
+                    formattedCondition = mContext.getString(R.string.weather_condition_snow);
                 } else if (formattedCondition.toLowerCase().contains("wind")) {
-                    formattedCondition = mContext.getResources().getString(R.string.weather_condition_wind);
+                    formattedCondition = mContext.getString(R.string.weather_condition_wind);
                 } else if (formattedCondition.toLowerCase().contains("mist")) {
-                    formattedCondition = mContext.getResources().getString(R.string.weather_condition_mist);
+                    formattedCondition = mContext.getString(R.string.weather_condition_mist);
                 }
-                // MET Norway
-                if (formattedCondition.toLowerCase().contains("_")) {
-                    final String[] words = formattedCondition.split("_");
-                    final StringBuilder formattedConditionBuilder = new StringBuilder();
+                if (formattedCondition.contains("_")) {
+                    String[] words = formattedCondition.split("_");
+                    StringBuilder sb = new StringBuilder();
                     for (String word : words) {
-                        final String capitalizedWord = word.substring(0, 1).toUpperCase() + word.substring(1);
-                        formattedConditionBuilder.append(capitalizedWord).append(" ");
+                        sb.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1)).append(" ");
                     }
-                    formattedCondition = formattedConditionBuilder.toString().trim();
+                    formattedCondition = sb.toString().trim();
                 }
                 final Drawable d = mWeatherClient.getWeatherConditionImage(mContext, mWeatherInfo.conditionCode);
                 if (weatherButtonFab != null) {
@@ -1100,26 +1004,20 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
                     weatherButton.setImageTintList(null);
                 }
             }
-        } catch(Exception e) {}
+        } catch (Exception e) {}
     }
-        
+
     private boolean isWidgetEnabled(String widget) {
-        return (mMainLockscreenWidgetsList != null 
-            && mMainLockscreenWidgetsList.contains(widget)) 
-        	|| (mSecondaryLockscreenWidgetsList != null 
-        	&& mSecondaryLockscreenWidgetsList.contains(widget));
-    }
-    
-    @Override
-    public void onMediaMetadataChanged() {
-        updateMediaPlaybackState();
+        return (mMainLockscreenWidgetsList != null && mMainLockscreenWidgetsList.contains(widget))
+                || (mSecondaryLockscreenWidgetsList != null && mSecondaryLockscreenWidgetsList.contains(widget));
     }
 
     @Override
-    public void onPlaybackStateChanged() {
-        updateMediaPlaybackState();
-    }
-    
+    public void onMediaMetadataChanged() { updateMediaPlaybackState(); }
+
+    @Override
+    public void onPlaybackStateChanged() { updateMediaPlaybackState(); }
+
     private class LockscreenWidgetsObserver extends ContentObserver {
         public LockscreenWidgetsObserver() {
             super(new Handler(Looper.getMainLooper()));
@@ -1130,42 +1028,24 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
             updateSettings();
         }
         void observe() {
-            mContext.getContentResolver().registerContentObserver(
-                    Settings.System.getUriFor(LOCKSCREEN_WIDGETS_ENABLED), 
-                    false, 
-                    this);
-            mContext.getContentResolver().registerContentObserver(
-                    Settings.System.getUriFor(LOCKSCREEN_WIDGETS), 
-                    false, 
-                    this);
-            mContext.getContentResolver().registerContentObserver(
-                    Settings.System.getUriFor(LOCKSCREEN_WIDGETS_EXTRAS), 
-                    false, 
-                    this);
-            mContext.getContentResolver().registerContentObserver(
-                    Settings.System.getUriFor(LOCKSCREEN_WIDGETS_STYLE), 
-                    false, 
-                    this);
-            mContext.getContentResolver().registerContentObserver(
-                    Settings.System.getUriFor(LOCKSCREEN_WIDGETS_TRANSPARENCY), 
-                    false, 
-                    this);
+            ContentResolver cr = mContext.getContentResolver();
+            cr.registerContentObserver(Settings.System.getUriFor(LOCKSCREEN_WIDGETS_ENABLED), false, this);
+            cr.registerContentObserver(Settings.System.getUriFor(LOCKSCREEN_WIDGETS), false, this);
+            cr.registerContentObserver(Settings.System.getUriFor(LOCKSCREEN_WIDGETS_EXTRAS), false, this);
+            cr.registerContentObserver(Settings.System.getUriFor(LOCKSCREEN_WIDGETS_STYLE), false, this);
+            cr.registerContentObserver(Settings.System.getUriFor(LOCKSCREEN_WIDGETS_TRANSPARENCY), false, this);
             updateSettings();
         }
         void unobserve() {
             mContext.getContentResolver().unregisterContentObserver(this);
         }
         void updateSettings() {
-            mLockscreenWidgetsEnabled = Settings.System.getInt(mContext.getContentResolver(), 
-                             LOCKSCREEN_WIDGETS_ENABLED, 0) == 1;
-            mMainLockscreenWidgetsList = Settings.System.getString(mContext.getContentResolver(), 
-                           LOCKSCREEN_WIDGETS);
-            mSecondaryLockscreenWidgetsList = Settings.System.getString(mContext.getContentResolver(), 
-                           LOCKSCREEN_WIDGETS_EXTRAS);
-            mThemeStyle = Settings.System.getInt(mContext.getContentResolver(), 
-                           LOCKSCREEN_WIDGETS_STYLE, 0);
-            mTransparency = Settings.System.getInt(mContext.getContentResolver(), 
-                           LOCKSCREEN_WIDGETS_TRANSPARENCY, 30) / 100f;
+            ContentResolver cr = mContext.getContentResolver();
+            mLockscreenWidgetsEnabled = Settings.System.getInt(cr, LOCKSCREEN_WIDGETS_ENABLED, 0) == 1;
+            mMainLockscreenWidgetsList = Settings.System.getString(cr, LOCKSCREEN_WIDGETS);
+            mSecondaryLockscreenWidgetsList = Settings.System.getString(cr, LOCKSCREEN_WIDGETS_EXTRAS);
+            mThemeStyle = Settings.System.getInt(cr, LOCKSCREEN_WIDGETS_STYLE, 0);
+            mTransparency = Settings.System.getInt(cr, LOCKSCREEN_WIDGETS_TRANSPARENCY, 30) / 100f;
             if (mMainLockscreenWidgetsList != null) {
                 mMainWidgetsList = Arrays.asList(mMainLockscreenWidgetsList.split(","));
             }
@@ -1174,24 +1054,22 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
             }
             updateWidgetViews();
         }
-    };
+    }
 
     private void updateHotspotState() {
         if (!isWidgetEnabled("hotspot")) return;
         if (hotspotButton == null && hotspotButtonFab == null) return;
         String hotspotString = mContext.getResources().getString(HOTSPOT_LABEL);
-        updateTileButtonState(hotspotButton, hotspotButtonFab, mHotspotController.isHotspotEnabled(), 
-            HOTSPOT_ACTIVE, HOTSPOT_INACTIVE, hotspotString, hotspotString);
+        updateTileButtonState(hotspotButton, hotspotButtonFab, mHotspotController.isHotspotEnabled(),
+                HOTSPOT_ACTIVE, HOTSPOT_INACTIVE, hotspotString, hotspotString);
     }
 
     private void toggleHotspot() {
         mHotspotController.setHotspotEnabled(!mHotspotController.isHotspotEnabled());
         updateHotspotState();
-        mHandler.postDelayed(() -> {
-            updateHotspotState();
-        }, 250);
+        mHandler.postDelayed(this::updateHotspotState, 250);
     }
-    
+
     private final class HotspotCallback implements HotspotController.Callback {
         @Override
         public void onHotspotChanged(boolean enabled, int numDevices) {
