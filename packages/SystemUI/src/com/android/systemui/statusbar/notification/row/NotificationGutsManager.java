@@ -880,7 +880,13 @@ public class NotificationGutsManager implements NotifGutsViewManager, CoreStarta
     }
 
     boolean affectedByWorkProfileLock(ExpandableNotificationRow row) {
-        int userId = row.getEntry().getSbn().getNormalizedUserId();
+        StatusBarNotification sbn = NotificationBundleUi.isEnabled()
+                ? (row.getEntryAdapter() != null ? row.getEntryAdapter().getSbn() : null)
+                : (row.getEntryLegacy() != null ? row.getEntryLegacy().getSbn() : null);
+
+        if (sbn == null) return false;
+
+        int userId = sbn.getNormalizedUserId();
         return mUserManager.isManagedProfile(userId)
                 && mLockscreenUserManager.isLockscreenPublicMode(userId);
     }
