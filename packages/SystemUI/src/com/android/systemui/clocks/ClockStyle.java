@@ -173,6 +173,7 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
             if (mDozing == dozing) return;
             mDozing = dozing;
             applyClockAlpha();
+            applyTextClockColor(currentClockView != null ? currentClockView : ClockStyle.this);
             if (mDozing) {
                 startBurnInProtection();
                 startAodTick();
@@ -321,6 +322,7 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
     }
 
     private void applyTextClockColor(View view) {
+        if (view == null) return;
         if (view instanceof ViewGroup) {
             ViewGroup vg = (ViewGroup) view;
             for (int i = 0; i < vg.getChildCount(); i++) {
@@ -331,6 +333,10 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
         TextClock tc = (TextClock) view;
         if (tc.getTag(R.id.original_text_color) == null) {
             tc.setTag(R.id.original_text_color, tc.getCurrentTextColor());
+        }
+        if (mDozing) {
+            tc.setTextColor(mContext.getColor(android.R.color.white));
+            return;
         }
         int originalColor = (Integer) tc.getTag(R.id.original_text_color);
         int whiteColor    = mContext.getColor(android.R.color.white);
