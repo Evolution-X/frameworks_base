@@ -7916,6 +7916,12 @@ public final class Settings {
         public static final String AMBIENT_SHOW_SETTINGS_ICONS = "ambient_show_settings_icons";
 
         /**
+         * Whether to show volume percentage in volume panel
+         * @hide
+         */
+        public static final String SHOW_VOLUME_PERCENTAGE = "show_volume_percentage";
+
+        /**
          * Keys we no longer back up under the current schema, but want to continue to
          * process when restoring historical backup datasets.
          *

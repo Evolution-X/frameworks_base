@@ -18,6 +18,7 @@ package com.android.systemui.volume.dialog.dagger.module
 
 import com.android.systemui.volume.dialog.appvolume.ui.binder.VolumeDialogAppVolumeButtonViewBinder
 import com.android.systemui.volume.dialog.captions.ui.binder.VolumeDialogCaptionsButtonViewBinder
+import com.android.systemui.volume.dialog.percentage.ui.binder.VolumeDialogVolumePercentageViewBinder
 import com.android.systemui.volume.dialog.dagger.scope.VolumeDialog
 import com.android.systemui.volume.dialog.ringer.data.repository.VolumeDialogRingerFeedbackRepository
 import com.android.systemui.volume.dialog.ringer.data.repository.VolumeDialogRingerFeedbackRepositoryImpl
@@ -49,6 +50,7 @@ interface VolumeDialogModule {
             settingsButtonViewBinder: VolumeDialogSettingsButtonViewBinder,
             captionsButtonViewBinder: VolumeDialogCaptionsButtonViewBinder,
             appVolumeButtonViewBinder: VolumeDialogAppVolumeButtonViewBinder,
+            volumePercentageViewBinder: VolumeDialogVolumePercentageViewBinder,
         ): List<ViewBinder> =
             listOf(
                 slidersViewBinder,
@@ -56,6 +58,7 @@ interface VolumeDialogModule {
                 settingsButtonViewBinder,
                 captionsButtonViewBinder,
                 appVolumeButtonViewBinder,
+                volumePercentageViewBinder,
             )
     }
 }

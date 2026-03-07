@@ -16,6 +16,17 @@
 <merge xmlns:android="http://schemas.android.com/apk/res/android"
        xmlns:androidprv="http://schemas.android.com/apk/prv/res/android">
 
+    <TextView
+        android:id="@+id/volume_percentage_text"
+        android:layout_width="@dimen/volume_dialog_button_size"
+        android:layout_height="@dimen/volume_dialog_button_size"
+        android:gravity="center"
+        android:textAppearance="@style/TextAppearance.Material3.LabelSmall"
+        android:textColor="@androidprv:color/materialColorPrimary"
+        android:background="@drawable/volume_dialog_captions_button_transition_bg"
+        android:soundEffectsEnabled="false"
+        android:visibility="gone"/>
+
     <com.android.systemui.volume.CaptionsToggleImageButton
         android:id="@+id/odi_captions_icon"
         android:src="@drawable/ic_volume_odi_captions_disabled"
