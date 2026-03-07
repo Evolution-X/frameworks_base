@@ -29,6 +29,10 @@ import android.graphics.Rect;
 import android.icu.lang.UCharacter;
 import android.icu.text.DateTimePatternGenerator;
 import android.os.Bundle;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
 import android.os.Handler;
 import android.os.Parcelable;
 import android.os.SystemClock;
@@ -142,6 +146,9 @@ public class Clock extends TextView implements
     private boolean mIsStatusBar;
     private boolean useStaticColor = false;
     private int lastDynamicColor = -1;
+
+    private boolean mMaskTextMode = false;
+    private final PorterDuffXfermode mDstOutXfermode = new PorterDuffXfermode(PorterDuff.Mode.DST_OUT);
 
     // Tracks config changes that will make the clock change dimensions
     private final InterestingConfigChanges mInterestingConfigChanges;
@@ -453,6 +460,42 @@ public class Clock extends TextView implements
         if (!useStaticColor && lastDynamicColor != -1) {
             setTextColor(lastDynamicColor);
         }
+    }
+
+    public void setMaskTextMode(boolean enabled) {
+        if (mMaskTextMode == enabled) return;
+        mMaskTextMode = enabled;
+        if (enabled) {
+            setLayerType(LAYER_TYPE_SOFTWARE, null);
+        } else {
+            getPaint().setXfermode(null);
+            setLayerType(LAYER_TYPE_NONE, null);
+        }
+        invalidate();
+    }
+
+    public boolean isMaskTextMode() {
+        return mMaskTextMode;
+    }
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        if (!mMaskTextMode) {
+            super.onDraw(canvas);
+            return;
+        }
+
+        final int savedColor = getPaint().getColor();
+        final int savedAlpha = getPaint().getAlpha();
+
+        getPaint().setColor(Color.WHITE);
+        getPaint().setXfermode(mDstOutXfermode);
+
+        super.onDraw(canvas);
+
+        getPaint().setXfermode(null);
+        getPaint().setColor(savedColor);
+        getPaint().setAlpha(savedAlpha);
     }
 
     public void onDensityOrFontScaleChanged() {
