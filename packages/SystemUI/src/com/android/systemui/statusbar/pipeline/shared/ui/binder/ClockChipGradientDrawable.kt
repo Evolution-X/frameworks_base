@@ -36,6 +36,7 @@ class ClockChipGradientDrawable(
     endColor: Int = Color.TRANSPARENT,
     angleDeg: Float = 0f,
     cornerRadiusPx: Float = 0f,
+    val maskTextMode: Boolean = false,
 ) : Drawable() {
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
