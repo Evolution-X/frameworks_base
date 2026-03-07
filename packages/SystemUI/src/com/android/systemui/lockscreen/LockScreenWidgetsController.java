@@ -601,17 +601,26 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
             efab.setOnClickListener(clickListener);
             efab.setIcon(mContext.getDrawable(drawableRes));
             efab.setText(mContext.getResources().getString(stringRes));
-            if (longClickListener != null) efab.setOnLongClickListener(longClickListener);
+            if (longClickListener != null) {
+                efab.setOnLongClickListener(longClickListener);
+            } else {
+                efab.setOnLongClickListener(null);
+            }
             if (mediaButtonFab == efab) attachSwipeGesture(efab);
         }
         if (iv != null) {
             iv.setOnClickListener(clickListener);
-            if (longClickListener != null) iv.setOnLongClickListener(longClickListener);
+            if (longClickListener != null) {
+                iv.setOnLongClickListener(longClickListener);
+            } else {
+                iv.setOnLongClickListener(null);
+            }
             iv.setImageResource(drawableRes);
         }
     }
 
     private void attachSwipeGesture(LaunchableFAB efab) {
+        final boolean[] mIsSwiping = {false};
         final GestureDetector gestureDetector = new GestureDetector(mContext,
                 new GestureDetector.SimpleOnGestureListener() {
             private static final int SWIPE_THRESHOLD = 100;
@@ -620,6 +629,7 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
             public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
                 float diffX = e2.getX() - e1.getX();
                 if (Math.abs(diffX) > SWIPE_THRESHOLD && Math.abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
+                    mIsSwiping[0] = true;
                     if (diffX > 0) {
                         dispatchMediaKeyWithWakeLockToMediaSession(KeyEvent.KEYCODE_MEDIA_PREVIOUS);
                     } else {
@@ -639,8 +649,11 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
             }
         });
         efab.setOnTouchListener((v, event) -> {
-            boolean isClick = gestureDetector.onTouchEvent(event);
-            if (event.getAction() == MotionEvent.ACTION_UP && !isClick && !mIsLongPress) {
+            gestureDetector.onTouchEvent(event);
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                mIsSwiping[0] = false;
+            }
+            if (event.getAction() == MotionEvent.ACTION_UP && !mIsSwiping[0] && !mIsLongPress) {
                 v.performClick();
             }
             return true;
