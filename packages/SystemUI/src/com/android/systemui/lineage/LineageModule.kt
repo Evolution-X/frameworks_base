@@ -45,6 +45,7 @@ import com.android.systemui.qs.tiles.VpnTile
 import com.android.systemui.qs.tiles.base.shared.model.QSTileConfig
 import com.android.systemui.qs.tiles.base.shared.model.QSTileUIConfig
 import com.android.systemui.res.R
+import com.android.systemui.smartpixel.ui.SmartPixelTile
 
 import dagger.Binds
 import dagger.Module
@@ -150,6 +151,12 @@ interface LineageModule {
     @StringKey(ScreenshotTile.TILE_SPEC)
     fun bindScreenshotTile(screenshotTile: ScreenshotTile): QSTileImpl<*>
 
+    /** Inject SmartPixelTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(SmartPixelTile.TILE_SPEC)
+    abstract fun bindSmartPixelTile(tile: SmartPixelTile): QSTileImpl<*>
+
     /** Inject SoundTile into tileMap in QSModule */
     @Binds
     @IntoMap
@@ -203,6 +210,7 @@ interface LineageModule {
         const val READING_MODE_TILE_SPEC = "reading_mode"
         const val REFRESH_RATE_TILE_SPEC = "refresh_rate"
         const val SCREENSHOT_TILE_SPEC = "screenshot"
+        const val SMART_PIXELS_TILE_SPEC = "smart_pixels"
         const val SOUND_TILE_SPEC = "sound"
         const val SYNC_TILE_SPEC = "sync"
         const val USB_TETHER_TILE_SPEC = "usb_tether"
@@ -310,6 +318,21 @@ interface LineageModule {
                     QSTileUIConfig.Resource(
                         iconRes = R.drawable.ic_qs_reader,
                         labelRes = R.string.quick_settings_reading_mode
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.DISPLAY,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(SMART_PIXELS_TILE_SPEC)
+        fun provideSmartPixelsTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(SMART_PIXELS_TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.qs_smart_pixels_icon_off,
+                        labelRes = R.string.quick_settings_smart_pixels_label,
                     ),
                 instanceId = uiEventLogger.getNewInstanceId(),
                 category = TileCategory.DISPLAY,
