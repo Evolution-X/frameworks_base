@@ -14167,6 +14167,18 @@ public final class Settings {
         public static final String PULSE_BASS_HAPTICS = "pulse_bass_haptics";
 
         /**
+         * Whether to enable Smart Pixels
+         * @hide
+         */
+        public static final String SMART_PIXEL_FILTER_ENABLED = "smart_pixel_filter_enabled";
+
+        /**
+         * Smart Pixels percentage
+         * @hide
+         */
+        public static final String SMART_PIXEL_FILTER_PERCENT = "smart_pixel_filter_percent";
+
+        /**
          * Keys we no longer back up under the current schema, but want to continue to
          * process when restoring historical backup datasets.
          *
