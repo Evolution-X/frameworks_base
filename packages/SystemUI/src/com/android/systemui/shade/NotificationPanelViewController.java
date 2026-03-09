@@ -66,10 +66,12 @@ import android.graphics.drawable.Animatable;
 import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.TransitionDrawable;
+import android.hardware.power.Boost;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.PowerManager;
+import android.os.PowerManagerInternal;
 import android.os.Trace;
 import android.provider.Settings;
 import android.util.IndentingPrintWriter;
@@ -105,6 +107,7 @@ import com.android.keyguard.ActiveUnlockConfig;
 import com.android.keyguard.KeyguardUnfoldTransition;
 import com.android.keyguard.KeyguardUpdateMonitor;
 import com.android.keyguard.dagger.KeyguardStatusBarViewComponent;
+import com.android.server.LocalServices;
 import com.android.systemui.DejankUtils;
 import com.android.systemui.Dumpable;
 import com.android.systemui.Flags;
@@ -1557,6 +1560,7 @@ public final class NotificationPanelViewController implements
         }
         setAnimator(animator);
         animator.start();
+        boostInteraction((int) animator.getDuration());
     }
 
     @VisibleForTesting
@@ -2170,6 +2174,7 @@ public final class NotificationPanelViewController implements
     }
 
     private void onTrackingStarted() {
+        boostInteraction(700);
         endClosing();
         mShadeRepository.setLegacyShadeTracking(true);
         if (mTrackingStartedListener != null) {
@@ -2541,6 +2546,13 @@ public final class NotificationPanelViewController implements
         }
     }
 
+    private void boostInteraction(int durationMs) {
+        PowerManagerInternal pmi = LocalServices.getService(PowerManagerInternal.class);
+        if (pmi != null) {
+            pmi.setPowerBoost(Boost.INTERACTION, durationMs);
+        }
+    }
+
     private class ShadeHeadsUpTrackerImpl implements ShadeHeadsUpTracker {
         @Override
         public void addTrackingHeadsUpListener(Consumer<ExpandableNotificationRow> listener) {
@@ -2886,6 +2898,7 @@ public final class NotificationPanelViewController implements
             mIsExpandingOrCollapsing = true;
             mQsController.onExpandingStarted(mQsController.getFullyExpanded());
         }
+        boostInteraction(700);
     }
 
     void notifyExpandingFinished() {
@@ -2946,6 +2959,7 @@ public final class NotificationPanelViewController implements
     private void maybeVibrateOnOpening(boolean openingWithTouch) {
         if (mVibrateOnOpening && mBarState != KEYGUARD && mBarState != SHADE_LOCKED) {
             if (!openingWithTouch || !mHasVibratedOnOpen) {
+                boostInteraction(500);
                 performHapticFeedback(HapticFeedbackConstants.GESTURE_START);
                 mHasVibratedOnOpen = true;
                 mShadeLog.v("Vibrating on opening, mHasVibratedOnOpen=true");
@@ -3138,6 +3152,7 @@ public final class NotificationPanelViewController implements
         });
         setAnimator(animator);
         animator.start();
+        boostInteraction(500);
     }
 
     @VisibleForTesting
