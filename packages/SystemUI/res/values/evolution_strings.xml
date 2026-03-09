@@ -308,4 +308,11 @@
     <string name="usb_mode_webcam">USB Webcam</string>
     <string name="usb_mode_charging_only">Charging only</string>
     <string name="usb_charging_status">USB charging is on</string>
+
+    <!-- Smart Pixels -->
+    <string name="quick_settings_smart_pixels_label">Smart Pixels</string>
+    <string name="quick_settings_smart_pixels_on">On</string>
+    <string name="quick_settings_smart_pixels_off">Off</string>
+    <string name="smart_pixels_percent_label">Pixel percentage</string>
+    <string name="smart_pixels_percent_format"><xliff:g id="percent" example="25">%d</xliff:g>%%</string>
 </resources>
