@@ -800,19 +800,43 @@ public final class AppsFilterImpl extends AppsFilterLocked implements Watchable,
         onChanged();
     }
 
+    // Boot-time cache-build tuning for small (512 MB) heaps: build the N² matrix in
+    // chunks of BOOT_CACHE_CHUNK_SIZE, releasing the cache lock for BOOT_CACHE_YIELD_MS
+    // between chunks so concurrent GC can reclaim the build's temporaries and avoid an
+    // OOM; BOOT_GC_SETTLE_MS lets the pre-build explicit GC finish reclaiming first.
+    private static final int BOOT_CACHE_CHUNK_SIZE = 10;
+    private static final long BOOT_CACHE_YIELD_MS = 10;
+    private static final long BOOT_GC_SETTLE_MS = 200;
+
     private void updateEntireShouldFilterCacheInner(Computer snapshot,
             ArrayMap<String, ? extends PackageStateInternal> settings,
             UserInfo[] users,
             int subjectUserId) {
+        final int settingsSize = settings.size();
         synchronized (mCacheLock) {
             if (subjectUserId == USER_ALL) {
                 mShouldFilterCache.clear();
             }
-            mShouldFilterCache.setCapacity(users.length * settings.size());
-            for (int i = settings.size() - 1; i >= 0; i--) {
-                updateShouldFilterCacheForPackage(snapshot,
-                        null /*skipPackage*/, settings.valueAt(i), settings, users,
-                        subjectUserId, i);
+            if (mCacheReady) {
+                // Post-boot rebuild (user add/remove): readers are active, so keep the
+                // lock for the whole build — they see the old or new complete state,
+                // never partial — and pre-size the matrix in a single allocation.
+                mShouldFilterCache.setCapacity(users.length * settingsSize);
+            }
+            for (int i = settingsSize - 1; i >= 0; i--) {
+                updateShouldFilterCacheForPackage(snapshot, null /*skipPackage*/,
+                        settings.valueAt(i), settings, users, subjectUserId, i);
+                // Boot path (no readers yet): skip the upfront big-matrix setCapacity()
+                // and let it grow incrementally, briefly releasing mCacheLock each chunk
+                // so concurrent GC can reclaim temporaries — this keeps a 512 MB heap
+                // from OOMing. Partial state is safe because nothing reads the cache yet.
+                if (!mCacheReady && i > 0 && i % BOOT_CACHE_CHUNK_SIZE == 0) {
+                    try {
+                        mCacheLock.wait(BOOT_CACHE_YIELD_MS);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
             }
         }
     }
@@ -829,24 +853,26 @@ public final class AppsFilterImpl extends AppsFilterLocked implements Watchable,
                 return;
             }
 
+            // During boot, dozens of services fill the heap to near its limit
+            // with transient objects that become garbage shortly after.  Running
+            // an explicit GC before the N² cache build reclaims those objects
+            // and prevents OOM during the heavy allocation phase that follows.
+            if (!mCacheReady) {
+                Runtime.getRuntime().gc();
+                try {
+                    Thread.sleep(BOOT_GC_SETTLE_MS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+
             final long currentTimeUs = SystemClock.currentTimeMicro();
-            final ArrayMap<String, AndroidPackage> packagesCache = new ArrayMap<>();
-            final UserInfo[][] usersRef = new UserInfo[1][];
             final Computer snapshot = (Computer) pmInternal.snapshot();
             final ArrayMap<String, ? extends PackageStateInternal> settings =
                     snapshot.getPackageStates();
             final UserInfo[] users = snapshot.getUserInfos();
 
-            packagesCache.ensureCapacity(settings.size());
-            usersRef[0] = users;
-            // store away the references to the immutable packages, since settings are retained
-            // during updates.
-            for (int i = 0, max = settings.size(); i < max; i++) {
-                final AndroidPackage pkg = settings.valueAt(i).getPkg();
-                packagesCache.put(settings.keyAt(i), pkg);
-            }
-
-            updateEntireShouldFilterCacheInner(snapshot, settings, usersRef[0], USER_ALL);
+            updateEntireShouldFilterCacheInner(snapshot, settings, users, USER_ALL);
             logCacheRebuilt(reason, SystemClock.currentTimeMicro() - currentTimeUs,
                     users.length, settings.size());
 
