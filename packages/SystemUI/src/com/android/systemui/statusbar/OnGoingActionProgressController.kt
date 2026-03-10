@@ -201,7 +201,6 @@ class OnGoingActionProgressController(
             currentIcon = context.resources.getDrawable(R.drawable.ic_default_music_icon, context.theme)
         }
         if (chipColorMode == CHIP_COLOR_MODE_ICON && currentIcon != null) {
-            invalidateChipBgColor()
             currentIcon?.let { extractAndApplyChipBgColorFromIcon(it) }
         }
     }
@@ -222,7 +221,6 @@ class OnGoingActionProgressController(
         if (art != null) {
             currentAlbumArt = art
             if (chipColorMode == CHIP_COLOR_MODE_ALBUM_ART) {
-                invalidateChipBgColor()
                 currentAlbumArt?.let { extractAndApplyChipBgColorFromAlbumArt(it) }
             }
         } else if (metadata != null) {  // Partial update, force refresh
@@ -859,11 +857,12 @@ class OnGoingActionProgressController(
         )
 
         if (wasChipColorMode != chipColorMode) {
-            invalidateChipBgColor()
             if (chipColorMode == CHIP_COLOR_MODE_ALBUM_ART && currentAlbumArt != null) {
                 currentAlbumArt?.let { extractAndApplyChipBgColorFromAlbumArt(it) }
             } else if (chipColorMode == CHIP_COLOR_MODE_ICON && currentIcon != null) {
                 currentIcon?.let { extractAndApplyChipBgColorFromIcon(it) }
+            } else {
+                invalidateChipBgColor()
             }
         }
 
