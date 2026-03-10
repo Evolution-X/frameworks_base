@@ -804,15 +804,56 @@ public final class AppsFilterImpl extends AppsFilterLocked implements Watchable,
             ArrayMap<String, ? extends PackageStateInternal> settings,
             UserInfo[] users,
             int subjectUserId) {
+        final int settingsSize = settings.size();
+        // When mCacheReady is true (post-boot user creation/deletion), readers
+        // are actively using mShouldFilterCache under mCacheLock. We must hold
+        // the lock for the entire rebuild to guarantee atomicity — readers see
+        // either the old complete state or the new complete state, never partial.
+        // The OOM only happens during boot, when mCacheReady is still false and
+        // no readers exist, so the chunked path is safe there.
+        if (mCacheReady) {
+            synchronized (mCacheLock) {
+                if (subjectUserId == USER_ALL) {
+                    mShouldFilterCache.clear();
+                }
+                mShouldFilterCache.setCapacity(users.length * settingsSize);
+                for (int i = settingsSize - 1; i >= 0; i--) {
+                    updateShouldFilterCacheForPackage(snapshot,
+                            null /*skipPackage*/, settings.valueAt(i), settings,
+                            users, subjectUserId, i);
+                }
+            }
+            return;
+        }
+        // Boot path: mCacheReady is false, no readers exist yet.
+        // Do NOT call setCapacity() upfront — it forces a single large matrix
+        // allocation that competes with dozens of boot services for the 512 MB
+        // heap.  Instead, let the matrix grow incrementally as put() is called.
+        // Process in chunks to reduce peak memory during boot. Use wait(10)
+        // instead of Thread.sleep(10) so we temporarily release mCacheLock and
+        // allow concurrent GC a window to reclaim temporaries. During this phase
+        // mCacheReady is still false, so no readers consult mShouldFilterCache and
+        // it is acceptable for the cache to be in a partially-built state.
+        final int chunkSize = 10;
         synchronized (mCacheLock) {
             if (subjectUserId == USER_ALL) {
                 mShouldFilterCache.clear();
             }
-            mShouldFilterCache.setCapacity(users.length * settings.size());
-            for (int i = settings.size() - 1; i >= 0; i--) {
-                updateShouldFilterCacheForPackage(snapshot,
-                        null /*skipPackage*/, settings.valueAt(i), settings, users,
-                        subjectUserId, i);
+            for (int chunkStart = settingsSize - 1; chunkStart >= 0;
+                    chunkStart -= chunkSize) {
+                final int chunkEnd = Math.max(chunkStart - chunkSize + 1, 0);
+                for (int i = chunkStart; i >= chunkEnd; i--) {
+                    updateShouldFilterCacheForPackage(snapshot,
+                            null /*skipPackage*/, settings.valueAt(i), settings,
+                            users, subjectUserId, i);
+                }
+                if (chunkEnd > 0) {
+                    try {
+                        mCacheLock.wait(10);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
             }
         }
     }
@@ -829,24 +870,26 @@ public final class AppsFilterImpl extends AppsFilterLocked implements Watchable,
                 return;
             }
 
+            // During boot, dozens of services fill the heap to near its limit
+            // with transient objects that become garbage shortly after.  Running
+            // an explicit GC before the N² cache build reclaims those objects
+            // and prevents OOM during the heavy allocation phase that follows.
+            if (!mCacheReady) {
+                Runtime.getRuntime().gc();
+                try {
+                    Thread.sleep(200);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+
             final long currentTimeUs = SystemClock.currentTimeMicro();
-            final ArrayMap<String, AndroidPackage> packagesCache = new ArrayMap<>();
-            final UserInfo[][] usersRef = new UserInfo[1][];
             final Computer snapshot = (Computer) pmInternal.snapshot();
             final ArrayMap<String, ? extends PackageStateInternal> settings =
                     snapshot.getPackageStates();
             final UserInfo[] users = snapshot.getUserInfos();
 
-            packagesCache.ensureCapacity(settings.size());
-            usersRef[0] = users;
-            // store away the references to the immutable packages, since settings are retained
-            // during updates.
-            for (int i = 0, max = settings.size(); i < max; i++) {
-                final AndroidPackage pkg = settings.valueAt(i).getPkg();
-                packagesCache.put(settings.keyAt(i), pkg);
-            }
-
-            updateEntireShouldFilterCacheInner(snapshot, settings, usersRef[0], USER_ALL);
+            updateEntireShouldFilterCacheInner(snapshot, settings, users, USER_ALL);
             logCacheRebuilt(reason, SystemClock.currentTimeMicro() - currentTimeUs,
                     users.length, settings.size());
 
