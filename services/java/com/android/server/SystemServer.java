@@ -1562,6 +1562,18 @@ public final class SystemServer implements Dumpable {
     }
 
     /**
+     * Runs an explicit blocking GC to relieve system_server heap pressure at a boot
+     * checkpoint, inside a boot trace section. On small (512 MB) heaps the boot
+     * allocation storm can otherwise exhaust the heap before the collector keeps up.
+     */
+    private static void bootGc(TimingsTraceAndSlog t, String traceTag, String reason) {
+        t.traceBegin(traceTag);
+        Slog.i(TAG, "Triggering GC " + reason);
+        Runtime.getRuntime().gc();
+        t.traceEnd();
+    }
+
+    /**
      * Starts a miscellaneous grab bag of stuff that has yet to be refactored and organized.
      */
     private void startOtherServices(@NonNull TimingsTraceAndSlog t) {
@@ -3248,6 +3260,9 @@ public final class SystemServer implements Dumpable {
         mSystemServiceManager.startBootPhase(t, SystemService.PHASE_SYSTEM_SERVICES_READY);
         t.traceEnd();
 
+        // Reclaim startBootstrapServices/startCoreServices garbage (~100-170 MB).
+        bootGc(t, "BootGcAfterSystemServicesReady", "after PHASE_SYSTEM_SERVICES_READY");
+
         t.traceBegin("MakeWindowManagerServiceReady");
         try {
             wm.systemReady();
@@ -3429,6 +3444,9 @@ public final class SystemServer implements Dumpable {
         final ConnectivityManager connectivityF = (ConnectivityManager)
                 context.getSystemService(Context.CONNECTIVITY_SERVICE);
 
+        // Reclaim other-services allocations before AMS.systemReady() (heaviest phase).
+        bootGc(t, "BootGcBeforeAmsReady", "before AMS.systemReady()");
+
         // We now tell the activity manager it is okay to run third party
         // code.  It will call back into us once it has gotten to the state
         // where third party code can really run (but before it has actually
@@ -3567,6 +3585,9 @@ public final class SystemServer implements Dumpable {
 
             // Wait for all packages to be prepared
             mPackageManagerService.waitForAppDataPrepared();
+
+            // Reclaim service-ready callback garbage (300+ MB spike) before apps launch.
+            bootGc(t, "BootGcBeforeThirdPartyApps", "before PHASE_THIRD_PARTY_APPS_CAN_START");
 
             // It is now okay to let the various system services start their
             // third party code...
