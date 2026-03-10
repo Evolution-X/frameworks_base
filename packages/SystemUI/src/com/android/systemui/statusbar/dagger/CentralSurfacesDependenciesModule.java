@@ -56,11 +56,13 @@ import com.android.systemui.statusbar.notification.collection.render.Notificatio
 import com.android.systemui.statusbar.phone.CentralSurfacesImpl;
 import com.android.systemui.statusbar.phone.ManagedProfileController;
 import com.android.systemui.statusbar.phone.ManagedProfileControllerImpl;
+import com.android.systemui.statusbar.phone.ScrimController;
 import com.android.systemui.statusbar.phone.StatusBarRemoteInputCallback;
 import com.android.systemui.statusbar.phone.ui.StatusBarIconController;
 import com.android.systemui.statusbar.phone.ui.StatusBarIconControllerImpl;
 import com.android.systemui.statusbar.phone.ui.StatusBarIconList;
 import com.android.systemui.statusbar.policy.KeyguardStateController;
+import com.android.systemui.util.WallpaperDepthUtils;
 import com.android.wm.shell.shared.ShellTransitions;
 
 import dagger.Binds;
@@ -247,5 +249,13 @@ public interface CentralSurfacesDependenciesModule {
             }
         };
         return new DialogTransitionAnimator(mainExecutor, callback, interactionJankMonitor);
+    }
+        /** Depth Wallpaper */
+        @Provides
+        @SysUISingleton
+        static WallpaperDepthUtils provideWallpaperDepthUtils(
+            Context context,
+            Lazy<ScrimController> scrimControllerLazy) {
+        return WallpaperDepthUtils.getInstance(context, scrimControllerLazy.get());
     }
 }
