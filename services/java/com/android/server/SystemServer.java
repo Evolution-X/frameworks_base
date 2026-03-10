@@ -3243,6 +3243,15 @@ public final class SystemServer implements Dumpable {
         mSystemServiceManager.startBootPhase(t, SystemService.PHASE_SYSTEM_SERVICES_READY);
         t.traceEnd();
 
+        // Relieve heap pressure from transient boot-service allocations before
+        // the next wave of init work.  On 512 MB heaps the boot storm can push
+        // usage close to the limit; an early GC here reclaims ~100-170 MB of
+        // garbage that accumulated during startBootstrapServices/startCoreServices.
+        t.traceBegin("BootGcAfterSystemServicesReady");
+        Slog.i(TAG, "Triggering GC after PHASE_SYSTEM_SERVICES_READY");
+        Runtime.getRuntime().gc();
+        t.traceEnd();
+
         t.traceBegin("MakeWindowManagerServiceReady");
         try {
             wm.systemReady();
@@ -3418,6 +3427,14 @@ public final class SystemServer implements Dumpable {
         final ConnectivityManager connectivityF = (ConnectivityManager)
                 context.getSystemService(Context.CONNECTIVITY_SERVICE);
 
+        // Second GC pass before AMS.systemReady() — the heaviest boot phase.
+        // By now all other-services have been created; reclaim their transient
+        // allocations so the AMS ready callback has headroom on 512 MB heaps.
+        t.traceBegin("BootGcBeforeAmsReady");
+        Slog.i(TAG, "Triggering GC before AMS.systemReady()");
+        Runtime.getRuntime().gc();
+        t.traceEnd();
+
         // We now tell the activity manager it is okay to run third party
         // code.  It will call back into us once it has gotten to the state
         // where third party code can really run (but before it has actually
@@ -3552,6 +3569,15 @@ public final class SystemServer implements Dumpable {
 
             // Wait for all packages to be prepared
             mPackageManagerService.waitForAppDataPrepared();
+
+            // Third GC pass before launching third-party apps.  After
+            // PHASE_ACTIVITY_MANAGER_READY the service-ready callbacks can
+            // spike heap usage to 300+ MB on 512 MB heaps; reclaim that
+            // garbage before the next wave of allocations.
+            t.traceBegin("BootGcBeforeThirdPartyApps");
+            Slog.i(TAG, "Triggering GC before PHASE_THIRD_PARTY_APPS_CAN_START");
+            Runtime.getRuntime().gc();
+            t.traceEnd();
 
             // It is now okay to let the various system services start their
             // third party code...
