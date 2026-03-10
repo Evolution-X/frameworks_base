@@ -68,10 +68,19 @@ public abstract class AppsFilterBase implements AppsFilterSnapshot {
     protected static final boolean DEBUG_LOGGING = false;
     public static final boolean DEBUG_TRACING = false;
 
-    // Allow some time for cache rebuilds.
-    protected static final int CACHE_REBUILD_DELAY_MIN_MS = 10000;
-    // With each new rebuild the delay doubles until it reaches max delay.
-    protected static final int CACHE_REBUILD_DELAY_MAX_MS = 10000;
+    // Delay the initial boot cache build so transient boot-service allocations
+    // can be GC'd first, preventing OOM on memory-constrained devices (512 MB heap).
+    protected static final int CACHE_REBUILD_DELAY_MIN_MS = 20000;
+    // Fixed 20 s delay; MIN == MAX disables exponential backoff intentionally.
+    protected static final int CACHE_REBUILD_DELAY_MAX_MS = 20000;
+
+    // Shared immutable empty instance to avoid allocating a new ArraySet on
+    // every shouldFilterApplicationInternal() call for non-shared-user packages.
+    // This is accessed ~130 K times per cache build and must never be modified.
+    // ArraySet is final so we cannot override add/clear; immutability is enforced
+    // by convention — the non-shared-user code path only reads (size/valueAt/isEmpty).
+    private static final ArraySet<PackageStateInternal> EMPTY_SHARED_PKG_SETTINGS =
+            new ArraySet<>(0);
 
     /**
      * This contains a list of app UIDs that are implicitly queryable because another app explicitly
@@ -428,7 +437,7 @@ public abstract class AppsFilterBase implements AppsFilterSnapshot {
             if (DEBUG_TRACING) {
                 Trace.traceBegin(TRACE_TAG_PACKAGE_MANAGER, "callingSetting instanceof");
             }
-            final ArraySet<PackageStateInternal> callingSharedPkgSettings = new ArraySet<>();
+            final ArraySet<PackageStateInternal> callingSharedPkgSettings;
 
             if (callingSetting instanceof PackageStateInternal) {
                 final PackageStateInternal packageState = (PackageStateInternal) callingSetting;
@@ -437,13 +446,18 @@ public abstract class AppsFilterBase implements AppsFilterSnapshot {
                     final SharedUserApi sharedUserApi =
                             snapshot.getSharedUser(packageState.getSharedUserAppId());
                     if (sharedUserApi != null) {
+                        callingSharedPkgSettings = new ArraySet<>();
                         callingSharedPkgSettings.addAll(sharedUserApi.getPackageStates());
+                    } else {
+                        callingSharedPkgSettings = EMPTY_SHARED_PKG_SETTINGS;
                     }
                 } else {
                     callingPkgSetting = packageState;
+                    callingSharedPkgSettings = EMPTY_SHARED_PKG_SETTINGS;
                 }
             } else {
                 callingPkgSetting = null;
+                callingSharedPkgSettings = new ArraySet<>();
                 callingSharedPkgSettings.addAll(
                         ((SharedUserSetting) callingSetting).getPackageStates());
             }
