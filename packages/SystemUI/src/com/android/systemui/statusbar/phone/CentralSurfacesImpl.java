@@ -54,6 +54,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Configuration;
+import android.database.ContentObserver;
 import android.graphics.Point;
 import android.hardware.devicestate.DeviceStateManager;
 import android.hardware.display.DisplayManager;
@@ -210,6 +211,7 @@ import com.android.systemui.statusbar.KeyguardIndicationController;
 import com.android.systemui.statusbar.LiftReveal;
 import com.android.systemui.statusbar.LightRevealScrim;
 import com.android.systemui.statusbar.LockscreenShadeTransitionController;
+import com.android.systemui.statusbar.NotificationListener;
 import com.android.systemui.statusbar.NotificationLockscreenUserManager;
 import com.android.systemui.statusbar.NotificationPresenter;
 import com.android.systemui.statusbar.NotificationRemoteInputManager;
@@ -251,7 +253,9 @@ import com.android.systemui.surfaceeffects.ripple.RippleShader.RippleShape;
 import com.android.systemui.topui.TopUiController;
 import com.android.systemui.tuner.TunerService;
 import com.android.systemui.util.DumpUtilsKt;
+import com.android.systemui.util.ScrimUtils;
 import com.android.systemui.util.WallpaperController;
+import com.android.systemui.util.WallpaperDepthUtils;
 import com.android.systemui.util.concurrency.DelayableExecutor;
 import com.android.systemui.util.concurrency.MessageRouter;
 import com.android.systemui.util.kotlin.JavaAdapter;
@@ -500,6 +504,8 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
     private final NowPlayingViewController mNowPlayingViewController;
     private final ChargingAnimationViewController mChargingAnimationViewController;
 
+    private WallpaperDepthUtils mWallpaperDepthUtils;
+
     private final DisplayMetrics mDisplayMetrics;
 
     // XXX: gesture research
@@ -617,6 +623,10 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
         // Trigger an update for the scrim state when we enter or exit glanceable hub, so that we
         // can transition to/from ScrimState.GLANCEABLE_HUB if needed.
         updateScrimController();
+
+        if (mWallpaperDepthUtils != null) {
+            mWallpaperDepthUtils.onGlanceableHubShowingChanged(idleOnCommunal);
+        }
     };
 
     private boolean mNoAnimationOnNextBarModeChange;
@@ -783,6 +793,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
             PulseViewController pulseViewController,
             EdgeLightViewController edgeLightViewController,
             NowPlayingViewController nowPlayingViewController,
+            WallpaperDepthUtils wallpaperDepthUtils,
             ChargingAnimationViewController chargingAnimationViewController,
             BurnInProtectionController burnInProtectionController
     ) {
@@ -938,6 +949,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
         mPulseViewController = pulseViewController;
         mEdgeLightViewController = edgeLightViewController;
         mNowPlayingViewController = nowPlayingViewController;
+        mWallpaperDepthUtils = wallpaperDepthUtils;
         mChargingAnimationViewController = chargingAnimationViewController;
     }
 
@@ -1434,6 +1446,23 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
             });
             mScrimController.attachViews(scrimBehind, notificationsScrim, scrimInFront);
         }
+
+        // Setup depth wallpaper view - attach directly to NotificationShadeWindowView root
+        // This is CRITICAL for iOS-style depth effect: subject must be in root container,
+        ViewGroup root = getNotificationShadeWindowView();
+        View depthWallpaperView = mWallpaperDepthUtils.getDepthWallpaperView();
+        if (depthWallpaperView.getParent() == null) {
+            root.setClipChildren(false);
+            root.setClipToPadding(false);
+            root.addView(depthWallpaperView);
+            depthWallpaperView.bringToFront();
+        }
+        ScrimUtils.get(mContext).setWallpaperDepthUtils(mWallpaperDepthUtils);
+        mWallpaperDepthUtils.updateDepthWallpaper();
+        mWallpaperDepthUtils.updateDepthWallpaperVisibility();
+        depthWallpaperView.postDelayed(() -> {
+            mWallpaperDepthUtils.updateDepthWallpaperVisibility();
+        }, 500);
 
         mLightRevealScrim.setScrimOpaqueChangedListener((opaque) -> {
             Runnable updateOpaqueness = () -> {
@@ -2987,12 +3016,14 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
             }
 
             mScrimController.onScreenTurnedOn();
+            ScrimUtils.get(mContext).onScreenStateChange();
         }
 
         @Override
         public void onScreenTurnedOff() {
             Trace.beginSection("CentralSurfaces#onScreenTurnedOff");
             mFalsingCollector.onScreenOff();
+            ScrimUtils.get(mContext).onScreenStateChange();
             if (!SceneContainerFlag.isEnabled()) {
                 mScrimController.onScreenTurnedOff();
             }
