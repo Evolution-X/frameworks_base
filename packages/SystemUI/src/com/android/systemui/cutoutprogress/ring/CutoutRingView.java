@@ -102,6 +102,11 @@ public final class CutoutRingView extends View {
     private float mChargingDisplayPct = 0f;
     private ValueAnimator mChargingLevelAnim = null;
 
+    private boolean mIsBatteryIndicatorActive = false;
+    private int mBatteryIndicatorPct = 0;
+    private float mBatteryDisplayPct = 0f;
+    private ValueAnimator mBatteryLevelAnim = null;
+
     private int sCfgRingColorMode;
     private int sCfgRingColor;
     private int sCfgErrorColor;
@@ -308,6 +313,25 @@ public final class CutoutRingView extends View {
         invalidate();
     }
 
+    public void setBatteryIndicatorState(boolean active, int batteryPct) {
+        boolean wasActive = mIsBatteryIndicatorActive;
+        mIsBatteryIndicatorActive = active;
+        mBatteryIndicatorPct = batteryPct;
+
+        if (!active) {
+            stopBatteryIndicatorAnim();
+            invalidate();
+            return;
+        }
+
+        if (!wasActive) {
+            mBatteryDisplayPct = 0f;
+        }
+
+        animateBatteryLevelTo(batteryPct);
+        invalidate();
+    }
+
     public void setChargingPulseEnabled(boolean enabled) {
         mChargingPulseEnabled = enabled;
         sCfgChargingPulse = enabled;
@@ -369,6 +393,35 @@ public final class CutoutRingView extends View {
             mChargingLevelAnim = null;
         }
         mChargingDisplayPct = 0f;
+    }
+
+    private void animateBatteryLevelTo(int targetPct) {
+        if (mBatteryLevelAnim != null) mBatteryLevelAnim.cancel();
+        float start = mBatteryDisplayPct;
+        float end   = Math.max(0f, Math.min(100f, targetPct));
+        if (Math.abs(end - start) < 0.5f) {
+            mBatteryDisplayPct = end;
+            invalidate();
+            return;
+        }
+        long dur = (long)(Math.abs(end - start) * 12f);
+        dur = Math.max(200L, Math.min(dur, 1200L));
+        mBatteryLevelAnim = ValueAnimator.ofFloat(start, end);
+        mBatteryLevelAnim.setDuration(dur);
+        mBatteryLevelAnim.setInterpolator(new android.view.animation.DecelerateInterpolator());
+        mBatteryLevelAnim.addUpdateListener(a -> {
+            mBatteryDisplayPct = (float) a.getAnimatedValue();
+            invalidate();
+        });
+        mBatteryLevelAnim.start();
+    }
+
+    private void stopBatteryIndicatorAnim() {
+        if (mBatteryLevelAnim != null) {
+            mBatteryLevelAnim.cancel();
+            mBatteryLevelAnim = null;
+        }
+        mBatteryDisplayPct = 0f;
     }
 
     public void setProgress(int value) {
@@ -497,10 +550,17 @@ public final class CutoutRingView extends View {
         boolean showCharging = mIsCharging && sCfgChargingRing && !mAnim.isFinishAnimating
                 && !mAnim.isErrorAnimating && effectivePct == 0 && mProgress == 0;
 
-        if (!shouldDraw && !showCharging) return;
+        boolean showBatteryIndicator = mIsBatteryIndicatorActive && !mIsCharging
+                && !mAnim.isFinishAnimating && !mAnim.isErrorAnimating
+                && effectivePct == 0 && mProgress == 0;
 
-        if (showCharging) {
+        if (!shouldDraw && !showCharging && !showBatteryIndicator) return;
+        if (shouldDraw) { /* fall through to download drawing below */ }
+        else if (showCharging) {
             drawChargingRing(canvas);
+            return;
+        } else if (showBatteryIndicator) {
+            drawBatteryIndicatorRing(canvas);
             return;
         }
 
@@ -588,6 +648,24 @@ public final class CutoutRingView extends View {
         } else {
             drawSymmetricArc(canvas, mChargingDisplayPct / 100f, mChargingPaint);
         }
+    }
+
+    private void drawBatteryIndicatorRing(Canvas canvas) {
+        computeArcBounds();
+        mRenderer.updateBounds(mArcBounds);
+
+        int baseAlpha = sCfgOpacity * 255 / 100;
+
+        if (sCfgBgRing) {
+            mBgPaint.setAlpha(sCfgBgOpacity * 255 / 100);
+            mRenderer.drawFullRing(canvas, mBgPaint);
+        }
+
+        int levelColor = chargingColor(mBatteryDisplayPct);
+        applyStroke(mChargingPaint, levelColor, sCfgStrokeDp * mDp, baseAlpha);
+
+        float fraction = mBatteryDisplayPct / 100f;
+        mRenderer.drawProgress(canvas, fraction, true /* clockwise */, mChargingPaint);
     }
 
     private void drawSymmetricArc(Canvas canvas, float fraction, Paint paint) {
