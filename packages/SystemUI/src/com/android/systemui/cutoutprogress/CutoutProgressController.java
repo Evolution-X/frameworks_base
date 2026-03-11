@@ -51,25 +51,41 @@ public class CutoutProgressController implements CoreStartable {
     private boolean mOverlayAttached = false;
     private boolean mListenerRegistered = false;
     private boolean mBatteryReceiverRegistered = false;
+    private boolean mIsFullyCharged = false;
 
     private final BroadcastReceiver mBatteryReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (!mSettings.isEnabled() || !mSettings.isChargingRingEnabled()) {
-                mMainHandler.post(() -> mRingView.setChargingState(false, 0));
-                return;
-            }
             int status = intent.getIntExtra(BatteryManager.EXTRA_STATUS,
                     BatteryManager.BATTERY_STATUS_UNKNOWN);
+            int level  = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, 0);
+            int scale  = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100);
+            int pct    = scale > 0 ? level * 100 / scale : 0;
+
             boolean charging = status == BatteryManager.BATTERY_STATUS_CHARGING
-                    || status == BatteryManager.BATTERY_STATUS_FULL;
-            int level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, 0);
-            int scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100);
-            int pct = scale > 0 ? level * 100 / scale : 0;
-            boolean pulseEnabled = mSettings.isChargingPulseEnabled();
+                            || status == BatteryManager.BATTERY_STATUS_FULL;
+
+            if (!mSettings.isEnabled()) {
+                mMainHandler.post(() -> {
+                    mRingView.setChargingState(false, 0);
+                    mRingView.setBatteryIndicatorState(false, 0);
+                });
+                return;
+            }
+
+            boolean chargingRingOn   = mSettings.isChargingRingEnabled();
+            boolean batteryIndOn     = mSettings.isBatteryIndicatorEnabled();
+            boolean pulseEnabled     = mSettings.isChargingPulseEnabled();
+
             mMainHandler.post(() -> {
                 mRingView.setChargingPulseEnabled(pulseEnabled);
-                mRingView.setChargingState(charging, pct);
+                if (charging) {
+                    mRingView.setBatteryIndicatorState(false, 0);
+                    mRingView.setChargingState(chargingRingOn, pct);
+                } else {
+                    mRingView.setChargingState(false, 0);
+                    mRingView.setBatteryIndicatorState(batteryIndOn, pct);
+                }
             });
         }
     };
@@ -188,7 +204,10 @@ public class CutoutProgressController implements CoreStartable {
         if (!mBatteryReceiverRegistered) return;
         mContext.unregisterReceiver(mBatteryReceiver);
         mBatteryReceiverRegistered = false;
-        mMainHandler.post(() -> mRingView.setChargingState(false, 0));
+        mMainHandler.post(() -> {
+            mRingView.setChargingState(false, 0);
+            mRingView.setBatteryIndicatorState(false, 0);
+        });
     }
 
     private void bindTrackerToView() {
