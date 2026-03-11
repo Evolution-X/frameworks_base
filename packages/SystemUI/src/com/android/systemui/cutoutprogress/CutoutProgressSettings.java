@@ -115,6 +115,8 @@ public final class CutoutProgressSettings {
 
     public static final String KEY_CHARGING_PULSE_ENABLED = "cutout_progress_charging_pulse_enabled";
 
+    public static final String KEY_BATTERY_INDICATOR_ENABLED = "cutout_progress_battery_indicator_enabled";
+
     public static final int RING_COLOR_MODE_ACCENT = 0;
     public static final int RING_COLOR_MODE_RAINBOW = 1;
     public static final int RING_COLOR_MODE_CUSTOM = 2;
@@ -156,6 +158,7 @@ public final class CutoutProgressSettings {
     private static final int DEF_EASING = 0;
     private static final boolean DEF_CHARGING_RING_ENABLED = true;
     private static final boolean DEF_CHARGING_PULSE_ENABLED = true;
+    private static final boolean DEF_BATTERY_INDICATOR_ENABLED = false;
 
     static final String[] POSITION_NAMES = {
             "right", "left", "top", "bottom",
@@ -390,6 +393,14 @@ public final class CutoutProgressSettings {
 
     public boolean isChargingPulseEnabled() {
         return getInt(KEY_CHARGING_PULSE_ENABLED, DEF_CHARGING_PULSE_ENABLED ? 1 : 0) != 0;
+    }
+
+    public boolean isBatteryIndicatorEnabled() {
+        return getInt(KEY_BATTERY_INDICATOR_ENABLED, DEF_BATTERY_INDICATOR_ENABLED ? 1 : 0) != 0;
+    }
+
+    public void setBatteryIndicatorEnabled(boolean value) {
+        putInt(KEY_BATTERY_INDICATOR_ENABLED, value ? 1 : 0);
     }
 
     public void setEnabled(boolean value) {
