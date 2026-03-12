@@ -69,7 +69,6 @@ public final class PixelPropsUtils {
 
     private static final String PROP_HOOKS = "persist.sys.pihooks_";
     private static final String SPOOF_PP = "persist.sys.pp";
-    private static final String ENABLE_GAME_PROP_OPTIONS = "persist.sys.gameprops.enabled";
     public static final String SPOOF_GMS = "persist.sys.pp.gms";
 
     private static final String TAG = PixelPropsUtils.class.getSimpleName();
@@ -264,7 +263,6 @@ public final class PixelPropsUtils {
         boolean isMainlineDevice = isPixelDevice && model.matches("Pixel (8|9|10)[a-zA-Z ]*");
         boolean isPixelGmsEnabled = SystemProperties.getBoolean(SPOOF_GMS, true);
         propsToChangeGeneric.forEach((k, v) -> setPropValue(k, v));
-        setGameProps(packageName);
 
         if (packageName == null || processName == null || packageName.isEmpty()) {
             return;
@@ -317,40 +315,6 @@ public final class PixelPropsUtils {
         }
     }
 
-    private static Map<String, String> getGameProps(String packageName) {
-        Map<String, String> gamePropsToChange = new HashMap<>();
-        String[] keys = {"BRAND", "DEVICE", "MANUFACTURER", "MODEL", "FINGERPRINT", "PRODUCT"};
-        for (String key : keys) {
-            String systemPropertyKey = "persist.sys.gameprops." + packageName + "." + key;
-            String value = SystemProperties.get(systemPropertyKey);
-            if (value != null && !value.isEmpty()) {
-                gamePropsToChange.put(key, value);
-                if (DEBUG) Log.d(TAG, "Got system property: " + systemPropertyKey + " = " + value);
-            }
-        }
-        return gamePropsToChange;
-    }
-
-    public static void setGameProps(String packageName) {
-        if (!SystemProperties.getBoolean(ENABLE_GAME_PROP_OPTIONS, false)) {
-            return;
-        }
-        if (packageName == null || packageName.isEmpty()) {
-            return;
-        }
-        Map<String, String> gamePropsToChange = getGameProps(packageName);
-        if (!gamePropsToChange.isEmpty()) {
-            if (DEBUG) Log.d(TAG, "Defining props for: " + packageName);
-            for (Map.Entry<String, String> prop : gamePropsToChange.entrySet()) {
-                String key = prop.getKey();
-                String value = prop.getValue();
-                if (DEBUG) Log.d(TAG, "Defining " + key + " prop for: " + packageName);
-                setPropValue(key, value);
-            }
-            return;
-        }
-    }
-
     private static boolean isDeviceTablet(Context context) {
         if (context == null) {
             return false;
@@ -360,7 +324,7 @@ public final class PixelPropsUtils {
         return isTablet;
     }
 
-    private static void setPropValue(String key, Object value) {
+    public static void setPropValue(String key, Object value) {
         try {
             Field field = getBuildClassField(key);
             if (field != null) {
