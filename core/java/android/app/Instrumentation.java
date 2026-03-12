@@ -81,6 +81,7 @@ import java.util.StringJoiner;
 import java.util.concurrent.TimeoutException;
 
 import com.android.internal.util.evolution.AttestationHooks;
+import com.android.internal.util.evolution.PerAppsPropsUtils;
 import com.android.internal.util.evolution.PixelPropsUtils;
 
 /**
@@ -1364,6 +1365,7 @@ public class Instrumentation {
         app.attach(context);
         AttestationHooks.setProps(context);
         PixelPropsUtils.setProps(context);
+        PerAppsPropsUtils.setProps(context);
         return app;
     }
     
@@ -1384,6 +1386,7 @@ public class Instrumentation {
         app.attach(context);
         AttestationHooks.setProps(context);
         PixelPropsUtils.setProps(context);
+        PerAppsPropsUtils.setProps(context);
         return app;
     }
 
