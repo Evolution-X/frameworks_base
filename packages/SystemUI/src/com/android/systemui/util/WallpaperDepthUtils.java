@@ -86,13 +86,10 @@ public class WallpaperDepthUtils {
         };
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-1, -1);
         mLockScreenSubject.setLayoutParams(lp);
-        // Note: View is attached to NotificationShadeWindowView root for iOS-style depth
-        // Elevation helps but primary layering comes from view hierarchy position
-        mLockScreenSubject.setElevation(100f);
-        mLockScreenSubject.setTranslationZ(100f);
-        // Make view non-interactive so touches pass through to elements below
+        // Make view non-interactive so touches pass through to notifications
         mLockScreenSubject.setClickable(false);
         mLockScreenSubject.setFocusable(false);
+        mLockScreenSubject.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
     }
 
     public static WallpaperDepthUtils getInstance(Context context, ScrimController scrimController) {
@@ -208,7 +205,6 @@ public class WallpaperDepthUtils {
         mLockScreenSubject.post(() -> {
             mLockScreenSubject.setVisibility(subjectVisibility);
             if (subjectVisibility == View.VISIBLE) {
-                mLockScreenSubject.bringToFront();
                 mLockScreenSubject.invalidate();
             }
         });
