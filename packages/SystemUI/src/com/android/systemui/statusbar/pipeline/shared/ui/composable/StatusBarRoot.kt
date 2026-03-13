@@ -31,10 +31,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -96,6 +98,7 @@ import com.android.systemui.statusbar.notification.icon.ui.viewbinder.Notificati
 import com.android.systemui.statusbar.phone.NotificationIconContainer
 import com.android.systemui.statusbar.phone.PhoneStatusBarView
 import com.android.systemui.statusbar.phone.StatusBarLocation
+import com.android.systemui.shade.data.repository.ShadeRepository
 import com.android.systemui.statusbar.phone.StatusIconContainer
 import com.android.systemui.statusbar.phone.domain.interactor.IsAreaDark
 import com.android.systemui.statusbar.phone.ongoingcall.OngoingCallController
@@ -151,6 +154,7 @@ constructor(
     private val notificationListener: NotificationListener,
     private val keyguardStateController: KeyguardStateController,
     private val headsUpManager: HeadsUpManager,
+    private val shadeRepository: ShadeRepository,
     private val vibrator: VibratorHelper,
 ) {
     fun create(root: ViewGroup, andThen: (ViewGroup) -> Unit): ComposeView {
@@ -180,6 +184,7 @@ constructor(
                         notificationListener = notificationListener,
                         keyguardStateController = keyguardStateController,
                         headsUpManager = headsUpManager,
+                        shadeRepository = shadeRepository,
                         vibrator = vibrator,
                         modifier = Modifier.sysUiResTagContainer(),
                     )
@@ -223,6 +228,7 @@ fun StatusBarRoot(
     notificationListener: NotificationListener,
     keyguardStateController: KeyguardStateController,
     headsUpManager: HeadsUpManager,
+    shadeRepository: ShadeRepository,
     vibrator: VibratorHelper,
     modifier: Modifier = Modifier,
 ) {
@@ -287,6 +293,7 @@ fun StatusBarRoot(
                         keyguardStateController = keyguardStateController,
                         headsUpManager = headsUpManager,
                         vibrator = vibrator,
+                        shadeRepository = shadeRepository,
                         context = context,
                     )
                 }
@@ -431,6 +438,7 @@ private fun addStartSideComposable(
     notificationListener: NotificationListener,
     keyguardStateController: KeyguardStateController,
     headsUpManager: HeadsUpManager,
+    shadeRepository: ShadeRepository,
     vibrator: VibratorHelper,
     context: Context,
 ) {
@@ -513,6 +521,8 @@ private fun addStartSideComposable(
                         )
                     }
 
+                val shadeExpansion by shadeRepository.legacyShadeExpansion.collectAsState()
+
                 val progressController = remember {
                     com.android.systemui.statusbar.OnGoingActionProgressComposeController(
                         context,
@@ -521,6 +531,10 @@ private fun addStartSideComposable(
                         headsUpManager,
                         vibrator
                     )
+                }
+
+                LaunchedEffect(shadeExpansion) {
+                    progressController.setPanelExpanded(shadeExpansion > 0f)
                 }
 
                 val chipsVisibilityModel = statusBarViewModel.ongoingActivityChips
