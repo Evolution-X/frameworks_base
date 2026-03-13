@@ -890,4 +890,5 @@ class OnGoingActionProgressComposeController(
     fun onLongPress() = controller.onLongPress()
     fun onSeek(fraction: Float) = controller.onSeek(fraction)
     fun setSystemChipVisible(visible: Boolean) = controller.setSystemChipVisible(visible)
+    fun setPanelExpanded(expanded: Boolean) = controller.setPanelExpanded(expanded)
 }
