@@ -1219,6 +1219,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
 
     private void attachCustomOverlays() {
         ViewGroup overlay = getScrimOverlayContainer();
+        ViewGroup root = (ViewGroup) getNotificationShadeWindowView();
 
         detachFromParent(mMediaViewController.getMediaArtScrim());
         detachFromParent(mPulseViewController.getPulseView());
@@ -1226,7 +1227,10 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
         detachFromParent(mNowPlayingViewController.getNowPlayingView());
         detachFromParent(mChargingAnimationViewController.getChargingView());
 
-        overlay.addView(mMediaViewController.getMediaArtScrim(),
+        // Place Media Art in the true background (behind the lock screen scrim and clock)
+        View scrimBehind = root.findViewById(R.id.scrim_behind);
+        int scrimBehindIndex = Math.max(root.indexOfChild(scrimBehind), 0);
+        root.addView(mMediaViewController.getMediaArtScrim(), scrimBehindIndex,
                 new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
@@ -1447,15 +1451,17 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
             mScrimController.attachViews(scrimBehind, notificationsScrim, scrimInFront);
         }
 
-        // Setup depth wallpaper view - attach directly to NotificationShadeWindowView root
-        // This is CRITICAL for iOS-style depth effect: subject must be in root container,
+        // Setup depth wallpaper view - insert between clock and notifications
+        // Z-order: wallpaper -> clock -> depth image -> notifications
         ViewGroup root = getNotificationShadeWindowView();
         View depthWallpaperView = mWallpaperDepthUtils.getDepthWallpaperView();
         if (depthWallpaperView.getParent() == null) {
             root.setClipChildren(false);
             root.setClipToPadding(false);
-            root.addView(depthWallpaperView);
-            depthWallpaperView.bringToFront();
+            // Insert after KeyguardRootView (clock) but before SharedNotificationContainer
+            View keyguardRootView = root.findViewById(R.id.keyguard_root_view);
+            int insertIndex = root.indexOfChild(keyguardRootView) + 1;
+            root.addView(depthWallpaperView, insertIndex);
         }
         ScrimUtils.get(mContext).setWallpaperDepthUtils(mWallpaperDepthUtils);
         mWallpaperDepthUtils.updateDepthWallpaper();
