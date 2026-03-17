@@ -424,6 +424,10 @@
     <!-- Kill button in notification guts -->
     <uses-permission android:name="android.permission.FORCE_STOP_PACKAGES" />
 
+    <!-- Permission needed for Idle Manager -->
+    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES"/>
+    <uses-permission android:name="android.permission.CHANGE_APP_IDLE_STATE" />
+
     <protected-broadcast android:name="com.android.settingslib.action.REGISTER_SLICE_RECEIVER" />
     <protected-broadcast android:name="com.android.settingslib.action.UNREGISTER_SLICE_RECEIVER" />
     <protected-broadcast android:name="com.android.settings.flashlight.action.FLASHLIGHT_CHANGED" />
