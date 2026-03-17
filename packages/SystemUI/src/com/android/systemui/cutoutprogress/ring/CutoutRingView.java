@@ -85,6 +85,7 @@ public final class CutoutRingView extends View {
     private SweepGradient mRainbowShader = null;
     private float mRainbowCx = Float.NaN;
     private float mRainbowCy = Float.NaN;
+    private final Paint mMusicPaint = makePaint();
 
     private int mProgress = 0;
     private int mDownloadCount = 0;
@@ -106,6 +107,9 @@ public final class CutoutRingView extends View {
     private int mBatteryIndicatorPct = 0;
     private float mBatteryDisplayPct = 0f;
     private ValueAnimator mBatteryLevelAnim = null;
+
+    private boolean mMusicPlaying  = false;
+    private float mMusicFraction = 0f;
 
     private int sCfgRingColorMode;
     private int sCfgRingColor;
@@ -147,10 +151,15 @@ public final class CutoutRingView extends View {
     private float sCfgFnameOffXDp;
     private float sCfgFnameOffYDp;
     private int sCfgFnameMaxChars;
-    private String  sCfgFnameTruncate;
-    private String  sCfgEasing;
+    private String sCfgFnameTruncate;
+    private String sCfgEasing;
     private boolean sCfgChargingRing;
     private boolean sCfgChargingPulse;
+
+    private int sCfgMusicOpacity = 85;
+    private float sCfgMusicStrokeDp = 2f;
+    private boolean sCfgMusicClockwise = true;
+    private int sCfgMusicColor = 0xFF9C27B0;
 
     public CutoutRingView(Context ctx) {
         super(ctx);
@@ -226,6 +235,41 @@ public final class CutoutRingView extends View {
 
         refreshPaints();
         recalcScaledPath();
+        applyMusicSettings(
+                s.getMusicOpacity(),
+                s.getMusicStrokeWidthDp(),
+                s.isMusicClockwise(),
+                sCfgMusicColor);
+        invalidate();
+    }
+
+    public void applyMusicSettings(int opacityPct, float strokeDp,
+                                   boolean clockwise, int color) {
+        sCfgMusicOpacity = opacityPct;
+        sCfgMusicStrokeDp = strokeDp;
+        sCfgMusicClockwise = clockwise;
+        sCfgMusicColor = color;
+        refreshMusicPaint();
+        invalidate();
+    }
+
+    public void setMusicRingColor(int argb) {
+        if (sCfgMusicColor == argb) return;
+        sCfgMusicColor = argb;
+        refreshMusicPaint();
+        if (mMusicPlaying) invalidate();
+    }
+
+    public void setMusicProgress(float fraction) {
+        fraction = Math.max(0f, Math.min(1f, fraction));
+        if (mMusicFraction == fraction) return;
+        mMusicFraction = fraction;
+        if (mMusicPlaying) invalidate();
+    }
+
+    public void setMusicPlaying(boolean playing) {
+        if (mMusicPlaying == playing) return;
+        mMusicPlaying = playing;
         invalidate();
     }
 
@@ -540,13 +584,13 @@ public final class CutoutRingView extends View {
         boolean burnedOut = effectivePct > 0 && effectivePct < 100
                 && mLastProgressMs > 0
                 && System.currentTimeMillis() - mLastProgressMs >= BURN_IN_HIDE_MS;
-
+ 
         boolean shouldDraw = mAnim.isFinishAnimating
                 || mAnim.isGeometryPreviewActive()
                 || mAnim.isDynamicPreviewActive()
                 || (effectivePct > 0 && effectivePct < 100 && !burnedOut)
                 || mPendingFinish != null;
-
+ 
         boolean showCharging = mIsCharging && sCfgChargingRing && !mAnim.isFinishAnimating
                 && !mAnim.isErrorAnimating && effectivePct == 0 && mProgress == 0;
 
@@ -554,13 +598,19 @@ public final class CutoutRingView extends View {
                 && !mAnim.isFinishAnimating && !mAnim.isErrorAnimating
                 && effectivePct == 0 && mProgress == 0;
 
-        if (!shouldDraw && !showCharging && !showBatteryIndicator) return;
-        if (shouldDraw) { /* fall through to download drawing below */ }
-        else if (showCharging) {
-            drawChargingRing(canvas);
-            return;
-        } else if (showBatteryIndicator) {
-            drawBatteryIndicatorRing(canvas);
+        boolean showMusicRing = mMusicPlaying && !shouldDraw
+                && !showCharging && !showBatteryIndicator;
+
+        if (!shouldDraw && !showCharging && !showBatteryIndicator && !showMusicRing) return;
+
+        if (!shouldDraw) {
+            if (showCharging) {
+                drawChargingRing(canvas);
+            } else if (showBatteryIndicator) {
+                drawBatteryIndicatorRing(canvas);
+            } else if (showMusicRing) {
+                drawMusicRing(canvas);
+            }
             return;
         }
 
@@ -626,6 +676,19 @@ public final class CutoutRingView extends View {
         }
 
         if (mAnim.displayScale != 1f) canvas.restore();
+    }
+
+    private void drawMusicRing(Canvas canvas) {
+        computeArcBounds();
+        mRenderer.updateBounds(mArcBounds);
+
+        if (sCfgBgRing) {
+            mBgPaint.setAlpha(sCfgBgOpacity * 255 / 100);
+            mRenderer.drawFullRing(canvas, mBgPaint);
+        }
+
+        mMusicPaint.setAlpha(sCfgMusicOpacity * 255 / 100);
+        mRenderer.drawProgress(canvas, mMusicFraction, sCfgMusicClockwise, mMusicPaint);
     }
 
     private void drawChargingRing(Canvas canvas) {
@@ -809,6 +872,7 @@ public final class CutoutRingView extends View {
         sCfgChargingRing = true;
         sCfgChargingPulse = true;
         refreshPaints();
+        refreshMusicPaint();
     }
 
     private void refreshPaints() {
@@ -838,6 +902,13 @@ public final class CutoutRingView extends View {
         mFilenamePaint.setTextAlign(Paint.Align.LEFT);
 
         mBadge.applyConfig(baseColor, sCfgBadgeSp, mDp);
+    }
+
+    private void refreshMusicPaint() {
+        applyStroke(mMusicPaint,
+                sCfgMusicColor,
+                sCfgMusicStrokeDp * mDp,
+                sCfgMusicOpacity * 255 / 100);
     }
 
     private static void applyStroke(Paint p, int color, float width, int alpha) {
