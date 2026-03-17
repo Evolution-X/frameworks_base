@@ -117,6 +117,20 @@ public final class CutoutProgressSettings {
 
     public static final String KEY_BATTERY_INDICATOR_ENABLED = "cutout_progress_battery_indicator_enabled";
 
+    public static final String KEY_MUSIC_RING_ENABLED = "cutout_progress_music_enabled";
+
+    public static final String KEY_MUSIC_COLOR_MODE = "cutout_progress_music_color_mode";
+
+    public static final String KEY_MUSIC_CUSTOM_COLOR = "cutout_progress_music_custom_color";
+
+    public static final String KEY_MUSIC_OPACITY = "cutout_progress_music_opacity";
+
+    public static final String KEY_MUSIC_STROKE_WIDTH_DP10 = "cutout_progress_music_stroke_dp10";
+
+    public static final String KEY_MUSIC_SHOW_ON_AOD = "cutout_progress_music_aod";
+
+    public static final String KEY_MUSIC_CLOCKWISE = "cutout_progress_music_clockwise";
+
     public static final int RING_COLOR_MODE_ACCENT = 0;
     public static final int RING_COLOR_MODE_RAINBOW = 1;
     public static final int RING_COLOR_MODE_CUSTOM = 2;
@@ -159,6 +173,17 @@ public final class CutoutProgressSettings {
     private static final boolean DEF_CHARGING_RING_ENABLED = true;
     private static final boolean DEF_CHARGING_PULSE_ENABLED = true;
     private static final boolean DEF_BATTERY_INDICATOR_ENABLED = false;
+    public static final int MUSIC_COLOR_MODE_ALBUM_ICON = 0;
+    public static final int MUSIC_COLOR_MODE_ACCENT = 1;
+    public static final int MUSIC_COLOR_MODE_ALBUM_ART = 2;
+    public static final int MUSIC_COLOR_MODE_CUSTOM = 3;
+    private static final boolean DEF_MUSIC_RING_ENABLED = false;
+    private static final int DEF_MUSIC_COLOR_MODE = MusicRingColorManager.MODE_ALBUM_ICON;
+    private static final int DEF_MUSIC_CUSTOM_COLOR = 0xFF9C27B0;
+    private static final int DEF_MUSIC_OPACITY = 85;
+    private static final float DEF_MUSIC_STROKE_DP = 2.0f;
+    private static final boolean DEF_MUSIC_SHOW_ON_AOD = false;
+    private static final boolean DEF_MUSIC_CLOCKWISE = true;
 
     static final String[] POSITION_NAMES = {
             "right", "left", "top", "bottom",
@@ -191,8 +216,6 @@ public final class CutoutProgressSettings {
                 if (mCallback != null) mCallback.run();
             }
         };
-        Uri base = Settings.Secure.getUriFor("cutout_progress_enabled").buildUpon()
-                .path("").build();
         mCr.registerContentObserver(
                 Settings.Secure.CONTENT_URI, true, mObserver);
     }
@@ -399,6 +422,35 @@ public final class CutoutProgressSettings {
         return getInt(KEY_BATTERY_INDICATOR_ENABLED, DEF_BATTERY_INDICATOR_ENABLED ? 1 : 0) != 0;
     }
 
+    public boolean isMusicRingEnabled() {
+        return getInt(KEY_MUSIC_RING_ENABLED, DEF_MUSIC_RING_ENABLED ? 1 : 0) != 0;
+    }
+
+    public int getMusicColorMode() {
+        return clamp(getInt(KEY_MUSIC_COLOR_MODE, DEF_MUSIC_COLOR_MODE),
+                MUSIC_COLOR_MODE_ALBUM_ICON, MUSIC_COLOR_MODE_CUSTOM);
+    }
+
+    public int getMusicCustomColor() {
+        return getInt(KEY_MUSIC_CUSTOM_COLOR, DEF_MUSIC_CUSTOM_COLOR);
+    }
+
+    public int getMusicOpacity() {
+        return clamp(getInt(KEY_MUSIC_OPACITY, DEF_MUSIC_OPACITY), 0, 100);
+    }
+
+    public float getMusicStrokeWidthDp() {
+        return getInt(KEY_MUSIC_STROKE_WIDTH_DP10, (int)(DEF_MUSIC_STROKE_DP * 10)) / 10f;
+    }
+
+    public boolean isMusicShowOnAod() {
+        return getInt(KEY_MUSIC_SHOW_ON_AOD, DEF_MUSIC_SHOW_ON_AOD ? 1 : 0) != 0;
+    }
+
+    public boolean isMusicClockwise() {
+        return getInt(KEY_MUSIC_CLOCKWISE, DEF_MUSIC_CLOCKWISE ? 1 : 0) != 0;
+    }
+
     public void setBatteryIndicatorEnabled(boolean value) {
         putInt(KEY_BATTERY_INDICATOR_ENABLED, value ? 1 : 0);
     }
@@ -425,6 +477,27 @@ public final class CutoutProgressSettings {
 
     public void setFinishStyle(int styleIndex) {
         putInt(KEY_FINISH_STYLE, clamp(styleIndex, 0, FINISH_STYLE_NAMES.length - 1));
+    }
+
+    public void setMusicRingEnabled(boolean v) {
+        putInt(KEY_MUSIC_RING_ENABLED, v ? 1 : 0);
+    }
+
+    public void setMusicColorMode(int mode) {
+        putInt(KEY_MUSIC_COLOR_MODE,
+               clamp(mode, MUSIC_COLOR_MODE_ALBUM_ICON, MUSIC_COLOR_MODE_CUSTOM));
+    }
+
+    public void setMusicCustomColor(int argb) {
+        putInt(KEY_MUSIC_CUSTOM_COLOR, argb);
+    }
+
+    public void setMusicOpacity(int pct) {
+        putInt(KEY_MUSIC_OPACITY, clamp(pct, 0, 100));
+    }
+
+    public void setMusicClockwise(boolean cw) {
+        putInt(KEY_MUSIC_CLOCKWISE, cw ? 1 : 0);
     }
 
     private int getInt(String key, int def) {
