@@ -48,6 +48,8 @@ public class CutoutProgressController implements CoreStartable {
     private final DownloadStateTracker mTracker;
     private CutoutRingView mRingView;
 
+    private MusicRingController mMusicController;
+
     private boolean mOverlayAttached = false;
     private boolean mListenerRegistered = false;
     private boolean mBatteryReceiverRegistered = false;
@@ -58,9 +60,9 @@ public class CutoutProgressController implements CoreStartable {
         public void onReceive(Context context, Intent intent) {
             int status = intent.getIntExtra(BatteryManager.EXTRA_STATUS,
                     BatteryManager.BATTERY_STATUS_UNKNOWN);
-            int level  = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, 0);
-            int scale  = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100);
-            int pct    = scale > 0 ? level * 100 / scale : 0;
+            int level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, 0);
+            int scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100);
+            int pct = scale > 0 ? level * 100 / scale : 0;
 
             boolean charging = status == BatteryManager.BATTERY_STATUS_CHARGING
                             || status == BatteryManager.BATTERY_STATUS_FULL;
@@ -73,9 +75,9 @@ public class CutoutProgressController implements CoreStartable {
                 return;
             }
 
-            boolean chargingRingOn   = mSettings.isChargingRingEnabled();
-            boolean batteryIndOn     = mSettings.isBatteryIndicatorEnabled();
-            boolean pulseEnabled     = mSettings.isChargingPulseEnabled();
+            boolean chargingRingOn = mSettings.isChargingRingEnabled();
+            boolean batteryIndOn = mSettings.isBatteryIndicatorEnabled();
+            boolean pulseEnabled = mSettings.isChargingPulseEnabled();
 
             mMainHandler.post(() -> {
                 mRingView.setChargingPulseEnabled(pulseEnabled);
@@ -108,12 +110,20 @@ public class CutoutProgressController implements CoreStartable {
         mRingView = new CutoutRingView(mContext);
         mRingView.applySettings(mSettings);
         bindTrackerToView();
+
+        mMusicController = new MusicRingController(mContext, mMainHandler, mRingView);
+        mMusicController.applySettings(mSettings);
+
         mSettings.observe(this::onSettingsChanged);
         onSettingsChanged();
     }
 
     private void onSettingsChanged() {
         mRingView.applySettings(mSettings);
+
+        if (mMusicController != null) {
+            mMusicController.applySettings(mSettings);
+        }
 
         if (mSettings.isEnabled()) {
             enableFeature();
@@ -126,9 +136,17 @@ public class CutoutProgressController implements CoreStartable {
         attachOverlay();
         registerPipelineListener();
         registerBatteryReceiver();
+
+        if (mSettings.isMusicRingEnabled() && mMusicController != null) {
+            mMusicController.start();
+        }
     }
 
     private void disableFeature() {
+        if (mMusicController != null) {
+            mMusicController.stop();
+        }
+
         mTracker.reset();
         detachOverlay();
         unregisterBatteryReceiver();
