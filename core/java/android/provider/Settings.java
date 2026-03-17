@@ -14478,6 +14478,27 @@ public final class Settings {
         public static final String PER_APPS_DEVICE_SPOOF_CACHE = "per_apps_device_spoof_cache";
 
         /**
+         * Idle Manager
+         * @hide
+         */
+        public static final String IDLE_MANAGER = "idle_manager";
+
+        /**
+         * @hide
+         */
+        public static final String IDLE_MANAGER_APPS = "idle_manager_apps";
+
+        /**
+         * @hide
+         */
+        public static final String IDLE_MANAGER_TIMEOUT = "idle_manager_timeout";
+
+        /**
+         * @hide
+         */
+        public static final String IDLE_MANAGER_KILL_STATS = "idle_manager_kill_stats";
+
+        /**
          * Keys we no longer back up under the current schema, but want to continue to
          * process when restoring historical backup datasets.
          *
