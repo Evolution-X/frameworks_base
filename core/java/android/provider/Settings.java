@@ -14716,6 +14716,12 @@ public final class Settings {
         public static final String LOCK_SCREEN_CUSTOM_CLOCK_MARGIN_TOP = "lock_screen_custom_clock_margin_top";
 
         /**
+         * Custom clock size
+         * @hide
+         */
+        public static final String LOCK_SCREEN_CUSTOM_CLOCK_SIZE = "lock_screen_custom_clock_size_scale";
+
+        /**
          * Whether to use PixelProps spoof for google apps
          * @hide
          */
