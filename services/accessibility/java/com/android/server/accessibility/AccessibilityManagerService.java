@@ -237,6 +237,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import com.android.internal.util.evolution.HideAppListUtils;
+
 /**
  * This class is instantiated by the system as a system level service and can be
  * accessed only by the system. The task of this service is to be a centralized
@@ -1566,6 +1568,11 @@ public class AccessibilityManagerService extends IAccessibilityManager.Stub
     @RequiresNoPermission
     public List<AccessibilityServiceInfo> getEnabledAccessibilityServiceList(int feedbackType,
             int userId) {
+
+        String[] pkgs = mContext.getPackageManager().getPackagesForUid(Binder.getCallingUid());
+        if (HideAppListUtils.shouldHideAppList(mContext, pkgs[0])) {
+            return Collections.emptyList();
+        }
         if (mTraceManager.isA11yTracingEnabledForTypes(FLAGS_ACCESSIBILITY_MANAGER)) {
             mTraceManager.logTrace(LOG_TAG + ".getEnabledAccessibilityServiceList",
                     FLAGS_ACCESSIBILITY_MANAGER,
