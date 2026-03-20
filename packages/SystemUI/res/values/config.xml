@@ -1255,4 +1255,8 @@
     Indicates whether to use the Alerts channel for storage notifications.
     -->
     <bool name="config_storageNotificationsUseAlertsChannel">false</bool>
+
+    <!-- Packages to be hidden from the FGS manager. -->
+    <string-array name="config_hideFgsManagerPackages" translatable="false">
+    </string-array>
 </resources>
