@@ -232,6 +232,10 @@ constructor(
         resources.getStringArray(com.android.internal.R.array.vendor_stoppable_fgs_system_apps)
     }
 
+    private val hiddenPackages by lazy {
+        resources.getStringArray(R.array.config_hideFgsManagerPackages)
+    }
+
     override fun init() {
         synchronized(lock) {
             if (initialized) {
@@ -727,6 +731,11 @@ constructor(
             private set
 
         fun updateUiControl() {
+            if (hiddenPackages.contains(packageName)) {
+                uiControl = UIControl.HIDE_ENTRY
+                uiControlInitialized = true
+                return
+            }
             backgroundRestrictionExemptionReason =
                 activityManager.getBackgroundRestrictionExemptionReason(uid)
             uiControl =
