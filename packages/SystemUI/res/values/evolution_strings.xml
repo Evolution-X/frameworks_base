@@ -195,4 +195,8 @@
     <string name="quick_settings_sleep_mode_label">Sleep Mode</string>
 
     <string name="default_user_name">Evolution X</string>
+
+    <!-- Essential Notifications -->
+    <string name="essential_notifications_title">Essentials</string>
+    <string name="essential_notifications_summary">Important messages and alerts</string>
 </resources>
