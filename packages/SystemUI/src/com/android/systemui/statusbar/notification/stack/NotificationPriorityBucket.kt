@@ -24,6 +24,7 @@ import android.annotation.IntDef
             BUCKET_SOCIAL,
             BUCKET_RECS,
             BUCKET_PROMO,
+            BUCKET_ESSENTIAL,
             BUCKET_SILENT
         ]
 )
@@ -32,6 +33,7 @@ annotation class PriorityBucket {
         fun getAllInOrder(): IntArray =
             intArrayOf(
                 BUCKET_MEDIA_CONTROLS,
+                BUCKET_ESSENTIAL,
                 BUCKET_TOP_ONGOING,
                 BUCKET_HEADS_UP,
                 BUCKET_TOP_UNSEEN,
@@ -61,5 +63,6 @@ const val BUCKET_NEWS = 10
 const val BUCKET_SOCIAL = 11
 const val BUCKET_RECS = 12
 const val BUCKET_PROMO = 13
+const val BUCKET_ESSENTIAL = 14
 const val BUCKET_SILENT = 6
 
