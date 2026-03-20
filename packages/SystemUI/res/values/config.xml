@@ -1186,4 +1186,8 @@
 
     <!-- Indicates whether the tapping to open qs panel is supported -->
     <bool name="config_statusBarTapToExpandShade">false</bool>
+
+    <!-- Packages to be hidden from the FGS manager. -->
+    <string-array name="config_hideFgsManagerPackages" translatable="false">
+    </string-array>
 </resources>
