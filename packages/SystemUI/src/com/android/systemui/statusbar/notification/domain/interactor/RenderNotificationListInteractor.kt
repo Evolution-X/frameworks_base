@@ -33,6 +33,7 @@ import com.android.internal.logging.InstanceId
 import com.android.systemui.dagger.qualifiers.Main
 import com.android.systemui.statusbar.StatusBarIconView
 import com.android.systemui.statusbar.notification.collection.BundleEntry
+import com.android.systemui.statusbar.notification.collection.BundleSpec
 import com.android.systemui.statusbar.notification.collection.GroupEntry
 import com.android.systemui.statusbar.notification.collection.ListEntry
 import com.android.systemui.statusbar.notification.collection.NotificationEntry
@@ -123,6 +124,7 @@ private class ActiveNotificationsStoreBuilder(
                 key = entry.key,
                 icon = Icon.createWithResource(context, entry.bundleRepository.bundleIcon),
                 children = childModels,
+                isEssential = entry.key == BundleSpec.ESSENTIAL.key,
             )
         )
     }
@@ -413,19 +415,22 @@ private fun ActiveNotificationsStore.createOrReuseBundle(
     key: String,
     icon: Icon,
     children: List<ActiveNotificationEntryModel>,
+    isEssential: Boolean,
 ): ActiveBundleModel {
-    return bundles[key]?.takeIf { it.isCurrent(key, icon, children) }
-        ?: ActiveBundleModel(key, icon, children)
+    return bundles[key]?.takeIf { it.isCurrent(key, icon, children, isEssential) }
+        ?: ActiveBundleModel(key, icon, children, isEssential)
 }
 
 private fun ActiveBundleModel.isCurrent(
     key: String,
     icon: Icon,
     children: List<ActiveNotificationEntryModel>,
+    isEssential: Boolean,
 ): Boolean {
     return when {
         key != this.key -> false
         icon.resId != this.icon.resId -> false
+        isEssential != this.isEssential -> false
         !hasSameInstances(children, this.children) -> false
         else -> true
     }

@@ -22,6 +22,7 @@ import android.app.NotificationChannel;
 
 import com.android.systemui.plugins.statusbar.StatusBarStateController;
 import com.android.systemui.statusbar.notification.collection.BundleEntry;
+import com.android.systemui.statusbar.notification.collection.BundleSpec;
 import com.android.systemui.statusbar.notification.collection.ListEntry;
 import com.android.systemui.statusbar.notification.collection.NotifPipeline;
 import com.android.systemui.statusbar.notification.collection.NotificationEntry;
@@ -138,7 +139,8 @@ public class RankingCoordinator implements Coordinator {
         public boolean isInSection(PipelineEntry entry) {
             final ListEntry listEntry = entry.asListEntry();
             if (listEntry == null) {
-                return entry instanceof BundleEntry;
+                return entry instanceof BundleEntry be
+                        && !BundleSpec.ESSENTIAL_KEY.equals(be.getKey());
             }
             if (BundleUtil.Companion.isClassified(listEntry)) {
                 return false;
