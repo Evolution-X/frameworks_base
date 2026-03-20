@@ -132,6 +132,7 @@ constructor(
         showLowPriority: Boolean,
     ): Boolean {
         return when {
+            model.isEssential -> true
             !showLowPriority -> false
             !showAmbient && areAllChildrenSuppressed(model.children) -> false
             else -> true
