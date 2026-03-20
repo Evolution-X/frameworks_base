@@ -36,6 +36,7 @@ data class ActiveBundleModel(
     val key: String,
     val icon: Icon,
     val children: List<ActiveNotificationEntryModel>,
+    val isEssential: Boolean = false,
 ) : ActivePipelineEntryModel()
 
 /**
