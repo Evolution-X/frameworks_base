@@ -127,6 +127,9 @@ constructor(
         mOrderedSections.add(colorizedFgsCoordinator.sectioner) // ForegroundService
         mOrderedSections.add(conversationCoordinator.priorityPeopleSectioner) // Priority People
         mOrderedSections.add(conversationCoordinator.peopleAlertingSectioner) // People Alerting
+        if (NotificationBundleUi.isEnabled) {
+            mOrderedSections.add(bundleCoordinator.essentialSectioner) // Essential
+        }
         mOrderedSections.add(rankingCoordinator.alertingSectioner) // Alerting
         if (NotificationClassificationFlag.isEnabled && !NotificationBundleUi.isEnabled) {
             mOrderedSections.add(bundleCoordinator.newsSectioner)

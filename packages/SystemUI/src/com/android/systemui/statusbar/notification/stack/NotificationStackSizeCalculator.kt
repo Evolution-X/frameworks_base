@@ -598,6 +598,7 @@ constructor(
         fun incrementForBucket(@PriorityBucket bucket: Int?) {
             when (bucket) {
                 BUCKET_MEDIA_CONTROLS,
+                BUCKET_ESSENTIAL,
                 null -> Unit // not counted as notifications at all
                 BUCKET_TOP_ONGOING -> ongoing++
                 BUCKET_HEADS_UP -> important++

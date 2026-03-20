@@ -36,6 +36,8 @@ import com.android.internal.logging.UiEvent;
 import com.android.internal.logging.UiEventLogger;
 import com.android.internal.policy.SystemBarUtils;
 import com.android.systemui.EventLogTags;
+import com.axion.systemui.statusbar.notification.EssentialNotification;
+import com.axion.systemui.statusbar.notification.EssentialNotificationManager;
 import com.android.systemui.dagger.SysUISingleton;
 import com.android.systemui.dagger.qualifiers.Main;
 import com.android.systemui.plugins.statusbar.StatusBarStateController;
@@ -114,6 +116,7 @@ public class HeadsUpManagerImpl
     private final GroupMembershipManager mGroupMembershipManager;
     private final List<OnHeadsUpPhoneListenerChange> mHeadsUpPhoneListeners = new ArrayList<>();
     private final VisualStabilityProvider mVisualStabilityProvider;
+    private final EssentialNotificationManager mEssentialNotificationManager;
 
     private final SystemClock mSystemClock;
     @VisibleForTesting
@@ -205,8 +208,10 @@ public class HeadsUpManagerImpl
             UiEventLogger uiEventLogger,
             JavaAdapter javaAdapter,
             ShadeInteractor shadeInteractor,
-            AvalancheController avalancheController) {
+            AvalancheController avalancheController,
+            EssentialNotificationManager essentialNotificationManager) {
         mLogger = logger;
+        mEssentialNotificationManager = essentialNotificationManager;
         mExecutor = executor;
         mSystemClock = systemClock;
         mContext = context;
@@ -1143,6 +1148,16 @@ public class HeadsUpManagerImpl
 
         if (headsUpEntry == null || headsUpEntry != topEntry) {
             return true;
+        }
+
+        NotificationEntry entry = headsUpEntry.mEntry;
+        if (entry != null) {
+            EssentialNotification essentialNotification = new EssentialNotification(
+                    entry.getSbn(), entry.getRanking(), true);
+            if (!mVisualStabilityProvider.isReorderingAllowed()
+                    && mEssentialNotificationManager.isEssentialNotification(essentialNotification)) {
+                return false;
+            }
         }
 
         if (headsUpEntry.mUserActionMayIndirectlyRemove) {

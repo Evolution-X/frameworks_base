@@ -52,6 +52,7 @@ import com.android.systemui.statusbar.notification.shared.NotificationBundleUi;
 import com.android.systemui.statusbar.notification.shared.NotificationMinimalism;
 import com.android.systemui.statusbar.policy.KeyguardStateController;
 import com.android.systemui.util.concurrency.DelayableExecutor;
+import com.axion.systemui.statusbar.notification.collection.provider.EssentialProvider;
 import com.android.systemui.util.kotlin.BooleanFlowOperators;
 import com.android.systemui.util.kotlin.JavaAdapter;
 
@@ -87,6 +88,7 @@ public class VisualStabilityCoordinator implements Coordinator, Dumpable {
     private final KeyguardTransitionInteractor mKeyguardTransitionInteractor;
     private final KeyguardStateController mKeyguardStateController;
     private final VisualStabilityCoordinatorLogger mLogger;
+    private final EssentialProvider mEssentialProvider;
 
     private boolean mSleepy = true;
     private boolean mFullyDozed;
@@ -133,7 +135,8 @@ public class VisualStabilityCoordinator implements Coordinator, Dumpable {
             ShadeInteractor shadeInteractor,
             KeyguardTransitionInteractor keyguardTransitionInteractor,
             KeyguardStateController keyguardStateController,
-            VisualStabilityCoordinatorLogger logger) {
+            VisualStabilityCoordinatorLogger logger,
+            EssentialProvider essentialProvider) {
         mHeadsUpRepository = headsUpRepository;
         mShadeAnimationInteractor = shadeAnimationInteractor;
         mJavaAdapter = javaAdapter;
@@ -149,6 +152,7 @@ public class VisualStabilityCoordinator implements Coordinator, Dumpable {
         mKeyguardTransitionInteractor = keyguardTransitionInteractor;
         mKeyguardStateController = keyguardStateController;
         mLogger = logger;
+        mEssentialProvider = essentialProvider;
 
         dumpManager.registerDumpable(this);
     }
@@ -362,6 +366,9 @@ public class VisualStabilityCoordinator implements Coordinator, Dumpable {
 
                 @Override
                 public boolean isSectionChangeAllowed(@NonNull NotificationEntry entry) {
+                    if (mEssentialProvider.isEssentialNotification(entry)) {
+                        return true;
+                    }
                     final boolean isSectionChangeAllowedForEntry;
                     if (StabilizeHeadsUpGroup.isEnabled()) {
                         isSectionChangeAllowedForEntry =
