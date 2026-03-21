@@ -1915,6 +1915,7 @@ public class ActivityTaskSupervisor implements RecentTasks.Callbacks {
             }
             mBalController.checkActivityAllowedToClearTask(
                             task, callingUid, callingPid, callerActivityClassName);
+            AxSandboxService.get().removeTask(task, reason);
         } finally {
             task.mInRemoveTask = false;
             mService.mChainTracker.endPartial();
@@ -3012,6 +3013,9 @@ public class ActivityTaskSupervisor implements RecentTasks.Callbacks {
                     // Don't move home forward if task is in multi window mode
                     moveHomeTaskForward = false;
                 }
+
+                AxSandboxService.get().clearUnlockedApp();
+                AxSandboxService.get().lockTopApp(task, "startActivityFromRecents");
 
                 if (moveHomeTaskForward) {
                     // We always want to return to the home activity instead of the recents
