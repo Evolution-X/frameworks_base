@@ -1133,6 +1133,7 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
         mDepthController.setQsPanelExpansion(qsExpansionFraction);
         mStatusBarKeyguardViewManager.setQsExpansion(qsExpansionFraction);
         mShadeRepository.setQsExpansion(qsExpansionFraction);
+        com.android.systemui.util.ScrimUtils.get().setQsExpansion(qsExpansionFraction);
 
         // TODO (b/265193930): remove dependency on NPVC
         float shadeExpandedFraction = mBarState == KEYGUARD
