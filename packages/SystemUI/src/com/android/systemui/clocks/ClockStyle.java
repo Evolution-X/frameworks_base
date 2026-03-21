@@ -376,13 +376,17 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
         if (tc.getTag(R.id.original_text_color) == null) {
             tc.setTag(R.id.original_text_color, tc.getCurrentTextColor());
         }
-        if (mDozing) {
-            tc.setTextColor(mContext.getColor(android.R.color.white));
-            return;
-        }
         int originalColor = (Integer) tc.getTag(R.id.original_text_color);
         int whiteColor    = mContext.getColor(android.R.color.white);
-        if ((originalColor & 0x00FFFFFF) != (whiteColor & 0x00FFFFFF)) return;
+        boolean isWhiteOriginal = (originalColor & 0x00FFFFFF) == (whiteColor & 0x00FFFFFF);
+        if (mDozing) {
+            tc.setTextColor(whiteColor);
+            return;
+        }
+        if (!isWhiteOriginal) {
+           tc.setTextColor(originalColor);
+           return;
+        }
         tc.setTextColor(resolveClockColor());
     }
 
