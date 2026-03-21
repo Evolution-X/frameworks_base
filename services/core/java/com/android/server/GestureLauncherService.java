@@ -125,6 +125,9 @@ public class GestureLauncherService extends SystemService {
     /** Indicates wallet launch is selected as target action for multi target double tap power. */
     @VisibleForTesting static final int LAUNCH_WALLET_ON_DOUBLE_TAP_POWER = 1;
 
+    /** Indicates torch toggle is selected as target action for multi target double tap power. */
+    @VisibleForTesting static final int LAUNCH_TORCH_ON_DOUBLE_TAP_POWER = 2;
+
     /** Number of taps required to launch the double tap shortcut (either camera or wallet). */
     public static final int DOUBLE_POWER_TAP_COUNT_THRESHOLD = 2;
 
@@ -192,6 +195,11 @@ public class GestureLauncherService extends SystemService {
 
     /** Whether wallet double tap power button gesture is currently enabled. */
     private boolean mWalletDoubleTapPowerEnabled;
+
+    /** Whether torch double tap power button gesture is currently enabled. */
+    private boolean mTorchDoubleTapPowerEnabled;
+
+    private boolean mTorchEnabled = false;
 
     /**
      * Whether emergency gesture is currently enabled
@@ -280,6 +288,7 @@ public class GestureLauncherService extends SystemService {
             updateCameraDoubleTapPowerEnabled();
             if (launchWalletOptionOnPowerDoubleTap()) {
                 updateWalletDoubleTapPowerEnabled();
+                updateTorchDoubleTapPowerEnabled();
             }
             updateEmergencyGestureEnabled();
             updateEmergencyGesturePowerButtonCooldownPeriodMs();
@@ -351,6 +360,14 @@ public class GestureLauncherService extends SystemService {
         boolean enabled = isWalletDoubleTapPowerSettingEnabled(mContext, mUserId);
         synchronized (this) {
             mWalletDoubleTapPowerEnabled = enabled;
+        }
+    }
+
+    @VisibleForTesting
+    void updateTorchDoubleTapPowerEnabled() {
+        boolean enabled = isTorchDoubleTapPowerSettingEnabled(mContext, mUserId);
+        synchronized (this) {
+            mTorchDoubleTapPowerEnabled = enabled;
         }
     }
 
@@ -517,6 +534,17 @@ public class GestureLauncherService extends SystemService {
                 == LAUNCH_WALLET_ON_DOUBLE_TAP_POWER;
     }
 
+    public static boolean isTorchDoubleTapPowerSettingEnabled(Context context, int userId) {
+        if (!launchWalletOptionOnPowerDoubleTap()) {
+            return false;
+        }
+        return getDoubleTapPowerGestureMode(context.getResources())
+                == DOUBLE_TAP_POWER_MULTI_TARGET_MODE
+                && isMultiTargetDoubleTapPowerGestureSettingEnabled(context, userId)
+                && getDoubleTapPowerGestureAction(context, userId)
+                == LAUNCH_TORCH_ON_DOUBLE_TAP_POWER;
+    }
+
     public static boolean isCameraLiftTriggerSettingEnabled(Context context, int userId) {
         return isCameraLiftTriggerEnabled(context.getResources())
                 && (Settings.Secure.getIntForUser(context.getContentResolver(),
@@ -667,6 +695,7 @@ public class GestureLauncherService extends SystemService {
         }
         boolean launchCamera = false;
         boolean launchWallet = false;
+        boolean launchTorch = false;
         boolean launchEmergencyGesture = false;
         boolean intercept = false;
         long powerTapInterval;
@@ -733,6 +762,12 @@ public class GestureLauncherService extends SystemService {
                     && mPowerButtonConsecutiveTaps == DOUBLE_POWER_TAP_COUNT_THRESHOLD) {
                 launchWallet = true;
                 intercept = interactive;
+            } else if (launchWalletOptionOnPowerDoubleTap()
+                    && mTorchDoubleTapPowerEnabled
+                    && powerTapInterval < POWER_DOUBLE_TAP_MAX_TIME_MS
+                    && mPowerButtonConsecutiveTaps == DOUBLE_POWER_TAP_COUNT_THRESHOLD) {
+                launchTorch = true;
+                intercept = interactive;
             }
         }
         if (mPowerButtonConsecutiveTaps > 1 || mPowerButtonSlowConsecutiveTaps > 1) {
@@ -759,6 +794,10 @@ public class GestureLauncherService extends SystemService {
             if (launchWallet) {
                 mUiEventLogger.log(GestureLauncherEvent.GESTURE_WALLET_DOUBLE_TAP_POWER);
             }
+        } else if (launchTorch) {
+            Slog.i(TAG, "Power button double tap gesture detected, toggling torch. Interval="
+                    + powerTapInterval + "ms");
+            launchTorch = handleTorchGesture();
         } else if (launchEmergencyGesture) {
             Slog.i(TAG, "Emergency gesture detected, launching.");
             launchEmergencyGesture = handleEmergencyGesture();
@@ -774,7 +813,7 @@ public class GestureLauncherService extends SystemService {
                 mPowerButtonSlowConsecutiveTaps);
         mMetricsLogger.histogram("power_double_tap_interval", (int) powerTapInterval);
 
-        outLaunched.value = launchCamera || launchEmergencyGesture || launchWallet;
+        outLaunched.value = launchCamera || launchEmergencyGesture || launchWallet || launchTorch;
         // Intercept power key event if the press is part of a gesture (camera, eGesture) and the
         // user has completed setup.
         return intercept && isUserSetupComplete();
@@ -903,6 +942,46 @@ public class GestureLauncherService extends SystemService {
         }
     }
 
+    @VisibleForTesting
+    boolean handleTorchGesture() {
+        Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER,
+                "GestureLauncher:handleTorchGesture");
+        try {
+            if (!isUserSetupComplete()) {
+                if (DBG) Slog.d(TAG, "userSetupComplete = false, ignoring torch gesture.");
+                return false;
+            }
+            if (DBG) Slog.d(TAG, "userSetupComplete = true, performing torch gesture.");
+    
+            android.hardware.camera2.CameraManager cameraManager =
+                    (android.hardware.camera2.CameraManager) mContext.getSystemService(
+                            Context.CAMERA_SERVICE);
+            try {
+                for (String id : cameraManager.getCameraIdList()) {
+                    android.hardware.camera2.CameraCharacteristics c =
+                            cameraManager.getCameraCharacteristics(id);
+                    Boolean flash = c.get(
+                            android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE);
+                    Integer facing = c.get(
+                            android.hardware.camera2.CameraCharacteristics.LENS_FACING);
+                    if (flash != null && flash && facing != null
+                            && facing == android.hardware.camera2.CameraCharacteristics
+                                    .LENS_FACING_BACK) {
+                        mTorchEnabled = !mTorchEnabled;
+                        cameraManager.setTorchMode(id, mTorchEnabled);
+                        break;
+                    }
+                }
+            } catch (android.hardware.camera2.CameraAccessException e) {
+                Slog.e(TAG, "Failed to toggle torch", e);
+                return false;
+            }
+            return true;
+        } finally {
+            Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
+        }
+    }
+
     /**
      * @return true if emergency gesture UI was launched, false otherwise.
      */
@@ -951,6 +1030,7 @@ public class GestureLauncherService extends SystemService {
                 updateCameraDoubleTapPowerEnabled();
                 if (launchWalletOptionOnPowerDoubleTap()) {
                     updateWalletDoubleTapPowerEnabled();
+                    updateTorchDoubleTapPowerEnabled();
                 }
                 updateEmergencyGestureEnabled();
                 updateEmergencyGesturePowerButtonCooldownPeriodMs();
@@ -965,6 +1045,7 @@ public class GestureLauncherService extends SystemService {
                 updateCameraDoubleTapPowerEnabled();
                 if (launchWalletOptionOnPowerDoubleTap()) {
                     updateWalletDoubleTapPowerEnabled();
+                    updateTorchDoubleTapPowerEnabled();
                 }
                 updateEmergencyGestureEnabled();
                 updateEmergencyGesturePowerButtonCooldownPeriodMs();
