@@ -25,9 +25,12 @@ import static com.android.internal.telephony.SmsConstants.MAX_USER_DATA_BYTES;
 import static com.android.internal.telephony.SmsConstants.MAX_USER_DATA_SEPTETS;
 import static com.android.internal.telephony.SmsConstants.MessageClass;
 
+import android.app.ActivityThread;
 import android.compat.annotation.UnsupportedAppUsage;
+import android.content.Context;
 import android.content.res.Resources;
 import android.os.Build;
+import android.provider.Settings;
 import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
 
@@ -1682,7 +1685,23 @@ public class SmsMessage extends SmsMessageBase {
         } else {
             switch (mDataCodingScheme & 0x3) {
             case 0:
-                messageClass = MessageClass.CLASS_0;
+                boolean disableFlash = false;
+                try {
+                    Context context = ActivityThread.currentApplication();
+                    if (context != null) {
+                        disableFlash = Settings.System.getInt(
+                                context.getContentResolver(), "disable_flash_sms", 0) == 1;
+                    }
+                } catch (Exception e) {
+                    Rlog.e(LOG_TAG, "Failed to read disable_flash_sms setting", e);
+                    disableFlash = false;
+                }
+
+                if (disableFlash) {
+                    messageClass = MessageClass.CLASS_1;
+                } else {
+                    messageClass = MessageClass.CLASS_0;
+                }
                 break;
             case 1:
                 messageClass = MessageClass.CLASS_1;
