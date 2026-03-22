@@ -58,6 +58,7 @@ import com.android.systemui.statusbar.notification.headsup.StatusBarHeadsUpChang
 import com.android.systemui.stylus.StylusUsiPowerStartable
 import com.android.systemui.temporarydisplay.chipbar.ChipbarCoordinator
 import com.android.systemui.usb.StorageNotification
+import com.android.systemui.usb.UsbModePickerDialogDelegate
 import com.android.systemui.util.NotificationChannels
 import com.android.systemui.wmshell.WMShell
 import com.axion.applocker.AxAppLockerHelper
@@ -350,4 +351,9 @@ abstract class SystemUICoreStartableModule {
     @IntoMap
     @ClassKey(AxAppLockerHelper::class)
     abstract fun bindAxAppLockerHelper(impl: AxAppLockerHelper): CoreStartable
+
+    @Binds
+    @IntoMap
+    @ClassKey(UsbModePickerDialogDelegate::class)
+    abstract fun bindUsbModePickerDialogDelegate(impl: UsbModePickerDialogDelegate): CoreStartable
 }
