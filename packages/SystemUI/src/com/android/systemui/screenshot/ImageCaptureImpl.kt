@@ -17,31 +17,37 @@
 package com.android.systemui.screenshot
 
 import android.app.IActivityTaskManager
+import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Point
 import android.graphics.Rect
+import android.hardware.display.DisplayManager
+import android.provider.Settings
+import android.view.Display
 import android.view.IWindowManager
 import android.window.ScreenCaptureInternal
 import android.window.ScreenCaptureInternal.CaptureArgs
 import android.window.TaskSnapshotManager
+import com.android.internal.policy.SystemBarUtils
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Background
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 
-private const val TAG = "ImageCaptureImpl"
-
 @SysUISingleton
 open class ImageCaptureImpl
 @Inject
 constructor(
+    private val context: Context,
     private val windowManager: IWindowManager,
     private val atmService: IActivityTaskManager,
     @Background private val bgContext: CoroutineDispatcher,
 ) : ImageCapture {
 
     override fun captureDisplay(displayId: Int, crop: Rect?): Bitmap? {
-        val captureArgs = CaptureArgs.Builder().setSourceCrop(crop).build()
+        val captureArgs =
+            CaptureArgs.Builder().setSourceCrop(getSourceCrop(displayId, crop)).build()
         val syncScreenCapture = ScreenCaptureInternal.createSyncCaptureListener()
         windowManager.captureDisplay(displayId, captureArgs, syncScreenCapture)
         val buffer = syncScreenCapture.getBuffer()
@@ -60,5 +66,42 @@ constructor(
                     )
             } ?: return null
         return snapshot.wrapToBitmap()
+    }
+
+    private fun getSourceCrop(displayId: Int, crop: Rect?): Rect? {
+        if (crop != null || displayId != Display.DEFAULT_DISPLAY || !shouldHideStatusBar()) {
+            return crop
+        }
+
+        val display = context.getSystemService(DisplayManager::class.java)?.getDisplay(displayId)
+            ?: return null
+        val displaySize = Point()
+        display.getRealSize(displaySize)
+        if (displaySize.x <= 0 || displaySize.y <= 0) {
+            return null
+        }
+
+        val statusBarHeight = getStatusBarHeight(display)
+        if (statusBarHeight <= 0 || statusBarHeight >= displaySize.y) {
+            return null
+        }
+        return Rect(0, statusBarHeight, displaySize.x, displaySize.y)
+    }
+
+    private fun shouldHideStatusBar(): Boolean {
+        return Settings.System.getInt(
+            context.contentResolver,
+            Settings.System.HIDE_STATUS_BAR_IN_SCREENSHOT,
+            0,
+        ) == 1
+    }
+
+    private fun getStatusBarHeight(display: Display): Int {
+        return try {
+            val displayContext = context.createDisplayContext(display)
+            SystemBarUtils.getStatusBarHeight(displayContext)
+        } catch (_: RuntimeException) {
+            0
+        }
     }
 }
