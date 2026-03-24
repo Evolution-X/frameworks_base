@@ -14722,6 +14722,12 @@ public final class Settings {
         public static final String LOCK_SCREEN_CUSTOM_CLOCK_SIZE = "lock_screen_custom_clock_size_scale";
 
         /**
+         * Custom clock animation
+         * @hide
+         */
+        public static final String LOCK_SCREEN_CUSTOM_CLOCK_AOD_ANIM = "lock_screen_custom_clock_aod_anim";
+
+        /**
          * Whether to use PixelProps spoof for google apps
          * @hide
          */
