@@ -124,7 +124,7 @@ constructor(
             // Hide small clock when custom clock is enabled by setting alpha to 0
             val isCustomClockEnabled = Settings.Secure.getIntForUser(
                     context.contentResolver,
-                    "clock_style",
+                    Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_STYLE,
                     0,
                     UserHandle.USER_CURRENT
             ) != 0
