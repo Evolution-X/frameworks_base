@@ -1271,7 +1271,7 @@ public final class NotificationPanelViewController implements
                 // True on small landscape screens
                 && mResources.getBoolean(R.bool.force_small_clock_on_lockscreen) ||
                 (Settings.Secure.getIntForUser(
-                    mContentResolver, "clock_style", 0, UserHandle.USER_CURRENT) != 0 ||
+                    mContentResolver, Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_STYLE, 0, UserHandle.USER_CURRENT) != 0 ||
                  Settings.System.getIntForUser(
                     mContentResolver, "lockscreen_widgets_enabled", 0, UserHandle.USER_CURRENT) != 0);
     }
