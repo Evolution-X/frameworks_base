@@ -73,10 +73,22 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
             R.layout.keyguard_clock_block, // 25
             R.layout.keyguard_clock_bubble, // 26
             R.layout.keyguard_clock_label, // 27
-            R.layout.keyguard_clock_taden, // 28
-            R.layout.keyguard_clock_mont, // 29
-            R.layout.keyguard_clock_encode, // 30
-            R.layout.keyguard_clock_nos3 // 31
+            R.layout.keyguard_clock_ios, // 28
+            R.layout.keyguard_clock_taden, // 29
+            R.layout.keyguard_clock_mont, // 30
+            R.layout.keyguard_clock_encode, // 31
+            R.layout.keyguard_clock_nos3, // 32
+            R.layout.keyguard_anci_clock_outline, // 33
+            R.layout.keyguard_anci_clock_ovalium, // 34
+            R.layout.keyguard_anci_clock_rectangle, // 35
+            R.layout.keyguard_anci_clock_wallet, // 36
+            R.layout.keyguard_anci_clockdate_clavicula, // 37
+            R.layout.keyguard_anci_clockdate_kln, // 38
+            R.layout.keyguard_anci_clockdate_miring, // 39
+            R.layout.keyguard_anci_clockdate_scapula, // 40
+            R.layout.keyguard_anci_clockdate_sternum, // 41
+            R.layout.keyguard_sparkCircle, // 42
+            R.layout.keyguard_sparkList // 43
     };
 
     private static final int[] mNoColorClocks = {25, 26};
