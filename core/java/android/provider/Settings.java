@@ -14547,6 +14547,11 @@ public final class Settings {
         public static final String IDLE_MANAGER_KILL_STATS = "idle_manager_kill_stats";
 
         /**
+         * @hide
+         */
+        public static final String IDLE_MANAGER_RESTORE_PENDING = "idle_manager_restore_pending";
+
+        /**
          * Lockscreen custom clock face
          * @hide
          */
