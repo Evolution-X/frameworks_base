@@ -36,6 +36,7 @@ import android.app.INotificationManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.pm.UserInfo;
 import android.os.RemoteException;
@@ -588,6 +589,16 @@ public class BubblesManager {
      */
     public void expandStackAndSelectBubble(Bubble bubble) {
         mBubbles.expandStackAndSelectBubble(bubble);
+    }
+
+    /**
+     * Request the stack expand if needed, then select the specified Bubble using PendingIntent.
+     *
+     * @param pendingIntent the intent to bubble
+     * @param user the user handle
+     */
+    public void expandStackAndSelectBubble(PendingIntent pendingIntent, UserHandle user) {
+        mBubbles.expandStackAndSelectBubble(pendingIntent, user);
     }
 
     /**
