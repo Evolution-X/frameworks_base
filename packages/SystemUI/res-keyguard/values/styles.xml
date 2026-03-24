@@ -204,4 +204,5 @@
         <item name="android:windowContentOverlay">@null</item>
         <item name="android:colorBackground">@android:color/transparent</item>
     </style>
+
 </resources>
