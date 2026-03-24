@@ -32,6 +32,7 @@ import android.app.PendingIntent;
 import android.app.TaskStackBuilder;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.pm.ResolveInfo;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -39,6 +40,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.RemoteException;
 import android.os.UserHandle;
+import android.provider.Settings;
 import android.service.dreams.IDreamManager;
 import android.service.notification.StatusBarNotification;
 import android.text.TextUtils;
@@ -435,10 +437,23 @@ public class StatusBarNotificationActivityStarter implements NotificationActivit
                     remoteInputText.toString());
         }
         final boolean canBubble = entry.canBubble();
-        if (canBubble) {
+        final boolean forceBubbleApps = Settings.System.getIntForUser(mContext.getContentResolver(),
+                Settings.System.NOTIFICATION_BUBBLE_APPS, 0, UserHandle.USER_CURRENT) == 1;
+        // Only force a notification's app into a bubble when its content intent can actually be
+        // hosted there. Otherwise fall through to a normal launch: a null creator package would
+        // crash bubble creation, and a single-task/single-instance activity escapes to the app's
+        // own task on the default display, leaving the bubble empty.
+        final boolean forceAppBubble =
+                forceBubbleApps && !entry.isBubble() && canAppBubble(intent);
+
+        if (canBubble || forceAppBubble) {
             mLogger.logExpandingBubble(entry);
             removeHunAfterClick(row);
-            expandBubbleStackOnMainThread(entry);
+            if (forceAppBubble) {
+                expandAppBubbleStackOnMainThread(intent, entry.getSbn().getUser());
+            } else {
+                expandBubbleStackOnMainThread(entry);
+            }
         } else {
             startNotificationIntent(intent, fillInIntent, entry, row, animate, isActivityIntent);
         }
@@ -522,6 +537,50 @@ public class StatusBarNotificationActivityStarter implements NotificationActivit
     private void expandBubbleStack(NotificationEntry entry) {
         mBubblesManagerOptional.get().expandStackAndSelectBubble(entry);
         mShadeController.collapseShade();
+    }
+
+    private void expandAppBubbleStackOnMainThread(PendingIntent intent, UserHandle user) {
+        if (!mBubblesManagerOptional.isPresent()) {
+            return;
+        }
+
+        if (Looper.getMainLooper().isCurrentThread()) {
+            expandAppBubbleStack(intent, user);
+        } else {
+            mMainThreadHandler.post(() -> expandAppBubbleStack(intent, user));
+        }
+    }
+
+    private void expandAppBubbleStack(PendingIntent intent, UserHandle user) {
+        mBubblesManagerOptional.get().expandStackAndSelectBubble(intent, user);
+        mShadeController.collapseShade();
+    }
+
+    /**
+     * Whether {@code intent} can actually be shown inside an app bubble. The bubble hosts the
+     * activity in an embedded TaskView, so the target must be a resolvable activity intent whose
+     * launch mode allows embedding. A null creator package crashes bubble creation
+     * ({@code Bubble#getAppBubbleKeyForApp} requires it non-null), and a single-task or
+     * single-instance activity always resolves to the app's own task on the default display,
+     * leaving the bubble empty. In those cases the caller should launch the notification normally.
+     */
+    private boolean canAppBubble(PendingIntent intent) {
+        if (intent == null || !intent.isActivity() || intent.getCreatorPackage() == null) {
+            return false;
+        }
+        final ActivityInfo info = mActivityIntentHelper.getPendingTargetActivityInfo(
+                intent, mLockscreenUserManager.getCurrentUserId(), false /* onlyDirectBootAware */);
+        if (info == null) {
+            return false;
+        }
+        switch (info.launchMode) {
+            case ActivityInfo.LAUNCH_SINGLE_TASK:
+            case ActivityInfo.LAUNCH_SINGLE_INSTANCE:
+            case ActivityInfo.LAUNCH_SINGLE_INSTANCE_PER_TASK:
+                return false;
+            default:
+                return true;
+        }
     }
 
     private void startNotificationIntent(
