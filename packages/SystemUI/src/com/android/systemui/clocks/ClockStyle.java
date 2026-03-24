@@ -88,12 +88,12 @@ public class ClockStyle extends RelativeLayout implements TunerService.Tunable {
 
     private static final int[] mNoColorClocks = {25, 26};
 
-    public static final String CLOCK_STYLE_KEY = "clock_style";
-    public static final String CLOCK_COLOR_MODE_KEY = "clock_color_mode";
-    public static final String CLOCK_CUSTOM_COLOR_KEY = "clock_custom_color";
-    public static final String CLOCK_TEXT_OPACITY_KEY = "clock_text_opacity";
-    public static final String CLOCK_FRAME_MARGIN_TOP_KEY = "custom_clock_frame_margin_top";
-    public static final String CLOCK_SIZE_KEY = "clock_size_scale";
+    public static final String CLOCK_STYLE_KEY = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_STYLE;
+    public static final String CLOCK_COLOR_MODE_KEY = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_COLOR_MODE;
+    public static final String CLOCK_CUSTOM_COLOR_KEY = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_CUSTOM_COLOR;
+    public static final String CLOCK_TEXT_OPACITY_KEY = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_OPACITY;
+    public static final String CLOCK_FRAME_MARGIN_TOP_KEY = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_MARGIN_TOP;
+    public static final String CLOCK_SIZE_KEY = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_SIZE;
 
     public static final String COLOR_MODE_DEFAULT = "default";
     public static final String COLOR_MODE_ACCENT = "accent";
