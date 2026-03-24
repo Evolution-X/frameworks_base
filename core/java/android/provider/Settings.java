@@ -7845,6 +7845,11 @@ public final class Settings {
         public static final String STATUS_BAR_BRIGHTNESS_CONTROL_LOCKSCREEN = "status_bar_brightness_control_lockscreen";
 
         /**
+         * @hide
+         */
+        public static final String NOTIFICATION_BUBBLE_APPS = "notification_bubble_apps";
+
+        /**
          * Keys we no longer back up under the current schema, but want to continue to
          * process when restoring historical backup datasets.
          *
