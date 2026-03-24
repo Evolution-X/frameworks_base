@@ -131,6 +131,15 @@ public interface Bubbles {
     void expandStackAndSelectBubble(Bubble bubble);
 
     /**
+     * Request the stack expand if needed, then select the specified Bubble as current
+     * using the PendingIntent.
+     *
+     * @param pendingIntent the intent to bubble
+     * @param user the user handle
+     */
+    void expandStackAndSelectBubble(android.app.PendingIntent pendingIntent, UserHandle user);
+
+    /**
      * This method has different behavior depending on:
      *    - if a notes bubble exists
      *    - if a notes bubble is expanded

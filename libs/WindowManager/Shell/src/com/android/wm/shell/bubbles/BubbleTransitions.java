@@ -797,32 +797,49 @@ public class BubbleTransitions {
                     mPlayConvertTaskAnimation);
             mTaskViewTransitions.onExternalDone(mTransition);
             final TaskViewTaskController tv = mBubble.getTaskView().getController();
-            final SurfaceControl.Transaction startT = new SurfaceControl.Transaction();
-            // Set task position to 0,0 as it will be placed inside the TaskView
-            startT.setPosition(mTaskLeash, 0, 0)
-                    .reparent(mTaskLeash, mBubble.getTaskView().getSurfaceControl())
-                    .setAlpha(mTaskLeash, 1f)
-                    .show(mTaskLeash);
-            mTaskViewTransitions.prepareOpenAnimation(tv, true /* new */, startT, mFinishT,
-                    (ActivityManager.RunningTaskInfo) mTaskInfo, mTaskLeash, mFinishWct);
-            // Add the task view task listener manually since we aren't going through
-            // TaskViewTransitions (which normally sets up the listener via a pending launch cookie)
-            // Note: In this path, because a new task is being started, the transition may receive
-            // the transition for the task before the organizer does
-            mTaskOrganizer.addListenerForTaskId(tv, mTaskInfo.taskId);
+            try {
+                final SurfaceControl.Transaction startT = new SurfaceControl.Transaction();
+                // Set task position to 0,0 as it will be placed inside the TaskView
+                startT.setPosition(mTaskLeash, 0, 0)
+                        .reparent(mTaskLeash, mBubble.getTaskView().getSurfaceControl())
+                        .setAlpha(mTaskLeash, 1f)
+                        .show(mTaskLeash);
+                mTaskViewTransitions.prepareOpenAnimation(tv, true /* new */, startT, mFinishT,
+                        (ActivityManager.RunningTaskInfo) mTaskInfo, mTaskLeash, mFinishWct);
+                // Add the task view task listener manually since we aren't going through
+                // TaskViewTransitions (which normally sets up the listener via a pending launch
+                // cookie)
+                // Note: In this path, because a new task is being started, the transition may
+                // receive the transition for the task before the organizer does
+                mTaskOrganizer.addListenerForTaskId(tv, mTaskInfo.taskId);
 
-            if (mFinishWct.isEmpty()) {
-                mFinishWct = null;
-            }
+                if (mFinishWct.isEmpty()) {
+                    mFinishWct = null;
+                }
 
-            float startScale = 1f;
-            if (mPlayConvertTaskAnimation) {
-                mExpandedViewAnimator.animateConvert(startT, mStartBounds, startScale, mSnapshot,
-                        mTaskLeash,
-                        this::cleanup);
-            } else {
-                startT.apply();
-                mExpandedViewAnimator.animateExpand(null, this::cleanup);
+                float startScale = 1f;
+                if (mPlayConvertTaskAnimation) {
+                    mExpandedViewAnimator.animateConvert(startT, mStartBounds, startScale,
+                            mSnapshot,
+                            mTaskLeash,
+                            this::cleanup);
+                } else {
+                    startT.apply();
+                    mExpandedViewAnimator.animateExpand(null, this::cleanup);
+                }
+            } catch (RuntimeException e) {
+                // A TransitionHandler that claimed the transition must always finish it; bailing
+                // out without finishing (here addListenerForTaskId throws when the task already has
+                // a listener) deadlocks the Shell transition queue until the sync timeout.
+                Slog.w(TAG, "Failed to move task " + mTaskInfo.taskId
+                        + " into a bubble; finishing transition and removing bubble", e);
+                tv.setTaskNotFound();
+                if (mFinishCb != null) {
+                    mFinishCb.onTransitionFinished(null /* finishWct */);
+                    mFinishCb = null;
+                }
+                mBubble.setPreparingTransition(null);
+                mBubbleController.removeBubble(mBubble.getKey(), Bubbles.DISMISS_INVALID_INTENT);
             }
         }
 
