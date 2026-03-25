@@ -53,7 +53,7 @@
         android:title="@string/quick_settings_hotspot_label" />
 
     <com.android.systemui.tuner.StatusBarSwitch
-        android:icon="@*android:drawable/ic_qs_bluetooth"
+        android:icon="@drawable/ic_statusbar_bluetooth"
         android:key="bluetooth"
         android:title="@string/quick_settings_bluetooth_label" />
 
