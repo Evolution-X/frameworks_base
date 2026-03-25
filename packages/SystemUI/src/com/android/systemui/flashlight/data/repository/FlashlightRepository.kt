@@ -159,6 +159,7 @@ constructor(
                     updateReconnect()
                     var foundCamera: Boolean
                     try {
+                        delay(3000)
                         foundCamera = loadFlashlightInfo() != null
                     } catch (exception: Exception) {
                         foundCamera = false
