@@ -155,6 +155,8 @@ public final class CutoutRingView extends View {
     private String sCfgEasing;
     private boolean sCfgChargingRing;
     private boolean sCfgChargingPulse;
+    private boolean sCfgGlowEnabled;
+    private float sCfgGlowRadiusDp;
 
     private int sCfgMusicOpacity = 85;
     private float sCfgMusicStrokeDp = 2f;
@@ -167,6 +169,7 @@ public final class CutoutRingView extends View {
         mAnim = new OverlayAnimationHelper(this);
         mRenderer = new CircleRingRenderer();
         mBadge = new CountBadgePainter(mDp);
+        setLayerType(LAYER_TYPE_HARDWARE, null);
         initPaints();
     }
 
@@ -215,6 +218,8 @@ public final class CutoutRingView extends View {
         sCfgEasing = s.getProgressEasing();
         sCfgChargingRing = s.isChargingRingEnabled();
         sCfgChargingPulse = s.isChargingPulseEnabled();
+        sCfgGlowEnabled = s.isGlowEnabled();
+        sCfgGlowRadiusDp = s.getGlowRadiusDp();
 
         boolean needPath = sCfgPathMode;
         if (needPath && !(mRenderer instanceof CapsuleRingRenderer)) {
@@ -629,6 +634,9 @@ public final class CutoutRingView extends View {
         int alpha = (int)(sCfgOpacity * 255f / 100f
                 * mAnim.displayAlpha * mAnim.completionPulseAlpha);
         mAnimPaint.setAlpha(alpha);
+        mAnimPaint.setShadowLayer(
+                sCfgGlowEnabled ? sCfgGlowRadiusDp * mDp : 0f,
+                0f, 0f, activeRingColor);
 
         computeArcBounds();
         if (sCfgRingColorMode == CutoutProgressSettings.RING_COLOR_MODE_RAINBOW) {
@@ -642,6 +650,9 @@ public final class CutoutRingView extends View {
                     : brighten(activeRingColor, mAnim.successColorBlend);
             mAnimPaint.setColor(blendColors(activeRingColor, flashColor,
                     mAnim.successColorBlend));
+            mAnimPaint.setShadowLayer(
+                    sCfgGlowEnabled ? sCfgGlowRadiusDp * mDp : 0f,
+                    0f, 0f, mAnimPaint.getColor());
             clearShader(mAnimPaint);
         }
 
@@ -871,6 +882,8 @@ public final class CutoutRingView extends View {
         sCfgMinVisMs = 500;
         sCfgChargingRing = true;
         sCfgChargingPulse = true;
+        sCfgGlowEnabled = false;
+        sCfgGlowRadiusDp = 4f;
         refreshPaints();
         refreshMusicPaint();
     }
@@ -880,6 +893,9 @@ public final class CutoutRingView extends View {
         int baseColor = (sCfgRingColorMode == CutoutProgressSettings.RING_COLOR_MODE_CUSTOM)
                 ? sCfgRingColor : resolveRingColor();
         applyStroke(mRingPaint, baseColor, stroke, sCfgOpacity * 255 / 100);
+        mRingPaint.setShadowLayer(
+                sCfgGlowEnabled ? sCfgGlowRadiusDp * mDp : 0f,
+                0f, 0f, baseColor);
         applyStroke(mShinePaint, sCfgFlashColor, stroke * 1.2f, 255);
         applyStroke(mErrorPaint, sCfgErrorColor, stroke * 1.5f, 255);
         applyStroke(mBgPaint, sCfgBgColor, stroke, sCfgBgOpacity * 255 / 100);
