@@ -205,6 +205,7 @@ public class NotificationMenuRow implements NotificationMenuRowPlugin, View.OnCl
     @Override
     public void createMenu(ViewGroup parent) {
         mParent = (ExpandableNotificationRow) parent;
+        mContext = mParent.getContext();
         createMenuViews(true /* resetState */);
     }
 
@@ -249,11 +250,17 @@ public class NotificationMenuRow implements NotificationMenuRowPlugin, View.OnCl
             // Menu hasn't been created yet, no need to do anything.
             return;
         }
+        if (mParent != null) {
+            mContext = mParent.getContext();
+        }
         createMenuViews(!isMenuVisible() /* resetState */);
     }
 
     @Override
     public void onConfigurationChanged() {
+        if (mParent != null) {
+            mContext = mParent.getContext();
+        }
         mParent.setLayoutListener(this);
     }
 
