@@ -2,9 +2,11 @@ package com.android.systemui.tuner;
 
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.graphics.drawable.Drawable;
 import android.provider.Settings;
 import android.util.AttributeSet;
 
+import androidx.core.graphics.drawable.DrawableCompat;
 import androidx.preference.SwitchPreferenceCompat;
 
 import com.android.internal.logging.MetricsLogger;
@@ -24,6 +26,21 @@ public class TunerSwitch extends SwitchPreferenceCompat implements Tunable {
         mDefault = a.getBoolean(R.styleable.TunerSwitch_defValue, false);
         mAction = a.getInt(R.styleable.TunerSwitch_metricsAction, -1);
         a.recycle();
+
+        setupTheme();
+    }
+
+    private void setupTheme() {
+        Drawable icon = getIcon();
+        if (icon != null) {
+            TypedArray a = getContext().obtainStyledAttributes(
+                    new int[]{android.R.attr.textColorPrimary});
+            int color = a.getColor(0, 0);
+            a.recycle();
+            Drawable wrappedIcon = DrawableCompat.wrap(icon);
+            DrawableCompat.setTint(wrappedIcon, color);
+            setIcon(wrappedIcon);
+        }
     }
 
     @Override
