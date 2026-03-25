@@ -131,6 +131,10 @@ public final class CutoutProgressSettings {
 
     public static final String KEY_MUSIC_CLOCKWISE = "cutout_progress_music_clockwise";
 
+    public static final String KEY_GLOW_ENABLED = "cutout_progress_glow_enabled";
+
+    public static final String KEY_GLOW_RADIUS_DP10 = "cutout_progress_glow_radius_dp10";
+
     public static final int RING_COLOR_MODE_ACCENT = 0;
     public static final int RING_COLOR_MODE_RAINBOW = 1;
     public static final int RING_COLOR_MODE_CUSTOM = 2;
@@ -184,6 +188,8 @@ public final class CutoutProgressSettings {
     private static final float DEF_MUSIC_STROKE_DP = 2.0f;
     private static final boolean DEF_MUSIC_SHOW_ON_AOD = false;
     private static final boolean DEF_MUSIC_CLOCKWISE = true;
+    private static final boolean DEF_GLOW_ENABLED = false;
+    private static final float DEF_GLOW_RADIUS_DP = 4.0f;
 
     static final String[] POSITION_NAMES = {
             "right", "left", "top", "bottom",
@@ -449,6 +455,14 @@ public final class CutoutProgressSettings {
 
     public boolean isMusicClockwise() {
         return getInt(KEY_MUSIC_CLOCKWISE, DEF_MUSIC_CLOCKWISE ? 1 : 0) != 0;
+    }
+
+    public boolean isGlowEnabled() {
+        return getInt(KEY_GLOW_ENABLED, DEF_GLOW_ENABLED ? 1 : 0) != 0;
+    }
+
+    public float getGlowRadiusDp() {
+        return getInt(KEY_GLOW_RADIUS_DP10, (int)(DEF_GLOW_RADIUS_DP * 10)) / 10f;
     }
 
     public void setBatteryIndicatorEnabled(boolean value) {
