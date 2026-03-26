@@ -18,16 +18,22 @@ package com.android.systemui.qs.tiles.impl.ringer
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.android.compose.theme.LocalAndroidColorScheme
 import com.android.systemui.common.ringer.RingerSliderDimens
 import com.android.systemui.common.ringer.RingerSliderTheme
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQsGradient
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQsTileBackgroundBrush
 
 class QSTileRingerTheme(
 ) : RingerSliderTheme {
     override val activeBg: Color
         @Composable get() = MaterialTheme.colorScheme.primary
+
+    override val activeBgBrush: Brush?
+        @Composable get() = rememberQsTileBackgroundBrush()
     
     override val neutralBg: Color
         @Composable get() = LocalAndroidColorScheme.current.surfaceEffect1

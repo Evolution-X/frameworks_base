@@ -176,9 +176,19 @@ fun RingerSliderWidget(
                         when {
                             isDozing -> Color.Transparent
                             isDndEnabled -> theme.dndBg
-                            else -> theme.activeBg
+                            else -> Color.Transparent
                         },
                         thumbShape
+                    )
+                    .then(
+                        if (!isDozing && !isDndEnabled) {
+                            val brush = theme.activeBgBrush
+                            if (brush != null) {
+                                Modifier.background(brush, thumbShape)
+                            } else {
+                                Modifier.background(theme.activeBg, thumbShape)
+                            }
+                        } else Modifier
                     )
                     .then(
                         when {
@@ -187,7 +197,7 @@ fun RingerSliderWidget(
                             isDndEnabled ->
                                 Modifier.border(2.dp, theme.dndBg, thumbShape)
                             else ->
-                                Modifier.border(2.dp, theme.activeBg, thumbShape)
+                                Modifier.border(2.dp, theme.activeBgBrush ?: SolidColor(theme.activeBg), thumbShape)
                         }
                     ),
                 contentAlignment = Alignment.Center
