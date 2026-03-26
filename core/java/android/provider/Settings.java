@@ -7720,6 +7720,11 @@ public final class Settings {
         public static final String LOCKSCREEN_WEATHER_HUMIDITY_INFO = "lockscreen_weather_humidity_info";
 
         /**
+         * @hide
+         */
+        public static final String ONGOING_CHIP_BG_ALPHA = "ongoing_chip_bg_alpha";
+
+        /**
          * Whether to use classic QS panel style for tiles
          * @hide
          */
