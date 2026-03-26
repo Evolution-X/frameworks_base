@@ -221,17 +221,19 @@ fun ContentScope.Tile(
             }
 
         val classicStyle = rememberQSPanelStyle()
+
+        if (tile.spec.spec == "sound" && !iconOnly) {
+            if (classicStyle) return@trace
+            QSTileRingerSlider()
+            return@trace
+        }
+
         val iconShapeKey = rememberQSTileIconShapeKey()
         val labelHide = classicStyle && rememberQSTileLabelHide()
         val tileHeight = if (!classicStyle || labelHide) {
             CommonTileDefaults.TileHeight
         } else {
             CommonTileDefaults.TileHeight + 8.dp
-        }
-
-        if (tile.spec.spec == "sound" && !iconOnly) {
-            QSTileRingerSlider()
-            return@trace
         }
 
         val shapeMode = rememberTileShapeMode()
@@ -936,6 +938,12 @@ fun rememberQSTileIconShapeKey(): String {
 
     return value
 }
+
+@Composable
+    internal fun rememberQsTileBackgroundBrush(): Brush? {
+        val enabled = rememberQsGradient()
+        return TileDefaults.qsTileBackgroundBrush(enabled)
+    }
 
 private object TileDefaults {
     val ActiveIconCornerRadius = 16.dp
