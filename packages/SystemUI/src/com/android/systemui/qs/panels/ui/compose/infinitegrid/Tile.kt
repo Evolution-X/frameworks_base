@@ -126,6 +126,8 @@ import com.android.systemui.qs.ui.composable.QuickSettingsShade
 import com.android.systemui.qs.ui.compose.borderOnFocus
 import com.android.systemui.res.R
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.callbackFlow
 
 @Composable
 fun TileLazyGrid(
@@ -218,15 +220,24 @@ fun ContentScope.Tile(
                null
             }
 
+        val classicStyle = rememberQSPanelStyle()
+        val iconShapeKey = rememberQSTileIconShapeKey()
+        val labelHide = classicStyle && rememberQSTileLabelHide()
+        val tileHeight = if (!classicStyle || labelHide) {
+            CommonTileDefaults.TileHeight
+        } else {
+            CommonTileDefaults.TileHeight + 8.dp
+        }
+
         if (tile.spec.spec == "sound" && !iconOnly) {
             QSTileRingerSlider()
             return@trace
         }
-        
+
         val shapeMode = rememberTileShapeMode()
         val wantCircle = shapeMode == 4 && iconOnly
         val tileShape =
-            if (wantCircle) CircleShape
+            if (wantCircle && !classicStyle) CircleShape
             else TileDefaults.animateTileShapeAsState(uiState.state, shapeMode).value
         val animatedColor by animateColorAsState(colors.background, label = "QSTileBackgroundColor")
         val isDualTarget = uiState.handlesSecondaryClick
@@ -245,8 +256,8 @@ fun ContentScope.Tile(
             contentRevealModifier = Modifier
         }
 
-        val outerShape = if (wantCircle) RoundedCornerShape(0.dp) else tileShape
-        val outerColor: () -> Color = if (wantCircle) { { Color.Transparent } } else { { animatedColor } }
+        val outerShape = if (wantCircle && !classicStyle) RoundedCornerShape(0.dp) else tileShape
+        val outerColor: () -> Color = if (wantCircle || classicStyle) { { Color.Transparent } } else { { animatedColor } }
         val focusBorderColor = MaterialTheme.colorScheme.secondary
 
         TileExpandable(
@@ -254,6 +265,7 @@ fun ContentScope.Tile(
             shape = outerShape,
             squishiness = squishiness,
             hapticsViewModel = hapticsViewModel,
+            classicStyle = classicStyle,
             modifier =
                 modifier
                     .then(surfaceRevealModifier)
@@ -261,7 +273,7 @@ fun ContentScope.Tile(
                         modifier.borderOnFocus(color = focusBorderColor, outerShape.topEnd) 
                     }
                     .fillMaxWidth()
-                    .height(CommonTileDefaults.TileHeight)
+                    .height(tileHeight)
                     .thenIf(currentBounceableInfo != null) {
                         Modifier.bounceable(
                             currentBounceableInfo!!.bounceable,
@@ -334,22 +346,25 @@ fun ContentScope.Tile(
                             requestToggleTextFeedback(tile.spec)
                         }
                     }
-            if (wantCircle) {
+            if (wantCircle || classicStyle) {
                 val interaction = remember { MutableInteractionSource() }
 
                 Box(Modifier.fillMaxSize()) {
                     Box(
                         modifier = Modifier
-                            .size(CommonTileDefaults.TileHeight)
+                            .size(tileHeight)
                             .align(Alignment.Center)
-                            .clip(CircleShape)
-                            .drawBehind {
-                                val brush = colors.iconBackgroundGradient
-                                if (brush != null) {
-                                    drawRect(brush = brush)
-                                } else {
-                                    drawRect(color = animatedColor)
-                                }
+                            .thenIf(!classicStyle) {
+                                Modifier
+                                    .clip(CircleShape)
+                                    .drawBehind {
+                                        val brush = colors.iconBackgroundGradient
+                                        if (brush != null) {
+                                            drawRect(brush = brush)
+                                        } else {
+                                            drawRect(color = animatedColor)
+                                        }
+                                    }
                             }
                             .indication(interaction, LocalIndication.current)
                             .tileCombinedClickable(
@@ -363,14 +378,28 @@ fun ContentScope.Tile(
                             .tileTestTag(iconOnly),
                     ) {
                         val iconProvider: Context.() -> Icon = { getTileIcon(icon = icon) }
-                        SmallTileContent(
-                            iconProvider = iconProvider,
-                            color = colors.icon,
-                            modifier =
-                                Modifier.align(Alignment.Center).bounceScale {
-                                    contentBounceable.iconBounceScale
-                                },
-                        )
+                        if (!classicStyle) {
+                             SmallTileContent(
+                                iconProvider = iconProvider,
+                                color = colors.icon,
+                                modifier =
+                                    Modifier.align(Alignment.Center).bounceScale {
+                                        contentBounceable.iconBounceScale
+                                    },
+                            )
+                        } else {
+                            ClassicTileContent(
+                                label = uiState.label,
+                                iconProvider = iconProvider,
+                                iconShapeKey = iconShapeKey,
+                                colors = colors,
+                                labelHide = labelHide,
+                                modifier =
+                                    Modifier.align(Alignment.Center).bounceScale {
+                                        contentBounceable.iconBounceScale
+                                    },
+                            )
+                        }
                     }
                 }
             } else {
@@ -381,6 +410,7 @@ fun ContentScope.Tile(
                     accessibilityUiState = uiState.accessibilityUiState,
                     iconOnly = iconOnly,
                     isDualTarget = isDualTarget,
+                    classicStyle = classicStyle,
                     modifier = contentRevealModifier,
                     colors = colors,
                 ) {
@@ -433,12 +463,18 @@ private fun TileExpandable(
     shape: Shape,
     squishiness: () -> Float,
     hapticsViewModel: TileHapticsViewModel?,
+    classicStyle: Boolean,
     modifier: Modifier = Modifier,
     content: @Composable (Expandable) -> Unit,
 ) {
     Expandable(
         controller = rememberExpandableController(color = color, shape = shape),
-        modifier = modifier.clip(shape).verticalSquish(squishiness),
+        modifier = modifier
+            .verticalSquish(squishiness)
+            .thenIf(!classicStyle) {
+                Modifier
+                    .clip(shape)
+            },
         useModifierBasedImplementation = true,
     ) {
         content(hapticsViewModel?.createStateAwareExpandable(it) ?: it)
@@ -452,6 +488,7 @@ fun TileContainer(
     accessibilityUiState: AccessibilityUiState,
     iconOnly: Boolean,
     isDualTarget: Boolean,
+    classicStyle: Boolean,
     interactionSource: MutableInteractionSource?,
     modifier: Modifier = Modifier,
     colors: TileColors,
@@ -471,7 +508,7 @@ fun TileContainer(
                     interactionSource = interactionSource,
                 )
                 .tileTestTag(iconOnly)
-                .thenIf(!isDualTarget || iconOnly) {
+                .thenIf(!classicStyle && (!isDualTarget || iconOnly)) {
                     Modifier
                         .drawBehind {
                             val brush = colors.iconBackgroundGradient
@@ -778,6 +815,126 @@ private fun rememberGradientCustomColors(): Pair<Color, Color> {
     val start = if (startInt != 0) Color(startInt) else MaterialTheme.colorScheme.primary
     val end = if (endInt != 0) Color(endInt) else MaterialTheme.colorScheme.secondary
     return start to end
+}
+
+@Composable
+fun rememberQSPanelStyle(): Boolean {
+    val context = LocalContext.current
+    val contentResolver = context.contentResolver
+
+    fun readPanelStyleEnabled(): Boolean {
+        return try {
+            Settings.System.getIntForUser(
+                contentResolver, Settings.System.QS_PANEL_STYLE, 0,
+                UserHandle.USER_CURRENT
+            ) != 0
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    var classicStyleEnabled by remember { mutableStateOf(readPanelStyleEnabled()) }
+
+    DisposableEffect(contentResolver) {
+        val observer = object : ContentObserver(null) {
+            override fun onChange(selfChange: Boolean) {
+                context.mainExecutor.execute {
+                    classicStyleEnabled = readPanelStyleEnabled()
+                }
+            }
+        }
+
+        contentResolver.registerContentObserver(
+            Settings.System.getUriFor(Settings.System.QS_PANEL_STYLE),
+            false, observer, UserHandle.USER_ALL
+        )
+
+        onDispose {
+            contentResolver.unregisterContentObserver(observer)
+        }
+    }
+
+    return classicStyleEnabled
+}
+
+@Composable
+fun rememberQSTileLabelHide(): Boolean {
+    val context = LocalContext.current
+    val contentResolver = context.contentResolver
+
+    fun readLabelHideEnabled(): Boolean {
+        return try {
+            Settings.System.getIntForUser(
+                contentResolver, Settings.System.QS_TILE_LABEL_HIDE, 0,
+                UserHandle.USER_CURRENT
+            ) != 0
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    var labelHideEnabled by remember { mutableStateOf(readLabelHideEnabled()) }
+
+    DisposableEffect(contentResolver) {
+        val observer = object : ContentObserver(null) {
+            override fun onChange(selfChange: Boolean) {
+                context.mainExecutor.execute {
+                    labelHideEnabled = readLabelHideEnabled()
+                }
+            }
+        }
+
+        contentResolver.registerContentObserver(
+            Settings.System.getUriFor(Settings.System.QS_TILE_LABEL_HIDE),
+            false, observer, UserHandle.USER_ALL
+        )
+
+        onDispose {
+            contentResolver.unregisterContentObserver(observer)
+        }
+    }
+
+    return labelHideEnabled
+}
+
+@Composable
+fun rememberQSTileIconShapeKey(): String {
+    val context = LocalContext.current
+    val contentResolver = context.contentResolver
+
+    fun readValue(): String {
+        return try {
+            Settings.System.getStringForUser(
+                contentResolver, Settings.System.QS_TILE_ICON_SHAPE,
+                UserHandle.USER_CURRENT
+            ) ?: "circle"
+        } catch (_: Throwable) {
+            "circle"
+        }
+    }
+
+    var value by remember { mutableStateOf(readValue()) }
+
+    DisposableEffect(contentResolver) {
+        val observer = object : ContentObserver(null) {
+            override fun onChange(selfChange: Boolean) {
+                context.mainExecutor.execute {
+                    value = readValue()
+                }
+            }
+        }
+
+        contentResolver.registerContentObserver(
+            Settings.System.getUriFor(Settings.System.QS_TILE_ICON_SHAPE),
+            false, observer, UserHandle.USER_ALL
+        )
+
+        onDispose {
+            contentResolver.unregisterContentObserver(observer)
+        }
+    }
+
+    return value
 }
 
 private object TileDefaults {
