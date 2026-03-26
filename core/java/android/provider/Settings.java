@@ -7262,6 +7262,12 @@ public final class Settings {
         public static final String GESTURE_NAVBAR_HEIGHT_MODE = "gesture_navbar_height_mode";
 
         /**
+         * Gesture navbar auto-hide mode.
+         * @hide
+         */
+        public static final String GESTURE_NAVBAR_AUTO_HIDE = "gesture_navbar_auto_hide";
+
+        /**
          * Whether to show seconds next to clock in status bar
          * 0 - hide (default)
          * 1 - show
