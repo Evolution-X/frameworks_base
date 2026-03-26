@@ -17,12 +17,17 @@ package com.android.systemui.common.ringer
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.Dp
 
 interface RingerSliderTheme {
     @get:Composable
     val activeBg: Color
     
+    @get:Composable
+    val activeBgBrush: Brush?
+        get() = null
+
     @get:Composable
     val neutralBg: Color
     
