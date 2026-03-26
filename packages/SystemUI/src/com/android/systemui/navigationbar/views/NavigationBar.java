@@ -56,6 +56,9 @@ import static com.android.systemui.util.Utils.isGesturalModeOnDefaultDisplay;
 
 import android.annotation.IdRes;
 import android.annotation.NonNull;
+import android.animation.ValueAnimator;
+import android.view.animation.AccelerateInterpolator;
+import android.view.animation.DecelerateInterpolator;
 import android.app.ActivityTaskManager;
 import android.app.IActivityTaskManager;
 import android.app.StatusBarManager;
@@ -183,6 +186,8 @@ import java.util.concurrent.Executor;
 
 import javax.inject.Inject;
 
+import lineageos.providers.LineageSettings;
+
 /**
  * Contains logic for a navigation bar view.
  */
@@ -200,7 +205,13 @@ public class NavigationBar extends ViewController<NavigationBarView> implements 
     /** Allow some time inbetween the long press for back and recents. */
     private static final int LOCK_TO_APP_GESTURE_TOLERANCE = 200;
     private static final long AUTODIM_TIMEOUT_MS = 2250;
+    private static final long NAVIGATION_HANDLE_AUTO_HIDE_TIMEOUT_MS = 4500;
+    private static final long NAVIGATION_HANDLE_FADE_DURATION_MS = 750;
+    private static final long NAVIGATION_HANDLE_FADE_IN_DURATION_MS = 150;
     private static final float QUICKSTEP_TOUCH_SLOP_RATIO_TWO_BUTTON = 3f;
+
+    @Nullable
+    private ValueAnimator mHomeHandleFadeAnimator;
 
     private final Context mContext;
     private final Bundle mSavedState;
@@ -243,6 +254,11 @@ public class NavigationBar extends ViewController<NavigationBarView> implements 
     private final ContentObserver mNavBarObserver;
 
     private @WindowVisibleState int mNavigationBarWindowState = WINDOW_STATE_SHOWING;
+    private final Runnable mAutoHideNavigationHandle = () -> {
+        if (shouldAutoHideNavigationHandle()) {
+            fadeOutHomeHandle();
+        }
+    };
 
     @NavbarFlags
     private int mNavbarFlags;
@@ -705,9 +721,8 @@ public class NavigationBar extends ViewController<NavigationBarView> implements 
             public void onChange(boolean selfChange, Uri uri) {
                 super.onChange(selfChange, uri);
                 if (mView != null) {
-                    mView.setNavBarMode(mNavBarMode, mNavigationModeController.getImeDrawsImeNavBar()
-                            && getShowNavBarIme());
-
+                    setNavBarMode(mNavBarMode);
+                    showNavigationHandleTemporarily();
                 }
             }
         };
@@ -718,6 +733,102 @@ public class NavigationBar extends ViewController<NavigationBarView> implements 
             mContext.getContentResolver(), 
             "sysui_show_nav_bar_ime", 1, 
             UserHandle.USER_CURRENT) == 1;
+    }
+
+    private boolean getShowNavigationBarHint() {
+        return Settings.System.getIntForUser(
+                mContext.getContentResolver(),
+                LineageSettings.System.NAVIGATION_BAR_HINT, 1,
+                UserHandle.USER_CURRENT) == 1;
+    }
+
+    private boolean getAutoHideNavigationBarHint() {
+        return Settings.System.getIntForUser(
+                mContext.getContentResolver(),
+                Settings.System.GESTURE_NAVBAR_AUTO_HIDE, 0,
+                UserHandle.USER_CURRENT) == 1;
+    }
+
+    private boolean shouldAutoHideNavigationHandle() {
+        return isGesturalMode(mNavBarMode)
+                && getShowNavigationBarHint()
+                && getAutoHideNavigationBarHint();
+    }
+
+    private void setHomeHandleAlpha(float alpha) {
+        cancelHomeHandleFade();
+        if (mView != null) {
+            ButtonDispatcher homeHandle = mView.getHomeHandle();
+            homeHandle.setVisibility(alpha > 0f ? View.VISIBLE : View.INVISIBLE);
+            homeHandle.setAlpha(alpha, false /* animate */);
+        }
+    }
+
+    private void fadeInHomeHandle() {
+        if (mView == null) return;
+        cancelHomeHandleFade();
+        ButtonDispatcher homeHandle = mView.getHomeHandle();
+        float startAlpha = homeHandle.getAlpha();
+        if (startAlpha == 1f) {
+            homeHandle.setVisibility(View.VISIBLE);
+            return;
+        }
+
+        homeHandle.setVisibility(View.VISIBLE);
+        mHomeHandleFadeAnimator = ValueAnimator.ofFloat(startAlpha, 1f);
+        mHomeHandleFadeAnimator.setDuration(NAVIGATION_HANDLE_FADE_IN_DURATION_MS);
+        mHomeHandleFadeAnimator.setInterpolator(new DecelerateInterpolator());
+        mHomeHandleFadeAnimator.addUpdateListener(anim -> {
+            float value = (float) anim.getAnimatedValue();
+            homeHandle.setAlpha(value, false /* animate */);
+        });
+        mHomeHandleFadeAnimator.start();
+    }
+
+    private void fadeOutHomeHandle() {
+        if (mView == null) return;
+        cancelHomeHandleFade();
+        ButtonDispatcher homeHandle = mView.getHomeHandle();
+        float startAlpha = homeHandle.getAlpha();
+        if (startAlpha == 0f) return;
+
+        mHomeHandleFadeAnimator = ValueAnimator.ofFloat(startAlpha, 0f);
+        mHomeHandleFadeAnimator.setDuration(NAVIGATION_HANDLE_FADE_DURATION_MS);
+        mHomeHandleFadeAnimator.setInterpolator(new AccelerateInterpolator());
+        mHomeHandleFadeAnimator.addUpdateListener(anim -> {
+            float value = (float) anim.getAnimatedValue();
+            homeHandle.setAlpha(value, false /* animate */);
+            if (value == 0f) {
+                homeHandle.setVisibility(View.INVISIBLE);
+            }
+        });
+        mHomeHandleFadeAnimator.start();
+    }
+
+    private void cancelHomeHandleFade() {
+        if (mHomeHandleFadeAnimator != null) {
+            mHomeHandleFadeAnimator.cancel();
+            mHomeHandleFadeAnimator = null;
+        }
+    }
+
+    private void showNavigationHandleTemporarily() {
+        mHandler.removeCallbacks(mAutoHideNavigationHandle);
+        if (!isGesturalMode(mNavBarMode) || !getShowNavigationBarHint()) {
+            setHomeHandleAlpha(0f);
+            return;
+        }
+
+        fadeInHomeHandle();
+        if (getAutoHideNavigationBarHint()) {
+            mHandler.postDelayed(mAutoHideNavigationHandle, getNavigationHandleAutoHideTimeout());
+        }
+    }
+
+    private int getNavigationHandleAutoHideTimeout() {
+        return mAccessibilityManager.getRecommendedTimeoutMillis(
+                (int) NAVIGATION_HANDLE_AUTO_HIDE_TIMEOUT_MS,
+                AccessibilityManager.FLAG_CONTENT_CONTROLS);
     }
 
     public NavigationBarView getView() {
@@ -892,9 +1003,22 @@ public class NavigationBar extends ViewController<NavigationBarView> implements 
         AutoHideController autoHideController = mAutoHideControllerStore.forDisplay(mDisplayId);
         setAutoHideController(autoHideController);
         restoreAppearanceAndTransientState();
+        showNavigationHandleTemporarily();
 
         mContext.getContentResolver().registerContentObserver(
                 Settings.Secure.getUriFor("sysui_show_nav_bar_ime"),
+                false,
+                mNavBarObserver,
+                UserHandle.USER_ALL
+        );
+        mContext.getContentResolver().registerContentObserver(
+                LineageSettings.System.getUriFor(LineageSettings.System.NAVIGATION_BAR_HINT),
+                false,
+                mNavBarObserver,
+                UserHandle.USER_ALL
+        );
+        mContext.getContentResolver().registerContentObserver(
+                Settings.System.getUriFor(Settings.System.GESTURE_NAVBAR_AUTO_HIDE),
                 false,
                 mNavBarObserver,
                 UserHandle.USER_ALL
@@ -926,6 +1050,8 @@ public class NavigationBar extends ViewController<NavigationBarView> implements 
         mView.getViewTreeObserver().removeOnComputeInternalInsetsListener(
                 mOnComputeInternalInsetsListener);
         mHandler.removeCallbacks(mAutoDim);
+        mHandler.removeCallbacks(mAutoHideNavigationHandle);
+        cancelHomeHandleFade();
         mHandler.removeCallbacks(mOnVariableDurationHomeLongClick);
         mHandler.removeCallbacks(mEnableLayoutTransitions);
         mNavBarHelper.removeNavTaskStateUpdater(mNavbarTaskbarStateUpdater);
@@ -1391,6 +1517,7 @@ public class NavigationBar extends ViewController<NavigationBarView> implements 
 
     private void notifyNavigationBarScreenOn() {
         mView.updateNavButtonIcons();
+        showNavigationHandleTemporarily();
     }
 
     private void prepareNavigationBarView() {
@@ -1403,6 +1530,9 @@ public class NavigationBar extends ViewController<NavigationBarView> implements 
         ButtonDispatcher homeButton = mView.getHomeButton();
         homeButton.setOnTouchListener(this::onHomeTouch);
         homeButton.setNavBarButtonClickLogger(mNavBarButtonClickLogger);
+
+        ButtonDispatcher homeHandle = mView.getHomeHandle();
+        homeHandle.setOnTouchListener(this::onHomeHandleTouch);
 
         ButtonDispatcher backButton = mView.getBackButton();
         backButton.setNavBarButtonClickLogger(mNavBarButtonClickLogger);
@@ -1502,6 +1632,13 @@ public class NavigationBar extends ViewController<NavigationBarView> implements 
         return false;
     }
 
+    private boolean onHomeHandleTouch(View v, MotionEvent event) {
+        if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+            showNavigationHandleTemporarily();
+        }
+        return false;
+    }
+
     private void onVerticalChanged(boolean isVertical) {
         // This check can probably be safely removed. It only remained to reduce regression
         // risk for a broad change that removed the CentralSurfaces reference in the if block
@@ -1511,6 +1648,9 @@ public class NavigationBar extends ViewController<NavigationBarView> implements 
     }
 
     private boolean onNavigationTouch(View v, MotionEvent event) {
+        if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+            showNavigationHandleTemporarily();
+        }
         if (mAutoHideController != null) {
             mAutoHideController.checkUserAutoHide(event);
         }
@@ -1722,6 +1862,7 @@ public class NavigationBar extends ViewController<NavigationBarView> implements 
     public void touchAutoDim() {
         getBarTransitions().setAutoDim(false);
         mHandler.removeCallbacks(mAutoDim);
+        showNavigationHandleTemporarily();
         int state = mStatusBarStateController.getState();
         if (state != StatusBarState.KEYGUARD && state != StatusBarState.SHADE_LOCKED) {
             mHandler.postDelayed(mAutoDim, AUTODIM_TIMEOUT_MS);
@@ -2081,6 +2222,7 @@ public class NavigationBar extends ViewController<NavigationBarView> implements 
         } else {
             mRegionSamplingHelper.stop();
         }
+        
     }
 
     void onBarTransition(int newMode) {
@@ -2110,6 +2252,7 @@ public class NavigationBar extends ViewController<NavigationBarView> implements 
             // Update the window layout params when the nav mode changes as that will affect the
             // system gesture insets
             setNavBarMode(mode);
+            showNavigationHandleTemporarily();
             repositionNavigationBar(mCurrentRotation);
 
             if (!canShowSecondaryHandle()) {
