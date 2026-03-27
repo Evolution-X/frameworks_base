@@ -205,6 +205,7 @@ class OnGoingActionProgressController(
             currentIcon = context.resources.getDrawable(R.drawable.ic_default_music_icon, context.theme)
         }
         if (chipColorMode == CHIP_COLOR_MODE_ICON && currentIcon != null) {
+            invalidateChipBgColor()
             currentIcon?.let { extractAndApplyChipBgColorFromIcon(it) }
         }
     }
@@ -225,10 +226,76 @@ class OnGoingActionProgressController(
         if (art != null) {
             currentAlbumArt = art
             if (chipColorMode == CHIP_COLOR_MODE_ALBUM_ART) {
+                invalidateChipBgColor()
                 currentAlbumArt?.let { extractAndApplyChipBgColorFromAlbumArt(it) }
             }
-        } else if (metadata != null) {  // Partial update, force refresh
+            return
+        }
+
+        val actives = notificationListener.activeNotifications
+        if (actives != null) {
+            for (sbn in actives) {
+                val extras = sbn.notification.extras
+                val template = extras?.getString(Notification.EXTRA_TEMPLATE) ?: ""
+                val isMedia = template.contains("MediaStyle") ||
+                        extras?.containsKey(Notification.EXTRA_MEDIA_SESSION) == true
+                if (!isMedia) continue
+
+                val notifTitle = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
+                val matchesTitle = !currentTrackTitle.isNullOrBlank() &&
+                        (notifTitle.equals(currentTrackTitle, ignoreCase = true) ||
+                         notifTitle.contains(currentTrackTitle!!, ignoreCase = true))
+                if (!matchesTitle) continue
+
+                val largeIcon = sbn.notification.getLargeIcon() ?: continue
+                try {
+                    val drawable = largeIcon.loadDrawable(context)
+                    val extracted = drawable?.toBitmap()
+                    if (extracted != null) {
+                        currentAlbumArt = extracted
+                        if (chipColorMode == CHIP_COLOR_MODE_ALBUM_ART) {
+                            invalidateChipBgColor()
+                            extractAndApplyChipBgColorFromAlbumArt(extracted)
+                        }
+                        return
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to load LargeIcon from notification for ${sbn.packageName}", e)
+                }
+            }
+        }
+
+        val artUri = metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM_ART_URI)
+            ?: metadata?.getString(MediaMetadata.METADATA_KEY_ART_URI)
+
+        if (!artUri.isNullOrBlank()) {
+            fetchAlbumArtFromUriAsync(artUri)
+        } else if (metadata != null) {
             mediaSessionHelper.refreshActiveControllerMetadata()
+        }
+    }
+
+    private fun fetchAlbumArtFromUriAsync(uriString: String) {
+        mainScope.launch {
+            try {
+                val bitmap = withContext(bgDispatcher) {
+                    val uri = Uri.parse(uriString)
+                    val source = android.graphics.ImageDecoder.createSource(contentResolver, uri)
+                    android.graphics.ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
+                        decoder.setAllocator(android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE)
+                        decoder.isMutableRequired = true
+                    }
+                }
+                currentAlbumArt = bitmap
+                if (chipColorMode == CHIP_COLOR_MODE_ALBUM_ART) {
+                    invalidateChipBgColor()
+                    extractAndApplyChipBgColorFromAlbumArt(bitmap)
+                } else {
+                    updateProgressState()
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to decode media URI for ongoing chip: $uriString", e)
+            }
         }
     }
 
@@ -272,6 +339,8 @@ class OnGoingActionProgressController(
         currentChipBgColor = null
         lastColorExtractedIcon = null
         lastColorExtractedAlbumArt = null
+        chipIconColor = null
+        chipAlbumColor = null
     }
 
     private suspend fun extractDominantColorFromBitmap(bitmap: Bitmap): Int? =
@@ -372,11 +441,9 @@ class OnGoingActionProgressController(
         val artistName = if (hasMediaSession) currentArtistName else null
 
         if (hasMediaSession) {
-            if (chipColorMode == CHIP_COLOR_MODE_ICON &&
-                    chipIconColor != null) {
+            if (chipColorMode == CHIP_COLOR_MODE_ICON && chipIconColor != null) {
                 currentChipBgColor = chipIconColor
-            } else if (chipColorMode == CHIP_COLOR_MODE_ALBUM_ART &&
-                    chipAlbumColor != null) {
+            } else if (chipColorMode == CHIP_COLOR_MODE_ALBUM_ART && chipAlbumColor != null) {
                 currentChipBgColor = chipAlbumColor
             }
         }
@@ -741,13 +808,11 @@ class OnGoingActionProgressController(
 
     private fun skipToNextTrack() {
         mediaSessionHelper.nextSong()
-        // Update progress without delay
         updateMediaProgress()
     }
 
     private fun skipToPreviousTrack() {
         mediaSessionHelper.prevSong()
-        // Update progress without delay
         updateMediaProgress()
     }
 
@@ -882,7 +947,7 @@ class OnGoingActionProgressController(
             UserHandle.USER_CURRENT
         ).coerceIn(0, 100)
 
-        if (!isCompactModeEnabled) {
+        if (!isEnabled || !isCompactModeEnabled) {
             isExpanded = false
         }
 
