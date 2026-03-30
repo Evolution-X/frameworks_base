@@ -16,11 +16,13 @@
 package com.android.systemui.nowplaying
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.util.Log
+import android.view.WindowManager
 import android.widget.FrameLayout
 import com.android.settingslib.Utils
 import com.android.systemui.dagger.SysUISingleton
@@ -54,6 +56,14 @@ constructor(
     private var isKeyguardShowing: Boolean = false
     private var isDozing: Boolean = false
 
+    private val expandedOverlay: NowPlayingExpandedOverlay by lazy {
+        NowPlayingExpandedOverlay(
+            context = context,
+            windowManager = context.getSystemService(WindowManager::class.java)!!,
+            mediaSessionManager = mediaSessionManager,
+        )
+    }
+
     private val mediaCallback = object : MediaController.Callback() {
         override fun onMetadataChanged(metadata: MediaMetadata?) {
             updateMetadata(metadata)
@@ -80,6 +90,16 @@ constructor(
         observeSettings()
         
         startMediaMonitoring()
+
+        nowPlayingView.isClickable = true
+        nowPlayingView.isFocusable = true
+        nowPlayingView.setOnClickListener {
+            if (NowPlayingOverlayState.isOverlayOpen.value) {
+                expandedOverlay.hide()
+            } else {
+                expandedOverlay.show()
+            }
+        }
     }
 
     fun getNowPlayingView(): FrameLayout = nowPlayingView
@@ -112,6 +132,9 @@ constructor(
             useCompactStyle = settings.useCompactStyle
             verticalPosition = settings.verticalPosition
             updateTextSize(settings.trackTextSize, settings.artistTextSize)
+            NowPlayingOverlayState.update {
+                copy(useWaveformSeekBar = settings.useWaveformSeekBar)
+            }
         }
         
         updateVisibility()
@@ -152,12 +175,44 @@ constructor(
         
         nowPlayingView.trackTitle = currentTrackTitle
         nowPlayingView.artistName = currentArtist
+
+        val albumArt: Bitmap? = run {
+            val meta = metadata ?: return@run null
+            meta.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
+                ?: meta.getBitmap(MediaMetadata.METADATA_KEY_ART)
+                ?: meta.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
+        }
+
+        NowPlayingOverlayState.update {
+            copy(
+                track = currentTrackTitle,
+                artist = currentArtist,
+                packageName = currentPackageName,
+                albumArt = albumArt,
+                useWaveformSeekBar = currentSettings.useWaveformSeekBar,
+            )
+        }
         
         updateVisibility()
     }
 
     private fun updatePlaybackState(state: PlaybackState?) {
         isPlaying = state?.state == PlaybackState.STATE_PLAYING
+        val duration = activeController?.metadata
+            ?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0L
+        val pos = state?.position?.coerceAtLeast(0L) ?: 0L
+        val progress = if (duration > 0L) (pos.toFloat() / duration).coerceIn(0f, 1f) else 0f
+        NowPlayingOverlayState.update {
+            copy(
+                isPlaying = this@NowPlayingViewController.isPlaying,
+                duration = duration,
+                position = pos,
+                progress = progress,
+                playbackSpeed = state?.playbackSpeed?.takeIf { it > 0f } ?: 1f,
+                positionUpdateTime = state?.lastPositionUpdateTime ?: 0L,
+                packageName = currentPackageName,
+            )
+        }
         updateVisibility()
     }
 
@@ -199,6 +254,7 @@ constructor(
         bouncerShowingOrKeyguardDismissing = showing
         if (showing) {
             nowPlayingView.hide()
+            expandedOverlay.hide()
         } else {
             updateVisibility()
         }
@@ -208,6 +264,7 @@ constructor(
         bouncerShowingOrKeyguardDismissing = goingAway
         if (goingAway) {
             nowPlayingView.hide()
+            expandedOverlay.hide()
         } else {
             updateVisibility()
         }
@@ -217,6 +274,7 @@ constructor(
         bouncerShowingOrKeyguardDismissing = fadingAway
         if (fadingAway) {
             nowPlayingView.hide()
+            expandedOverlay.hide()
         } else {
             updateVisibility()
         }
@@ -257,6 +315,7 @@ constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Error during cleanup", e)
         }
+        expandedOverlay.hide()
         settingsJob?.cancel()
         scope.cancel()
     }
