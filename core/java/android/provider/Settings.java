@@ -7376,6 +7376,12 @@ public final class Settings {
         public static final String NOWPLAYING_SHOW_ON_LOCKSCREEN = "nowplaying_show_on_lockscreen";
 
         /**
+         * Whether to show expanded dialog
+         * @hide
+         */
+        public static final String NOWPLAYING_TAP_TO_EXPAND = "nowplaying_tap_to_expand";
+
+        /**
          * Whether to show the battery bar
          * @hide
          */

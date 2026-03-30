@@ -161,6 +161,8 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
     init {
         layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+        isClickable = true
+        isFocusable = true
         setWillNotDraw(false)
         visible = false
         val density = resources.displayMetrics.density
