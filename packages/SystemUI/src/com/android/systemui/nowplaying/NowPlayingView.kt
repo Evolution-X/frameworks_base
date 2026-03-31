@@ -147,6 +147,13 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
     private var needsMarquee: Boolean = false
     private var cachedMaxWidth: Float = 0f
     private var cachedWidth: Int = 0
+    private var contentLeft: Float = 0f
+    private var contentTop: Float = 0f
+    private var contentRight: Float = 0f
+    private var contentBottom: Float = 0f
+    private val hitSlop: Float by lazy {
+        24f * resources.displayMetrics.density
+    }
 
     var visible: Boolean
         get() = isVisible
@@ -377,6 +384,19 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
         cachedMaxWidth = w * MAX_WIDTH_RATIO
     }
 
+    override fun onTouchEvent(event: android.view.MotionEvent): Boolean {
+        if (event.action == android.view.MotionEvent.ACTION_DOWN) {
+            val x = event.x
+            val y = event.y
+            val inBounds = x >= (contentLeft - hitSlop)
+                    && x <= (contentRight + hitSlop)
+                    && y >= (contentTop - hitSlop)
+                    && y <= (contentBottom + hitSlop)
+            if (!inBounds) return false
+        }
+        return super.onTouchEvent(event)
+    }
+
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         
@@ -484,6 +504,13 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
         } finally {
             canvas.restore()
         }
+
+        val halfW = maxWidth / 2f
+        val textH = compactPaint.textSize
+        contentLeft = centerX - halfW
+        contentRight = centerX + halfW
+        contentTop = yPosition - textH
+        contentBottom = yPosition + (textH * 0.3f)
     }
 
     private fun drawNormalStyle(canvas: Canvas, centerX: Float, yPosition: Float, maxWidth: Float) {
@@ -558,6 +585,16 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
             val artistY = currentY + trackPaint.textSize + titleArtistGap
             canvas.drawText(truncatedArtist, centerX, artistY, artistPaint)
         }
+
+        val halfW = (maxWidth / 2f).coerceAtLeast(trackPaint.measureText(trackTitle) / 2f)
+        val bottomY = if (artistName.isNotEmpty())
+            currentY + trackPaint.textSize + titleArtistGap + artistPaint.textSize
+        else
+            currentY + trackPaint.textSize
+        contentLeft = centerX - halfW
+        contentRight = centerX + halfW
+        contentTop = yPosition - (if (iconStyle != ICON_STYLE_DISABLED) iconSize + iconPaddingNormal else 0f)
+        contentBottom = bottomY
     }
 
     fun updateTextSize(trackSize: Float, artistSize: Float) {
