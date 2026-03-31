@@ -31,6 +31,7 @@ import android.os.Trace.TRACE_TAG_APP
 import android.provider.AlarmClock
 import android.provider.Settings
 import android.view.DisplayCutout
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
@@ -371,6 +372,10 @@ constructor(
         }
 
     override fun onInit() {
+        // The ColorOS status row sits below the fixed height of the header, so the header must
+        // not clip it.
+        header.clipChildren = false
+        header.clipToPadding = false
         variableDateViewControllerFactory.create(date as VariableDateView).init()
 
         val fgColor = getFgColor()
@@ -492,6 +497,7 @@ constructor(
                 if (enabled != colorOSStyle) {
                     colorOSStyle = enabled
                     loadConstraints()
+                    updateResources()
                     updateTransition()
                     updateCarrierGroupPadding()
                 }
@@ -572,6 +578,12 @@ constructor(
                     (clock.width * resources.getFloat(R.dimen.qqs_expand_clock_scale)).toInt()
                 }
             mShadeCarrierGroup.setPaddingRelative(maxClockWidth, 0, 0, 0)
+            mShadeCarrierGroup.gravity =
+                if (colorOSStyle) {
+                    Gravity.START or Gravity.CENTER_VERTICAL
+                } else {
+                    Gravity.END or Gravity.CENTER_VERTICAL
+                }
         }
     }
 
