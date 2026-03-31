@@ -47,8 +47,9 @@
     <!-- Biometric view -->
     <dimen name="biometric_indicator_above_margin_bottom">8dp</dimen>
 
-    <!-- ColorOS QS header: 12dp, the 44dp buttons and 20dp above the status row -->
-    <dimen name="qs_coloros_header_status_top">76dp</dimen>
+    <!-- ColorOS QS header: distance from the top of the header to the status row, which sits
+         below the 44dp panel buttons -->
+    <dimen name="qs_coloros_header_status_top">106dp</dimen>
     <!-- ColorOS QS header: the above, the status row and 20dp below it -->
     <dimen name="qs_coloros_header_height">120dp</dimen>
 </resources>
