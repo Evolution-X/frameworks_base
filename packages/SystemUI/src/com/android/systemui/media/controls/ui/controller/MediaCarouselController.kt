@@ -181,6 +181,8 @@ constructor(
     /** The progress of the transition or 1.0 if there is no transition happening */
     private var currentTransitionProgress: Float = 1.0f
 
+    private var playersInTransition = false
+
     /** The measured width of the carousel */
     private var carouselMeasureWidth: Int = 0
 
@@ -814,6 +816,17 @@ constructor(
             currentStartLocation = startLocation
             currentEndLocation = endLocation
             currentTransitionProgress = progress
+            val inTransition =
+                startLocation != endLocation &&
+                    startLocation != MediaHierarchyManager.LOCATION_UNKNOWN
+            if (inTransition != playersInTransition) {
+                playersInTransition = inTransition
+                val layerType =
+                    if (inTransition) View.LAYER_TYPE_NONE else View.LAYER_TYPE_HARDWARE
+                for (mediaPlayer in MediaPlayerData.players()) {
+                    mediaPlayer.mediaViewHolder?.player?.setLayerType(layerType, null)
+                }
+            }
             for (mediaPlayer in MediaPlayerData.players()) {
                 updateViewControllerToState(mediaPlayer.mediaViewController, immediately)
             }
