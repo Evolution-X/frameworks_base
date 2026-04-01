@@ -50,6 +50,7 @@
     <!-- ColorOS QS header: distance from the top of the header to the status row, which sits
          below the 44dp panel buttons -->
     <dimen name="qs_coloros_header_status_top">106dp</dimen>
-    <!-- ColorOS QS header: the above, the status row and 20dp below it -->
-    <dimen name="qs_coloros_header_height">120dp</dimen>
+    <!-- Reduce the room reserved above the first row of tiles from 120dp to
+         104dp, so the tiles sit closer to the status row like in the ColorOS panel. -->
+    <dimen name="qs_coloros_header_height">104dp</dimen>
 </resources>
