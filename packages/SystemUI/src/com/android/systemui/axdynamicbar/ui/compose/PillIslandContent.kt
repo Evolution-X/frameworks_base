@@ -973,7 +973,7 @@ internal fun PillEventText(
         is IslandEvent.MicCamActive -> MicCamText(event, modifier, overrideColor)
         is IslandEvent.AudioRecording -> AudioRecText(event, modifier, overrideColor)
         is IslandEvent.Casting -> MarqueeLabel(event.deviceName.take(12), overrideColor ?: TealAccent, modifier)
-        is IslandEvent.Media -> MediaText(event, modifier, overrideColor)
+        is IslandEvent.Media -> MediaTitleText(event, modifier, overrideColor)
         is IslandEvent.PromotedOngoing -> PromotedOngoingText(event, modifier, overrideColor)
         is IslandEvent.Sports -> SportsText(event, modifier, overrideColor)
         is IslandEvent.NowPlaying -> MarqueeLabel(
@@ -1096,11 +1096,24 @@ private fun AudioRecText(event: IslandEvent.AudioRecording, modifier: Modifier, 
 }
 
 @Composable
-private fun MediaText(event: IslandEvent.Media, modifier: Modifier, overrideColor: Color? = null) {
-    val baseColor = overrideColor ?: OrangeAccent
-    val alpha = if (event.isPlaying) 1f else AlphaHint
-    val color = baseColor.copy(alpha = alpha)
-    WaveformAnimation(color = color, modifier = modifier.size(20.dp, 12.dp), isAnimating = event.isPlaying)
+private fun MediaTitleText(event: IslandEvent.Media, modifier: Modifier, overrideColor: Color? = null) {
+    val color = (overrideColor ?: OrangeAccent).copy(
+        alpha = if (event.isPlaying) 1f else AlphaHint
+    )
+    val title = event.track.ifEmpty {
+        event.artist.ifEmpty { "Music" }
+    }
+    Text(
+        text = title,
+        color = color,
+        style = PillPrimary,
+        maxLines = 1,
+        overflow = TextOverflow.Clip,
+        modifier = modifier.basicMarquee(
+            initialDelayMillis = 3_000,
+            repeatDelayMillis = 5_000,
+        ),
+    )
 }
 
 @Composable
