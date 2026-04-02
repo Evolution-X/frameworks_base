@@ -3,6 +3,7 @@ package com.android.systemui.axdynamicbar.domain
 import android.database.ContentObserver
 import android.os.Handler
 import android.os.UserHandle
+import android.provider.Settings
 import android.provider.Settings.Global
 import com.android.systemui.axdynamicbar.model.IslandEvent
 import com.android.systemui.axdynamicbar.shared.EVENT_TYPE_IDS
@@ -21,6 +22,7 @@ class AxDynamicBarSettings @Inject constructor(
     @Main private val mainHandler: Handler,
     private val secureSettings: SecureSettings,
     private val globalSettings: GlobalSettings,
+    private val context: android.content.Context,
 ) {
     companion object {
         const val KEY_ENABLED = "ax_dynamic_bar_enabled"
@@ -29,6 +31,8 @@ class AxDynamicBarSettings @Inject constructor(
         const val KEY_KEYGUARD_BATTERY_CHIP_MODE = "ax_dynamic_bar_keyguard_battery_chip_mode"
         const val KEY_COMPACT_NOTIFICATIONS = "ax_dynamic_bar_compact_notifications"
     }
+
+    private val contentResolver = context.contentResolver
 
     private val _isEnabled = MutableStateFlow(false)
     @get:JvmName("getIsEnabled") val isEnabled: StateFlow<Boolean> = _isEnabled.asStateFlow()
@@ -44,6 +48,9 @@ class AxDynamicBarSettings @Inject constructor(
 
     private val _isHeadsUpEnabled = MutableStateFlow(true)
     val isHeadsUpEnabled: StateFlow<Boolean> = _isHeadsUpEnabled.asStateFlow()
+
+    private val _useWaveformSeekBar = MutableStateFlow(false)
+    val useWaveformSeekBar: StateFlow<Boolean> = _useWaveformSeekBar.asStateFlow()
 
     private val _disabledEventTypes = MutableStateFlow<Set<String>>(emptySet())
     val disabledEventTypes: StateFlow<Set<String>> = _disabledEventTypes.asStateFlow()
@@ -100,6 +107,12 @@ class AxDynamicBarSettings @Inject constructor(
             false,
             settingsObserver,
         )
+        contentResolver.registerContentObserver(
+            Settings.System.getUriFor(Settings.System.MEDIA_WAVEFORM_SEEKBAR),
+            false,
+            settingsObserver,
+            UserHandle.USER_ALL,
+        )
     }
 
     fun destroy() {
@@ -107,6 +120,7 @@ class AxDynamicBarSettings @Inject constructor(
         initialized = false
         secureSettings.getContentResolver().unregisterContentObserver(settingsObserver)
         globalSettings.getContentResolver().unregisterContentObserver(settingsObserver)
+        contentResolver.unregisterContentObserver(settingsObserver)
     }
 
     private fun refresh() {
@@ -120,6 +134,9 @@ class AxDynamicBarSettings @Inject constructor(
             secureSettings.getIntForUser(KEY_COMPACT_NOTIFICATIONS, 1, UserHandle.USER_CURRENT) == 1
         _isHeadsUpEnabled.value =
             globalSettings.getInt(Global.HEADS_UP_NOTIFICATIONS_ENABLED, 1) == 1
+        _useWaveformSeekBar.value =
+            Settings.System.getIntForUser(
+                contentResolver, Settings.System.MEDIA_WAVEFORM_SEEKBAR, 0, UserHandle.USER_CURRENT,) == 1
 
         val json = secureSettings.getStringForUser(KEY_EVENTS, UserHandle.USER_CURRENT) ?: ""
         _disabledEventTypes.value =
