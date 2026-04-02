@@ -90,6 +90,7 @@ constructor(
     val isEnabled: StateFlow<Boolean> = interactor.settings.isEnabled
     val isKeyguardEnabled: StateFlow<Boolean> = interactor.settings.isKeyguardEnabled
     val keyguardBatteryChipMode: StateFlow<Int> = interactor.settings.keyguardBatteryChipMode
+    val mediaUseWaveform: StateFlow<Boolean> = interactor.mediaUseWaveform
 
     val keyguardBatteryInfo: StateFlow<KeyguardBatteryInfo> =
         combine(
