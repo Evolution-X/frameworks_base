@@ -76,6 +76,7 @@ constructor(
     val qsExpansion: StateFlow<Float> = shadeInteractor.qsExpansion
     
     val legacyShadeExpansion: StateFlow<Float> = shadeRepository.legacyShadeExpansion
+    val mediaUseWaveform: StateFlow<Boolean> = settings.useWaveformSeekBar
     private val _isOnKeyguard = MutableStateFlow(false)
     val isOnKeyguard: StateFlow<Boolean> = _isOnKeyguard.asStateFlow()
     private val _isKeyguardFadingAway = MutableStateFlow(false)
