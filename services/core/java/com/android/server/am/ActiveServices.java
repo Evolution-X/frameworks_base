@@ -2912,6 +2912,7 @@ public final class ActiveServices {
 
         // Whitelist of package names to bypass FGS type validation
         final Set<String> whitelistPackages = new HashSet<>(Arrays.asList(
+            "com.google.android.as",         // Google Device Personalization services
             "com.google.android.gms",        // Google Play Services
             "com.android.vending",           // Google Play Store
             "com.google.android.gsf",        // Google Services Framework
