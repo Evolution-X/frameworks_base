@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -1109,10 +1110,12 @@ private fun MediaTitleText(event: IslandEvent.Media, modifier: Modifier, overrid
         style = PillPrimary,
         maxLines = 1,
         overflow = TextOverflow.Clip,
-        modifier = modifier.basicMarquee(
-            initialDelayMillis = 3_000,
-            repeatDelayMillis = 5_000,
-        ),
+        modifier = modifier
+            .widthIn(max = 90.dp)
+            .basicMarquee(
+                initialDelayMillis = 3_000,
+                repeatDelayMillis = 5_000,
+            ),
     )
 }
 
