@@ -110,6 +110,8 @@ fun AxDynamicBarChip(
         enter = fadeIn(motionScheme.defaultEffectsSpec()) + scaleIn(initialScale = 0.8f, animationSpec = motionScheme.defaultSpatialSpec()),
         exit = fadeOut(motionScheme.fastEffectsSpec()) + scaleOut(targetScale = 0.8f, animationSpec = motionScheme.fastSpatialSpec()),
         modifier = modifier
+            .padding(start = 4.dp, end = 2.dp)
+            .widthIn(min = 25.dp, max = 90.dp)
             .pointerInput(viewModel) {
                 awaitEachGesture {
                     val down = awaitFirstDown(pass = PointerEventPass.Initial)
