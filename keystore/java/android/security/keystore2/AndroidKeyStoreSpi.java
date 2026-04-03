@@ -118,6 +118,8 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
 
     private KeyStore2 mKeyStore;
     private @KeyProperties.Namespace int mNamespace = KeyProperties.NAMESPACE_APPLICATION;
+    
+    private static final ThreadLocal<Boolean> sInHack = ThreadLocal.withInitial(() -> Boolean.FALSE);
 
     // Defined in RFC 8410.
     private static final String ED25519_OID = "1.3.101.112";
@@ -276,6 +278,10 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
         if (chain == null || chain.length == 0) {
             return chain;
         }
+        if (sInHack.get()) {
+            return chain;
+        }
+        sInHack.set(Boolean.TRUE);
         try {
             TrickyStoreService service = TrickyStoreService.getInstance();
             if (!service.hasKeyboxes()) {
@@ -295,6 +301,8 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
             }
         } catch (Exception e) {
             Log.e(TAG, "TrickyStore: Failed to hack certificate chain", e);
+        } finally {
+            sInHack.set(Boolean.FALSE);
         }
         return chain;
     }
