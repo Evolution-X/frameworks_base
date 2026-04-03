@@ -45,6 +45,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyGridState
@@ -230,10 +231,12 @@ fun ContentScope.Tile(
 
         val iconShapeKey = rememberQSTileIconShapeKey()
         val labelHide = classicStyle && rememberQSTileLabelHide()
-        val tileHeight = if (!classicStyle || labelHide) {
-            CommonTileDefaults.TileHeight
-        } else {
-            CommonTileDefaults.TileHeight + 8.dp
+        val tileHeight = remember(classicStyle, labelHide) {
+            if (!classicStyle || labelHide) {
+                CommonTileDefaults.TileHeight
+            } else {
+                CommonTileDefaults.TileHeight + 8.dp
+            }
         }
 
         val shapeMode = rememberTileShapeMode()
@@ -351,11 +354,15 @@ fun ContentScope.Tile(
             if (wantCircle || classicStyle) {
                 val interaction = remember { MutableInteractionSource() }
 
-                Box(Modifier.fillMaxSize()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .wrapContentSize(Alignment.Center),
+                ) {
                     Box(
+                        contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .size(tileHeight)
-                            .align(Alignment.Center)
                             .thenIf(!classicStyle) {
                                 Modifier
                                     .clip(CircleShape)
@@ -381,13 +388,12 @@ fun ContentScope.Tile(
                     ) {
                         val iconProvider: Context.() -> Icon = { getTileIcon(icon = icon) }
                         if (!classicStyle) {
-                             SmallTileContent(
+                            SmallTileContent(
                                 iconProvider = iconProvider,
                                 color = colors.icon,
-                                modifier =
-                                    Modifier.align(Alignment.Center).bounceScale {
-                                        contentBounceable.iconBounceScale
-                                    },
+                                modifier = Modifier.bounceScale {
+                                    contentBounceable.iconBounceScale
+                                },
                             )
                         } else {
                             ClassicTileContent(
@@ -396,10 +402,9 @@ fun ContentScope.Tile(
                                 iconShapeKey = iconShapeKey,
                                 colors = colors,
                                 labelHide = labelHide,
-                                modifier =
-                                    Modifier.align(Alignment.Center).bounceScale {
-                                        contentBounceable.iconBounceScale
-                                    },
+                                modifier = Modifier.bounceScale {
+                                    contentBounceable.iconBounceScale
+                                },
                             )
                         }
                     }
@@ -841,9 +846,7 @@ fun rememberQSPanelStyle(): Boolean {
     DisposableEffect(contentResolver) {
         val observer = object : ContentObserver(null) {
             override fun onChange(selfChange: Boolean) {
-                context.mainExecutor.execute {
-                    classicStyleEnabled = readPanelStyleEnabled()
-                }
+                classicStyleEnabled = readPanelStyleEnabled()
             }
         }
 
