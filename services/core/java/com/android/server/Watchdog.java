@@ -122,31 +122,39 @@ public class Watchdog implements Dumpable {
     private static final String PROP_FATAL_LOOP_WINDOWS_SECS =
             "framework_watchdog.fatal_window.second";
 
-    // Which native processes to dump into dropbox's stack traces
-    public static final String[] NATIVE_STACKS_OF_INTEREST = new String[] {
-        "/system/bin/audioserver",
-        "/system/bin/cameraserver",
-        "/system/bin/drmserver",
-        "/system/bin/idmap2d",
-        "/system/bin/keystore2",
-        "/system/bin/mediadrmserver",
-        "/system/bin/mediaserver",
-        "/system/bin/netd",
-        "/system/bin/sdcard",
-        "/system/bin/servicemanager",
-        "/system/bin/surfaceflinger",
-        "/system/bin/vold",
-        "media.extractor", // system/bin/mediaextractor
-        "media.metrics", // system/bin/mediametrics
-        "media.codec", // vendor/bin/hw/android.hardware.media.omx@1.0-service
-        "media.swcodec", // /apex/com.android.media.swcodec/bin/mediaswcodec
-        "media.transcoding", // Media transcoding service
-        "com.android.bluetooth",  // Bluetooth service
-        "/apex/com.android.art/bin/artd",  // ART daemon
-        "/apex/com.android.compos/bin/composd",  // CompOS daemon (lazy service)
-        "/apex/com.android.os.statsd/bin/statsd",  // Stats daemon
-        "/apex/com.android.virt/bin/virtualizationservice",  // Core process in AVF
-    };
+    // Which native processes to dump into dropbox's stack traces.
+    // Keep this in sync with crash_dump sepolicy: keystore2 is intentionally excluded because
+    // crash_dump is never allowed to ptrace it, while vold is only dumpable on userdebug/eng.
+    public static final String[] NATIVE_STACKS_OF_INTEREST = getNativeStacksOfInterest();
+
+    private static String[] getNativeStacksOfInterest() {
+        ArrayList<String> processes = new ArrayList<>(Arrays.asList(
+                "/system/bin/audioserver",
+                "/system/bin/cameraserver",
+                "/system/bin/drmserver",
+                "/system/bin/idmap2d",
+                "/system/bin/mediadrmserver",
+                "/system/bin/mediaserver",
+                "/system/bin/netd",
+                "/system/bin/sdcard",
+                "/system/bin/servicemanager",
+                "/system/bin/surfaceflinger",
+                "media.extractor", // system/bin/mediaextractor
+                "media.metrics", // system/bin/mediametrics
+                "media.codec", // vendor/bin/hw/android.hardware.media.omx@1.0-service
+                "media.swcodec", // /apex/com.android.media.swcodec/bin/mediaswcodec
+                "media.transcoding", // Media transcoding service
+                "com.android.bluetooth",  // Bluetooth service
+                "/apex/com.android.art/bin/artd",  // ART daemon
+                "/apex/com.android.compos/bin/composd",  // CompOS daemon (lazy service)
+                "/apex/com.android.os.statsd/bin/statsd",  // Stats daemon
+                "/apex/com.android.virt/bin/virtualizationservice"  // Core process in AVF
+        ));
+        if (Build.IS_DEBUGGABLE) {
+            processes.add("/system/bin/vold");
+        }
+        return processes.toArray(new String[0]);
+    }
 
     public static final List<String> HAL_INTERFACES_OF_INTEREST = Arrays.asList(
             "android.hardware.audio@4.0::IDevicesFactory",
