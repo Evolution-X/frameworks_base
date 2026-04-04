@@ -27,6 +27,7 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.os.UserHandle
+import android.provider.Settings
 import android.util.Log
 import androidx.annotation.VisibleForTesting
 import com.android.internal.R
@@ -111,6 +112,14 @@ constructor(
     private val densityDpi: Int
         get() = sysuiContext.resources.configuration.densityDpi
 
+    private fun shouldUseThemedIcons(context: Context): Boolean =
+        notificationsRedesignThemedAppIcons() &&
+            Settings.System.getInt(
+                context.contentResolver,
+                "notification_use_themed_app_icons",
+                0
+            ) == 1
+
     private val standardIconFactory: BaseIconFactory
         get() =
             BaseIconFactory(
@@ -119,7 +128,7 @@ constructor(
                 iconBitmapSize = iconSize,
                 // Initialize the controller so that we can support themed icons.
                 themeController =
-                    if (notificationsRedesignThemedAppIcons())
+                    if (shouldUseThemedIcons(sysuiContext))
                         MonoIconThemeController(
                             shouldForceThemeIcon = true,
                             colorProvider = { ctx ->
@@ -174,7 +183,7 @@ constructor(
             userHandle = userHandle,
             drawableInstanceKey = instanceKey,
             createDrawable = {
-                it.createIconDrawable(themed = notificationsRedesignThemedAppIcons())
+                it.createIconDrawable(themed = shouldUseThemedIcons(sysuiContext))
             },
         ) {
             fetchAppIconBitmapInfo(
