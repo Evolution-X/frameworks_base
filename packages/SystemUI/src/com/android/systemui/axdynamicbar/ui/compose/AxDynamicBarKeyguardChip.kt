@@ -69,6 +69,9 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -631,34 +634,77 @@ private fun AnimatedBatteryFillIcon(level: Int, color: Color, iconSize: Dp = Bat
         animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "kg_battery_fill",
     )
-    Canvas(modifier = Modifier.size(iconSize)) {
+    Canvas(modifier = Modifier.size(iconSize * 1.6f, iconSize)) {
         val w = size.width
         val h = size.height
-        val bodyW = w * 0.7f
-        val bodyH = h * 0.85f
-        val bodyX = (w - bodyW) / 2f
-        val bodyY = h - bodyH
-        val tipW = bodyW * 0.4f
-        val tipH = h * 0.1f
-        
-        drawRect(
-            color.copy(alpha = AlphaTertiary),
-            topLeft = Offset((w - tipW) / 2f, 0f),
-            size = Size(tipW, tipH),
+        val cornerRadius = h * 0.18f
+
+        val bodyW = w * 0.88f
+        val bodyH = h * 0.62f
+        val bodyX = 0f
+        val bodyY = (h - bodyH) / 2f
+
+        val nubW = w * 0.07f
+        val nubH = bodyH * 0.38f
+        val nubX = bodyW
+        val nubY = bodyY + (bodyH - nubH) / 2f
+        val nubRadius = nubW * 0.45f
+
+        val inset = h * 0.05f
+        val innerRadius = (cornerRadius - inset).coerceAtLeast(2f)
+
+        drawRoundRect(
+            color = color.copy(alpha = 0.75f),
+            topLeft = Offset(nubX, nubY),
+            size = Size(nubW, nubH),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(nubRadius, nubRadius),
         )
-        
-        drawRect(
-            color.copy(alpha = AlphaTertiary),
+
+        drawRoundRect(
+            color = color.copy(alpha = 0.35f),
             topLeft = Offset(bodyX, bodyY),
             size = Size(bodyW, bodyH),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(cornerRadius, cornerRadius),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = h * 0.09f),
         )
-        
-        val fillH = bodyH * fillFraction
-        drawRect(
-            color,
-            topLeft = Offset(bodyX, bodyY + bodyH - fillH),
-            size = Size(bodyW, fillH),
+
+        drawRoundRect(
+            color = color.copy(alpha = 0.12f),
+            topLeft = Offset(bodyX + inset, bodyY + inset),
+            size = Size(bodyW - inset * 2, bodyH - inset * 2),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(innerRadius, innerRadius),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = h * 0.03f),
         )
+
+        if (fillFraction > 0f) {
+            val fillPad = h * 0.10f
+            val fillAreaX = bodyX + fillPad
+            val fillAreaY = bodyY + fillPad
+            val fillAreaW = bodyW - fillPad * 2
+            val fillAreaH = bodyH - fillPad * 2
+            val fillRadius = (cornerRadius - fillPad).coerceAtLeast(2f)
+
+            val clipPath = Path().apply {
+                addRoundRect(
+                    RoundRect(
+                        left = fillAreaX,
+                        top = fillAreaY,
+                        right = fillAreaX + fillAreaW,
+                        bottom = fillAreaY + fillAreaH,
+                        radiusX = fillRadius,
+                        radiusY = fillRadius,
+                    )
+                )
+            }
+
+            withTransform({ clipPath(clipPath) }) {
+                drawRect(
+                    color = color,
+                    topLeft = Offset(fillAreaX, fillAreaY),
+                    size = Size(fillAreaW * fillFraction, fillAreaH),
+                )
+            }
+        }
     }
 }
 
