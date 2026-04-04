@@ -26,9 +26,13 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.content.Context;
+import android.database.ContentObserver;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Point;
+import android.os.Handler;
+import android.os.Looper;
+import android.provider.Settings;
 import android.util.AttributeSet;
 import android.util.IndentingPrintWriter;
 import android.util.MathUtils;
@@ -86,6 +90,8 @@ public abstract class ActivatableNotificationView extends ExpandableOutlineView 
     private int mTintedRippleColor;
     private int mNormalRippleColor;
     private Gefingerpoken mTouchHandler;
+
+    private ContentObserver mColorSettingObserver;
 
     int mBgTint = NO_COLOR;
 
@@ -152,8 +158,16 @@ public abstract class ActivatableNotificationView extends ExpandableOutlineView 
     }
 
     protected void updateColors() {
+        boolean useAltColor = Settings.System.getInt(
+                mContext.getContentResolver(),
+                Settings.System.NOTIFICATION_BG_ALTERNATE_COLOR,
+                0
+        ) != 0;
+
         if (usesTransparentBackground()) {
-            mNormalColor = SurfaceEffectColors.surfaceEffect1(getContext());
+            mNormalColor = useAltColor
+                    ? SurfaceEffectColors.surfaceEffect2(getContext())
+                    : SurfaceEffectColors.surfaceEffect1(getContext());
             mOpaqueColor = mContext.getColor(
                     com.android.internal.R.color.materialColorSurfaceContainer);
         } else {
@@ -889,8 +903,30 @@ public abstract class ActivatableNotificationView extends ExpandableOutlineView 
     }
 
     @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        mColorSettingObserver = new ContentObserver(new Handler(Looper.getMainLooper())) {
+            @Override
+            public void onChange(boolean selfChange) {
+                updateBackgroundColors();
+            }
+        };
+        mContext.getContentResolver().registerContentObserver(
+                Settings.System.getUriFor(Settings.System.NOTIFICATION_BG_ALTERNATE_COLOR),
+                false,
+                mColorSettingObserver
+        );
+    }
+
+    @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
+        
+        if (mColorSettingObserver != null) {
+            mContext.getContentResolver().unregisterContentObserver(mColorSettingObserver);
+            mColorSettingObserver = null;
+        }
+        
         if (!mOnDetachResetRoundness.isEmpty()) {
             for (SourceType sourceType : mOnDetachResetRoundness) {
                 requestRoundnessReset(sourceType);
