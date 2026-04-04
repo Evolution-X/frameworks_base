@@ -29,6 +29,7 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.RippleDrawable;
+import android.provider.Settings;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
@@ -89,12 +90,22 @@ public class NotificationBackgroundView extends View implements Dumpable,
                 R.color.notification_state_color_light);
         mDarkColoredStatefulColors = getResources().getColorStateList(
                 R.color.notification_state_color_dark);
+
+        boolean useAltColor = Settings.System.getInt(
+                context.getContentResolver(),
+                Settings.System.NOTIFICATION_BG_ALTERNATE_COLOR,
+                0
+        ) != 0;
+
         if (mIsBlurSupported) {
-            mNormalColor = SurfaceEffectColors.surfaceEffect1(getContext());
+            mNormalColor = useAltColor
+                    ? SurfaceEffectColors.surfaceEffect2(getContext())
+                    : SurfaceEffectColors.surfaceEffect1(getContext());
         } else {
             mNormalColor = mContext.getColor(
                     com.android.internal.R.color.materialColorSurfaceContainerHigh);
         }
+
         mFocusOverlayStroke = getResources().getDimension(R.dimen.notification_focus_stroke_width);
     }
 
