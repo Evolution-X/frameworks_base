@@ -7063,6 +7063,11 @@ public final class Settings {
         public static final String CHARGING_SHOW_ON_LOCKSCREEN = "charging_show_on_lockscreen";
 
         /**
+         * @hide
+         */
+        public static final String NOTIFICATION_BG_ALTERNATE_COLOR = "notification_bg_alternate_color";
+
+        /**
          * Whether to show the battery bar
          * @hide
          */
