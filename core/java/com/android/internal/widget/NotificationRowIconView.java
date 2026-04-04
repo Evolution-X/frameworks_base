@@ -17,6 +17,7 @@
 package com.android.internal.widget;
 
 import android.annotation.Nullable;
+import android.annotation.WorkerThread;
 import android.app.Flags;
 import android.content.Context;
 import android.graphics.Rect;
@@ -24,6 +25,8 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
 import android.util.AttributeSet;
 import android.view.RemotableViewMethod;
+import android.provider.Settings;
+import android.content.ContentResolver;
 import android.widget.RemoteViews;
 
 /**
@@ -72,8 +75,16 @@ public class NotificationRowIconView extends CachingIconView {
         mIconProvider = iconProvider;
     }
 
+    private boolean shouldUseAppIcon() {
+        if (!Flags.notificationsRedesignAppIcons()) {
+            return false;
+        }
+        ContentResolver resolver = getContext().getContentResolver();
+        return Settings.System.getInt(resolver, "notification_use_app_icons", 1) == 1;
+    }
+
     private Drawable loadAppIcon() {
-        if (mIconProvider != null && mIconProvider.shouldShowAppIcon()) {
+        if (mIconProvider != null && mIconProvider.shouldShowAppIcon() && shouldUseAppIcon()) {
             return mIconProvider.getAppIcon();
         }
         return null;
