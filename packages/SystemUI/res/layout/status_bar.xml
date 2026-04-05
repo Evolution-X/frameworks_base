@@ -97,6 +97,7 @@
                         android:layout_height="match_parent"
                         android:layout_gravity="center_vertical"
                         android:scaleType="centerInside"
+                        android:paddingEnd="3dp"
                         android:visibility="gone" />
 
                     <com.android.systemui.statusbar.policy.Clock
