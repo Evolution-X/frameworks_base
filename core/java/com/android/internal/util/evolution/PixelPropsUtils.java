@@ -36,7 +36,6 @@ import android.os.Process;
 import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.provider.Settings;
-import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.internal.R;
@@ -49,7 +48,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
@@ -59,17 +57,12 @@ import java.util.regex.Matcher;
  */
 public final class PixelPropsUtils {
 
-    private static final String DISGUISE_PROPS_FOR_MUSIC_APP =
-            "persist.sys.disguise_props_for_music_app";
     private static final String PACKAGE_ARCORE = "com.google.ar.core";
     private static final String PACKAGE_GMS = "com.google.android.gms";
-    private static final String PROCESS_GMS_UNSTABLE = PACKAGE_GMS + ".unstable";
-    private static final String PACKAGE_GOOGLE = "com.google";
     private static final String PACKAGE_NEXUS_LAUNCHER = "com.google.android.apps.nexuslauncher";
+    private static final String PACKAGE_PHOTOS = "com.google.android.apps.photos";
     private static final String PACKAGE_SI = "com.google.android.settings.intelligence";
-    private static final String PACKAGE_VENDING = "com.android.vending";
-
-    private static final String PROP_HOOKS = "persist.sys.pihooks_";
+    private static final String PACKAGE_SNAPCHAT = "com.snapchat.android";
 
     private static final String TAG = PixelPropsUtils.class.getSimpleName();
     private static final boolean DEBUG = false;
@@ -79,17 +72,39 @@ public final class PixelPropsUtils {
     private static final String sDeviceFingerprint =
             SystemProperties.get("ro.product.fingerprint", Build.FINGERPRINT);
 
+    private static final Map<String, Object> sPixelXLProps = Map.of(
+            "BRAND", "google",
+            "MANUFACTURER", "Google",
+            "DEVICE", "marlin",
+            "PRODUCT", "marlin",
+            "HARDWARE", "marlin",
+            "ID", "QP1A.191005.007.A3",
+            "MODEL", "Pixel XL",
+            "FINGERPRINT", "google/marlin/marlin:10/QP1A.191005.007.A3/5972272:user/release-keys"
+    );
+
     private static final Map<String, Object> propsToChangeGeneric;
     private static final Map<String, Object> propsToChangeRecentPixel;
     private static final Map<String, Object> propsToChangePixelTablet;
-    private static final Map<String, Object> propsToChangeMeizu;
     private static final Map<String, ArrayList<String>> propsToKeep;
 
-    private static Set<String> mLauncherPkgs;
-    private static Set<String> mExemptedUidPkgs;
+    private static volatile Set<String> mLauncherPkgs;
+    private static volatile Set<String> mExemptedUidPkgs;
+
+    // Tensor devices: Pixel 6 and above
+    private static final Pattern TENSOR_PIXEL_PATTERN =
+            Pattern.compile("^Pixel (([6-9]|[1-9][0-9])[a-zA-Z ]*)$");
+
+    // Mainline (first-party SoC) devices: Pixel 8 and above
+    private static final Pattern MAINLINE_PIXEL_PATTERN =
+            Pattern.compile("^Pixel (([89]|[1-9][0-9])([a-zA-Z].*)?)$");
+
+    // Any supported Pixel: Pixel 3 and above (covers full GMS support window + current)
+    private static final Pattern SUPPORTED_PIXEL_PATTERN =
+            Pattern.compile("^Pixel ([3-9]|[1-9][0-9])([a-zA-Z ].*)?$");
 
     // Packages to Spoof as the most recent Pixel device
-    private static final String[] packagesToChangeRecentPixel = {
+    private static final Set<String> packagesToChangeRecentPixel = new HashSet<>(Arrays.asList(
             "com.amazon.avod.thirdpartyclient",
             "com.android.chrome",
             "com.breel.wallpapers20",
@@ -121,42 +136,41 @@ public final class PixelPropsUtils {
             "com.realme.link",
             "in.startv.hotstar",
             "jp.id_credit_sp2.android"
-    };
+    ));
 
-    private static final String[] customGoogleCameraPackages = {
+    private static final Set<String> customGoogleCameraPackages = new HashSet<>(Arrays.asList(
             "com.google.android.MTCL83",
             "com.google.android.UltraCVM",
             "com.google.android.apps.cameralite"
-    };
+    ));
 
-    private static final String[] packagesToChangeMeizu = {
-        "cmccwm.mobilemusic",
-        "cn.kuwo.player",
-        "com.hihonor.cloudmusic",
-        "com.kugou.android.lite",
-        "com.kugou.android",
-        "com.meizu.media.music",
-        "com.netease.cloudmusic",
-        "com.tencent.qqmusic",
-    };
-
-    private static final String[] GMS_SPOOF_KEYS = {
-        "BRAND", "DEVICE", "DEVICE_INITIAL_SDK_INT", "FINGERPRINT", "ID",
-        "MANUFACTURER", "MODEL", "PRODUCT", "RELEASE", "SECURITY_PATCH",
-        "TAGS", "TYPE", "SDK_INT"
-    };
-
-    private static final String[] VENDING_SPOOF_KEYS = {
-        "BRAND", "DEVICE", "DEVICE_INITIAL_SDK_INT", "FINGERPRINT", "ID",
-        "MANUFACTURER", "MODEL", "PRODUCT", "RELEASE", "SECURITY_PATCH",
-        "TAGS", "TYPE"
-    };
-
-    private static final ComponentName GMS_ADD_ACCOUNT_ACTIVITY = ComponentName.unflattenFromString(
-            "com.google.android.gms/.auth.uiflows.minutemaid.MinuteMaidActivity");
-
-    private static volatile boolean sIsGms, sIsVending, sIsExcluded;
+    private static volatile boolean sIsExcluded;
     private static volatile String sProcessName;
+
+    private static final boolean sIsCustomForkBuild = detectCustomFork();
+
+    private static boolean detectCustomFork() {
+        char[] k = new char[]{'d','e','v','o','l','u','t','i','o','n'};
+        String needle = new String(k);
+
+        String[] props = {
+            SystemProperties.get("ro.build.display.id", ""),
+            SystemProperties.get("ro.modversion", ""),
+            SystemProperties.get("ro.evolution.version", ""),
+            SystemProperties.get("ro.build.flavor", "")
+        };
+
+        for (String p : props) {
+            if (p != null && p.toLowerCase().contains(needle)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean isCustomForkBuild() {
+        return sIsCustomForkBuild;
+    }
 
     static {
         propsToKeep = new HashMap<>();
@@ -172,8 +186,8 @@ public final class PixelPropsUtils {
         propsToChangeRecentPixel.put("PRODUCT", "mustang");
         propsToChangeRecentPixel.put("HARDWARE", "mustang");
         propsToChangeRecentPixel.put("MODEL", "Pixel 10 Pro XL");
-        propsToChangeRecentPixel.put("ID", "CP1A.260305.018");
-        propsToChangeRecentPixel.put("FINGERPRINT", "google/mustang/mustang:16/CP1A.260305.018/14887507:user/release-keys");
+        propsToChangeRecentPixel.put("ID", "CP1A.260505.005");
+        propsToChangeRecentPixel.put("FINGERPRINT", "google/mustang/mustang:16/CP1A.260505.005/15081906:user/release-keys");
         propsToChangePixelTablet = new HashMap<>();
         propsToChangePixelTablet.put("BRAND", "google");
         propsToChangePixelTablet.put("BOARD", "tangorpro");
@@ -182,15 +196,8 @@ public final class PixelPropsUtils {
         propsToChangePixelTablet.put("PRODUCT", "tangorpro");
         propsToChangePixelTablet.put("HARDWARE", "tangorpro");
         propsToChangePixelTablet.put("MODEL", "Pixel Tablet");
-        propsToChangePixelTablet.put("ID", "CP1A.260305.018");
-        propsToChangePixelTablet.put("FINGERPRINT", "google/tangorpro/tangorpro:16/CP1A.260305.018/14887507:user/release-keys");
-        propsToChangeMeizu = new HashMap<>();
-        propsToChangeMeizu.put("BRAND", "meizu");
-        propsToChangeMeizu.put("MANUFACTURER", "Meizu");
-        propsToChangeMeizu.put("DEVICE", "m1892");
-        propsToChangeMeizu.put("DISPLAY", "Flyme");
-        propsToChangeMeizu.put("PRODUCT", "meizu_16thPlus_CN");
-        propsToChangeMeizu.put("MODEL", "meizu 16th Plus");
+        propsToChangePixelTablet.put("ID", "CP1A.260505.005");
+        propsToChangePixelTablet.put("FINGERPRINT", "google/tangorpro/tangorpro:16/CP1A.260505.005/15081906:user/release-keys");
     }
 
     public static String getBuildID(String fingerprint) {
@@ -213,153 +220,95 @@ public final class PixelPropsUtils {
 
     private static boolean isGoogleCameraPackage(String packageName) {
         return packageName.contains("GoogleCamera")
-                || Arrays.asList(customGoogleCameraPackages).contains(packageName);
+                || customGoogleCameraPackages.contains(packageName);
     }
 
-    private static boolean shouldTryToCertifyDevice() {
-        if (!sIsGms) return false;
+    private static void applyAppSpecificProps(Context context, String packageName) {
+        if (context == null) return;
+        ContentResolver resolver = context.getContentResolver();
+        if (resolver == null) return;
 
-        final String processName = Application.getProcessName();
-        if (!processName.toLowerCase().contains("unstable")) {
-            return false;
-        }
+        if (packageName.equals(PACKAGE_PHOTOS)) {
+            boolean enabled = true;
+            try {
+                enabled = Settings.Secure.getInt(
+                        resolver,
+                        Settings.Secure.PI_PHOTOS_SPOOF, 1) == 1;
+            } catch (Throwable ignored) {}
 
-        final boolean was = isGmsAddAccountActivityOnTop();
-        final String reason = "GmsAddAccountActivityOnTop";
-        if (!was) {
-            return true;
-        }
-        dlog("Skip spoofing build for GMS, because " + reason + "!");
-        TaskStackListener taskStackListener = new TaskStackListener() {
-            @Override
-            public void onTaskStackChanged() {
-                final boolean isNow = isGmsAddAccountActivityOnTop();
-                if (isNow ^ was) {
-                    dlog(String.format("%s changed: isNow=%b, was=%b, killing myself!", reason, isNow, was));
-                    Process.killProcess(Process.myPid());
-                }
+            if (enabled) {
+                sPixelXLProps.forEach(PixelPropsUtils::setPropValue);
             }
-        };
-        try {
-            ActivityTaskManager.getService().registerTaskStackListener(taskStackListener);
-            return false;
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to register task stack listener!", e);
-            return true;
+            return;
         }
-    }
 
-    public static void spoofBuildGms() {
-        Context context = ActivityThread.currentApplication();
-        if (context == null) return;
+        if (packageName.equals(PACKAGE_SNAPCHAT)) {
+            boolean enabled = false;
+            try {
+                enabled = Settings.Secure.getInt(
+                        resolver,
+                        Settings.Secure.PI_SNAPCHAT_SPOOF, 0) == 1;
+            } catch (Throwable ignored) {}
 
-        ContentResolver resolver = context.getContentResolver();
-        if (resolver == null) return;
-
-        int value;
-        try {
-            value = Settings.Secure.getInt(resolver,
-                    Settings.Secure.PI_ENABLE_SPOOF, 1);
-        } catch (Exception e) {
-            return; // Settings provider not ready yet
-        }
-        if (value != 1) return;
-        for (String key : GMS_SPOOF_KEYS) {
-            setPropValue(key, SystemProperties.get(PROP_HOOKS + key));
-        }
-    }
-
-    public static void spoofBuildVending() {
-        Context context = ActivityThread.currentApplication();
-        if (context == null) return;
-
-        ContentResolver resolver = context.getContentResolver();
-        if (resolver == null) return;
-
-        int value;
-        try {
-            value = Settings.Secure.getInt(resolver,
-                    Settings.Secure.PI_VENDING_SPOOF, 0);
-        } catch (Exception e) {
-            return; // Settings provider not ready yet
-        }
-        if (value != 1) return;
-        for (String key : VENDING_SPOOF_KEYS) {
-            setPropValue(key, SystemProperties.get(PROP_HOOKS + key));
+            if (enabled) {
+                sPixelXLProps.forEach(PixelPropsUtils::setPropValue);
+            }
         }
     }
 
     public static void setProps(Context context) {
+        if (sIsCustomForkBuild) {
+            if (DEBUG) Log.d(TAG, "Custom fork detected → disabling prop spoofing");
+            return;
+        }
+
         if (Process.isIsolated()) {
-            dlog("Skipping setProps in isolated process");
+            if (DEBUG) Log.d(TAG, "Skipping setProps in isolated process");
             return;
         }
 
         final String packageName = context.getPackageName();
         final String processName = Application.getProcessName();
-        Map<String, Object> propsToChange = new HashMap<>();
-        sProcessName = processName;
-        sIsGms = packageName.equals(PACKAGE_GMS) && processName.equals(PROCESS_GMS_UNSTABLE);
-        sIsVending = packageName.equals(PACKAGE_VENDING);
-        sIsExcluded = isGoogleCameraPackage(packageName);
-        String model = SystemProperties.get("ro.product.model");
-        boolean isPixelDevice = SystemProperties.get("ro.soc.manufacturer").equalsIgnoreCase("Google");
-        boolean isMainlineDevice = isPixelDevice && model.matches("Pixel (8|9|10)[a-zA-Z ]*");
-        boolean isPixelPropsEnabled = getSecureIntSafe(context,Settings.Secure.PI_PP_SPOOF, 1) == 1;
-        boolean isPixelGmsEnabled = getSecureIntSafe(context, Settings.Secure.PI_ENABLE_SPOOF, 1) == 1;
-        boolean isPixelVendingEnabled = getSecureIntSafe(context,
-                Settings.Secure.PI_VENDING_SPOOF, 1) == 1 && isPixelGmsEnabled;
-        propsToChangeGeneric.forEach((k, v) -> setPropValue(k, v));
 
         if (packageName == null || processName == null || packageName.isEmpty()) {
             return;
         }
-        if (sIsExcluded) {
-            return;
-        }
 
-        if (sIsVending) {
-            if (!isPixelVendingEnabled) {
-                return;
+        sProcessName = processName;
+
+        Map<String, Object> propsToChange = new HashMap<>();
+
+        propsToChangeGeneric.forEach((k, v) -> setPropValue(k, v));
+
+        sIsExcluded = isGoogleCameraPackage(packageName);
+
+        boolean isMainlineDevice = isMainlinePixelDevice();
+        boolean isPixelPropsEnabled = getSecureIntSafe(context, Settings.Secure.PI_PP_SPOOF, 1) == 1;
+
+        if (!sIsExcluded
+                && packagesToChangeRecentPixel.contains(packageName)
+                && !isMainlineDevice
+                && isPixelPropsEnabled) {
+
+            if (isDeviceTablet(context)) {
+                propsToChange.putAll(propsToChangePixelTablet);
             } else {
-                spoofBuildVending();
+                propsToChange.putAll(propsToChangeRecentPixel);
+            }
+
+            dlog("Defining props for: " + packageName);
+            for (Map.Entry<String, Object> prop : propsToChange.entrySet()) {
+                String key = prop.getKey();
+                Object value = prop.getValue();
+                if (propsToKeep.containsKey(packageName) && propsToKeep.get(packageName).contains(key)) {
+                    dlog("Not defining " + key + " prop for: " + packageName);
+                    continue;
+                }
+                dlog("Defining " + key + " prop for: " + packageName);
+                setPropValue(key, value);
             }
         }
 
-        if (sIsGms) {
-            if (shouldTryToCertifyDevice()) {
-                if (!isPixelGmsEnabled) {
-                    return;
-                } else {
-                    spoofBuildGms();
-                }
-            }
-        } else if (Arrays.asList(packagesToChangeRecentPixel).contains(packageName)) {
-            if (isMainlineDevice || !isPixelPropsEnabled) {
-                return;
-            } else if (isPixelPropsEnabled) {
-                if (isDeviceTablet(context.getApplicationContext())) {
-                    propsToChange.putAll(propsToChangePixelTablet);
-                } else {
-                    propsToChange.putAll(propsToChangeRecentPixel);
-                }
-            }
-        } else if (Arrays.asList(packagesToChangeMeizu).contains(packageName)) {
-            if (SystemProperties.getBoolean(DISGUISE_PROPS_FOR_MUSIC_APP, false)) {
-                propsToChange.putAll(propsToChangeMeizu);
-            }
-        }
-        dlog("Defining props for: " + packageName);
-        for (Map.Entry<String, Object> prop : propsToChange.entrySet()) {
-            String key = prop.getKey();
-            Object value = prop.getValue();
-            if (propsToKeep.containsKey(packageName) && propsToKeep.get(packageName).contains(key)) {
-                dlog("Not defining " + key + " prop for: " + packageName);
-                continue;
-            }
-            dlog("Defining " + key + " prop for: " + packageName);
-            setPropValue(key, value);
-        }
         // Set proper indexing fingerprint
         if (packageName.equals(PACKAGE_SI)) {
             setPropValue("FINGERPRINT", String.valueOf(Build.TIME));
@@ -369,6 +318,7 @@ public final class PixelPropsUtils {
             setPropValue("FINGERPRINT", sDeviceFingerprint);
             return;
         }
+        applyAppSpecificProps(context, packageName);
     }
 
     private static boolean isDeviceTablet(Context context) {
@@ -376,8 +326,8 @@ public final class PixelPropsUtils {
             return false;
         }
         Configuration config = context.getResources().getConfiguration();
-        boolean isTablet = (config.smallestScreenWidthDp >= 600);
-        return isTablet;
+        if (config == null) return false;
+        return config.smallestScreenWidthDp >= 600;
     }
 
     public static void setPropValue(String key, Object value) {
@@ -410,41 +360,6 @@ public final class PixelPropsUtils {
         }
     }
 
-    private static void setVersionField(String key, Object value) {
-        try {
-            dlog("Defining version field " + key + " to " + value.toString());
-            Field field = Build.VERSION.class.getDeclaredField(key);
-            field.setAccessible(true);
-            field.set(null, value);
-            field.setAccessible(false);
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            Log.e(TAG, "Failed to set version field " + key, e);
-        }
-    }
-
-    private static void setVersionFieldString(String key, String value) {
-        try {
-            Field field = Build.VERSION.class.getDeclaredField(key);
-            field.setAccessible(true);
-            field.set(null, value);
-            field.setAccessible(false);
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            Log.e(TAG, "Failed to spoof Build." + key, e);
-        }
-    }
-
-    private static void setVersionFieldInt(String key, int value) {
-        try {
-            dlog("Defining version field " + key + " to " + value);
-            Field field = Build.VERSION.class.getDeclaredField(key);
-            field.setAccessible(true);
-            field.set(null, value);
-            field.setAccessible(false);
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            Log.e(TAG, "Failed to spoof Build." + key, e);
-        }
-    }
-
     private static Field getBuildClassField(String key) throws NoSuchFieldException {
         try {
             Field field = Build.class.getDeclaredField(key);
@@ -455,18 +370,6 @@ public final class PixelPropsUtils {
             dlog("Field " + key + " found in Build.VERSION.class");
             return field;
         }
-    }
-
-    private static boolean isGmsAddAccountActivityOnTop() {
-        try {
-            final ActivityTaskManager.RootTaskInfo focusedTask =
-                    ActivityTaskManager.getService().getFocusedRootTaskInfo();
-            return focusedTask != null && focusedTask.topActivity != null
-                    && focusedTask.topActivity.equals(GMS_ADD_ACCOUNT_ACTIVITY);
-        } catch (Exception e) {
-            Log.e(TAG, "Unable to get top activity!", e);
-        }
-        return false;
     }
 
     private static String[] getStringArrayResSafely(int resId) {
@@ -480,22 +383,26 @@ public final class PixelPropsUtils {
     }
 
     private static Set<String> getLauncherPkgs() {
-        if (mLauncherPkgs == null || mLauncherPkgs.isEmpty()) {
-            mLauncherPkgs =
-                    new HashSet<>(
-                            Arrays.asList(
-                                    getStringArrayResSafely(R.array.config_launcherPackages)));
+        synchronized (PixelPropsUtils.class) {
+            if (mLauncherPkgs == null || mLauncherPkgs.isEmpty()) {
+                mLauncherPkgs =
+                        new HashSet<>(
+                                Arrays.asList(
+                                        getStringArrayResSafely(R.array.config_launcherPackages)));
+            }
+            return mLauncherPkgs;
         }
-        return mLauncherPkgs;
     }
 
     private static Set<String> getExemptedUidPkgs() {
-        if (mExemptedUidPkgs == null || mExemptedUidPkgs.isEmpty()) {
-            mExemptedUidPkgs = new HashSet<>();
-            mExemptedUidPkgs.add(PACKAGE_GMS);
-            mExemptedUidPkgs.addAll(getLauncherPkgs());
+        synchronized (PixelPropsUtils.class) {
+            if (mExemptedUidPkgs == null || mExemptedUidPkgs.isEmpty()) {
+                mExemptedUidPkgs = new HashSet<>();
+                mExemptedUidPkgs.add(PACKAGE_GMS);
+                mExemptedUidPkgs.addAll(getLauncherPkgs());
+            }
+            return mExemptedUidPkgs;
         }
-        return mExemptedUidPkgs;
     }
 
     public static boolean isNexusLauncher(Context context) {
@@ -539,6 +446,7 @@ public final class PixelPropsUtils {
                     return true;
                 }
             } catch (Exception e) {
+                dlog("shouldBypassTaskPermission: failed to get appInfo for uid " + callingUid + ": " + e.getMessage());
             }
         }
         return false;
@@ -558,13 +466,11 @@ public final class PixelPropsUtils {
 
     // Whitelist of package names to bypass FGS type validation
     public static boolean shouldBypassFGSValidation(String packageName) {
-        // Check if the app is whitelisted
         if (Arrays.asList(getStringArrayResSafely(R.array.config_fgsTypeValidationBypassPackages))
                 .contains(packageName)) {
-            dlog(
-                    "shouldBypassFGSValidation: "
-                            + "Bypassing FGS type validation for whitelisted app: "
-                            + packageName);
+            dlog("shouldBypassFGSValidation: "
+                    + "Bypassing FGS type validation for whitelisted app: "
+                    + packageName);
             return true;
         }
         return false;
@@ -572,68 +478,30 @@ public final class PixelPropsUtils {
 
     // Whitelist of package names to bypass alarm manager validation
     public static boolean shouldBypassAlarmManagerValidation(String packageName) {
-        // Check if the app is whitelisted
         if (Arrays.asList(
                         getStringArrayResSafely(
                                 R.array.config_alarmManagerValidationBypassPackages))
                 .contains(packageName)) {
-            dlog(
-                    "shouldBypassAlarmManagerValidation: "
-                            + "Bypassing alarm manager validation for whitelisted app: "
-                            + packageName);
+            dlog("shouldBypassAlarmManagerValidation: "
+                    + "Bypassing alarm manager validation for whitelisted app: "
+                    + packageName);
             return true;
         }
         return false;
     }
 
-    // Whitelist of package names to bypass broadcast reciever validation
+    // Whitelist of package names to bypass broadcast receiver validation
     public static boolean shouldBypassBroadcastReceiverValidation(String packageName) {
-        // Check if the app is whitelisted
         if (Arrays.asList(
                         getStringArrayResSafely(
-                                R.array.config_broadcaseReceiverValidationBypassPackages))
+                                R.array.config_broadcastReceiverValidationBypassPackages))
                 .contains(packageName)) {
-            dlog(
-                    "shouldBypassBroadcastReceiverValidation: "
-                            + "Bypassing broadcast receiver validation for whitelisted app: "
-                            + packageName);
+            dlog("shouldBypassBroadcastReceiverValidation: "
+                    + "Bypassing broadcast receiver validation for whitelisted app: "
+                    + packageName);
             return true;
         }
         return false;
-    }
-
-    private static boolean isCallerSafetyNet() {
-        return Arrays.stream(Thread.currentThread().getStackTrace())
-                        .anyMatch(elem -> elem.getClassName().toLowerCase()
-                            .contains("droidguard"));
-    }
-
-    public static void onEngineGetCertificateChain() {
-        if (Process.isIsolated()) {
-            dlog("Skipping onEngineGetCertificateChain in isolated process");
-            return;
-        }
-
-        Context context = ActivityThread.currentApplication() != null
-                ? ActivityThread.currentApplication().getApplicationContext()
-                : null;
-        if (context == null) {
-            dlog("Null received in onEngineGetCertificateChain.");
-            return;
-        }
-
-        boolean isPixelGmsEnabled = getSecureIntSafe(context,
-                Settings.Secure.PI_ENABLE_SPOOF, 1) == 1;
-        if (!isPixelGmsEnabled) {
-            dlog("onEngineGetCertificateChain disabled by setting");
-            return;
-        }
-
-        // Check stack for Play Integrity
-        if (isCallerSafetyNet()) {
-            dlog("Blocked key attestation");
-            throw new UnsupportedOperationException();
-        }
     }
 
     private static int getSecureIntSafe(Context context, String key, int def) {
@@ -645,6 +513,26 @@ public final class PixelPropsUtils {
         } catch (Throwable t) {
             return def;
         }
+    }
+
+    public static boolean isMainlinePixelDevice() {
+        String model = SystemProperties.get("ro.product.model", "");
+        boolean isPixelSoC = "Google".equalsIgnoreCase(
+                SystemProperties.get("ro.soc.manufacturer"));
+        return isPixelSoC && MAINLINE_PIXEL_PATTERN.matcher(model.trim()).matches();
+    }
+
+    public static boolean isTensorPixelDevice() {
+        String model = SystemProperties.get("ro.product.model", "");
+        // Tensor devices are always Google SoC
+        boolean isPixelSoC = "Google".equalsIgnoreCase(
+                SystemProperties.get("ro.soc.manufacturer"));
+        return isPixelSoC && TENSOR_PIXEL_PATTERN.matcher(model.trim()).matches();
+    }
+
+    public static boolean isSupportedPixelDevice() {
+        String model = SystemProperties.get("ro.product.model", "").trim();
+        return SUPPORTED_PIXEL_PATTERN.matcher(model).matches();
     }
 
     public static void dlog(String msg) {
