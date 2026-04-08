@@ -14698,13 +14698,6 @@ public final class Settings {
         public static final String LOCK_SCREEN_CUSTOM_CLOCK_MARGIN_TOP = "lock_screen_custom_clock_margin_top";
 
         /**
-         * Whether to use PIF spoof for google apps
-         * @hide
-         */
-        @Readable
-        public static final String PI_ENABLE_SPOOF = "pi_enable_spoof";
-
-        /**
          * Whether to use PixelProps spoof for google apps
          * @hide
          */
