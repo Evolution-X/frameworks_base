@@ -20,6 +20,6 @@
     <!-- Whitelist of package names to bypass alarm manager validation -->
     <string-array name="config_alarmManagerValidationBypassPackages" translatable="false"/>
 
-    <!-- Whitelist of package names to bypass broadcast reciever validation -->
-    <string-array name="config_broadcaseReceiverValidationBypassPackages" translatable="false"/>
+    <!-- Whitelist of package names to bypass broadcast receiver validation -->
+    <string-array name="config_broadcastReceiverValidationBypassPackages" translatable="false"/>
 </resources>
