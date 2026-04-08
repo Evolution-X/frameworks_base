@@ -52,6 +52,7 @@ import com.android.systemui.utils.windowmanager.WindowManagerProvider;
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.util.List;
+import java.util.Objects;
 
 import javax.inject.Inject;
 
@@ -141,6 +142,9 @@ public class ImageWallpaper extends WallpaperService {
          * Lock for SurfaceHolder operations. Should only be acquired after the main lock.
          */
         private final Object mSurfaceLock = new Object();
+
+        private Bitmap mCachedProcessedBitmap = null;
+        private int mCachedEffectHash = 0;
 
         CanvasEngine() {
             super();
@@ -304,98 +308,117 @@ public class ImageWallpaper extends WallpaperService {
             if (canvas != null) {
                 try {
                     Rect dest = mSurfaceHolder.getSurfaceFrame();
-                    processedBitmap = WallpaperUtils.resizeAndCompress(bitmap, getDisplayContext());
-                    
-                    boolean isLockScreen = isLockScreenWallpaper();
-                    
-                    // Apply blur effect
-                    int blurType = SystemProperties.getInt("persist.sys.wallpaper.blur_enabled", 0);
-                    if (shouldApplyEffect(blurType, isLockScreen)) {
-                        int blurStyle = SystemProperties.getInt("persist.sys.wallpaper.blur_type", 0);
-                        int userBlurRadius;
-                        switch (blurStyle) {
-                            case 1: // Frosted glass
-                                userBlurRadius = 50;
-                                break;
-                            default: // Glass
-                                userBlurRadius = 9;
-                                break;
+
+                    int effectHash = computeEffectHash();
+                    if (mCachedProcessedBitmap != null
+                            && !mCachedProcessedBitmap.isRecycled()
+                            && effectHash == mCachedEffectHash) {
+                        processedBitmap = mCachedProcessedBitmap;
+                    } else {
+                        if (mCachedProcessedBitmap != null
+                                && mCachedProcessedBitmap != bitmap
+                                && !mCachedProcessedBitmap.isRecycled()) {
+                            mCachedProcessedBitmap.recycle();
+                            mCachedProcessedBitmap = null;
                         }
-                        tempBitmap = WallpaperUtils.getBlurredBitmap(processedBitmap, userBlurRadius, getDisplayContext());
-                        if (tempBitmap != processedBitmap) {
-                            processedBitmap.recycle();
-                            processedBitmap = tempBitmap;
-                            tempBitmap = null;
+                        processedBitmap = WallpaperUtils.resizeAndCompress(bitmap, getDisplayContext());
+                    
+                        boolean isLockScreen = isLockScreenWallpaper();
+                    
+                        // Apply blur effect
+                        int blurType = SystemProperties.getInt("persist.sys.wallpaper.blur_enabled", 0);
+                        if (shouldApplyEffect(blurType, isLockScreen)) {
+                            int blurStyle = SystemProperties.getInt("persist.sys.wallpaper.blur_type", 0);
+                            int userBlurRadius;
+                            switch (blurStyle) {
+                                case 1: // Frosted glass
+                                    userBlurRadius = 50;
+                                    break;
+                                default: // Glass
+                                    userBlurRadius = 9;
+                                    break;
+                            }
+                            tempBitmap = WallpaperUtils.getBlurredBitmap(processedBitmap, userBlurRadius, getDisplayContext());
+                            if (tempBitmap != processedBitmap) {
+                                processedBitmap.recycle();
+                                processedBitmap = tempBitmap;
+                                tempBitmap = null;
+                            }
                         }
+
+                        int effectType = SystemProperties.getInt("persist.sys.wallpaper.effect_type", 0);
+                        int effectTarget = SystemProperties.getInt("persist.sys.wallpaper.effect_target", 0);
+                    
+                        if (effectType != 0 && shouldApplyEffect(effectTarget, isLockScreen)) {
+                            switch (effectType) {
+                                case 1:
+                                    tempBitmap = WallpaperUtils.getFilmGrain(processedBitmap, getDisplayContext());
+                                    break;
+                                case 2:
+                                    tempBitmap = WallpaperUtils.getChromaticAberrationEffect(processedBitmap);
+                                    break;
+                                case 3:
+                                    float vignetteIntensity = SystemProperties.getInt("persist.sys.wallpaper.vignette_intensity", 50) / 100f;
+                                    tempBitmap = WallpaperUtils.getVignetteEffect(processedBitmap, vignetteIntensity);
+                                    break;
+                                case 4:
+                                    int pixelationSize = SystemProperties.getInt("persist.sys.wallpaper.pixelation_size", 8);
+                                    tempBitmap = WallpaperUtils.getPixelationEffect(processedBitmap, pixelationSize);
+                                    break;
+                                case 5:
+                                    float saturation = SystemProperties.getInt("persist.sys.wallpaper.saturation_level", 100) / 100f;
+                                    tempBitmap = WallpaperUtils.getSaturationEffect(processedBitmap, saturation);
+                                    break;
+                                case 6:
+                                    tempBitmap = WallpaperUtils.getSepiaEffect(processedBitmap);
+                                    break;
+                                case 7:
+                                    tempBitmap = WallpaperUtils.getSharpenEffect(processedBitmap);
+                                    break;
+                                case 8:
+                                    tempBitmap = WallpaperUtils.getGrayscaleEffect(processedBitmap);
+                                    break;
+                                case 9:
+                                    tempBitmap = WallpaperUtils.getNegativeEffect(processedBitmap);
+                                    break;
+                                case 10:
+                                    tempBitmap = WallpaperUtils.getRadialBlurEffect(processedBitmap);
+                                    break;
+                                case 11:
+                                    int posterizeLevels = SystemProperties.getInt("persist.sys.wallpaper.posterize_levels", 8);
+                                    tempBitmap = WallpaperUtils.getPosterizeEffect(processedBitmap, posterizeLevels);
+                                    break;
+                            }
+                        
+                            if (tempBitmap != null && tempBitmap != processedBitmap) {
+                                processedBitmap.recycle();
+                                processedBitmap = tempBitmap;
+                                tempBitmap = null;
+                            }
+                        }
+                    
+                        // Apply dimming effect
+                        int dimType = SystemProperties.getInt("persist.sys.wallpaper.dim_enabled", 0);
+                        if (shouldApplyEffect(dimType, isLockScreen)) {
+                            int dimLevel = SystemProperties.getInt("persist.sys.wallpaper.dim_level", 10);
+                            tempBitmap = WallpaperUtils.getDimmedBitmap(processedBitmap, dimLevel);
+                            if (tempBitmap != processedBitmap) {
+                                processedBitmap.recycle();
+                                processedBitmap = tempBitmap;
+                                tempBitmap = null;
+                            }
+                        }
+
+                        mCachedProcessedBitmap = processedBitmap;
+                        mCachedEffectHash = effectHash;
                     }
 
-                    int effectType = SystemProperties.getInt("persist.sys.wallpaper.effect_type", 0);
-                    int effectTarget = SystemProperties.getInt("persist.sys.wallpaper.effect_target", 0);
-                    
-                    if (effectType != 0 && shouldApplyEffect(effectTarget, isLockScreen)) {
-                        switch (effectType) {
-                            case 1:
-                                tempBitmap = WallpaperUtils.getFilmGrain(processedBitmap, getDisplayContext());
-                                break;
-                            case 2:
-                                tempBitmap = WallpaperUtils.getChromaticAberrationEffect(processedBitmap);
-                                break;
-                            case 3:
-                                float vignetteIntensity = SystemProperties.getInt("persist.sys.wallpaper.vignette_intensity", 50) / 100f;
-                                tempBitmap = WallpaperUtils.getVignetteEffect(processedBitmap, vignetteIntensity);
-                                break;
-                            case 4:
-                                int pixelationSize = SystemProperties.getInt("persist.sys.wallpaper.pixelation_size", 8);
-                                tempBitmap = WallpaperUtils.getPixelationEffect(processedBitmap, pixelationSize);
-                                break;
-                            case 5:
-                                float saturation = SystemProperties.getInt("persist.sys.wallpaper.saturation_level", 100) / 100f;
-                                tempBitmap = WallpaperUtils.getSaturationEffect(processedBitmap, saturation);
-                                break;
-                            case 6:
-                                tempBitmap = WallpaperUtils.getSepiaEffect(processedBitmap);
-                                break;
-                            case 7:
-                                tempBitmap = WallpaperUtils.getSharpenEffect(processedBitmap);
-                                break;
-                            case 8:
-                                tempBitmap = WallpaperUtils.getGrayscaleEffect(processedBitmap);
-                                break;
-                            case 9:
-                                tempBitmap = WallpaperUtils.getNegativeEffect(processedBitmap);
-                                break;
-                            case 10:
-                                tempBitmap = WallpaperUtils.getRadialBlurEffect(processedBitmap);
-                                break;
-                            case 11:
-                                int posterizeLevels = SystemProperties.getInt("persist.sys.wallpaper.posterize_levels", 8);
-                                tempBitmap = WallpaperUtils.getPosterizeEffect(processedBitmap, posterizeLevels);
-                                break;
-                        }
-                        
-                        if (tempBitmap != null && tempBitmap != processedBitmap) {
-                            processedBitmap.recycle();
-                            processedBitmap = tempBitmap;
-                            tempBitmap = null;
-                        }
-                    }
-                    
-                    // Apply dimming effect
-                    int dimType = SystemProperties.getInt("persist.sys.wallpaper.dim_enabled", 0);
-                    if (shouldApplyEffect(dimType, isLockScreen)) {
-                        int dimLevel = SystemProperties.getInt("persist.sys.wallpaper.dim_level", 10);
-                        tempBitmap = WallpaperUtils.getDimmedBitmap(processedBitmap, dimLevel);
-                        if (tempBitmap != processedBitmap) {
-                            processedBitmap.recycle();
-                            processedBitmap = tempBitmap;
-                            tempBitmap = null;
-                        }
-                    }
-                    
                     canvas.drawBitmap(processedBitmap, null, dest, null);
                     mDrawn = true;
                 } finally {
-                    if (processedBitmap != null && processedBitmap != bitmap) {
+                    if (processedBitmap != null
+                            && processedBitmap != bitmap
+                            && processedBitmap != mCachedProcessedBitmap) {
                         processedBitmap.recycle();
                     }
                     if (tempBitmap != null) {
@@ -405,6 +428,21 @@ public class ImageWallpaper extends WallpaperService {
                 }
             }
             Trace.endSection();
+        }
+
+        private int computeEffectHash() {
+            return Objects.hash(
+                SystemProperties.getInt("persist.sys.wallpaper.blur_enabled", 0),
+                SystemProperties.getInt("persist.sys.wallpaper.blur_type", 0),
+                SystemProperties.getInt("persist.sys.wallpaper.effect_type", 0),
+                SystemProperties.getInt("persist.sys.wallpaper.effect_target", 0),
+                SystemProperties.getInt("persist.sys.wallpaper.dim_enabled", 0),
+                SystemProperties.getInt("persist.sys.wallpaper.dim_level", 10),
+                SystemProperties.getInt("persist.sys.wallpaper.vignette_intensity", 50),
+                SystemProperties.getInt("persist.sys.wallpaper.pixelation_size", 8),
+                SystemProperties.getInt("persist.sys.wallpaper.saturation_level", 100),
+                SystemProperties.getInt("persist.sys.wallpaper.posterize_levels", 8)
+            );
         }
 
         private boolean shouldApplyEffect(int effectTarget, boolean isLockScreen) {
@@ -455,6 +493,11 @@ public class ImageWallpaper extends WallpaperService {
                 mBitmap.recycle();
             }
             mBitmap = null;
+            if (mCachedProcessedBitmap != null && !mCachedProcessedBitmap.isRecycled()) {
+                mCachedProcessedBitmap.recycle();
+            }
+            mCachedProcessedBitmap = null;
+            mCachedEffectHash = 0;
             synchronized (mSurfaceLock) {
                 if (mSurfaceHolder != null) mSurfaceHolder.getSurface().hwuiDestroy();
             }
@@ -517,6 +560,8 @@ public class ImageWallpaper extends WallpaperService {
                 Trace.beginSection("WPMS.wallpaperSupportsWcg");
                 mWideColorGamut = mWallpaperManager.wallpaperSupportsWcg(getSourceFlag());
                 Trace.endSection();
+
+                mDrawn = false;
 
                 // +2 usages for the color extraction and the delayed unload.
                 mBitmapUsages += 2;
