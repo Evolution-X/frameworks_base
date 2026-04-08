@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.android.internal.util.evolution;
+package com.android.internal.util.android;
 
 import android.app.ActivityThread;
 import android.content.res.Configuration;
@@ -21,6 +21,8 @@ import android.graphics.Typeface;
 import android.os.SystemProperties;
 import android.util.ArrayMap;
 import android.util.Log;
+import android.text.TextUtils;
+import com.android.internal.R;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -34,14 +36,29 @@ public class FontController {
 
     private static FontController sInstance = null;
 
+    private volatile Resources sResources = null;
+
+    private volatile String sFontFamily = "sans-serif";
+
     private static final Set<String> OVERRIDE_FONTS = new HashSet<>(Arrays.asList(
             "google", "sans-serif", "gsf-"
+    ));
+
+    private static final Set<String> SYS_OVERRIDE_FONTS = new HashSet<>(Arrays.asList(
+            "serif", "monospace", "variable"
     ));
 
     private static final Set<String> EXCLUDED_APPS = new HashSet<>(Arrays.asList(
             "it.subito",
             "tv.arte.plus7",
             "com.google.android.gm"
+    ));
+
+    private static final Set<String> SYS_OVERRIDE_APPS = new HashSet<>(Arrays.asList(
+            "com.android.settings",
+            "com.android.systemui",
+            "com.android.launcher3",
+            "android"
     ));
 
     private static final Map<String, Integer> WEIGHT_MAP = new ArrayMap<>();
@@ -56,6 +73,38 @@ public class FontController {
         WEIGHT_MAP.put("bold", 700);
         WEIGHT_MAP.put("extrabold", 800);
         WEIGHT_MAP.put("black", 900);
+
+        WEIGHT_MAP.put("variable-display-large-emphasized", 500);
+        WEIGHT_MAP.put("variable-display-medium-emphasized", 500);
+        WEIGHT_MAP.put("variable-display-small-emphasized", 500);
+        WEIGHT_MAP.put("variable-headline-large-emphasized", 500);
+        WEIGHT_MAP.put("variable-headline-medium-emphasized", 500);
+        WEIGHT_MAP.put("variable-headline-small-emphasized", 500);
+        WEIGHT_MAP.put("variable-title-large-emphasized", 500);
+        WEIGHT_MAP.put("variable-title-medium-emphasized", 600);
+        WEIGHT_MAP.put("variable-title-small-emphasized", 600);
+        WEIGHT_MAP.put("variable-label-large-emphasized", 600);
+        WEIGHT_MAP.put("variable-label-medium-emphasized", 600);
+        WEIGHT_MAP.put("variable-label-small-emphasized", 600);
+        WEIGHT_MAP.put("variable-body-large-emphasized", 500);
+        WEIGHT_MAP.put("variable-body-medium-emphasized", 500);
+        WEIGHT_MAP.put("variable-body-small-emphasized", 500);
+
+        WEIGHT_MAP.put("variable-display-large", 400);
+        WEIGHT_MAP.put("variable-display-medium", 400);
+        WEIGHT_MAP.put("variable-display-small", 400);
+        WEIGHT_MAP.put("variable-headline-large", 400);
+        WEIGHT_MAP.put("variable-headline-medium", 400);
+        WEIGHT_MAP.put("variable-headline-small", 400);
+        WEIGHT_MAP.put("variable-title-large", 400);
+        WEIGHT_MAP.put("variable-title-medium", 500);
+        WEIGHT_MAP.put("variable-title-small", 500);
+        WEIGHT_MAP.put("variable-label-large", 500);
+        WEIGHT_MAP.put("variable-label-medium", 500);
+        WEIGHT_MAP.put("variable-label-small", 500);
+        WEIGHT_MAP.put("variable-body-large", 400);
+        WEIGHT_MAP.put("variable-body-medium", 400);
+        WEIGHT_MAP.put("variable-body-small", 400);
     }
 
     public static FontController get() {
@@ -72,22 +121,53 @@ public class FontController {
     }
 
     public static Typeface getOverrideTypeface(String fontToOverride) {
+        return get().getOverrideTypefaceInternal(fontToOverride);
+    }
+
+    public static String getCurrentFontFamily() {
+        return get().getCurrentFont();
+    }
+
+    private String getCurrentFont() {
+        if (sResources == null) return sFontFamily;
+        try {
+            int configId = sResources.getIdentifier("config_bodyFontFamily", "string", "android");
+            if (configId != 0) {
+                String currFont = sResources.getString(configId);
+                if (!TextUtils.equals(sFontFamily, currFont)) {
+                    sFontFamily = currFont;
+                    logger("Font changed to: " + sFontFamily);
+                }
+            }
+        } catch (Exception e) {
+            logger("getCurrentFont failed: " + e.getMessage());
+        }
+        return sFontFamily;
+    }
+
+    private Typeface getOverrideTypefaceInternal(String fontToOverride) {
         if (fontToOverride == null) return null;
 
         String pkgName = getCurrentPackageName();
-        if (pkgName != null && EXCLUDED_APPS.contains(pkgName)) {
+
+        if (pkgName == null) return null;
+
+        final boolean isSysPkg = SYS_OVERRIDE_APPS.contains(pkgName);
+
+        if (pkgName != null && EXCLUDED_APPS.contains(pkgName) && !isSysPkg) {
             logger("Excluded app, skipping override: " + pkgName);
             return null;
         }
 
-        String currentFont = Typeface.getFontName();
+        String currentFont = getCurrentFont();
 
         if (fontToOverride.matches("^" + Pattern.quote(currentFont) + "(-.*)?$")) {
             logger(fontToOverride + " matches current font root '" + currentFont + "', skipping override!");
             return null;
         }
 
-        boolean override = OVERRIDE_FONTS.stream().anyMatch(fontToOverride::contains);
+        boolean override = OVERRIDE_FONTS.stream().anyMatch(fontToOverride::contains) 
+            || (isSysPkg && SYS_OVERRIDE_FONTS.stream().anyMatch(fontToOverride::contains));
         if (!override) {
             logger("Not on override list, skipping override: " + fontToOverride);
             return null;
@@ -98,13 +178,14 @@ public class FontController {
     }
 
     private void handleOnConfiguration(Resources res) {
+        sResources = res;
         String pkgName = getCurrentPackageName();
         if (pkgName == null || EXCLUDED_APPS.contains(pkgName)) return;
         logger("handleOnConfiguration: Changing default font to: " + Typeface.getFontName());
-        Typeface.changeFont(res);
+        Typeface.changeFont();
     }
 
-    private static String getCurrentPackageName() {
+    private String getCurrentPackageName() {
         try {
             return ActivityThread.currentPackageName();
         } catch (Exception e) {
@@ -113,18 +194,9 @@ public class FontController {
         }
     }
 
-    private static Resources getResources() {
+    private int getFontWeightAdjustment() {
         try {
-            return Resources.getSystem();
-        } catch (Exception e) {
-            logger("getResources failed: " + e.getMessage());
-            return null;
-        }
-    }
-
-    private static int getFontWeightAdjustment() {
-        try {
-            Resources res = getResources();
+            Resources res = sResources;
             if (res == null) return 0;
             Configuration cfg = res.getConfiguration();
             return cfg != null ? cfg.fontWeightAdjustment : 0;
@@ -172,6 +244,10 @@ public class FontController {
         }
 
         private static int resolveWeightByName(String familyName) {
+            Integer exactMatch = WEIGHT_MAP.get(familyName);
+            if (exactMatch != null) {
+                return exactMatch;
+            }
             for (Map.Entry<String, Integer> entry : WEIGHT_MAP.entrySet()) {
                 if (familyName.contains(entry.getKey())) {
                     return entry.getValue();
