@@ -27,6 +27,8 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.TestApi;
 import android.annotation.UiThread;
+import android.app.ActivityThread;
+import android.app.Application;
 import android.compat.annotation.UnsupportedAppUsage;
 import android.content.res.AssetManager;
 import android.content.res.Resources;
@@ -57,8 +59,8 @@ import android.util.SparseArray;
 
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.util.android.FontController;
 import com.android.internal.util.Preconditions;
-import com.android.internal.util.evolution.FontController;
 import com.android.text.flags.Flags;
 
 import dalvik.annotation.optimization.CriticalNative;
@@ -294,6 +296,8 @@ public class Typeface {
      */
     public static final String DEFAULT_FAMILY = "sans-serif";
 
+    private static volatile String sFontName = DEFAULT_FAMILY;
+
     static {
         if (Flags.doNotOverwriteStaticFinalField()) {
             DEFAULT_BOLD = new Typeface(Typeface.BOLD, 700, null);
@@ -317,8 +321,6 @@ public class Typeface {
             MONOSPACE = null;
         }
     }
-
-    private static volatile String sFontName = DEFAULT_FAMILY;
 
     // Style value for building typeface.
     private static final int STYLE_NORMAL = 0;
@@ -1597,17 +1599,12 @@ public class Typeface {
     }
 
     /** @hide */
-    public static void changeFont(Resources res) {
-        if (res == null) {
-            return;
-        }
-
+    public static void changeFont() {
         synchronized (sDynamicCacheLock) {
             sDynamicTypefaceCache.evictAll();
         }
 
-        int configId = res.getIdentifier("config_bodyFontFamily", "string", "android");
-        String fontFamily = res.getString(configId);
+        String fontFamily = FontController.getCurrentFontFamily();
 
         sFontName = fontFamily;
 
@@ -1766,10 +1763,6 @@ public class Typeface {
         // Preload Roboto-Regular.ttf in Zygote for improving app launch performance.
         preloadFontFile(SystemFonts.SYSTEM_FONT_DIR + "Roboto-Regular.ttf");
         preloadFontFile(SystemFonts.SYSTEM_FONT_DIR + "RobotoStatic-Regular.ttf");
-
-        preloadFontFile(SystemFonts.SYSTEM_FONT_DIR + "GoogleSans-Regular.ttf");
-        preloadFontFile(SystemFonts.SYSTEM_FONT_DIR + "GoogleSans-Italic.ttf");
-        preloadFontFile(SystemFonts.SYSTEM_FONT_DIR + "GoogleSansFlex-Regular.ttf");
 
         String locale = SystemProperties.get("persist.sys.locale", "en-US");
         String script = ULocale.addLikelySubtags(ULocale.forLanguageTag(locale)).getScript();
