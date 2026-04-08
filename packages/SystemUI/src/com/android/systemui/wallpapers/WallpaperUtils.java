@@ -22,32 +22,41 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
+import android.graphics.HardwareRenderer;
 import android.graphics.Paint;
+import android.graphics.PixelFormat;
 import android.graphics.RadialGradient;
+import android.graphics.RecordingCanvas;
+import android.graphics.RenderEffect;
+import android.graphics.RenderNode;
+import android.graphics.Rect;
 import android.graphics.Shader;
+import android.hardware.HardwareBuffer;
+import android.media.Image;
+import android.media.ImageReader;
 import android.os.Build;
-import android.renderscript.Allocation;
-import android.renderscript.Element;
-import android.renderscript.RenderScript;
-import android.renderscript.ScriptIntrinsicBlur;
-import android.renderscript.ScriptIntrinsicConvolve3x3;
-import android.util.DisplayMetrics;
+import android.view.WindowManager;
 import java.io.ByteArrayOutputStream;
 import java.util.Random;
 
 public class WallpaperUtils {
 
     public static Bitmap resizeAndCompress(Bitmap bitmap, Context context) {
-        DisplayMetrics displayMetrics = new DisplayMetrics();
-        context.getDisplay().getMetrics(displayMetrics);
-        int screenWidth = displayMetrics.widthPixels;
-        int screenHeight = displayMetrics.heightPixels;
-        float maxScale = 1.10f;
-        int targetWidth = Math.round(screenWidth * maxScale);
-        int targetHeight = Math.round(screenHeight * maxScale);
-        if (bitmap.getWidth() == targetWidth && bitmap.getHeight() == targetHeight) {
+        Rect bounds = context.getSystemService(WindowManager.class)
+                .getCurrentWindowMetrics()
+                .getBounds();
+        int screenWidth = bounds.width();
+        int screenHeight = bounds.height();
+
+        if (bitmap.getWidth() >= screenWidth && bitmap.getHeight() >= screenHeight) {
             return bitmap;
         }
+
+        float scale = Math.max(
+                (float) screenWidth / bitmap.getWidth(),
+                (float) screenHeight / bitmap.getHeight());
+        int targetWidth = Math.round(bitmap.getWidth() * scale);
+        int targetHeight = Math.round(bitmap.getHeight() * scale);
         return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true);
     }
 
@@ -65,59 +74,65 @@ public class WallpaperUtils {
     }
 
     public static Bitmap getBlurredBitmap(Bitmap bitmap, int radius, Context context) {
-        RenderScript rs = null;
-        Allocation input = null;
-        Allocation output = null;
-        ScriptIntrinsicBlur blurScript = null;
-        Bitmap mutableBitmap = null;
-        Bitmap scaledBitmap = null;
-        Bitmap outputBitmap = null;
-        
+        float blurRadius = Math.max(1f, Math.min(radius, 150f));
+
+        ImageReader imageReader = ImageReader.newInstance(
+                bitmap.getWidth(), bitmap.getHeight(),
+                PixelFormat.RGBA_8888, 1,
+                HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE | HardwareBuffer.USAGE_GPU_COLOR_OUTPUT);
+
+        HardwareRenderer hardwareRenderer = new HardwareRenderer();
+        RenderNode renderNode = new RenderNode("BlurEffect");
+
         try {
-            rs = RenderScript.create(context);
-            float scaleFactor = 0.25f;
-            int scaledWidth = Math.round(bitmap.getWidth() * scaleFactor);
-            int scaledHeight = Math.round(bitmap.getHeight() * scaleFactor);
-            
-            mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, false);
-            scaledBitmap = Bitmap.createScaledBitmap(mutableBitmap, scaledWidth, scaledHeight, true);
-            outputBitmap = Bitmap.createBitmap(scaledBitmap.getWidth(), scaledBitmap.getHeight(), Bitmap.Config.ARGB_8888);
-            
-            blurScript = ScriptIntrinsicBlur.create(rs, Element.U8_4(rs));
-            float blurRadius = Math.min(radius, 25);
-            int passes = Math.max(1, radius / 25);
-            
-            input = Allocation.createFromBitmap(rs, scaledBitmap);
-            output = Allocation.createFromBitmap(rs, outputBitmap);
-            blurScript.setRadius(blurRadius);
-            
-            for (int i = 0; i < passes; i++) {
-                blurScript.setInput(input);
-                blurScript.forEach(output);
-                output.copyTo(outputBitmap);
-                input.copyFrom(outputBitmap);
+            hardwareRenderer.setSurface(imageReader.getSurface());
+            hardwareRenderer.setContentRoot(renderNode);
+            renderNode.setPosition(0, 0, imageReader.getWidth(), imageReader.getHeight());
+
+            RenderEffect blurEffect = RenderEffect.createBlurEffect(
+                    blurRadius, blurRadius, Shader.TileMode.MIRROR);
+            renderNode.setRenderEffect(blurEffect);
+
+            RecordingCanvas canvas = renderNode.beginRecording();
+            try {
+                canvas.drawBitmap(bitmap, 0f, 0f, null);
+            } finally {
+                renderNode.endRecording();
             }
-            
-            Bitmap result = Bitmap.createScaledBitmap(outputBitmap, bitmap.getWidth(), bitmap.getHeight(), true);
+
+            hardwareRenderer.createRenderRequest()
+                    .setWaitForPresent(true)
+                    .syncAndDraw();
+
+            Image image = imageReader.acquireNextImage();
+            HardwareBuffer hardwareBuffer = image.getHardwareBuffer();
+            Bitmap result = Bitmap.wrapHardwareBuffer(hardwareBuffer, null)
+                                  .copy(Bitmap.Config.ARGB_8888, false);
+            hardwareBuffer.close();
+            image.close();
             return result;
+
         } finally {
-            if (input != null) input.destroy();
-            if (output != null) output.destroy();
-            if (blurScript != null) blurScript.destroy();
-            if (rs != null) rs.destroy();
-            if (mutableBitmap != null) mutableBitmap.recycle();
-            if (scaledBitmap != null) scaledBitmap.recycle();
-            if (outputBitmap != null) outputBitmap.recycle();
+            renderNode.discardDisplayList();
+            hardwareRenderer.destroy();
+            imageReader.close();
         }
     }
 
     public static Bitmap getFilmGrain(Bitmap bitmap, Context context) {
-        Bitmap mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true);
-        int width = mutableBitmap.getWidth();
-        int height = mutableBitmap.getHeight();
+        Rect bounds = context.getSystemService(WindowManager.class)
+                .getCurrentWindowMetrics().getBounds();
+        Bitmap working;
+        if (bitmap.getWidth() > bounds.width() || bitmap.getHeight() > bounds.height()) {
+            working = Bitmap.createScaledBitmap(bitmap, bounds.width(), bounds.height(), true);
+        } else {
+            working = bitmap.copy(Bitmap.Config.ARGB_8888, true);
+        }
+        int width = working.getWidth();
+        int height = working.getHeight();
         Random random = new Random();
         int[] pixels = new int[width * height];
-        mutableBitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+        working.getPixels(pixels, 0, width, 0, 0, width, height);
         
         for (int i = 0; i < pixels.length; i++) {
             int pixel = pixels[i];
@@ -134,39 +149,39 @@ public class WallpaperUtils {
             pixels[i] = (alpha << 24) | (red << 16) | (green << 8) | blue;
         }
         
-        mutableBitmap.setPixels(pixels, 0, width, 0, 0, width, height);
-        return mutableBitmap;
+        working.setPixels(pixels, 0, width, 0, 0, width, height);
+        return working;
     }
 
     public static Bitmap getChromaticAberrationEffect(Bitmap bitmap) {
-        Bitmap mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, false);
-        int width = mutableBitmap.getWidth();
-        int height = mutableBitmap.getHeight();
-        Bitmap result = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+
+        int[] srcPixels = new int[width * height];
+        int[] dstPixels = new int[width * height];
+        bitmap.getPixels(srcPixels, 0, width, 0, 0, width, height);
         
         int offset = 5;
-        int[] pixels = new int[width * height];
-        mutableBitmap.getPixels(pixels, 0, width, 0, 0, width, height);
-        
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 int redX = Math.max(0, Math.min(width - 1, x - offset));
                 int blueX = Math.min(width - 1, Math.max(0, x + offset));
                 
-                int redPixel = pixels[y * width + redX];
-                int greenPixel = pixels[y * width + x];
-                int bluePixel = pixels[y * width + blueX];
+                int redPixel = srcPixels[y * width + redX];
+                int greenPixel = srcPixels[y * width + x];
+                int bluePixel = srcPixels[y * width + blueX];
                 
                 int alpha = (greenPixel >> 24) & 0xff;
                 int red = (redPixel >> 16) & 0xff;
                 int green = (greenPixel >> 8) & 0xff;
                 int blue = bluePixel & 0xff;
                 
-                result.setPixel(x, y, (alpha << 24) | (red << 16) | (green << 8) | blue);
+                dstPixels[y * width + x] = (alpha << 24) | (red << 16) | (green << 8) | blue;
             }
         }
         
-        mutableBitmap.recycle();
+        Bitmap result = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        result.setPixels(dstPixels, 0, width, 0, 0, width, height);
         return result;
     }
 
@@ -332,18 +347,17 @@ public class WallpaperUtils {
     }
 
     public static Bitmap getRadialBlurEffect(Bitmap bitmap) {
-        Bitmap mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, false);
-        int width = mutableBitmap.getWidth();
-        int height = mutableBitmap.getHeight();
-        Bitmap result = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+
+        int[] srcPixels = new int[width * height];
+        int[] dstPixels = new int[width * height];
+        bitmap.getPixels(srcPixels, 0, width, 0, 0, width, height);
         
         float centerX = width / 2f;
         float centerY = height / 2f;
         int samples = 10;
         float strength = 0.05f;
-        
-        int[] pixels = new int[width * height];
-        mutableBitmap.getPixels(pixels, 0, width, 0, 0, width, height);
         
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
@@ -352,7 +366,7 @@ public class WallpaperUtils {
                 float distance = (float) Math.sqrt(dirX * dirX + dirY * dirY);
                 
                 if (distance == 0) {
-                    result.setPixel(x, y, pixels[y * width + x]);
+                    dstPixels[y * width + x] = srcPixels[y * width + x];
                     continue;
                 }
                 
@@ -366,7 +380,7 @@ public class WallpaperUtils {
                     int sampleY = (int) (y - dirY * t * blurAmount / distance);
                     
                     if (sampleX >= 0 && sampleX < width && sampleY >= 0 && sampleY < height) {
-                        int pixel = pixels[sampleY * width + sampleX];
+                        int pixel = srcPixels[sampleY * width + sampleX];
                         totalAlpha += (pixel >> 24) & 0xff;
                         totalRed += (pixel >> 16) & 0xff;
                         totalGreen += (pixel >> 8) & 0xff;
@@ -379,11 +393,12 @@ public class WallpaperUtils {
                 int green = (int) (totalGreen / samples);
                 int blue = (int) (totalBlue / samples);
                 
-                result.setPixel(x, y, (alpha << 24) | (red << 16) | (green << 8) | blue);
+                dstPixels[y * width + x] = (alpha << 24) | (red << 16) | (green << 8) | blue;
             }
         }
         
-        mutableBitmap.recycle();
+        Bitmap result = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        result.setPixels(dstPixels, 0, width, 0, 0, width, height);
         return result;
     }
 
