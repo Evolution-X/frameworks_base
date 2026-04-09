@@ -94,6 +94,8 @@ constructor(
                 edgeLightView.userStrokeWidth = currentSettings.strokeWidth
                 edgeLightView.edgeStyle = currentSettings.edgeStyle
                 edgeLightView.animationEffect = currentSettings.animationEffect
+                edgeLightView.userSpread = currentSettings.spread
+                edgeLightView.userIntensity = currentSettings.intensity
             }
         }
     }
