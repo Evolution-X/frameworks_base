@@ -28,6 +28,9 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.flow.combine
 
+const val EDGE_LIGHT_DEFAULT_SPREAD = 0.50f
+const val EDGE_LIGHT_DEFAULT_INTENSITY = 1.00f
+
 data class EdgeLightSettings(
     val isEnabled: Boolean,
     val colorMode: String,
@@ -35,7 +38,9 @@ data class EdgeLightSettings(
     val pulseCount: Int,
     val strokeWidth: Int,
     val edgeStyle: String,
-    val animationEffect: String
+    val animationEffect: String,
+    val spread: Float = EDGE_LIGHT_DEFAULT_SPREAD,
+    val intensity: Float = EDGE_LIGHT_DEFAULT_INTENSITY,
 )
 
 class EdgeLightSettingsRepository(context: Context) {
@@ -51,7 +56,9 @@ class EdgeLightSettingsRepository(context: Context) {
         observeSettingInt(SETTING_PULSE_COUNT, 3),
         observeSettingInt(SETTING_STROKE_WIDTH, 8),
         observeSettingString(SETTING_EDGE_STYLE, "default"),
-        observeSettingString(SETTING_ANIMATION_EFFECT, "none")
+        observeSettingString(SETTING_ANIMATION_EFFECT, "none"),
+        observeSettingInt(SETTING_SPREAD, (EDGE_LIGHT_DEFAULT_SPREAD * 100).toInt()),
+        observeSettingInt(SETTING_INTENSITY, (EDGE_LIGHT_DEFAULT_INTENSITY * 100).toInt()),
     ) { flows: Array<Any?> ->
         val enabled = flows[0] as Int
         val mode = flows[1] as String
@@ -60,10 +67,17 @@ class EdgeLightSettingsRepository(context: Context) {
         val width = flows[4] as Int
         val style = flows[5] as String
         val effect = flows[6] as String
+        val spreadRaw = flows[7] as Int
+        val intensityRaw = flows[8] as Int
 
         val pulsesClamped = pulses.coerceIn(1, 5)
         val widthClamped = width.coerceIn(2, 32)
-        EdgeLightSettings(enabled == 1, mode, color, pulsesClamped, widthClamped, style, effect)
+        val spreadClamped    = (spreadRaw / 100f).coerceIn(0.05f, 1f)
+        val intensityClamped = (intensityRaw / 100f).coerceIn(0f, 1f)
+        EdgeLightSettings(
+            enabled == 1, mode, color, pulsesClamped, widthClamped, style, effect,
+            spreadClamped, intensityClamped
+        )
     }.distinctUntilChanged()
 
     fun currentSettings(): EdgeLightSettings = EdgeLightSettings(
@@ -73,7 +87,9 @@ class EdgeLightSettingsRepository(context: Context) {
         pulseCount = Settings.System.getIntForUser(resolver, SETTING_PULSE_COUNT, 3, UserHandle.USER_CURRENT),
         strokeWidth = Settings.System.getIntForUser(resolver, SETTING_STROKE_WIDTH, 8, UserHandle.USER_CURRENT),
         edgeStyle = Settings.System.getStringForUser(resolver, SETTING_EDGE_STYLE, UserHandle.USER_CURRENT) ?: "default",
-        animationEffect = Settings.System.getStringForUser(resolver, SETTING_ANIMATION_EFFECT, UserHandle.USER_CURRENT) ?: "none"
+        animationEffect = Settings.System.getStringForUser(resolver, SETTING_ANIMATION_EFFECT, UserHandle.USER_CURRENT) ?: "none",
+        spread = Settings.System.getIntForUser(resolver, SETTING_SPREAD, (EDGE_LIGHT_DEFAULT_SPREAD * 100).toInt(), UserHandle.USER_CURRENT) / 100f,
+        intensity = Settings.System.getIntForUser(resolver, SETTING_INTENSITY, (EDGE_LIGHT_DEFAULT_INTENSITY * 100).toInt(), UserHandle.USER_CURRENT) / 100f,
     )
 
     private fun observeSettingInt(key: String, default: Int): Flow<Int> = callbackFlow {
@@ -108,5 +124,7 @@ class EdgeLightSettingsRepository(context: Context) {
         private const val SETTING_STROKE_WIDTH = Settings.System.EDGE_LIGHT_STROKE_WIDTH
         private const val SETTING_EDGE_STYLE = Settings.System.EDGE_LIGHT_STYLE
         private const val SETTING_ANIMATION_EFFECT = Settings.System.EDGE_LIGHT_ANIMATION_EFFECT
+        private const val SETTING_SPREAD = Settings.System.EDGE_LIGHT_SPREAD
+        private const val SETTING_INTENSITY = Settings.System.EDGE_LIGHT_INTENSITY
     }
 }
