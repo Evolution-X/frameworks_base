@@ -17,6 +17,7 @@ package com.android.systemui.edgelight
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
+import android.animation.ArgbEvaluator
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
@@ -35,6 +36,9 @@ import kotlin.math.sin
 import kotlin.math.cos
 import kotlin.math.PI
 import kotlin.random.Random
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.BlurMaskFilter
 
 class EdgeLightView(context: Context) : FrameLayout(context) {
 
@@ -42,6 +46,18 @@ class EdgeLightView(context: Context) : FrameLayout(context) {
         set(value) {
             field = value.coerceIn(2, 32)
             edgePaint.strokeWidth = field * resources.displayMetrics.density
+            invalidate()
+        }
+
+    var userSpread: Float = EDGE_LIGHT_DEFAULT_SPREAD
+        set(value) {
+            field = value.coerceIn(0.05f, 1f)
+            invalidate()
+        }
+
+    var userIntensity: Float = EDGE_LIGHT_DEFAULT_INTENSITY
+        set(value) {
+            field = value.coerceIn(0f, 1f)
             invalidate()
         }
 
@@ -57,6 +73,10 @@ class EdgeLightView(context: Context) : FrameLayout(context) {
     private val edgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.BUTT
+    }
+
+    private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
     }
 
     private val totalPulseDuration =
@@ -198,9 +218,85 @@ class EdgeLightView(context: Context) : FrameLayout(context) {
         super.onDraw(canvas)
 
         when (edgeStyle) {
-            STYLE_ROUNDED -> drawRoundedEdges(canvas)
-            else -> drawDefaultEdges(canvas)
+            STYLE_ROUNDED -> {
+                drawRoundedEdges(canvas)
+                drawGlowRounded(canvas)
+            }
+            else -> {
+                drawDefaultEdges(canvas)
+                drawGlowDefault(canvas)
+            }
         }
+    }
+
+    private fun buildGlowAlpha(baseAlpha: Float): FloatArray {
+        val a = (baseAlpha * userIntensity).coerceIn(0f, 1f)
+        return floatArrayOf(a, a * 0.65f, a * 0.28f, a * 0.08f, 0f)
+    }
+
+    private fun spreadStops(): FloatArray {
+        val s = userSpread.coerceIn(0.05f, 1f)
+        return floatArrayOf(0f, s * 0.10f, s * 0.30f, s * 0.60f, s)
+    }
+
+    private fun colorWithAlpha(baseColor: Int, alphaFloat: Float): Int {
+        val a = (alphaFloat * 255f).toInt().coerceIn(0, 255)
+        return (baseColor and 0x00FFFFFF) or (a shl 24)
+    }
+
+    private fun drawGlowDefault(canvas: Canvas) {
+        if (userIntensity == 0f) return
+        val base = edgePaint.color and 0x00FFFFFF
+        val currentAlpha = alpha
+        val alphas = buildGlowAlpha(currentAlpha)
+        val stops = spreadStops()
+        val spreadPx = width * userSpread
+
+        val leftColors  = IntArray(5) { colorWithAlpha(base, alphas[it]) }
+        val leftGradient = LinearGradient(
+            0f, 0f, spreadPx, 0f,
+            leftColors, stops, Shader.TileMode.CLAMP
+        )
+        glowPaint.shader = leftGradient
+        canvas.drawRect(0f, 0f, spreadPx, height.toFloat(), glowPaint)
+
+        val rightColors = IntArray(5) { colorWithAlpha(base, alphas[4 - it]) }
+        val rightGradient = LinearGradient(
+            width - spreadPx, 0f, width.toFloat(), 0f,
+            rightColors, stops.reversedArray().map { 1f - it }.toFloatArray(),
+            Shader.TileMode.CLAMP
+        )
+        glowPaint.shader = rightGradient
+        canvas.drawRect(width - spreadPx, 0f, width.toFloat(), height.toFloat(), glowPaint)
+    }
+
+    private fun drawGlowRounded(canvas: Canvas) {
+        if (userIntensity == 0f) return
+        val base = edgePaint.color and 0x00FFFFFF
+        val currentAlpha = alpha
+        val alphas = buildGlowAlpha(currentAlpha)
+        val stops = spreadStops()
+        val spreadPxH = width  * userSpread
+        val spreadPxV = height * userSpread
+
+        val buildColors = { a: FloatArray -> IntArray(5) { colorWithAlpha(base, a[it]) } }
+        val revStops = FloatArray(5) { 1f - stops[4 - it] }
+
+        glowPaint.shader = LinearGradient(0f, 0f, spreadPxH, 0f,
+            buildColors(alphas), stops, Shader.TileMode.CLAMP)
+        canvas.drawRect(0f, 0f, spreadPxH, height.toFloat(), glowPaint)
+
+        glowPaint.shader = LinearGradient(width - spreadPxH, 0f, width.toFloat(), 0f,
+            buildColors(FloatArray(5) { alphas[4 - it] }), revStops, Shader.TileMode.CLAMP)
+        canvas.drawRect(width - spreadPxH, 0f, width.toFloat(), height.toFloat(), glowPaint)
+
+        glowPaint.shader = LinearGradient(0f, 0f, 0f, spreadPxV,
+            buildColors(alphas), stops, Shader.TileMode.CLAMP)
+        canvas.drawRect(0f, 0f, width.toFloat(), spreadPxV, glowPaint)
+
+        glowPaint.shader = LinearGradient(0f, height - spreadPxV, 0f, height.toFloat(),
+            buildColors(FloatArray(5) { alphas[4 - it] }), revStops, Shader.TileMode.CLAMP)
+        canvas.drawRect(0f, height - spreadPxV, width.toFloat(), height.toFloat(), glowPaint)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
