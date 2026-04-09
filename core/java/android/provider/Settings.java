@@ -7551,6 +7551,18 @@ public final class Settings {
          */
         public static final String EDGE_LIGHT_STYLE = "edge_light_style";
 
+        /** 
+         * Edge light glow spread
+         * @hide 
+        */
+        public static final String EDGE_LIGHT_SPREAD = "edge_light_spread";
+
+        /** 
+         * Edge light glow intensity
+         * @hide 
+         */
+        public static final String EDGE_LIGHT_INTENSITY = "edge_light_intensity";
+
         /**
          * Edge light animation effect type
          * @hide
