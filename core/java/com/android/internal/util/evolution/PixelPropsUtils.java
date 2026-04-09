@@ -39,7 +39,6 @@ import android.provider.Settings;
 import android.util.Log;
 
 import com.android.internal.R;
-import com.android.internal.util.evolution.KeyProviderManager;
 import com.android.internal.util.evolution.Utils;
 
 import java.lang.reflect.Field;
@@ -60,15 +59,11 @@ public final class PixelPropsUtils {
 
     private static final String PACKAGE_ARCORE = "com.google.ar.core";
     private static final String PACKAGE_GMS = "com.google.android.gms";
-    private static final String PROCESS_GMS_UNSTABLE = PACKAGE_GMS + ".unstable";
-    private static final String PACKAGE_GOOGLE = "com.google";
     private static final String PACKAGE_NEXUS_LAUNCHER = "com.google.android.apps.nexuslauncher";
     private static final String PACKAGE_PHOTOS = "com.google.android.apps.photos";
     private static final String PACKAGE_SI = "com.google.android.settings.intelligence";
     private static final String PACKAGE_SNAPCHAT = "com.snapchat.android";
-    private static final String PACKAGE_VENDING = "com.android.vending";
-
-    private static final String PROP_HOOKS = "persist.sys.pihooks_";
+    private static final String PACKAGE_GOOGLE = "com.google";
 
     private static final String TAG = PixelPropsUtils.class.getSimpleName();
     private static final boolean DEBUG = false;
@@ -141,22 +136,7 @@ public final class PixelPropsUtils {
             "com.google.android.apps.cameralite"
     ));
 
-    private static final String[] GMS_SPOOF_KEYS = {
-        "BRAND", "DEVICE", "DEVICE_INITIAL_SDK_INT", "FINGERPRINT", "ID",
-        "MANUFACTURER", "MODEL", "PRODUCT", "RELEASE", "SECURITY_PATCH",
-        "TAGS", "TYPE", "SDK_INT"
-    };
-
-    private static final String[] VENDING_SPOOF_KEYS = {
-        "BRAND", "DEVICE", "DEVICE_INITIAL_SDK_INT", "FINGERPRINT", "ID",
-        "MANUFACTURER", "MODEL", "PRODUCT", "RELEASE", "SECURITY_PATCH",
-        "TAGS", "TYPE"
-    };
-
-    private static final ComponentName GMS_ADD_ACCOUNT_ACTIVITY = ComponentName.unflattenFromString(
-            "com.google.android.gms/.auth.uiflows.minutemaid.MinuteMaidActivity");
-
-    private static volatile boolean sIsGms, sIsVending, sIsExcluded;
+    private static volatile boolean sIsExcluded;
     private static volatile String sProcessName;
 
     static {
@@ -208,79 +188,6 @@ public final class PixelPropsUtils {
     private static boolean isGoogleCameraPackage(String packageName) {
         return packageName.contains("GoogleCamera")
                 || customGoogleCameraPackages.contains(packageName);
-    }
-
-    private static boolean shouldTryToCertifyDevice() {
-        if (!sIsGms) return false;
-
-        final String processName = Application.getProcessName();
-        if (!processName.toLowerCase().contains("unstable")) {
-            return false;
-        }
-
-        final boolean was = isGmsAddAccountActivityOnTop();
-        final String reason = "GmsAddAccountActivityOnTop";
-        if (!was) {
-            return true;
-        }
-        dlog("Skip spoofing build for GMS, because " + reason + "!");
-        TaskStackListener taskStackListener = new TaskStackListener() {
-            @Override
-            public void onTaskStackChanged() {
-                final boolean isNow = isGmsAddAccountActivityOnTop();
-                if (isNow ^ was) {
-                    dlog(String.format("%s changed: isNow=%b, was=%b, killing myself!", reason, isNow, was));
-                    Process.killProcess(Process.myPid());
-                }
-            }
-        };
-        try {
-            ActivityTaskManager.getService().registerTaskStackListener(taskStackListener);
-            return false;
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to register task stack listener!", e);
-            return true;
-        }
-    }
-
-    public static void spoofBuildGms() {
-        Context context = ActivityThread.currentApplication();
-        if (context == null) return;
-
-        ContentResolver resolver = context.getContentResolver();
-        if (resolver == null) return;
-
-        int value;
-        try {
-            value = Settings.Secure.getInt(resolver,
-                    Settings.Secure.PI_ENABLE_SPOOF, 1);
-        } catch (Exception e) {
-            return; // Settings provider not ready yet
-        }
-        if (value != 1) return;
-        for (String key : GMS_SPOOF_KEYS) {
-            setPropValue(key, SystemProperties.get(PROP_HOOKS + key));
-        }
-    }
-
-    public static void spoofBuildVending() {
-        Context context = ActivityThread.currentApplication();
-        if (context == null) return;
-
-        ContentResolver resolver = context.getContentResolver();
-        if (resolver == null) return;
-
-        int value;
-        try {
-            value = Settings.Secure.getInt(resolver,
-                    Settings.Secure.PI_VENDING_SPOOF, 0);
-        } catch (Exception e) {
-            return; // Settings provider not ready yet
-        }
-        if (value != 1) return;
-        for (String key : VENDING_SPOOF_KEYS) {
-            setPropValue(key, SystemProperties.get(PROP_HOOKS + key));
-        }
     }
 
     private static void applyAppSpecificProps(Context context, String packageName) {
@@ -335,35 +242,18 @@ public final class PixelPropsUtils {
 
         propsToChangeGeneric.forEach((k, v) -> setPropValue(k, v));
 
-        sIsGms = packageName.equals(PACKAGE_GMS) && processName.equals(PROCESS_GMS_UNSTABLE);
-        sIsVending = packageName.equals(PACKAGE_VENDING);
         sIsExcluded = isGoogleCameraPackage(packageName);
 
         String model = SystemProperties.get("ro.product.model");
         boolean isPixelDevice = SystemProperties.get("ro.soc.manufacturer").equalsIgnoreCase("Google");
         boolean isMainlineDevice = isPixelDevice && MAINLINE_PIXEL_PATTERN.matcher(model.trim()).matches();
         boolean isPixelPropsEnabled = getSecureIntSafe(context, Settings.Secure.PI_PP_SPOOF, 1) == 1;
-        boolean isPixelGmsEnabled = getSecureIntSafe(context, Settings.Secure.PI_ENABLE_SPOOF, 1) == 1;
-        boolean isPixelVendingEnabled = getSecureIntSafe(context, Settings.Secure.PI_VENDING_SPOOF, 0) == 1;
 
         if (sIsExcluded) {
             return;
         }
 
-        if (sIsVending) {
-            if (!isPixelVendingEnabled) return;
-            spoofBuildVending();
-        }
-
-        if (sIsGms) {
-            if (shouldTryToCertifyDevice()) {
-                if (!isPixelGmsEnabled) {
-                    return;
-                } else {
-                    spoofBuildGms();
-                }
-            }
-        } else if (packagesToChangeRecentPixel.contains(packageName)) {
+        if (packagesToChangeRecentPixel.contains(packageName)) {
             if (isMainlineDevice || !isPixelPropsEnabled) {
                 return;
             }
@@ -374,6 +264,7 @@ public final class PixelPropsUtils {
                 propsToChange.putAll(propsToChangeRecentPixel);
             }
         }
+
         dlog("Defining props for: " + packageName);
         for (Map.Entry<String, Object> prop : propsToChange.entrySet()) {
             String key = prop.getKey();
@@ -385,6 +276,7 @@ public final class PixelPropsUtils {
             dlog("Defining " + key + " prop for: " + packageName);
             setPropValue(key, value);
         }
+
         // Set proper indexing fingerprint
         if (packageName.equals(PACKAGE_SI)) {
             setPropValue("FINGERPRINT", String.valueOf(Build.TIME));
@@ -445,18 +337,6 @@ public final class PixelPropsUtils {
             dlog("Field " + key + " found in Build.VERSION.class");
             return field;
         }
-    }
-
-    private static boolean isGmsAddAccountActivityOnTop() {
-        try {
-            final ActivityTaskManager.RootTaskInfo focusedTask =
-                    ActivityTaskManager.getService().getFocusedRootTaskInfo();
-            return focusedTask != null && focusedTask.topActivity != null
-                    && focusedTask.topActivity.equals(GMS_ADD_ACCOUNT_ACTIVITY);
-        } catch (Exception e) {
-            Log.e(TAG, "Unable to get top activity!", e);
-        }
-        return false;
     }
 
     private static String[] getStringArrayResSafely(int resId) {
@@ -548,13 +428,11 @@ public final class PixelPropsUtils {
 
     // Whitelist of package names to bypass FGS type validation
     public static boolean shouldBypassFGSValidation(String packageName) {
-        // Check if the app is whitelisted
         if (Arrays.asList(getStringArrayResSafely(R.array.config_fgsTypeValidationBypassPackages))
                 .contains(packageName)) {
-            dlog(
-                    "shouldBypassFGSValidation: "
-                            + "Bypassing FGS type validation for whitelisted app: "
-                            + packageName);
+            dlog("shouldBypassFGSValidation: "
+                    + "Bypassing FGS type validation for whitelisted app: "
+                    + packageName);
             return true;
         }
         return false;
@@ -562,15 +440,13 @@ public final class PixelPropsUtils {
 
     // Whitelist of package names to bypass alarm manager validation
     public static boolean shouldBypassAlarmManagerValidation(String packageName) {
-        // Check if the app is whitelisted
         if (Arrays.asList(
                         getStringArrayResSafely(
                                 R.array.config_alarmManagerValidationBypassPackages))
                 .contains(packageName)) {
-            dlog(
-                    "shouldBypassAlarmManagerValidation: "
-                            + "Bypassing alarm manager validation for whitelisted app: "
-                            + packageName);
+            dlog("shouldBypassAlarmManagerValidation: "
+                    + "Bypassing alarm manager validation for whitelisted app: "
+                    + packageName);
             return true;
         }
         return false;
@@ -578,58 +454,16 @@ public final class PixelPropsUtils {
 
     // Whitelist of package names to bypass broadcast receiver validation
     public static boolean shouldBypassBroadcastReceiverValidation(String packageName) {
-        // Check if the app is whitelisted
         if (Arrays.asList(
                         getStringArrayResSafely(
                                 R.array.config_broadcastReceiverValidationBypassPackages))
                 .contains(packageName)) {
-            dlog(
-                    "shouldBypassBroadcastReceiverValidation: "
-                            + "Bypassing broadcast receiver validation for whitelisted app: "
-                            + packageName);
+            dlog("shouldBypassBroadcastReceiverValidation: "
+                    + "Bypassing broadcast receiver validation for whitelisted app: "
+                    + packageName);
             return true;
         }
         return false;
-    }
-
-    private static boolean isCallerSafetyNet() {
-        return Arrays.stream(Thread.currentThread().getStackTrace())
-                        .anyMatch(elem -> elem.getClassName().toLowerCase()
-                            .contains("droidguard"));
-    }
-
-    public static void onEngineGetCertificateChain() {
-        if (Process.isIsolated()) {
-            dlog("Skipping onEngineGetCertificateChain in isolated process");
-            return;
-        }
-
-        Context context = ActivityThread.currentApplication() != null
-                ? ActivityThread.currentApplication().getApplicationContext()
-                : null;
-        if (context == null) {
-            dlog("Null received in onEngineGetCertificateChain.");
-            return;
-        }
-
-        boolean isPixelGmsEnabled = getSecureIntSafe(context,
-                Settings.Secure.PI_ENABLE_SPOOF, 1) == 1;
-        if (!isPixelGmsEnabled) {
-            dlog("onEngineGetCertificateChain disabled by setting");
-            return;
-        }
-
-        // If a keybox is found, don't block key attestation
-        if (KeyProviderManager.isKeyboxAvailable()) {
-            dlog("Key attestation blocking is disabled because a keybox is defined to spoof");
-            return;
-        }
-
-        // Check stack for Play Integrity
-        if (isCallerSafetyNet()) {
-            dlog("Blocked key attestation");
-            throw new UnsupportedOperationException();
-        }
     }
 
     private static int getSecureIntSafe(Context context, String key, int def) {
