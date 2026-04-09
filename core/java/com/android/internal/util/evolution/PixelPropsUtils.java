@@ -63,7 +63,6 @@ public final class PixelPropsUtils {
     private static final String PACKAGE_PHOTOS = "com.google.android.apps.photos";
     private static final String PACKAGE_SI = "com.google.android.settings.intelligence";
     private static final String PACKAGE_SNAPCHAT = "com.snapchat.android";
-    private static final String PACKAGE_GOOGLE = "com.google";
 
     private static final String TAG = PixelPropsUtils.class.getSimpleName();
     private static final boolean DEBUG = false;
@@ -286,6 +285,10 @@ public final class PixelPropsUtils {
             setPropValue("FINGERPRINT", sDeviceFingerprint);
             return;
         }
+
+        // Photos and Snapchat are handled exclusively by applyAppSpecificProps with their own
+        // Secure settings keys. Do NOT add them to packagesToChangeRecentPixel or they will
+        // receive both recent Pixel props and the Pixel XL override, with the latter winning.
         applyAppSpecificProps(context, packageName);
     }
 
@@ -317,7 +320,6 @@ public final class PixelPropsUtils {
                 } else {
                     field.set(null, value.toString());
                 }
-                field.setAccessible(false);
                 dlog("Set prop " + key + " to " + value);
             } else {
                 Log.e(TAG, "Field " + key + " not found in Build or Build.VERSION classes");
