@@ -59,7 +59,7 @@ constructor(
     private var lastNotificationText: CharSequence? = null
     private var lastNotificationTime: Long = 0L
     private val deduplicationWindowMs = 3000L
-    private var lastNotifColor: Int = Color.TRANSPARENT
+    private var lastNotifColor: Int = Utils.getColorAccentDefaultColor(context)
 
     init {
         INSTANCE = this
@@ -118,7 +118,7 @@ constructor(
         lastNotificationText = currentText
         lastNotificationTime = now
 
-        val notifColor = sbn?.notification?.color ?: Color.TRANSPARENT
+        val notifColor = sbn.notification?.color ?: Color.TRANSPARENT
         val accent = Utils.getColorAccentDefaultColor(context)
 
         lastNotifColor = when {
