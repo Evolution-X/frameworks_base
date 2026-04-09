@@ -21,6 +21,7 @@ import android.animation.ArgbEvaluator
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Matrix
 import android.graphics.Paint
@@ -105,6 +106,8 @@ class EdgeLightView(context: Context) : FrameLayout(context) {
 
     private var useRainbowGradient = false
 
+    private var glowBaseColor: Int = Color.WHITE
+
     var visible: Boolean
         get() = isVisible
         set(value) { isVisible = value }
@@ -117,8 +120,10 @@ class EdgeLightView(context: Context) : FrameLayout(context) {
                 edgePaint.shader = null
                 edgePaint.color = value
                 edgePaint.alpha = 255
+                glowBaseColor = resolveGlowBase(value)
             } else {
                 useRainbowGradient = true
+                glowBaseColor = RAINBOW[0]
                 updateRainbowGradient()
             }
             invalidate()
@@ -154,6 +159,12 @@ class EdgeLightView(context: Context) : FrameLayout(context) {
         }
 
         edgePaint.strokeWidth = userStrokeWidth * resources.displayMetrics.density
+    }
+
+    private fun resolveGlowBase(color: Int): Int {
+        if (color == Color.TRANSPARENT || color == 0) return Color.WHITE
+        val opaque = color or 0xFF000000.toInt()
+        return if (opaque == Color.BLACK) Color.WHITE else opaque
     }
 
     private fun startPulse() {
@@ -244,11 +255,21 @@ class EdgeLightView(context: Context) : FrameLayout(context) {
         return (baseColor and 0x00FFFFFF) or (a shl 24)
     }
 
+    private fun currentGlowAlpha(): Float = alpha.coerceIn(0f, 1f)
+
+    private fun rainbowGlowColor(): Int {
+        val index = ((rainbowRotation / 360f) * (RAINBOW.size - 1)).toInt()
+            .coerceIn(0, RAINBOW.size - 2)
+        return RAINBOW[index]
+    }
+
+    private fun effectiveGlowBaseColor(): Int =
+        if (useRainbowGradient) rainbowGlowColor() else glowBaseColor
+
     private fun drawGlowDefault(canvas: Canvas) {
         if (userIntensity == 0f) return
-        val base = edgePaint.color and 0x00FFFFFF
-        val currentAlpha = alpha
-        val alphas = buildGlowAlpha(currentAlpha)
+        val base = effectiveGlowBaseColor() and 0x00FFFFFF
+        val alphas = buildGlowAlpha(currentGlowAlpha())
         val stops = spreadStops()
         val spreadPx = width * userSpread
 
@@ -272,9 +293,8 @@ class EdgeLightView(context: Context) : FrameLayout(context) {
 
     private fun drawGlowRounded(canvas: Canvas) {
         if (userIntensity == 0f) return
-        val base = edgePaint.color and 0x00FFFFFF
-        val currentAlpha = alpha
-        val alphas = buildGlowAlpha(currentAlpha)
+        val base = effectiveGlowBaseColor() and 0x00FFFFFF
+        val alphas = buildGlowAlpha(currentGlowAlpha())
         val stops = spreadStops()
         val spreadPxH = width  * userSpread
         val spreadPxV = height * userSpread
@@ -674,6 +694,7 @@ class EdgeLightView(context: Context) : FrameLayout(context) {
             interpolator = android.view.animation.LinearInterpolator()
             addUpdateListener { animator ->
                 rainbowRotation = animator.animatedValue as Float
+                glowBaseColor = rainbowGlowColor()
                 _updateRainbowGradient()
                 invalidate()
             }
