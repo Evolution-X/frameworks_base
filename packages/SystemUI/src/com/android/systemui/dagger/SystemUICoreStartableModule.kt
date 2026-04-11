@@ -62,6 +62,7 @@ import com.android.systemui.stylus.StylusUsiPowerStartable
 import com.android.systemui.temporarydisplay.chipbar.ChipbarCoordinator
 import com.android.systemui.usb.StorageNotification
 import com.android.systemui.util.NotificationChannels
+import com.android.systemui.usb.UsbModePickerDialogDelegate
 import com.android.systemui.wmshell.WMShell
 import dagger.Binds
 import dagger.Module
@@ -334,6 +335,11 @@ abstract class SystemUICoreStartableModule {
     abstract fun bindSysUIKeyGestureEventInitializer(
         keyGestureEventInitializer: SysUIKeyGestureEventInitializer
     ): CoreStartable
+
+    @Binds
+    @IntoMap
+    @ClassKey(UsbModePickerDialogDelegate::class)
+    abstract fun bindUsbModePickerDialogDelegate(impl: UsbModePickerDialogDelegate): CoreStartable
 
     @Binds
     @IntoMap
