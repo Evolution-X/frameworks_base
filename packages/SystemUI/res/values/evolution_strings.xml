@@ -301,4 +301,14 @@
     <!-- Essential Notifications -->
     <string name="essential_notifications_title">Essentials</string>
     <string name="essential_notifications_summary">Important messages and alerts</string>
+
+    <!-- USB Mode Picker -->
+    <string name="usb_mode_picker_title">Select USB mode</string>
+    <string name="usb_mode_file_transfer">File transfer</string>
+    <string name="usb_mode_tethering">USB tethering</string>
+    <string name="usb_mode_midi">MIDI</string>
+    <string name="usb_mode_photo_transfer">Photo &amp; video transfer</string>
+    <string name="usb_mode_webcam">USB Webcam</string>
+    <string name="usb_mode_charging_only">Charging only</string>
+    <string name="usb_charging_status">USB charging is on</string>
 </resources>
