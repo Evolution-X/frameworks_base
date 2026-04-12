@@ -29,7 +29,7 @@
     <!-- PowerOffAlarmService -->
     <string name="notification_channel_poweroff_alarm">Wyłącz alarm</string>
     <string name="poweroff_alarm_title">Ustawiono alarm przy wyłączonym urządzeniu</string>
-    <string name="poweroff_alarm_body">Alarm został wykryty, urządzenie włączy się 2 minuty przed alarmem</string>
+    <string name="poweroff_alarm_body">Wykryto alarm i urządzenie włączy się 2 minuty przed jego uruchomieniem</string>
     <!-- Pocket Lock -->
     <string name="pocket_mode_title">Ochrona przed przypadkowymi dotknięciami jest aktywna</string>
     <string name="pocket_mode_illustration_description">Ilustracja telefonu w kieszeni</string>
