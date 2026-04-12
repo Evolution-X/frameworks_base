@@ -162,7 +162,7 @@
     <!-- AxDynamicBar strings [CHAR LIMIT=NONE] -->
     <string name="ax_dynamic_bar_timer">Minutnik</string>
     <string name="ax_dynamic_bar_stopwatch">Stoper</string>
-    <string name="ax_dynamic_bar_alarm">Budzik</string>
+    <string name="ax_dynamic_bar_alarm">Alarm</string>
     <string name="ax_dynamic_bar_flashlight">Latarka</string>
     <string name="ax_dynamic_bar_hotspot">Punkt dostępu</string>
     <string name="ax_dynamic_bar_hotspot_active">Punkt dostępu aktywny</string>
@@ -184,7 +184,7 @@
     <string name="ax_dynamic_bar_copy_image">Kopiuj obraz</string>
     <string name="ax_dynamic_bar_clipboard_image_desc">Obraz ze schowka</string>
     <string name="ax_dynamic_bar_image">Obraz</string>
-    <string name="ax_dynamic_bar_url">URL</string>
+    <string name="ax_dynamic_bar_url">Link</string>
     <string name="ax_dynamic_bar_dismiss">Odrzuć</string>
     <string name="ax_dynamic_bar_open">Otwórz</string>
     <string name="ax_dynamic_bar_stop">Zatrzymaj</string>
