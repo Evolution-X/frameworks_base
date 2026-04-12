@@ -166,6 +166,11 @@ public class FontController {
             return null;
         }
 
+        if (fontToOverride.startsWith("variable-")) {
+            logger("Skipping variable family override: " + fontToOverride);
+            return null;
+        }
+
         boolean override = OVERRIDE_FONTS.stream().anyMatch(fontToOverride::contains) 
             || (isSysPkg && SYS_OVERRIDE_FONTS.stream().anyMatch(fontToOverride::contains));
         if (!override) {
@@ -248,12 +253,17 @@ public class FontController {
             if (exactMatch != null) {
                 return exactMatch;
             }
+            String bestKey = null;
+            int bestWeight = 400;
             for (Map.Entry<String, Integer> entry : WEIGHT_MAP.entrySet()) {
                 if (familyName.contains(entry.getKey())) {
-                    return entry.getValue();
+                    if (bestKey == null || entry.getKey().length() > bestKey.length()) {
+                        bestKey = entry.getKey();
+                        bestWeight = entry.getValue();
+                    }
                 }
             }
-            return 400;
+            return bestWeight;
         }
     }
 }
