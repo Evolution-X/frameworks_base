@@ -12,21 +12,6 @@
     <!-- Indication on the keyguard that is shown when the device is charging with a turbo power charger. Should match keyguard_plugged_in_turbo_charging [CHAR LIMIT=40]-->
     <!-- Text while recognizing face -->
     <string name="face_unlock_recognizing">Rozpoznawanie twarzy...</string>
-    <!-- Alert slide extras -->
-    <string name="volume_ringer_priority_only">Priorytet</string>
-    <string name="volume_ringer_alarms_only">Alarmy</string>
-    <string name="volume_ringer_dnd">Nie przeszkadzać</string>
-    <string name="tristate_flashlight">Latarka</string>
-    <string name="tristate_flashlight_on">Latarka włączona</string>
-    <string name="tristate_flashlight_off">Latarka wyłączona</string>
-    <string name="tristate_flashlight_blink">Miganie latarki</string>
-    <string name="tristate_brightness_bright">Maksymalna jasność</string>
-    <string name="tristate_brightness_dark">Minimalna jasność</string>
-    <string name="tristate_brightness_auto">Automatyczna jasność</string>
-    <string name="tristate_rotation_auto">Autoobracanie</string>
-    <string name="tristate_rotation_0">Pionowo</string>
-    <string name="tristate_rotation_90">Poziomo (90°)</string>
-    <string name="tristate_rotation_270">Poziomo (270°)</string>
     <!-- Flashlight Strength -->
     <string name="flashlight_strength_title">Moc latarki</string>
     <string name="flashlight_strength_turn_off">Wyłącz</string>
@@ -62,7 +47,6 @@
     <string name="gigabytespersecond_short">GB/s</string>
     <!-- Refresh Rate Tile -->
     <string name="refresh_rate_tile_label">Częstotliwość odświeżania</string>
-    <string name="refresh_rate_unknown">Nieznane</string>
     <string name="auto_mode_label">Automatycznie</string>
     <!-- Compass QS Tile -->
     <string name="quick_settings_compass_label">Kompas</string>
@@ -112,6 +96,8 @@
     <string name="status_bar_vowifi">Połączenia przez Wi-Fi (VoWiFi)</string>
     <!-- Data disabled icon -->
     <string name="data_disabled_icon_title">Ikona wyłączonych danych mobilnych</string>
+    <!-- Disable stacked mobile icons -->
+    <string name="disable_stacked_mobile_icons_title">Wyłącz ikonę połączonych danych</string>
     <!-- 4G icon -->
     <string name="show_fourg_icon_title">Ikona 4G</string>
     <!-- Notification counter -->
@@ -138,14 +124,6 @@
     <string name="usage_data_weekly">używane w tym tygodniu</string>
     <string name="usage_data_default_suffix">Dane mobilne</string>
     <string name="usage_wifi_default_suffix">Wi-Fi</string>
-    <!-- Smartspace -->
-    <string name="accessibility_next_alarm">Następny alarm o %s</string>
-    <string name="accessibility_smartspace_page">Strona %1$d z %2$d</string>
-    <string name="active_mode_content_description">%1$s jest włączony</string>
-    <string name="music_controls_no_title">Bez tytułu</string>
-    <string name="smartspace_content_desc">Szybki podgląd</string>
-    <string name="smartspace_flight_qr_code">Kod QR</string>
-    <string name="smartspace_role_desc">Widok</string>
     <!-- Kill button in notification guts -->
     <string name="force_stop_dlg_title">Wymusić zatrzymanie?</string>
     <string name="force_stop_dlg_text">Jeśli wymusisz zatrzymanie aplikacji, może się ona zachowywać nieprawidłowo.</string>
@@ -166,4 +144,113 @@
     <string name="mic_camera_privacy_indicator_title">Wskaźnik prywatności mikrofonu i kamery</string>
     <string name="location_privacy_indicator_title">Wskaźnik prywatności lokalizacji</string>
     <string name="projection_privacy_indicator_title">Wskaźnik prywatności projekcji multimediów</string>
+    <!-- Weather -->
+    <string name="weather_condition_clouds">Pochmurno</string>
+    <string name="weather_condition_rain">Deszczowo</string>
+    <string name="weather_condition_clear">Czyste niebo</string>
+    <string name="weather_condition_storm">Burzowo</string>
+    <string name="weather_condition_snow">Śnieżnie</string>
+    <string name="weather_condition_wind">Wietrznie</string>
+    <string name="weather_condition_mist">Mgliście</string>
+    <!-- Weather Tile -->
+    <string name="omnijaws_service_error">Błąd ładowania danych o pogodzie</string>
+    <string name="omnijaws_service_unknown">Brak danych o pogodzie</string>
+    <string name="omnijaws_label_default">Pogoda</string>
+    <!-- Sleep Mode -->
+    <string name="quick_settings_sleep_mode_label">Tryb uśpienia</string>
+    <string name="default_user_name">Evolution X</string>
+    <!-- AxDynamicBar strings [CHAR LIMIT=NONE] -->
+    <string name="ax_dynamic_bar_timer">Minutnik</string>
+    <string name="ax_dynamic_bar_stopwatch">Stoper</string>
+    <string name="ax_dynamic_bar_alarm">Budzik</string>
+    <string name="ax_dynamic_bar_flashlight">Latarka</string>
+    <string name="ax_dynamic_bar_hotspot">Punkt dostępu</string>
+    <string name="ax_dynamic_bar_hotspot_active">Punkt dostępu aktywny</string>
+    <string name="ax_dynamic_bar_vpn_active">VPN aktywny</string>
+    <string name="ax_dynamic_bar_screen_recording">Nagrywanie ekranu</string>
+    <string name="ax_dynamic_bar_now_playing">Co jest grane</string>
+    <string name="ax_dynamic_bar_media_output">Wyjście multimedialne</string>
+    <string name="ax_dynamic_bar_sound_mode">Tryb dźwięku</string>
+    <string name="ax_dynamic_bar_silent">Wyciszenie</string>
+    <string name="ax_dynamic_bar_vibrate">Wibracje</string>
+    <string name="ax_dynamic_bar_ring">Dzwonek</string>
+    <string name="ax_dynamic_bar_charging">Ładowanie</string>
+    <string name="ax_dynamic_bar_wireless">Bezprzewodowo</string>
+    <string name="ax_dynamic_bar_saver">Oszczędzanie</string>
+    <string name="ax_dynamic_bar_music">Muzyka</string>
+    <string name="ax_dynamic_bar_copied">Skopiowano</string>
+    <string name="ax_dynamic_bar_copied_feedback">Skopiowano!</string>
+    <string name="ax_dynamic_bar_image_copied">Obraz skopiowany</string>
+    <string name="ax_dynamic_bar_copy_image">Kopiuj obraz</string>
+    <string name="ax_dynamic_bar_clipboard_image_desc">Obraz ze schowka</string>
+    <string name="ax_dynamic_bar_image">Obraz</string>
+    <string name="ax_dynamic_bar_url">URL</string>
+    <string name="ax_dynamic_bar_dismiss">Odrzuć</string>
+    <string name="ax_dynamic_bar_open">Otwórz</string>
+    <string name="ax_dynamic_bar_stop">Zatrzymaj</string>
+    <string name="ax_dynamic_bar_stop_recording">Zatrzymaj nagrywanie</string>
+    <string name="ax_dynamic_bar_reset">Reset</string>
+    <string name="ax_dynamic_bar_clear_all">Wyczyść wszystko</string>
+    <string name="ax_dynamic_bar_show_more">Pokaż więcej</string>
+    <string name="ax_dynamic_bar_show_less">Pokaż mniej</string>
+    <string name="ax_dynamic_bar_play">Odtwórz</string>
+    <string name="ax_dynamic_bar_pause">Wstrzymaj</string>
+    <string name="ax_dynamic_bar_paused">Wstrzymano</string>
+    <string name="ax_dynamic_bar_saved">Zapisano</string>
+    <string name="ax_dynamic_bar_recording">Nagrywanie</string>
+    <string name="ax_dynamic_bar_done">Gotowe</string>
+    <string name="ax_dynamic_bar_ringing">Dzwonienie</string>
+    <string name="ax_dynamic_bar_running">Uruchamianie</string>
+    <string name="ax_dynamic_bar_on">Włącz</string>
+    <string name="ax_dynamic_bar_recents">Ostatnie</string>
+    <string name="ax_dynamic_bar_unlocked">Odblokowane</string>
+    <string name="ax_dynamic_bar_device_unlocked">Urządzenie odblokowane</string>
+    <string name="ax_dynamic_bar_progress">Postęp</string>
+    <string name="ax_dynamic_bar_casting_to">Przesyłanie do</string>
+    <string name="ax_dynamic_bar_camera_mic">Aparat i mikrofon</string>
+    <string name="ax_dynamic_bar_camera">Aparat</string>
+    <string name="ax_dynamic_bar_microphone">Mikrofon</string>
+    <string name="ax_dynamic_bar_camera_mic_short">Kamera i mikrofon</string>
+    <string name="ax_dynamic_bar_hotspot_devices"><xliff:g id="count" example="3">%d</xliff:g> urządzenia</string>
+    <string name="ax_dynamic_bar_wireless_charging">Ładowanie bezprzewodowe</string>
+    <string name="ax_dynamic_bar_until_full">do pełnego</string>
+    <string name="ax_dynamic_bar_battery_saver">Oszczędzanie baterii</string>
+    <string name="ax_dynamic_bar_incoming_call">Połączenie przychodzące</string>
+    <string name="ax_dynamic_bar_connected">Połączono</string>
+    <string name="ax_dynamic_bar_disconnect">Rozłącz</string>
+    <string name="ax_dynamic_bar_no_devices">Brak urządzeń</string>
+    <string name="ax_dynamic_bar_one_device_connected">1 urządzenie połączone</string>
+    <string name="ax_dynamic_bar_devices_connected"><xliff:g id="count" example="3">%d</xliff:g> połączonych urządzeń</string>
+    <string name="ax_dynamic_bar_vpn_connected">Połączono przez VPN</string>
+    <string name="ax_dynamic_bar_secured">Zabezpieczone</string>
+    <string name="ax_dynamic_bar_connecting">Łączenie\u2026</string>
+    <string name="ax_dynamic_bar_one_device">1 urządzenie</string>
+    <string name="ax_dynamic_bar_bluetooth_device">Urządzenie bluetooth</string>
+    <string name="ax_dynamic_bar_apps_count"><xliff:g id="count" example="2">%d</xliff:g> aplikacje</string>
+    <string name="ax_dynamic_bar_just_now">Przed chwilą</string>
+    <string name="ax_dynamic_bar_mins_ago"><xliff:g id="count" example="5">%d</xliff:g>minut temu</string>
+    <string name="ax_dynamic_bar_hours_ago"><xliff:g id="count" example="2">%d</xliff:g>godzin temu</string>
+    <string name="ax_dynamic_bar_days_ago"><xliff:g id="count" example="3">%d</xliff:g>dni temu</string>
+    <string name="ax_dynamic_bar_weeks_ago"><xliff:g id="count" example="1">%d</xliff:g>tygodni temu</string>
+    <string name="ax_dynamic_bar_resume">Wznów</string>
+    <string name="ax_dynamic_bar_clipboard">Schowek</string>
+    <string name="ax_dynamic_bar_previous">Poprzedni</string>
+    <string name="ax_dynamic_bar_next">Następny</string>
+    <string name="ax_dynamic_bar_shuffle">Losowo</string>
+    <string name="ax_dynamic_bar_output">Wyjście</string>
+    <string name="ax_dynamic_bar_rec_short">Nagrywanie</string>
+    <string name="ax_dynamic_bar_cast_short">Przesyłanie</string>
+    <string name="ax_dynamic_bar_active">Aktywne</string>
+    <string name="ax_dynamic_bar_biometric">Biometria</string>
+    <string name="ax_dynamic_bar_trust">Zaufanie</string>
+    <string name="ax_dynamic_bar_alignment">Wyrównanie</string>
+    <string name="ax_dynamic_bar_cam_short">Aparat</string>
+    <string name="ax_dynamic_bar_mic_short">Mikrofon</string>
+    <string name="ax_dynamic_bar_recent_apps">Ostatnie aplikacje</string>
+    <string name="ax_dynamic_bar_count_running"><xliff:g id="count" example="3">%d</xliff:g> uruchomione</string>
+    <string name="ax_dynamic_bar_sports_vs">kontra</string>
+    <string name="ax_dynamic_bar_sports_live">Na żywo</string>
+    <string name="ax_dynamic_bar_sports_final">Finał</string>
+    <string name="ax_dynamic_bar_sports_halftime">Przerwa</string>
+    <string name="ax_dynamic_bar_sports_upcoming">Wkrótce</string>
 </resources>
