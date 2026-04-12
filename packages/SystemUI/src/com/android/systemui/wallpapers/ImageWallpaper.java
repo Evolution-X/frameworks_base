@@ -32,6 +32,7 @@ import android.graphics.RectF;
 import android.graphics.Paint;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.DisplayManager.DisplayListener;
+import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.SystemProperties;
@@ -114,8 +115,11 @@ public class ImageWallpaper extends WallpaperService {
     }
 
     class CanvasEngine extends WallpaperService.Engine implements DisplayListener {
+        private static final long DIM_DEBOUNCE_MS = 300;
         private WallpaperManager mWallpaperManager;
         private final ImageWallpaperColorExtractor mColorExtractor;
+        private final Handler mDimHandler = new Handler(Looper.getMainLooper());
+        private Runnable mPendingDimUpdate;
         private SurfaceHolder mSurfaceHolder;
         private boolean mDrawn = false;
         @VisibleForTesting
@@ -656,7 +660,11 @@ public class ImageWallpaper extends WallpaperService {
 
         @Override
         public void onDimAmountChanged(float dimAmount) {
-            mColorExtractor.onDimAmountChanged(dimAmount);
+            if (mPendingDimUpdate != null) {
+                mDimHandler.removeCallbacks(mPendingDimUpdate);
+            }
+            mPendingDimUpdate = () -> mColorExtractor.onDimAmountChanged(dimAmount);
+            mDimHandler.postDelayed(mPendingDimUpdate, DIM_DEBOUNCE_MS);
         }
 
         @Override
