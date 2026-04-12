@@ -39,4 +39,10 @@
     <!-- App lock -->
     <string name="unlock_application">Odblokuj <xliff:g id="label" example="Telegram">%1$s</xliff:g>
   </string>
+    <!-- Sleep Mode -->
+    <string name="notification_channel_sleep">Tryb uśpienia</string>
+    <string name="sleep_mode_notification_title">Tryb uśpienia włączony</string>
+    <string name="sleep_mode_notification_content">Naciśnij, aby wyłączyć tryb uśpienia</string>
+    <string name="sleep_mode_enabled_toast">Tryb uśpienia włączony</string>
+    <string name="sleep_mode_disabled_toast">Tryb uśpienia wyłączony</string>
 </resources>
