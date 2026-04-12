@@ -28,8 +28,8 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.flow.combine
 
-const val EDGE_LIGHT_DEFAULT_SPREAD = 0.50f
-const val EDGE_LIGHT_DEFAULT_INTENSITY = 1.00f
+const val EDGE_LIGHT_DEFAULT_SPREAD = 0.00f
+const val EDGE_LIGHT_DEFAULT_INTENSITY = 0.00f
 
 data class EdgeLightSettings(
     val isEnabled: Boolean,
