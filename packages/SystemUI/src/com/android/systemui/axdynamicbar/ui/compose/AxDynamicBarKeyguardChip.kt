@@ -111,6 +111,7 @@ fun AxDynamicBarKeyguardChip(
     val isOnKeyguard by viewModel.isOnKeyguard.collectAsStateWithLifecycle()
     val isEnabled by viewModel.isEnabled.collectAsStateWithLifecycle()
     val isKeyguardEnabled by viewModel.isKeyguardEnabled.collectAsStateWithLifecycle()
+    val isKeyguardMusicPillEnabled by viewModel.isKeyguardMusicPillEnabled.collectAsStateWithLifecycle()
     val keyguardBatteryChipMode by viewModel.keyguardBatteryChipMode.collectAsStateWithLifecycle()
     val batteryInfo by viewModel.keyguardBatteryInfo.collectAsStateWithLifecycle()
     val isKeyguardExpanded by viewModel.isKeyguardExpanded.collectAsStateWithLifecycle()
@@ -194,7 +195,25 @@ fun AxDynamicBarKeyguardChip(
         ) {
             val chipState = state
             if (chipState != null) {
-                val displayEvent = chipState.notificationAlert ?: chipState.event
+                val rawEvent = chipState.notificationAlert ?: chipState.event
+                val displayEvent: com.android.systemui.axdynamicbar.model.IslandEvent? =
+                    when {
+                        isKeyguardMusicPillEnabled -> rawEvent
+                        rawEvent is com.android.systemui.axdynamicbar.model.IslandEvent.Media -> {
+                            chipState.allEvents.firstOrNull { it !is com.android.systemui.axdynamicbar.model.IslandEvent.Media }
+                        }
+                        else -> rawEvent
+                    }
+
+                if (displayEvent == null) {
+                    KeyguardBatteryChip(
+                        batteryInfo,
+                        keyguardBatteryChipMode,
+                        batteryString,
+                        modifier,
+                    )
+                    return@AnimatedVisibility
+                }
 
                 AnimatedContent(
                     targetState = displayEvent,
