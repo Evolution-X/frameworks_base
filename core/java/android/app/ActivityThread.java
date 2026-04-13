@@ -8035,10 +8035,6 @@ public final class ActivityThread extends ClientTransactionHandler
             }
         }
 
-        if (pifService.shouldSpoofPhotos(data.appInfo.packageName)) {
-            pifService.spoofPhotosProps();
-        }
-
         // Initialize the default http proxy in this process.
         Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, "Setup proxies");
         try {
