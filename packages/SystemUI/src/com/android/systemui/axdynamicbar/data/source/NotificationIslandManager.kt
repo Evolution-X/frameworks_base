@@ -134,6 +134,7 @@ constructor(
     var onAlarmEvent: ((IslandEvent.Alarm) -> Unit)? = null
     var onNotificationPosted: ((IslandEvent.Notification) -> Unit)? = null
     var onScreenRecordNotificationTime: ((Long) -> Unit)? = null
+    var onEventCompleted: ((String) -> Unit)? = null
 
     @Volatile private var listening = false
     @Volatile private var timerJob: Job? = null
@@ -365,8 +366,11 @@ constructor(
                     return
                 }
                 if (!sbn.isOngoing) {
-                    _promotedOngoingEvents.value =
-                        _promotedOngoingEvents.value.filter { it.sbn.key != sbn.key }
+                    val removed = _promotedOngoingEvents.value.filter { it.sbn.key == sbn.key }
+                    _promotedOngoingEvents.value = _promotedOngoingEvents.value.filter { it.sbn.key != sbn.key }
+                    if (removed.isNotEmpty()) {
+                        removed.forEach { onEventCompleted?.invoke(it.sbn.key) }
+                    }
                 }
                 if (sbn.isOngoing) return
                 if ("notification" in disabledTypes) return
@@ -867,6 +871,13 @@ constructor(
         current.removeAll { it.sbn.key == sbn.key }
         current.add(0, event)
         _promotedOngoingEvents.value = current
+
+        if (progress >= 1f && !indeterminate) {
+            applicationScope.launch {
+                delay(3_000L)
+                onEventCompleted?.invoke(sbn.key)
+            }
+        }
     }
 
     fun clearPromotedOngoing(key: String) {
@@ -1016,6 +1027,12 @@ constructor(
         current.removeAll { it.key == sbn.key }
         current.add(0, event)
         _sportsEvents.value = current
+        if (status == IslandEvent.GameStatus.FINAL) {
+            applicationScope.launch {
+                delay(15_000L)
+                onEventCompleted?.invoke(sbn.key)
+            }
+        }
         return true
     }
 
