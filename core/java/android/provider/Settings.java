@@ -7377,6 +7377,12 @@ public final class Settings {
         public static final String STATUS_BAR_LOGO_COLOR_PICKER = "status_bar_logo_color_picker";
 
         /**
+         * Statusbar logo custom img
+         * @hide
+         */
+        public static final String STATUS_BAR_LOGO_CUSTOM_IMAGE_URI = "status_bar_logo_custom_image_uri";
+
+        /**
          * Keys we no longer back up under the current schema, but want to continue to
          * process when restoring historical backup datasets.
          *
