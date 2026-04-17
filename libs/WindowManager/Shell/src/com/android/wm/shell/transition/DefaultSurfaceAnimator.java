@@ -33,6 +33,7 @@ import com.android.wm.shell.common.ShellExecutor;
 import com.android.wm.shell.shared.TransactionPool;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -106,6 +107,10 @@ public class DefaultSurfaceAnimator {
     private static class DefaultAnimationAdapter extends AnimationAdapter {
         final Transformation mTransformation = new Transformation();
         final float[] mMatrix = new float[9];
+        final float[] mPrevMatrix = new float[9];
+        float mPrevAlpha = Float.NaN;
+        final Rect mPrevAnimClipRect = new Rect();
+        boolean mCornerRadiusApplied = false;
         @NonNull final Animation mAnim;
         @Nullable final Point mPosition;
         @Nullable final Rect mClipRect;
@@ -143,8 +148,16 @@ public class DefaultSurfaceAnimator {
             if (mPosition != null) {
                 transformation.getMatrix().postTranslate(mPosition.x, mPosition.y);
             }
-            t.setMatrix(leash, transformation.getMatrix(), mMatrix);
-            t.setAlpha(leash, transformation.getAlpha());
+            transformation.getMatrix().getValues(mMatrix);
+            if (!Arrays.equals(mMatrix, mPrevMatrix)) {
+                t.setMatrix(leash, transformation.getMatrix(), mMatrix);
+                System.arraycopy(mMatrix, 0, mPrevMatrix, 0, 9);
+            }
+            final float alpha = transformation.getAlpha();
+            if (alpha != mPrevAlpha) {
+                t.setAlpha(leash, alpha);
+                mPrevAlpha = alpha;
+            }
 
             if (mClipRect != null) {
                 boolean needCrop = false;
@@ -166,11 +179,15 @@ public class DefaultSurfaceAnimator {
                 }
                 if (mCornerRadius > 0 && mAnim.hasRoundedCorners()) {
                     // Rounded corner can only be applied if a crop is set.
-                    t.setCornerRadius(leash, mCornerRadius);
+                    if (!mCornerRadiusApplied) {
+                        t.setCornerRadius(leash, mCornerRadius);
+                        mCornerRadiusApplied = true;
+                    }
                     needCrop = true;
                 }
-                if (needCrop) {
+                if (needCrop && !mAnimClipRect.equals(mPrevAnimClipRect)) {
                     t.setWindowCrop(leash, mAnimClipRect);
+                    mPrevAnimClipRect.set(mAnimClipRect);
                 }
             }
         }
