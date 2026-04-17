@@ -207,7 +207,7 @@ private fun MediaPillIcon(event: IslandEvent.Media) {
     }
         ?: Box(
             modifier =
-                Modifier.size(16.dp).clip(CircleShape).background(OrangeAccent.copy(alpha = AlphaSubtle + 0.05f)),
+                Modifier.size(16.dp).clip(CircleShape).background(OrangeAccent.copy(alpha = 0.32f)),
             contentAlignment = Alignment.Center,
         ) {
             WaveformAnimation(OrangeAccent, Modifier.size(10.dp), isAnimating = event.isPlaying, barCount = 3)
