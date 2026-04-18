@@ -445,6 +445,7 @@ import com.android.internal.util.MemInfoReader;
 import com.android.internal.util.Preconditions;
 import com.android.internal.util.function.pooled.PooledLambda;
 import com.android.server.AlarmManagerInternal;
+import com.android.server.AxExtServiceFactory;
 import com.android.server.BootReceiver;
 import com.android.server.DeviceIdleInternal;
 import com.android.server.DisplayThread;
@@ -5376,6 +5377,10 @@ public class ActivityManagerService extends IActivityManager.Stub
             // Start PSI monitoring in LMKD if it was skipped earlier.
             ProcessList.startPsiMonitoringAfterBoot();
 
+            mHandler.postDelayed(() -> {
+                AxExtServiceFactory.onLateSystemReady();
+            }, 5000);
+
             mUserController.onBootComplete(
                     new IIntentReceiver.Stub() {
                         @Override
@@ -9261,6 +9266,8 @@ public class ActivityManagerService extends IActivityManager.Stub
             mComponentAliasResolver.onSystemReady(mConstants.mEnableComponentAlias,
                     mConstants.mComponentAliasOverrides);
             t.traceEnd(); // componentAlias
+            
+            AxExtServiceFactory.systemReady();
 
             t.traceEnd(); // PhaseActivityManagerReady
         }
@@ -19747,6 +19754,32 @@ public class ActivityManagerService extends IActivityManager.Stub
     @NonNull
     Freezer getFreezer() {
         return mFreezer;
+    }
+
+
+    @Override
+    public String getSpoofPifConfig() {
+        return AxExtServiceFactory.getSpoofManager().getPifConfig();
+    }
+
+    @Override
+    public String getSpoofGamePropsConfig() {
+        return AxExtServiceFactory.getSpoofManager().getGamePropsConfig();
+    }
+
+    @Override
+    public String getSpoofTrickyStoreTarget() {
+        return AxExtServiceFactory.getSpoofManager().getTrickyStoreTarget();
+    }
+
+    @Override
+    public String getSpoofTrickyStoreKeyBox() {
+        return AxExtServiceFactory.getSpoofManager().getTrickyStoreKeyBox();
+    }
+
+    @Override
+    public String getSpoofTrickyStorePatch() {
+        return AxExtServiceFactory.getSpoofManager().getTrickyStorePatch();
     }
 
     // Set of IntentCreatorToken objects that are currently active.
