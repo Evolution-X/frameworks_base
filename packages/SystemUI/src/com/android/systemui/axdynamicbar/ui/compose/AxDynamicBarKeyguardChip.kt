@@ -2,11 +2,13 @@
 
 package com.android.systemui.axdynamicbar.ui.compose
 
+import com.android.systemui.statusbar.chips.ui.model.OngoingActivityChipModel
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import kotlin.math.abs
@@ -18,14 +20,10 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -108,53 +106,49 @@ fun AxDynamicBarKeyguardChip(
     val isOnKeyguard by viewModel.isOnKeyguard.collectAsStateWithLifecycle()
     val isEnabled by viewModel.isEnabled.collectAsStateWithLifecycle()
     val isKeyguardEnabled by viewModel.isKeyguardEnabled.collectAsStateWithLifecycle()
+    val keyguardBatteryChipMode by viewModel.keyguardBatteryChipMode.collectAsStateWithLifecycle()
     val batteryInfo by viewModel.keyguardBatteryInfo.collectAsStateWithLifecycle()
     val isKeyguardExpanded by viewModel.isKeyguardExpanded.collectAsStateWithLifecycle()
     val touchSlop = LocalViewConfiguration.current.touchSlop
+    val batteryString by viewModel.batteryString.collectAsStateWithLifecycle()
 
     val motionScheme = MaterialTheme.motionScheme
 
     Box(modifier = modifier) {
 
+        val expandedVisibleState = remember { MutableTransitionState(false) }
+        expandedVisibleState.targetState = isKeyguardExpanded && state != null
+        LaunchedEffect(expandedVisibleState.isIdle, expandedVisibleState.currentState) {
+            if (expandedVisibleState.isIdle && !expandedVisibleState.currentState) {
+                viewModel.keyguardExpansion.notifyCollapseSettled()
+            }
+        }
         AnimatedVisibility(
-            visible = isKeyguardExpanded && state != null,
-            enter = fadeIn(motionScheme.defaultEffectsSpec()) +
-                slideInVertically(
-                    animationSpec = motionScheme.defaultSpatialSpec(),
-                    initialOffsetY = { it / 3 },
-                ) +
-                expandVertically(
-                    animationSpec = motionScheme.defaultSpatialSpec(),
-                    expandFrom = Alignment.Bottom,
-                ),
-            exit = fadeOut(motionScheme.fastEffectsSpec()) +
-                slideOutVertically(
-                    animationSpec = motionScheme.fastSpatialSpec(),
-                    targetOffsetY = { it / 4 },
-                ) +
-                shrinkVertically(
-                    animationSpec = motionScheme.fastSpatialSpec(),
-                    shrinkTowards = Alignment.Bottom,
-                ),
+            visibleState = expandedVisibleState,
+            enter = fadeIn(motionScheme.defaultEffectsSpec()),
+            exit = fadeOut(tween(durationMillis = 250)),
             modifier = Modifier
                 .fillMaxWidth()
-                .align(Alignment.TopStart)
-                .padding(bottom = ChipHeight + SpaceLg),
+                .align(Alignment.Center),
         ) {
             state?.let {
                 KeyguardExpandedContent(
                     event = it.event,
                     allEvents = it.allEvents,
                     interactor = viewModel.interactor,
-                    onCollapse = { viewModel.collapsePanel() },
+                    onCollapse = { viewModel.keyguardExpansion.collapse() },
                     hapticsViewModelFactory = viewModel.interactor.sliderHapticsViewModelFactory,
                 )
             }
         }
 
         AnimatedVisibility(
-            visible = isOnKeyguard && isEnabled && isKeyguardEnabled,
-            enter = fadeIn(motionScheme.defaultEffectsSpec()) + scaleIn(initialScale = 0.9f, animationSpec = motionScheme.defaultSpatialSpec()),
+            visible = isOnKeyguard && isEnabled && isKeyguardEnabled && !isKeyguardExpanded,
+            enter = fadeIn(tween(durationMillis = 200, delayMillis = 300)) +
+                scaleIn(
+                    initialScale = 0.9f,
+                    animationSpec = tween(durationMillis = 200, delayMillis = 300),
+                ),
             exit = fadeOut(motionScheme.fastEffectsSpec()) + scaleOut(targetScale = 0.9f, animationSpec = motionScheme.fastSpatialSpec()),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -189,7 +183,7 @@ fun AxDynamicBarKeyguardChip(
         ) {
             val chipState = state
             if (chipState != null) {
-                val displayEvent = chipState.notificationAlert ?: chipState.event
+                val displayEvent = chipState.event
 
                 AnimatedContent(
                     targetState = displayEvent,
@@ -238,8 +232,12 @@ fun AxDynamicBarKeyguardChip(
                     )
                 }
             } else {
-                
-                KeyguardBatteryChip(batteryInfo)
+                KeyguardBatteryChip(
+                    batteryInfo,
+                    keyguardBatteryChipMode,
+                    batteryString,
+                    modifier,
+                )
             }
         }
     }
@@ -261,7 +259,7 @@ private fun KeyguardChipBody(
         Row(
             modifier = Modifier
                 .height(ChipHeight)
-                .widthIn(max = 260.dp)
+                .widthIn(max = 178.dp)
                 .clip(ChipShape)
                 .background(accent)
                 .animateContentSize(motionScheme.defaultSpatialSpec())
@@ -285,7 +283,7 @@ private fun KeyguardChipBody(
 
                         is IslandEvent.KeyguardIndication,
                         is IslandEvent.AppSwitch -> { }
-                        else -> viewModel.togglePanel()
+                        else -> viewModel.keyguardExpansion.toggle()
                     }
                 }
                 .padding(start = SpaceSm, end = SpaceMd),
@@ -460,7 +458,8 @@ private fun KeyguardChipBody(
             }
 
             if (event !is IslandEvent.Media) {
-                val actions = actionsFor(event)
+                val actionsCtx = LocalContext.current
+                val actions = actionsFor(event, actionsCtx)
                 if (actions.isNotEmpty()) {
                     Spacer(Modifier.width(SpaceXs))
                     actions.forEach { action ->
@@ -500,7 +499,16 @@ private fun KeyguardChipBody(
 }
 
 @Composable
-private fun KeyguardBatteryChip(info: KeyguardBatteryInfo) {
+private fun KeyguardBatteryChip(
+    info: KeyguardBatteryInfo,
+    keyguardBatteryChipMode: Int,
+    batteryString: String,
+    modifier: Modifier,
+) {
+    if (keyguardBatteryChipMode <= 0) return
+
+    if (keyguardBatteryChipMode == 1 && !info.isCharging) return
+
     val accent = when {
         info.isCharging -> BatteryChargingColor
         info.isPowerSave -> BatteryPowerSaveColor
@@ -510,10 +518,11 @@ private fun KeyguardBatteryChip(info: KeyguardBatteryInfo) {
 
     Box(contentAlignment = Alignment.Center) {
         Row(
-            modifier = Modifier
+            modifier = modifier
                 .height(ChipHeight)
                 .clip(ChipShape)
                 .background(accent)
+                .widthIn(max = 260.dp)
                 .padding(horizontal = SpaceMd),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -524,6 +533,17 @@ private fun KeyguardBatteryChip(info: KeyguardBatteryInfo) {
                 AnimatedBatteryFillIcon(info.level, contentColor, BatteryIconSize)
             }
             Spacer(Modifier.width(SpaceXs))
+            if (info.isCharging) {
+                Text(
+                    batteryString,
+                    style = PillPrimary,
+                    color = contentColor.copy(alpha = AlphaSecondary),
+                    maxLines = 2,
+                    overflow = TextOverflow.Clip,
+                    modifier = modifier.basicMarquee(),
+                )
+                return
+            }
             Text(
                 "${info.level}%",
                 style = PillPrimary,
@@ -638,9 +658,6 @@ private fun AnimatedBatteryFillIcon(level: Int, color: Color, iconSize: Dp = Bat
 @Composable
 private fun KeyguardPrimaryText(event: IslandEvent, color: Color, modifier: Modifier) {
     when (event) {
-        is IslandEvent.ScreenRecording ->
-            if (event.isCountdown) MarqueeText(formatCountdownSeconds(event.countdownSeconds), color, modifier)
-            else ElapsedTimeText(event.startTimeMs, color, modifier)
         is IslandEvent.AudioRecording -> when (event.state) {
             RecordingState.RECORDING -> ElapsedTimeText(
                 event.startTimeMs, color, modifier, event.pausedDurationMs,
@@ -665,7 +682,6 @@ private fun KeyguardPrimaryText(event: IslandEvent, color: Color, modifier: Modi
             )
         }
         is IslandEvent.Alarm -> MarqueeText(event.label.ifEmpty { stringResource(R.string.ax_dynamic_bar_alarm) }, color, modifier)
-        is IslandEvent.Casting -> MarqueeText(event.deviceName.take(12), color, modifier)
         is IslandEvent.Torch -> MarqueeText(
             if (event.supportsLevel) "${(event.level.toFloat() / event.maxLevel * 100).toInt()}%"
             else stringResource(R.string.ax_dynamic_bar_flashlight),
@@ -678,16 +694,6 @@ private fun KeyguardPrimaryText(event: IslandEvent, color: Color, modifier: Modi
         )
         is IslandEvent.BiometricUnlock -> MarqueeText(stringResource(R.string.ax_dynamic_bar_unlocked), color, modifier)
         is IslandEvent.AppSwitch -> MarqueeText(stringResource(R.string.ax_dynamic_bar_recents), color, modifier)
-        is IslandEvent.MicCamActive -> MarqueeText(
-            event.appName.ifEmpty {
-                buildString {
-                    if (event.isCam) append(stringResource(R.string.ax_dynamic_bar_cam_short))
-                    if (event.isMic && event.isCam) append(" · ")
-                    if (event.isMic) append(stringResource(R.string.ax_dynamic_bar_mic_short))
-                }
-            },
-            color, modifier,
-        )
         is IslandEvent.PromotedOngoing -> MarqueeText(
             event.shortText.ifEmpty { event.title.ifEmpty { event.appName } }, color, modifier,
         )
@@ -698,15 +704,16 @@ private fun KeyguardPrimaryText(event: IslandEvent, color: Color, modifier: Modi
             "${event.songTitle} · ${event.artist}".trimEnd(' ', '·', ' '), color, modifier,
         )
         is IslandEvent.KeyguardIndication -> MarqueeText(event.text, color, modifier)
+        is IslandEvent.AospChip -> {
+            val text = (event.active.content as? OngoingActivityChipModel.Content.Text)?.text
+            if (!text.isNullOrEmpty()) MarqueeText(text, color, modifier)
+        }
     }
 }
 
 @Composable
 private fun secondaryTextFor(event: IslandEvent): String? = when (event) {
     is IslandEvent.Media -> event.artist.takeIf { it.isNotBlank() }
-    is IslandEvent.ScreenRecording ->
-        if (event.isCountdown) formatCountdownSeconds(event.countdownSeconds)
-        else stringResource(R.string.ax_dynamic_bar_rec_short)
     is IslandEvent.AudioRecording -> event.appName.takeIf { it.isNotBlank() }
     is IslandEvent.Timer -> event.label.takeIf { it.isNotBlank() }
     is IslandEvent.Stopwatch -> event.label.takeIf { it.isNotBlank() }
@@ -719,7 +726,6 @@ private fun secondaryTextFor(event: IslandEvent): String? = when (event) {
             "%d:%02d".format(cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE))
         } else null
     }
-    is IslandEvent.Casting -> stringResource(R.string.ax_dynamic_bar_cast_short)
     is IslandEvent.Vpn -> stringResource(R.string.ax_dynamic_bar_active)
     is IslandEvent.BiometricUnlock -> event.sourceName
     is IslandEvent.AppSwitch -> null
@@ -766,7 +772,7 @@ private data class ChipAction(
     val perform: (AxDynamicBarChipViewModel, IslandEvent, Context) -> Unit,
 )
 
-private fun actionsFor(event: IslandEvent): List<ChipAction> = when (event) {
+private fun actionsFor(event: IslandEvent, context: Context): List<ChipAction> = when (event) {
     is IslandEvent.Media -> listOf(
         ChipAction(ActionIcon.SKIP_PREV) { vm, _, _ -> vm.skipPrev() },
         ChipAction(if (event.isPlaying) ActionIcon.PAUSE else ActionIcon.PLAY) { vm, _, _ ->
@@ -774,18 +780,10 @@ private fun actionsFor(event: IslandEvent): List<ChipAction> = when (event) {
         },
         ChipAction(ActionIcon.SKIP_NEXT) { vm, _, _ -> vm.skipNext() },
     )
-    is IslandEvent.ScreenRecording ->
-        if (event.isCountdown) emptyList()
-        else listOf(ChipAction(ActionIcon.STOP) { vm, _, _ -> vm.stopScreenRecording() })
     is IslandEvent.AudioRecording -> {
-        val pauseResume = event.actions.firstOrNull { a ->
-            val label = a.label.toString().lowercase()
-            label.contains("pause") || label.contains("resume")
-        }
-        val stop = event.actions.firstOrNull { a ->
-            val label = a.label.toString().lowercase()
-            label.contains("stop") || label.contains("delete")
-        }
+        val classified = event.actions.map { it to it.action.classify(context, it.action.actionIntent?.creatorPackage ?: context.packageName) }
+        val pauseResume = classified.firstOrNull { (_, k) -> k == NotificationActionType.PAUSE || k == NotificationActionType.RESUME }?.first
+        val stop = classified.firstOrNull { (_, k) -> k == NotificationActionType.STOP || k == NotificationActionType.DELETE }?.first
         listOfNotNull(
             pauseResume?.let { action ->
                 ChipAction(
@@ -821,9 +819,6 @@ private fun actionsFor(event: IslandEvent): List<ChipAction> = when (event) {
     }
     is IslandEvent.Torch -> listOf(
         ChipAction(ActionIcon.STOP) { vm, _, _ -> vm.toggleTorch() },
-    )
-    is IslandEvent.Casting -> listOf(
-        ChipAction(ActionIcon.STOP) { vm, e, _ -> vm.dismissEvent(e) },
     )
     else -> emptyList()
 }
@@ -930,4 +925,3 @@ private fun StopwatchTimeText(event: IslandEvent.Stopwatch, color: Color, modifi
         Text(formatStopwatch(elapsedMs), color = color, style = PillMono, modifier = modifier)
     }
 }
-
