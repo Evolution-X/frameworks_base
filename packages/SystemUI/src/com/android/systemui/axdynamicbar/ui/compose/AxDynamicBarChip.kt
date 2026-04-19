@@ -54,6 +54,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.res.dimensionResource
+import com.android.compose.animation.Expandable
+import com.android.compose.animation.rememberExpandableController
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import android.graphics.drawable.Drawable
@@ -102,6 +104,7 @@ fun AxDynamicBarChip(
     }
 
     val touchSlop = LocalViewConfiguration.current.touchSlop
+    val expandableController = rememberExpandableController(color = Color.Transparent, shape = ChipShape)
 
     val motionScheme = MaterialTheme.motionScheme
 
@@ -131,9 +134,16 @@ fun AxDynamicBarChip(
                                 if (totalDx > 0) viewModel.cyclePrev()
                                 else viewModel.cycleNext()
                             } else if (!decided) {
-                                
+
                                 change.consume()
-                                viewModel.togglePanel()
+                                val current = state?.event
+                                if (current is IslandEvent.AospChip) {
+                                    if (!viewModel.handleAospChipTap(current, expandableController.expandable)) {
+                                        viewModel.statusBarExpansion.toggle()
+                                    }
+                                } else {
+                                    viewModel.statusBarExpansion.toggle()
+                                }
                             }
                             
                             break
@@ -168,9 +178,14 @@ fun AxDynamicBarChip(
             },
     ) {
         state?.let { chipState ->
-            val displayEvent = chipState.notificationAlert ?: chipState.event
-            val isAlert = chipState.notificationAlert != null
+            val displayEvent = chipState.event
+            val isAlert = false
 
+            Expandable(
+                controller = expandableController,
+                onClick = null,
+                defaultMinSize = false,
+            ) { _ ->
             AnimatedContent(
                 targetState = ChipDisplay(displayEvent, isAlert),
                 transitionSpec = {
@@ -205,6 +220,7 @@ fun AxDynamicBarChip(
                     Row(
                         modifier =
                             Modifier.height(ChipHeight)
+                                .widthIn(max = 100.dp)
                                 .clip(ChipShape)
                                 .background(accent)
                                 .animateContentSize(motionScheme.defaultSpatialSpec())
@@ -322,7 +338,7 @@ fun AxDynamicBarChip(
                                 },
                                 contentKey = { textKeyFor(it) },
                                 label = "chip_text",
-                                modifier = Modifier.weight(1f, fill = false),
+                                modifier = Modifier.weight(1f, fill = false).widthIn(max = chipTextMaxWidth),
                             ) { event ->
                                 PillEventText(
                                     event,
@@ -354,6 +370,7 @@ fun AxDynamicBarChip(
                         }
                     }
                 }
+            }
             }
         }
     }
