@@ -195,6 +195,7 @@ public class KeyguardIndicationController {
     protected final @Background DelayableExecutor mBackgroundExecutor;
     private final LockPatternUtils mLockPatternUtils;
     private final FalsingManager mFalsingManager;
+    private final BatteryManager mBatteryManager;
     private final KeyguardBypassController mKeyguardBypassController;
     private final AccessibilityManager mAccessibilityManager;
     private final Handler mHandler;
@@ -403,6 +404,7 @@ public class KeyguardIndicationController {
         mLockPatternUtils = lockPatternUtils;
         mAuthController = authController;
         mFalsingManager = falsingManager;
+        mBatteryManager = mContext.getSystemService(BatteryManager.class);
         mKeyguardBypassController = keyguardBypassController;
         mAccessibilityManager = accessibilityManager;
         mScreenLifecycle = screenLifecycle;
@@ -1482,18 +1484,18 @@ public class KeyguardIndicationController {
                 batteryInfo = String.format("%.0f" , (mChargingCurrent / mCurrentDivider)) + "mA";
             }
             if (mChargingWattage > 0) {
-                batteryInfo = (batteryInfo == "" ? "" : batteryInfo + " · ") +
+                batteryInfo = (batteryInfo.isEmpty() ? "" : batteryInfo + " · ") +
                         String.format("%.1f" , (mChargingWattage / mCurrentDivider / 1000)) + "W";
             }
             if (mChargingVoltage > 0) {
-                batteryInfo = (batteryInfo == "" ? "" : batteryInfo + " · ") +
+                batteryInfo = (batteryInfo.isEmpty() ? "" : batteryInfo + " · ") +
                         String.format("%.1f", (mChargingVoltage / 1000 / 1000)) + "V";
             }
             if (mTemperature > 0) {
-                batteryInfo = (batteryInfo == "" ? "" : batteryInfo + " · ") +
+                batteryInfo = (batteryInfo.isEmpty() ? "" : batteryInfo + " · ") +
                         String.format("%.1f", (mTemperature / 10)) + "°C";
             }
-            if (batteryInfo != "") {
+            if (!batteryInfo.isEmpty()) {
                 batteryInfo = "\n" + batteryInfo;
             }
         }
@@ -1667,9 +1669,10 @@ public class KeyguardIndicationController {
             mPowerPluggedInDock = status.isPluggedInDock() && isChargingOrFull;
             mPowerPluggedIn = isPowerPluggedIn(status, isChargingOrFull);
             mPowerCharged = status.isCharged();
-            mChargingCurrent = status.maxChargingCurrent;
-            mChargingVoltage = status.maxChargingVoltage;
-            mChargingWattage = status.maxChargingWattage;
+            mChargingCurrent = getRealtimeChargingCurrent(status.maxChargingCurrent);
+            mChargingVoltage = getRealtimeChargingVoltage(status.maxChargingVoltage);
+            mChargingWattage = getRealtimeChargingWattage(
+                    mChargingCurrent, mChargingVoltage, status.maxChargingWattage);
             mChargingSpeed = status.getChargingSpeed(mContext);
             mChargingStatus = status.chargingStatus;
             mBatteryLevel = status.level;
@@ -1698,6 +1701,46 @@ public class KeyguardIndicationController {
             mKeyguardLogger.logRefreshBatteryInfo(isChargingOrFull, mPowerPluggedIn, mBatteryLevel,
                     mBatteryDefender);
             updateDeviceEntryIndication(!wasPluggedIn && mPowerPluggedInWired);
+        }
+
+        private float getRealtimeChargingCurrent(float fallbackCurrentMicroAmps) {
+            if (mBatteryManager == null) {
+                return fallbackCurrentMicroAmps;
+            }
+
+            final int currentNowMicroAmps = mBatteryManager.getIntProperty(
+                    BatteryManager.BATTERY_PROPERTY_CURRENT_NOW);
+            if (currentNowMicroAmps == Integer.MIN_VALUE || currentNowMicroAmps == 0) {
+                return fallbackCurrentMicroAmps;
+            }
+
+            return Math.abs(currentNowMicroAmps);
+        }
+
+        private float getRealtimeChargingVoltage(float fallbackVoltageMicroVolts) {
+            final Intent batteryIntent = mContext.registerReceiver(
+                    null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+            if (batteryIntent == null) {
+                return fallbackVoltageMicroVolts;
+            }
+
+            final int voltageMilliVolts = batteryIntent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1);
+            if (voltageMilliVolts <= 0) {
+                return fallbackVoltageMicroVolts;
+            }
+
+            return voltageMilliVolts * 1000f;
+        }
+
+        private float getRealtimeChargingWattage(
+                float chargingCurrentMicroAmps,
+                float chargingVoltageMicroVolts,
+                float fallbackWattageMicroWatts) {
+            if (chargingCurrentMicroAmps <= 0 || chargingVoltageMicroVolts <= 0) {
+                return fallbackWattageMicroWatts;
+            }
+
+            return (chargingCurrentMicroAmps * chargingVoltageMicroVolts) / 1_000_000f;
         }
 
         @Override
