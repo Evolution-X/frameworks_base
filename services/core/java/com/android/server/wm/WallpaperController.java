@@ -72,6 +72,7 @@ class WallpaperController {
     private WindowState mWallpaperTarget = null;
 
     private float mLastWallpaperZoomOut = 0;
+    private WindowState mMaxZoomOutWindow = null;
 
     // Whether COMMAND_FREEZE was dispatched.
     private boolean mLastFrozen = false;
@@ -205,6 +206,7 @@ class WallpaperController {
         if (!windowState.mIsWallpaper
                 && Float.compare(windowState.mWallpaperZoomOut, mLastWallpaperZoomOut) > 0) {
             mLastWallpaperZoomOut = windowState.mWallpaperZoomOut;
+            mMaxZoomOutWindow = windowState;
         }
     };
 
@@ -425,11 +427,21 @@ class WallpaperController {
 
     void setWallpaperZoomOut(WindowState window, float zoom) {
         if (Float.compare(window.mWallpaperZoomOut, zoom) != 0) {
+            float oldMaxZoom = mLastWallpaperZoomOut;
             window.mWallpaperZoomOut = zoom;
-            computeLastWallpaperZoomOut();
-            for (int i = mWallpaperTokens.size() - 1; i >= 0; i--) {
-                final WallpaperWindowToken token = mWallpaperTokens.get(i);
-                token.updateWallpaperOffset();
+
+            if (Float.compare(zoom, mLastWallpaperZoomOut) > 0) {
+                mLastWallpaperZoomOut = zoom;
+                mMaxZoomOutWindow = window;
+            } else if (window == mMaxZoomOutWindow || Float.compare(oldMaxZoom, mLastWallpaperZoomOut) == 0) {
+                computeLastWallpaperZoomOut();
+            }
+
+            if (Float.compare(oldMaxZoom, mLastWallpaperZoomOut) != 0) {
+                for (int i = mWallpaperTokens.size() - 1; i >= 0; i--) {
+                    final WallpaperWindowToken token = mWallpaperTokens.get(i);
+                    token.updateWallpaperOffset();
+                }
             }
         }
     }
@@ -632,7 +644,8 @@ class WallpaperController {
         }
 
         final boolean visibleRequested =
-                mWallpaperTarget != null && mWallpaperTarget.isVisibleRequested();
+                (mWallpaperTarget != null && mWallpaperTarget.isVisibleRequested())
+                || (mDisplayContent.mTransitionController.inTransition() && isWallpaperVisible());
         updateWallpaperTokens(visibleRequested,
                 Flags.aodTransition()
                         ? mDisplayContent.isKeyguardLockedOrAodShowing()
@@ -810,6 +823,7 @@ class WallpaperController {
      */
     private void computeLastWallpaperZoomOut() {
         mLastWallpaperZoomOut = 0;
+        mMaxZoomOutWindow = null;
         mDisplayContent.forAllWindows(mComputeMaxZoomOutFunction, true);
     }
 
