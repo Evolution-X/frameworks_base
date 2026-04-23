@@ -211,6 +211,7 @@ import android.util.SuperNotCalledException;
 import android.util.UtilConfig;
 import android.util.proto.ProtoOutputStream;
 import android.view.Choreographer;
+import android.view.animation.AnimationUtils;
 import android.view.Display;
 import android.view.SurfaceControl;
 import android.view.ThreadedRenderer;
@@ -8195,6 +8196,16 @@ public final class ActivityThread extends ClientTransactionHandler
                 }
             } catch (RemoteException e) {
                 throw e.rethrowFromSystemServer();
+            }
+        }
+
+        if (!Process.isIsolated()) {
+            try {
+                if (AnimationUtils.ActivityAnimations.sPerfAnimEnabled) {
+                    AnimationUtils.ActivityAnimations.preload(appContext);
+                }
+            } catch (Exception e) {
+                Slog.e(TAG, "Failed to preload animations", e);
             }
         }
 
