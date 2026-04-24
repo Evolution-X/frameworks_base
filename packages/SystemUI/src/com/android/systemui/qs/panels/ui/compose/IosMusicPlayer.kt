@@ -25,41 +25,41 @@ import android.media.session.PlaybackState
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
-import androidx.compose.animation.AnimatedVisibility
+import android.view.KeyEvent
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Smartphone
-import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.Headset
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -69,6 +69,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -79,14 +80,14 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.Image
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
-/** Data holder for the current media playback state. */
-private data class MediaState(
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.CustomColorScheme
+
+private data class IosMusicPlayerState(
     val title: String? = null,
     val artist: String? = null,
     val albumArt: Bitmap? = null,
@@ -101,7 +102,7 @@ fun IosMusicPlayer(modifier: Modifier = Modifier) {
         context.getSystemService(Context.MEDIA_SESSION_SERVICE) as? MediaSessionManager
     }
 
-    var mediaState by remember { mutableStateOf(MediaState()) }
+    var mediaState by remember { mutableStateOf(IosMusicPlayerState()) }
 
     DisposableEffect(Unit) {
         var controllerCallback: MediaController.Callback? = null
@@ -114,15 +115,9 @@ fun IosMusicPlayer(modifier: Modifier = Modifier) {
                 currentController = ctrl
                 if (ctrl == null) return
                 val cb = object : MediaController.Callback() {
-                    override fun onMetadataChanged(metadata: MediaMetadata?) {
-                        refreshActiveSessions()
-                    }
-                    override fun onPlaybackStateChanged(state: PlaybackState?) {
-                        refreshActiveSessions()
-                    }
-                    override fun onSessionDestroyed() {
-                        refreshActiveSessions()
-                    }
+                    override fun onMetadataChanged(m: MediaMetadata?) { refreshActiveSessions() }
+                    override fun onPlaybackStateChanged(s: PlaybackState?) { refreshActiveSessions() }
+                    override fun onSessionDestroyed() { refreshActiveSessions() }
                 }
                 ctrl.registerCallback(cb)
                 controllerCallback = cb
@@ -133,23 +128,22 @@ fun IosMusicPlayer(modifier: Modifier = Modifier) {
                     sessionManager?.getActiveSessions(null) ?: emptyList()
                 } catch (_: Exception) { emptyList() }
 
-                val active = sessions.firstOrNull { ctrl ->
-                    ctrl.playbackState?.state == PlaybackState.STATE_PLAYING ||
-                        ctrl.playbackState?.state == PlaybackState.STATE_PAUSED ||
-                        ctrl.playbackState?.state == PlaybackState.STATE_FAST_FORWARDING ||
-                        ctrl.playbackState?.state == PlaybackState.STATE_REWINDING ||
-                        ctrl.playbackState?.state == PlaybackState.STATE_BUFFERING
+                val active = sessions.firstOrNull { c ->
+                    c.playbackState?.state == PlaybackState.STATE_PLAYING ||
+                        c.playbackState?.state == PlaybackState.STATE_PAUSED ||
+                        c.playbackState?.state == PlaybackState.STATE_FAST_FORWARDING ||
+                        c.playbackState?.state == PlaybackState.STATE_REWINDING ||
+                        c.playbackState?.state == PlaybackState.STATE_BUFFERING
                 } ?: sessions.firstOrNull()
 
                 attachCallback(active)
 
                 if (active == null) {
-                    mediaState = MediaState()
+                    mediaState = IosMusicPlayerState()
                     return
                 }
-
                 val meta = active.metadata
-                mediaState = MediaState(
+                mediaState = IosMusicPlayerState(
                     title = meta?.getString(MediaMetadata.METADATA_KEY_TITLE),
                     artist = meta?.getString(MediaMetadata.METADATA_KEY_ARTIST)
                         ?: meta?.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST),
@@ -162,77 +156,101 @@ fun IosMusicPlayer(modifier: Modifier = Modifier) {
         }
 
         logic.refreshActiveSessions()
-
         val sessionListener = MediaSessionManager.OnActiveSessionsChangedListener {
             logic.refreshActiveSessions()
         }
-        try {
-            sessionManager?.addOnActiveSessionsChangedListener(sessionListener, null)
-        } catch (_: Exception) {}
+        try { sessionManager?.addOnActiveSessionsChangedListener(sessionListener, null) }
+        catch (_: Exception) {}
 
         onDispose {
-            try {
-                sessionManager?.removeOnActiveSessionsChangedListener(sessionListener)
-            } catch (_: Exception) {}
+            try { sessionManager?.removeOnActiveSessionsChangedListener(sessionListener) }
+            catch (_: Exception) {}
             controllerCallback?.let { cb -> currentController?.unregisterCallback(cb) }
         }
     }
 
-    val hasMedia = mediaState.title != null || mediaState.controller != null
-
     IosMusicPlayerContent(mediaState = mediaState, modifier = modifier)
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun IosMusicPlayerContent(mediaState: MediaState, modifier: Modifier = Modifier) {
-    val trackBg = Color.White.copy(alpha = 0.14f)
+private fun IosMusicPlayerContent(mediaState: IosMusicPlayerState, modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val hasMedia = mediaState.controller != null
+
+    val tileColor = CustomColorScheme.current.qsTileColor
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val onPrimaryColor = MaterialTheme.colorScheme.onPrimary
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    val onVariant = MaterialTheme.colorScheme.onSurfaceVariant
 
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     var deviceType by remember { mutableStateOf(AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) }
     DisposableEffect(audioManager) {
-        fun updateDevice() {
-            val outputs = try { audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS) } catch (_: Exception) { emptyArray() }
-            val hasBluetooth = outputs.any { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO }
-            val hasWired = outputs.any { it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES || it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET || it.type == AudioDeviceInfo.TYPE_USB_HEADSET }
+        fun update() {
+            val out = try { audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS) }
+                      catch (_: Exception) { emptyArray() }
+            val bt   = out.any { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO }
+            val wire = out.any { it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES || it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET || it.type == AudioDeviceInfo.TYPE_USB_HEADSET }
             deviceType = when {
-                hasBluetooth -> AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
-                hasWired -> AudioDeviceInfo.TYPE_WIRED_HEADPHONES
+                bt   -> AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
+                wire -> AudioDeviceInfo.TYPE_WIRED_HEADPHONES
                 else -> AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
             }
         }
-        updateDevice()
+        update()
         val cb = object : AudioDeviceCallback() {
-            override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) = updateDevice()
-            override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) = updateDevice()
+            override fun onAudioDevicesAdded(a: Array<out AudioDeviceInfo>?) = update()
+            override fun onAudioDevicesRemoved(r: Array<out AudioDeviceInfo>?) = update()
         }
         audioManager.registerAudioDeviceCallback(cb, null)
         onDispose { audioManager.unregisterAudioDeviceCallback(cb) }
     }
 
-    val deviceIcon = when(deviceType) {
-        AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> Icons.Filled.Bluetooth
+    val deviceIcon = when (deviceType) {
+        AudioDeviceInfo.TYPE_BLUETOOTH_A2DP   -> Icons.Filled.Bluetooth
         AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> Icons.Filled.Headset
-        else -> Icons.Filled.Smartphone
+        else                                  -> Icons.Filled.Smartphone
     }
 
     val infiniteTransition = rememberInfiniteTransition(label = "audio_pulse")
     val alphaAnim by infiniteTransition.animateFloat(
         initialValue = 0.4f,
-        targetValue = 1f,
+        targetValue  = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
+            animation  = tween(800, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
         ),
-        label = "audio_pulse_alpha"
+        label = "audio_pulse_alpha",
     )
     val iconAlpha = if (mediaState.isPlaying) alphaAnim else 0.5f
 
+    var localIsPlaying by remember(mediaState.controller, mediaState.isPlaying) {
+        mutableStateOf(mediaState.isPlaying)
+    }
+
+    val playSrc = remember { MutableInteractionSource() }
+    val playPressed by playSrc.collectIsPressedAsState()
+
+    val titleColor by animateColorAsState(
+        targetValue = if (hasMedia) Color.White else onSurface,
+        animationSpec = tween(400),
+        label = "titleColor",
+    )
+    val artistColor by animateColorAsState(
+        targetValue = if (hasMedia) Color.White.copy(alpha = 0.7f) else onVariant,
+        animationSpec = tween(400),
+        label = "artistColor",
+    )
+    val controlTint = if (hasMedia) Color.White else onSurface
+    val controlTintDisabled = controlTint.copy(alpha = 0.38f)
+
     Box(
         modifier = modifier
-            .fillMaxSize()
             .clip(RoundedCornerShape(24.dp))
-            .background(trackBg)
+            .background(tileColor),
     ) {
         mediaState.albumArt?.let { bmp ->
             Image(
@@ -240,21 +258,26 @@ private fun IosMusicPlayerContent(mediaState: MediaState, modifier: Modifier = M
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .fillMaxSize()
+                    .matchParentSize()
                     .clip(RoundedCornerShape(24.dp)),
                 alpha = 0.35f,
             )
         }
 
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color.Black.copy(alpha = 0.1f), Color.Black.copy(alpha = 0.6f))
+        if (hasMedia) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                primaryColor.copy(alpha = 0.1f),
+                                onPrimaryColor.copy(alpha = 0.6f),
+                            )
+                        )
                     )
-                )
-        )
+            )
+        }
 
         Column(
             modifier = Modifier
@@ -277,13 +300,16 @@ private fun IosMusicPlayerContent(mediaState: MediaState, modifier: Modifier = M
                         modifier = Modifier
                             .size(44.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(Color.White.copy(alpha = 0.2f)),
+                            .background(
+                                if (hasMedia) Color.White.copy(alpha = 0.2f)
+                                else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.7f)
+                            ),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             Icons.Filled.MusicNote,
                             contentDescription = null,
-                            tint = Color.White,
+                            tint = if (hasMedia) Color.White else onVariant,
                             modifier = Modifier.size(24.dp),
                         )
                     }
@@ -294,10 +320,8 @@ private fun IosMusicPlayerContent(mediaState: MediaState, modifier: Modifier = M
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = mediaState.title ?: "Not Playing",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 13.sp,
-                            color = Color.White,
+                        style = MaterialTheme.typography.titleSmallEmphasized.copy(
+                            color = titleColor,
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -305,9 +329,8 @@ private fun IosMusicPlayerContent(mediaState: MediaState, modifier: Modifier = M
                     if (!mediaState.artist.isNullOrBlank()) {
                         Text(
                             text = mediaState.artist,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 11.sp,
-                                color = Color.White.copy(alpha = 0.8f),
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                color = artistColor,
                             ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -317,18 +340,21 @@ private fun IosMusicPlayerContent(mediaState: MediaState, modifier: Modifier = M
 
                 Box(
                     modifier = Modifier
-                        .size(26.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.18f)),
-                    contentAlignment = Alignment.Center
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (hasMedia) Color.Black.copy(alpha = 0.3f)
+                            else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.7f)
+                        )
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
-                Icon(
-                    imageVector = deviceIcon,
-                    contentDescription = "Audio Output",
-                    tint = Color.White.copy(alpha = iconAlpha),
-                    modifier = Modifier.size(14.dp),
-                )
-              }
+                    Icon(
+                        imageVector = deviceIcon,
+                        contentDescription = "Audio Output",
+                        tint = if (hasMedia) Color.White.copy(alpha = iconAlpha) else onVariant,
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
             }
 
             Row(
@@ -343,46 +369,53 @@ private fun IosMusicPlayerContent(mediaState: MediaState, modifier: Modifier = M
                     Icon(
                         Icons.Filled.SkipPrevious,
                         contentDescription = "Previous",
-                        tint = Color.White.copy(alpha = if (mediaState.controller != null) 1f else 0.5f),
+                        tint = if (mediaState.controller != null) controlTint else controlTintDisabled,
                         modifier = Modifier.size(28.dp),
                     )
                 }
 
-                var localIsPlaying by remember(mediaState.controller, mediaState.isPlaying) { mutableStateOf(mediaState.isPlaying) }
-                
                 Box(
                     modifier = Modifier
                         .size(46.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.3f))
-                        .clickable {
-                            val ctrl = mediaState.controller
-                            if (ctrl != null) {
-                                if (localIsPlaying) {
-                                    localIsPlaying = false
-                                    ctrl.transportControls.pause()
-                                } else {
-                                    localIsPlaying = true
-                                    ctrl.transportControls.play()
-                                    val am = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
-                                    am?.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MEDIA_PLAY))
-                                    am?.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_MEDIA_PLAY))
+                        .background(
+                            if (hasMedia) Color.White.copy(alpha = 0.3f)
+                            else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.6f)
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    IconButton(
+                        onClick = {
+                            val ctrl = mediaState.controller ?: return@IconButton
+                            if (localIsPlaying) {
+                                localIsPlaying = false
+                                ctrl.transportControls.pause()
+                            } else {
+                                localIsPlaying = true
+                                ctrl.transportControls.play()
+                                scope.launch(Dispatchers.IO) {
+                                    try {
+                                        val am = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+                                        am?.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY))
+                                        am?.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY))
+                                    } catch (_: Exception) {}
                                 }
                             }
                         },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Crossfade(
-                        targetState = localIsPlaying,
-                        animationSpec = tween(200),
-                        label = "play_pause_crossfade"
-                    ) { playing ->
-                        Icon(
-                            imageVector = if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                            contentDescription = if (playing) "Pause" else "Play",
-                            tint = Color.White.copy(alpha = if (mediaState.controller != null) 1f else 0.5f),
-                            modifier = Modifier.size(28.dp),
-                        )
+                        modifier = Modifier.size(46.dp),
+                    ) {
+                        Crossfade(
+                            targetState = localIsPlaying,
+                            animationSpec = tween(200),
+                            label = "play_pause_crossfade",
+                        ) { playing ->
+                            Icon(
+                                imageVector = if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                                contentDescription = if (playing) "Pause" else "Play",
+                                tint = if (mediaState.controller != null) controlTint else controlTintDisabled,
+                                modifier = Modifier.size(28.dp),
+                            )
+                        }
                     }
                 }
 
@@ -393,7 +426,7 @@ private fun IosMusicPlayerContent(mediaState: MediaState, modifier: Modifier = M
                     Icon(
                         Icons.Filled.SkipNext,
                         contentDescription = "Next",
-                        tint = Color.White.copy(alpha = if (mediaState.controller != null) 1f else 0.5f),
+                        tint = if (mediaState.controller != null) controlTint else controlTintDisabled,
                         modifier = Modifier.size(28.dp),
                     )
                 }

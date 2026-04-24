@@ -25,6 +25,8 @@ import android.graphics.Path
 import android.graphics.PointF
 import android.graphics.Rect
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.Trace
 import android.os.UserHandle
 import android.provider.Settings
@@ -150,7 +152,7 @@ import com.android.systemui.qs.flags.QSComposeFragment
 import com.android.systemui.qs.footer.ui.compose.FooterActions
 import com.android.systemui.qs.panels.shared.model.QSFragmentComposeClippingTableLog
 import com.android.systemui.qs.panels.ui.compose.EditMode
-import com.android.systemui.qs.panels.ui.compose.IosControlPanel
+import com.android.systemui.qs.panels.ui.compose.MaterialControlPanel
 import com.android.systemui.qs.panels.ui.compose.QuickQuickSettings
 import com.android.systemui.qs.panels.ui.compose.TileGrid
 import com.android.systemui.qs.shared.ui.QuickSettings.Elements
@@ -797,21 +799,27 @@ constructor(
                     }
 
                 if (viewModel.isQsEnabled) {
-                    Box(
-                        modifier =
-                            Modifier.collapseExpandSemanticAction(
-                                    stringResource(
-                                        id = R.string.accessibility_quick_settings_expand
-                                    )
-                                )
-                                .padding(horizontal = qsHorizontalMargin())
-                    ) {
-                        QuickQuickSettingsLayout(
-                            brightness = BrightnessSlider,
-                            tiles = Tiles,
-                            media = Media,
-                            mediaInRow = viewModel.qqsMediaInRow,
+                    Column(
+                        modifier = Modifier.collapseExpandSemanticAction(
+                            stringResource(id = R.string.accessibility_quick_settings_expand)
                         )
+                    ) {
+                        Element(Elements.MaterialControlPanel, Modifier.fillMaxWidth()) {
+                            MaterialControlPanel(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = qsHorizontalMargin()),
+                                verticalPadding = 4.dp,
+                            )
+                        }
+                        Box(modifier = Modifier.padding(horizontal = qsHorizontalMargin())) {
+                            QuickQuickSettingsLayout(
+                                brightness = BrightnessSlider,
+                                tiles = Tiles,
+                                media = Media,
+                                mediaInRow = viewModel.qqsMediaInRow,
+                            )
+                        }
                     }
                 }
             }
@@ -872,14 +880,14 @@ constructor(
                         Spacer(
                             modifier = Modifier.height { qqsPadding + qsExtraPadding.roundToPx() }
                         )
-                        IosControlPanel(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(
-                                    horizontal = qsHorizontalMargin(),
-                                    vertical = 4.dp,
-                                )
-                        )
+                        Element(Elements.MaterialControlPanel, Modifier.fillMaxWidth()) {
+                            MaterialControlPanel(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = qsHorizontalMargin()),
+                                verticalPadding = 4.dp,
+                            )
+                        }
                         val BrightnessSlider: @Composable () -> Unit = {
                             Element(Elements.BrightnessSlider, modifier = modifier) {
                                 BrightnessSlider(viewModel, layoutState)
@@ -1522,6 +1530,34 @@ fun rememberShowMediaPlayer(): Boolean {
 }
 
 @Composable
+private fun rememberWidgetPanelEnabled(): Boolean {
+    val context = LocalContext.current
+    val cr = context.contentResolver
+
+    fun read(): Boolean = try {
+        Settings.System.getIntForUser(
+            cr, Settings.System.QS_WIDGET_PANEL, 0, UserHandle.USER_CURRENT
+        ) == 1
+    } catch (_: Exception) { false }
+
+    var enabled by remember { mutableStateOf(read()) }
+
+    DisposableEffect(Unit) {
+        val handler = Handler(Looper.getMainLooper())
+        val observer = object : ContentObserver(handler) {
+            override fun onChange(selfChange: Boolean) { enabled = read() }
+        }
+        cr.registerContentObserver(
+            Settings.System.getUriFor(Settings.System.QS_WIDGET_PANEL),
+            false, observer, UserHandle.USER_ALL,
+        )
+        onDispose { cr.unregisterContentObserver(observer) }
+    }
+
+    return enabled
+}
+
+@Composable
 @VisibleForTesting
 fun QuickQuickSettingsLayout(
     brightness: @Composable () -> Unit,
@@ -1533,8 +1569,11 @@ fun QuickQuickSettingsLayout(
     val sliderAtTop = brightnessSettings.sliderAtTop
     val showSlider = brightnessSettings.showSlider
     val showMediaPlayer = rememberShowMediaPlayer()
+    val widgetPanelEnabled = rememberWidgetPanelEnabled()
 
     Column(verticalArrangement = spacedBy(dimensionResource(R.dimen.qs_tile_margin_vertical))) {
+        Spacer(modifier = Modifier.height { if (widgetPanelEnabled) 4.dp.roundToPx() else 0 })
+
         if (showSlider == 2 && sliderAtTop) {
             brightness()
         }
