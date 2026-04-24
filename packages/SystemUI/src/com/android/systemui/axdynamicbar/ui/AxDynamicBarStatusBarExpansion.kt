@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 
@@ -46,6 +47,15 @@ constructor(
 
     init {
         interactor.isOnKeyguard
+            .onEach { if (it) collapse() }
+            .launchIn(applicationScope)
+
+        combine(
+            interactor.qsExpansion.map { it > 0f }.distinctUntilChanged(),
+            interactor.legacyShadeExpansion.map { it > 0f }.distinctUntilChanged(),
+            interactor.isPanelExpanded,
+        ) { qs, shade, panel -> qs || shade || panel }
+            .distinctUntilChanged()
             .onEach { if (it) collapse() }
             .launchIn(applicationScope)
     }
