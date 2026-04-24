@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2026 MistOS
+ * Copyright (C) 2024-2026 Lunaris AOSP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +17,6 @@
 
 package com.android.systemui.qs.panels.ui.compose
 
-import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -25,14 +25,16 @@ import android.media.AudioManager
 import android.os.Vibrator
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -53,7 +55,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -63,15 +64,29 @@ import com.android.systemui.res.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.CustomColorScheme
+
+private val CORNER_DEFAULT = 26.dp
+private val CORNER_ROUNDED = 50.dp
+
 @Composable
-fun IosVerticalVolumeSlider(modifier: Modifier = Modifier) {
+fun MaterialVerticalVolumeSlider(
+    modifier: Modifier = Modifier,
+    rounded: Boolean = false,
+) {
     val context = LocalContext.current
     val view = LocalView.current
     val scope = rememberCoroutineScope()
 
-    val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
-    val vibrator = remember { context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator }
-    val hasVibrator = remember { vibrator?.hasVibrator() == true }
+    val audioManager = remember {
+        context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    }
+    val vibrator = remember {
+        context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+    }
+    val hasVibrator = remember {
+        vibrator?.hasVibrator() == true
+    }
 
     fun readVolume(): Float {
         val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).toFloat()
@@ -81,16 +96,26 @@ fun IosVerticalVolumeSlider(modifier: Modifier = Modifier) {
 
     fun readRingerMode(): Int = audioManager.ringerMode
 
-    var volumeFraction by remember { mutableFloatStateOf(readVolume()) }
-    var ringerMode by remember { mutableIntStateOf(readRingerMode()) }
-    var isDragging by remember { mutableStateOf(false) }
+    var volumeFraction by remember {
+        mutableFloatStateOf(readVolume())
+    }
+    var ringerMode by remember {
+        mutableIntStateOf(readRingerMode())
+    }
+    var isDragging by remember {
+        mutableStateOf(false)
+    }
 
     val targetFraction = volumeFraction.coerceAtLeast(0.05f)
 
     val animFraction by animateFloatAsState(
         targetValue = targetFraction,
-        animationSpec = tween(150),
-        label = "VolumeFraction"
+        animationSpec = if (isDragging) {
+            spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessHigh)
+        } else {
+            spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)
+        },
+        label = "VolumeFraction",
     )
     val currentFraction = if (isDragging) targetFraction else animFraction
 
@@ -102,9 +127,7 @@ fun IosVerticalVolumeSlider(modifier: Modifier = Modifier) {
                         ringerMode = readRingerMode()
                     }
                     "android.media.VOLUME_CHANGED_ACTION" -> {
-                        if (!isDragging) {
-                            volumeFraction = readVolume()
-                        }
+                        if (!isDragging) volumeFraction = readVolume()
                     }
                 }
             }
@@ -118,30 +141,38 @@ fun IosVerticalVolumeSlider(modifier: Modifier = Modifier) {
     }
 
     fun cycleRingerMode() {
-        val nextMode = when (ringerMode) {
-            AudioManager.RINGER_MODE_NORMAL -> if (hasVibrator) AudioManager.RINGER_MODE_VIBRATE else AudioManager.RINGER_MODE_SILENT
+        val next = when (ringerMode) {
+            AudioManager.RINGER_MODE_NORMAL  ->
+                if (hasVibrator) AudioManager.RINGER_MODE_VIBRATE
+                else AudioManager.RINGER_MODE_SILENT
             AudioManager.RINGER_MODE_VIBRATE -> AudioManager.RINGER_MODE_SILENT
             else -> AudioManager.RINGER_MODE_NORMAL
         }
         scope.launch(Dispatchers.IO) {
-            try {
-                audioManager.ringerModeInternal = nextMode
-            } catch (_: Exception) {}
+            try { audioManager.ringerModeInternal = next } catch (_: Exception) {}
         }
-        ringerMode = nextMode
+        ringerMode = next
         view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
     }
 
-    val trackBgColor = Color.White.copy(alpha = 0.18f)
     val fillColor by animateColorAsState(
-        when (ringerMode) {
-            AudioManager.RINGER_MODE_SILENT -> Color(0xFFFF453A).copy(alpha = 0.85f)
-            AudioManager.RINGER_MODE_VIBRATE -> Color(0xFF64D2FF).copy(alpha = 0.85f)
-            else -> Color.White.copy(alpha = 0.85f)
+        targetValue = when (ringerMode) {
+            AudioManager.RINGER_MODE_SILENT -> MaterialTheme.colorScheme.tertiaryContainer
+            AudioManager.RINGER_MODE_VIBRATE -> MaterialTheme.colorScheme.tertiaryContainer
+            else -> MaterialTheme.colorScheme.primary
         },
-        label = "VolumeFill"
+        animationSpec = tween(350),
+        label = "VolumeFill",
     )
-    val iconTint = Color(0xFF2C2C2E)
+    val iconTint by animateColorAsState(
+        targetValue = when (ringerMode) {
+            AudioManager.RINGER_MODE_SILENT -> MaterialTheme.colorScheme.onTertiaryContainer
+            AudioManager.RINGER_MODE_VIBRATE -> MaterialTheme.colorScheme.onTertiaryContainer
+            else -> MaterialTheme.colorScheme.onPrimary
+        },
+        animationSpec = tween(350),
+        label = "VolumeIconTint",
+    )
 
     val iconRes = when (ringerMode) {
         AudioManager.RINGER_MODE_SILENT -> R.drawable.ic_volume_off
@@ -149,11 +180,16 @@ fun IosVerticalVolumeSlider(modifier: Modifier = Modifier) {
         else -> R.drawable.ic_volume_ringer
     }
 
+    val tileColor = CustomColorScheme.current.qsTileColor
+    val trackBg = tileColor
+    val cornerRadius = if (rounded) CORNER_ROUNDED else CORNER_DEFAULT
+    val shape = RoundedCornerShape(cornerRadius)
+
     Box(
         modifier = modifier
             .fillMaxHeight()
-            .clip(RoundedCornerShape(28.dp))
-            .background(trackBgColor)
+            .clip(shape)
+            .background(trackBg)
             .pointerInput(Unit) {
                 awaitEachGesture {
                     awaitFirstDown(requireUnconsumed = false)
@@ -164,27 +200,20 @@ fun IosVerticalVolumeSlider(modifier: Modifier = Modifier) {
             }
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
-                    onDragStart = { 
-                        isDragging = true
-                    },
-                    onDragEnd = { 
-                        isDragging = false
-                    },
-                    onDragCancel = { 
-                        isDragging = false
-                    },
+                    onDragStart = { isDragging = true },
+                    onDragEnd = { isDragging = false },
+                    onDragCancel = { isDragging = false },
                     onVerticalDrag = { change, _ ->
                         change.consume()
                         val fraction = 1f - (change.position.y / size.height).coerceIn(0f, 1f)
                         volumeFraction = fraction
                         val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                        val targetVol = (fraction * maxVol).toInt().coerceIn(0, maxVol)
+                        val target = (fraction * maxVol).toInt().coerceIn(0, maxVol)
                         scope.launch(Dispatchers.IO) {
-                            try {
-                                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0)
-                            } catch (_: Exception) {}
+                            try { audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0) }
+                            catch (_: Exception) {}
                         }
-                    }
+                    },
                 )
             }
             .pointerInput(Unit) {
@@ -193,23 +222,22 @@ fun IosVerticalVolumeSlider(modifier: Modifier = Modifier) {
                         val fraction = 1f - (offset.y / size.height).coerceIn(0f, 1f)
                         volumeFraction = fraction
                         val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                        val targetVol = (fraction * maxVol).toInt().coerceIn(0, maxVol)
+                        val target = (fraction * maxVol).toInt().coerceIn(0, maxVol)
                         scope.launch(Dispatchers.IO) {
-                            try {
-                                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0)
-                            } catch (_: Exception) {}
+                            try { audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0) }
+                            catch (_: Exception) {}
                         }
                     },
-                    onLongPress = { cycleRingerMode() }
+                    onLongPress = { cycleRingerMode() },
                 )
-            }
+            },
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(currentFraction)
                 .align(Alignment.BottomCenter)
-                .background(fillColor, RoundedCornerShape(28.dp))
+                .background(fillColor, shape),
         )
 
         Icon(
@@ -219,7 +247,7 @@ fun IosVerticalVolumeSlider(modifier: Modifier = Modifier) {
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 10.dp)
-                .size(22.dp)
+                .size(20.dp),
         )
     }
 }
