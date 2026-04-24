@@ -7025,6 +7025,21 @@ public final class Settings {
         /**
          * @hide
          */
+        public static final String QS_WIDGET_PANEL = "qs_widget_panel";
+
+        /**
+         * @hide
+         */
+        public static final String QS_WIDGET_IOS_MUSIC = "qs_widget_ios_music";
+
+        /**
+         * @hide
+         */
+        public static final String QS_WIDGET_SLIDER_CORNER = "qs_widget_slider_corner";
+
+        /**
+         * @hide
+         */
         public static final String CHARGING_ANIMATION_ENABLED = "charging_animation_enabled";
 
         /**
