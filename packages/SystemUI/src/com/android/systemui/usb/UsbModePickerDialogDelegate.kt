@@ -243,7 +243,7 @@ class UsbModePickerDialogDelegate @Inject constructor(
         if (fileTransferRestricted && ((function and UsbManager.FUNCTION_MTP) != 0L
                     || (function and UsbManager.FUNCTION_PTP) != 0L)) return true
         if (tetheringRestricted && (function and UsbManager.FUNCTION_RNDIS) != 0L) return true
-        if (!UsbManager.isUvcSupportEnabled()
+        if (!usbManager.isUvcGadgetSupportEnabled()
             && (function and UsbManager.FUNCTION_UVC) != 0L) return true
         return false
     }
