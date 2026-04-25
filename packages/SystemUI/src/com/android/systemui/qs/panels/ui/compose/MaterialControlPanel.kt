@@ -172,13 +172,13 @@ private fun MaterialControlPanelContent(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = verticalPadding)
-            .height(180.dp),
+            .height(165.dp),
         horizontalArrangement = Arrangement.spacedBy(24.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
-                .weight(1.85f)
+                .weight(1.75f)
                 .fillMaxHeight(),
         ) {
             if (iosMusicStyle) {
@@ -190,7 +190,7 @@ private fun MaterialControlPanelContent(
 
         MaterialVerticalBrightnessSlider(
             modifier = Modifier
-                .weight(0.73f)
+                .weight(0.69f)
                 .fillMaxHeight()
                 .widthIn(max = 64.dp),
             rounded = sliderRounded,
@@ -198,7 +198,7 @@ private fun MaterialControlPanelContent(
 
         MaterialVerticalVolumeSlider(
             modifier = Modifier
-                .weight(0.73f)
+                .weight(0.69f)
                 .fillMaxHeight()
                 .widthIn(max = 64.dp),
             rounded = sliderRounded,
