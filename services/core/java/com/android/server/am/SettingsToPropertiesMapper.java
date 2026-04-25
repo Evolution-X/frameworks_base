@@ -54,7 +54,9 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Maps system settings to system properties.
@@ -72,11 +74,16 @@ public class SettingsToPropertiesMapper {
     private static final String RESET_RECORD_FILE_PATH =
             "/data/server_configurable_flags/reset_flags";
 
+    private static final String RESERVED_SOCKET_DIR = "/dev/socket/";
+
     private static final String SYSTEM_PROPERTY_VALID_CHARACTERS_REGEX = "^[\\w\\.\\-@:]*$";
 
     private static final String SYSTEM_PROPERTY_INVALID_SUBSTRING = "..";
 
     private static final int SYSTEM_PROPERTY_MAX_LENGTH = 92;
+
+    private static final Set<String> sUnavailableAconfigdSockets =
+            Collections.synchronizedSet(new HashSet<>());
 
     // experiment flags added to Global.Settings(before new "Config" provider table is available)
     // will be added under this category.
@@ -264,6 +271,12 @@ public class SettingsToPropertiesMapper {
      * @return aconfigd socket return as proto input stream
      */
     static ProtoInputStream sendAconfigdRequests(String socketName, ProtoOutputStream requests) {
+        if (!isAconfigdSocketAvailable(socketName)) {
+            maybeLogUnavailableAconfigdSocket(socketName);
+            return null;
+        }
+        sUnavailableAconfigdSockets.remove(socketName);
+
         // connect to aconfigd socket
         LocalSocket client = new LocalSocket();
         try {
@@ -271,6 +284,10 @@ public class SettingsToPropertiesMapper {
                 socketName, LocalSocketAddress.Namespace.RESERVED));
             Slog.d(TAG, "connected to " + socketName + " socket");
         } catch (IOException ioe) {
+            if (!isAconfigdSocketAvailable(socketName)) {
+                maybeLogUnavailableAconfigdSocket(socketName);
+                return null;
+            }
             logErr("failed to connect to " + socketName + " socket", ioe);
             return null;
         }
@@ -305,6 +322,18 @@ public class SettingsToPropertiesMapper {
         } catch (IOException ioe) {
             logErr("failed to read requests return from " + socketName, ioe);
             return null;
+        }
+    }
+
+    @VisibleForTesting
+    static boolean isAconfigdSocketAvailable(String socketName) {
+        return new File(RESERVED_SOCKET_DIR + socketName).exists();
+    }
+
+    private static void maybeLogUnavailableAconfigdSocket(String socketName) {
+        if (sUnavailableAconfigdSockets.add(socketName)) {
+            Slog.i(TAG, "Skipping aconfigd request because " + socketName
+                    + " socket is unavailable");
         }
     }
 
