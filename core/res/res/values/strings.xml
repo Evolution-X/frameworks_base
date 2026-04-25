@@ -644,6 +644,8 @@
 
     <!-- Attribution for MusicRecognitionManagerService. [CHAR LIMIT=NONE]-->
     <string name="music_recognition_manager_service">Music Recognition Manager Service</string>
+    <!-- Attribution for VCN management service. [CHAR LIMIT=NONE]-->
+    <string name="vcn_management_service">VCN Management Service</string>
 
     <!-- Factory reset warning dialog strings--> <skip />
     <!-- Shows up in the dialog's title to warn about an impeding factory reset. [CHAR LIMIT=NONE] -->
