@@ -30,20 +30,20 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
-public class HideAppListService extends SystemService {
-    private static final String TAG = "HideAppListService";
+public class HideAppsService extends SystemService {
+    private static final String TAG = "HideAppsService";
 
     private final Context mContext;
     private final Handler mHandler = new Handler();
 
-    public HideAppListService(Context context) {
+    public HideAppsService(Context context) {
         super(context);
         mContext = context;
     }
 
     @Override
     public void onStart() {
-        Slog.i(TAG, "Starting HideAppListService");
+        Slog.i(TAG, "Starting HideAppsService");
     }
 
     @Override
@@ -62,23 +62,23 @@ public class HideAppListService extends SystemService {
             String packageName = intent.getData().getSchemeSpecificPart();
             if (packageName != null) {
                 Slog.i(TAG, "Package uninstalled: " + packageName);
-                removeFromHideAppList(packageName);
+                removeFromHiddenLists(packageName);
             }
         }
     }
 
-    private void removeFromHideAppList(String packageName) {
+    private void removeFromHiddenLists(String packageName) {
         ContentResolver cr = mContext.getContentResolver();
-        String apps = Settings.Secure.getString(cr, Settings.Secure.HIDE_APPLIST);
-
-        if (apps == null || apps.isEmpty() || apps.equals(",")) {
-            return;
-        }
-
-        Set<String> appSet = new HashSet<>(Arrays.asList(apps.split(",")));
-        if (appSet.remove(packageName)) {
-            Slog.i(TAG, "Removing package due to reason: UNINSTALLED: " + packageName);
-            Settings.Secure.putString(cr, Settings.Secure.HIDE_APPLIST, String.join(",", appSet));
+        for (String key : new String[]{
+                Settings.Secure.HIDE_APPLIST,
+                Settings.Secure.HIDE_DEVELOPER_STATUS}) {
+            String apps = Settings.Secure.getString(cr, key);
+            if (apps == null || apps.isEmpty() || apps.equals(",")) continue;
+            Set<String> appSet = new HashSet<>(Arrays.asList(apps.split(",")));
+            if (appSet.remove(packageName)) {
+                Slog.i(TAG, "Removing package due to reason: UNINSTALLED: " + packageName + " from " + key);
+                Settings.Secure.putString(cr, key, String.join(",", appSet));
+            }
         }
     }
 }

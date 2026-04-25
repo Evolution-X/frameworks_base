@@ -237,7 +237,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import com.android.internal.util.evolution.HideAppListUtils;
+import com.android.internal.util.evolution.HideAppsUtils;
 
 /**
  * This class is instantiated by the system as a system level service and can be
@@ -1570,7 +1570,7 @@ public class AccessibilityManagerService extends IAccessibilityManager.Stub
             int userId) {
 
         String[] pkgs = mContext.getPackageManager().getPackagesForUid(Binder.getCallingUid());
-        if (HideAppListUtils.shouldHideAppList(mContext, pkgs[0])) {
+        if (HideAppsUtils.shouldHideAppList(mContext, pkgs[0])) {
             return Collections.emptyList();
         }
         if (mTraceManager.isA11yTracingEnabledForTypes(FLAGS_ACCESSIBILITY_MANAGER)) {
