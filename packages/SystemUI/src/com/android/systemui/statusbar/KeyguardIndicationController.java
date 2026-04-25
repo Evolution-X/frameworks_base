@@ -1669,8 +1669,12 @@ public class KeyguardIndicationController {
             mPowerPluggedInDock = status.isPluggedInDock() && isChargingOrFull;
             mPowerPluggedIn = isPowerPluggedIn(status, isChargingOrFull);
             mPowerCharged = status.isCharged();
-            mChargingCurrent = getRealtimeChargingCurrent(status.maxChargingCurrent);
-            mChargingVoltage = getRealtimeChargingVoltage(status.maxChargingVoltage);
+            final Intent batteryIntent = mContext.registerReceiver(
+                    null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+            mChargingCurrent = getRealtimeChargingCurrent(
+                    isChargingOrFull, status.maxChargingCurrent);
+            mChargingVoltage = getRealtimeChargingVoltage(
+                    batteryIntent, status.maxChargingVoltage);
             mChargingWattage = getRealtimeChargingWattage(
                     mChargingCurrent, mChargingVoltage, status.maxChargingWattage);
             mChargingSpeed = status.getChargingSpeed(mContext);
@@ -1703,44 +1707,60 @@ public class KeyguardIndicationController {
             updateDeviceEntryIndication(!wasPluggedIn && mPowerPluggedInWired);
         }
 
-        private float getRealtimeChargingCurrent(float fallbackCurrentMicroAmps) {
-            if (mBatteryManager == null) {
+        private float getRealtimeChargingCurrent(
+                boolean isChargingOrFull, float fallbackCurrentMicroAmps) {
+            if (mBatteryManager == null || !isChargingOrFull) {
                 return fallbackCurrentMicroAmps;
             }
 
-            final int currentNowMicroAmps = mBatteryManager.getIntProperty(
+            final int rawCurrentMicroAmps = mBatteryManager.getIntProperty(
                     BatteryManager.BATTERY_PROPERTY_CURRENT_NOW);
-            if (currentNowMicroAmps == Integer.MIN_VALUE || currentNowMicroAmps == 0) {
+            if (rawCurrentMicroAmps == Integer.MIN_VALUE || rawCurrentMicroAmps == 0) {
                 return fallbackCurrentMicroAmps;
             }
 
-            return Math.abs(currentNowMicroAmps);
+            float currentMicroAmps = rawCurrentMicroAmps;
+            if (currentMicroAmps < 0) {
+                currentMicroAmps = -currentMicroAmps;
+            }
+
+            if (currentMicroAmps <= 0 || currentMicroAmps > 20_000_000f) {
+                return fallbackCurrentMicroAmps;
+            }
+
+            return currentMicroAmps;
         }
 
-        private float getRealtimeChargingVoltage(float fallbackVoltageMicroVolts) {
-            final Intent batteryIntent = mContext.registerReceiver(
-                    null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        private float getRealtimeChargingVoltage(
+                Intent batteryIntent, float fallbackVoltageMicroVolts) {
             if (batteryIntent == null) {
                 return fallbackVoltageMicroVolts;
             }
 
-            final int voltageMilliVolts = batteryIntent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1);
+            final int voltageMilliVolts = batteryIntent.getIntExtra(
+                    BatteryManager.EXTRA_VOLTAGE, -1);
             if (voltageMilliVolts <= 0) {
                 return fallbackVoltageMicroVolts;
             }
 
-            return voltageMilliVolts * 1000f;
+            final float voltageMicroVolts = voltageMilliVolts * 1000f;
+            return voltageMicroVolts >= 3_000_000f && voltageMicroVolts <= 6_000_000f
+                    ? voltageMicroVolts
+                    : fallbackVoltageMicroVolts;
         }
 
         private float getRealtimeChargingWattage(
-                float chargingCurrentMicroAmps,
-                float chargingVoltageMicroVolts,
+                float chargingCurrentMicroAmps, float chargingVoltageMicroVolts,
                 float fallbackWattageMicroWatts) {
             if (chargingCurrentMicroAmps <= 0 || chargingVoltageMicroVolts <= 0) {
                 return fallbackWattageMicroWatts;
             }
 
-            return (chargingCurrentMicroAmps * chargingVoltageMicroVolts) / 1_000_000f;
+            final float wattageMicroWatts =
+                    (chargingCurrentMicroAmps * chargingVoltageMicroVolts) / 1_000_000f;
+            return wattageMicroWatts > 0 && wattageMicroWatts <= 150_000_000f
+                    ? wattageMicroWatts
+                    : fallbackWattageMicroWatts;
         }
 
         @Override
