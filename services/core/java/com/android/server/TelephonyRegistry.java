@@ -1641,7 +1641,8 @@ public class TelephonyRegistry extends ITelephonyRegistry.Stub {
                         .isRegistrationLimitEnabledInPlatformCompat(callingUid)) {
                     throw new IllegalStateException(errorMsg);
                 }
-            } else if (numRecordsForPid
+            } else if (doesLimitApply
+                    && numRecordsForPid
                     >= TelephonyCallback.DEFAULT_PER_PID_REGISTRATION_LIMIT / 2) {
                 // Log the warning independently of the dynamically set limit -- apps shouldn't be
                 // doing this regardless of whether we're throwing them an exception for it.
@@ -3756,6 +3757,9 @@ public class TelephonyRegistry extends ITelephonyRegistry.Stub {
         synchronized (mRecords) {
             int phoneId = getPhoneIdFromSubId(subId);
             if (!validatePhoneId(phoneId)) {
+                if (shouldIgnoreInvalidCarrierRoamingNtnSubId(subId)) {
+                    return;
+                }
                 loge("Invalid phone ID " + phoneId + " for " + subId);
                 return;
             }
@@ -3807,6 +3811,9 @@ public class TelephonyRegistry extends ITelephonyRegistry.Stub {
         synchronized (mRecords) {
             int phoneId = getPhoneIdFromSubId(subId);
             if (!validatePhoneId(phoneId)) {
+                if (shouldIgnoreInvalidCarrierRoamingNtnSubId(subId)) {
+                    return;
+                }
                 loge("Invalid phone ID " + phoneId + " for " + subId);
                 return;
             }
@@ -3846,6 +3853,9 @@ public class TelephonyRegistry extends ITelephonyRegistry.Stub {
         synchronized (mRecords) {
             int phoneId = getPhoneIdFromSubId(subId);
             if (!validatePhoneId(phoneId)) {
+                if (shouldIgnoreInvalidCarrierRoamingNtnSubId(subId)) {
+                    return;
+                }
                 loge("Invalid phone ID " + phoneId + " for " + subId);
                 return;
             }
@@ -4553,6 +4563,16 @@ public class TelephonyRegistry extends ITelephonyRegistry.Stub {
 
     private static void loge(String s) {
         Rlog.e(TAG, s);
+    }
+
+    private boolean shouldIgnoreInvalidCarrierRoamingNtnSubId(int subId) {
+        if (SubscriptionManager.isValidSubscriptionId(subId)) {
+            return false;
+        }
+        if (VDBG) {
+            log("Ignoring carrier roaming NTN update for invalid subId=" + subId);
+        }
+        return true;
     }
 
     /**
