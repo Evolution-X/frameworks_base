@@ -138,6 +138,15 @@ public class SettingsToPropertiesMapperTest {
     }
 
     @Test
+    public void testSendAconfigdRequests_socketUnavailable() {
+        doReturn(false).when(() -> SettingsToPropertiesMapper.isAconfigdSocketAvailable(
+                "aconfigd_test"));
+
+        Assert.assertNull(SettingsToPropertiesMapper.sendAconfigdRequests(
+                "aconfigd_test", new ProtoOutputStream()));
+    }
+
+    @Test
     public void validateRegisteredGlobalSettings() {
         HashSet<String> hashSet = new HashSet<>();
         for (String globalSetting : SettingsToPropertiesMapper.sGlobalSettings) {
