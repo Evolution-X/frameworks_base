@@ -15282,6 +15282,12 @@ public final class Settings {
         public static final String SLEEP_MODE_SENSORS_TOGGLE = "sleep_mode_sensors_toggle";
 
         /**
+         * Whether to reduce background activity in Sleep Mode
+         * @hide
+         */
+        public static final String SLEEP_MODE_IDLE_TOGGLE = "sleep_mode_idle_toggle";
+
+        /**
          * Ringer in Sleep Mode (0:OFF, 1:Vibrate, 2:DND, 3:Silent)
          * @hide
          */
