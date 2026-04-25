@@ -8022,10 +8022,7 @@ public final class ActivityThread extends ClientTransactionHandler
         final ContextImpl appContext = ContextImpl.createAppContext(this, data.info);
         mConfigurationController.updateLocaleListFromAppContext(appContext);
 
-        GamePropsSpoofService gamePropsService = GamePropsSpoofService.getInstance();
-        if (gamePropsService.isEnabled()) {
-            gamePropsService.spoofForPackage(data.appInfo.packageName);
-        }
+        GamePropsSpoofService.getInstance().spoofForPackage(data.appInfo.packageName);
 
         PlayIntegritySpoofService pifService = PlayIntegritySpoofService.getInstance();
         if (pifService.shouldSpoof(data.processName)) {
