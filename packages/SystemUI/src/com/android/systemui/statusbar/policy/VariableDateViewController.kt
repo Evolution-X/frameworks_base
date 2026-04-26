@@ -150,7 +150,7 @@ class VariableDateViewController(
                 // ignore measured width from AT_MOST passes when in QQS (b/289489856)
                 return
             }
-            if (availableWidth != lastWidth) {
+            if (availableWidth != lastWidth || datePattern.isEmpty()) {
                 // maybeChangeFormat will post if the pattern needs to change.
                 maybeChangeFormat(availableWidth)
                 lastWidth = availableWidth
