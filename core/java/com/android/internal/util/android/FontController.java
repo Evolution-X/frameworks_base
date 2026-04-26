@@ -166,6 +166,17 @@ public class FontController {
             return null;
         }
 
+        // Skip overriding variable- font role families when the current font
+        // is already Google Sans / Google Sans Flex, as these families are
+        // defined in the fonts XML with precise optical size (opsz), weight
+        // (wght), width (wdth), grade (GRAD), and rounding (ROND) axis values
+        // that would be lost if recreated via TypefaceFactory.
+        if (fontToOverride.startsWith("variable-") &&
+                (currentFont.contains("google-sans") || currentFont.startsWith("gsf-"))) {
+            logger("Skipping variable font role override for Google Sans Flex: " + fontToOverride);
+            return null;
+        }
+
         boolean override = OVERRIDE_FONTS.stream().anyMatch(fontToOverride::contains) 
             || (isSysPkg && SYS_OVERRIDE_FONTS.stream().anyMatch(fontToOverride::contains));
         if (!override) {
