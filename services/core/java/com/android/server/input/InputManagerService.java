@@ -35,6 +35,7 @@ import android.annotation.SuppressLint;
 import android.annotation.UserIdInt;
 import android.app.ActivityManagerInternal;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -247,6 +248,9 @@ public class InputManagerService extends IInputManager.Stub
             new SparseArray<>();
     private final ArrayList<InputDevicesChangedListenerRecord>
             mTempInputDevicesChangedListenersToNotify = new ArrayList<>(); // handler thread only
+
+    @GuardedBy("mInputDevicesLock")
+    private final SparseBooleanArray mSuppressedBluetoothPointers = new SparseBooleanArray();
 
     // State for vibrator tokens.
     private final Object mVibratorLock = new Object();
@@ -2479,6 +2483,68 @@ public class InputManagerService extends IInputManager.Stub
             }
 
             mInputDevices = inputDevices;
+            mHandler.post(this::evaluateBluetoothPointerSuppression);
+        }
+    }
+
+    private void evaluateBluetoothPointerSuppression() {
+        final InputDevice[] devices;
+        synchronized (mInputDevicesLock) {
+            devices = mInputDevices;
+        }
+        synchronized (mInputDevicesLock) {
+            for (int i = mSuppressedBluetoothPointers.size() - 1; i >= 0; i--) {
+                final int trackedId = mSuppressedBluetoothPointers.keyAt(i);
+                boolean stillPresent = false;
+                for (InputDevice device : devices) {
+                    if (device.getId() == trackedId) {
+                        stillPresent = true;
+                        break;
+                    }
+                }
+                if (!stillPresent) {
+                    mSuppressedBluetoothPointers.removeAt(i);
+                }
+            }
+        }
+        for (InputDevice device : devices) {
+            final int id = device.getId();
+            if ((device.getSources() & InputDevice.SOURCE_MOUSE) != InputDevice.SOURCE_MOUSE) {
+                continue;
+            }
+            final String btAddress = mNative.getBluetoothAddress(id);
+            if (btAddress == null) {
+                continue;
+            }
+            if (isLikelyRealBluetoothPointer(btAddress)) {
+                continue;
+            }
+            synchronized (mInputDevicesLock) {
+                if (mSuppressedBluetoothPointers.get(id)) {
+                    continue;
+                }
+                mSuppressedBluetoothPointers.put(id, true);
+            }
+            mNative.disableInputDevice(id);
+        }
+    }
+
+    private boolean isLikelyRealBluetoothPointer(String btAddress) {
+        final BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+        if (adapter == null) {
+            return true;
+        }
+        try {
+            final BluetoothDevice device = adapter.getRemoteDevice(btAddress);
+            final BluetoothClass btClass = device.getBluetoothClass();
+            if (btClass == null) {
+                return true;
+            }
+            final int deviceClass = btClass.getDeviceClass();
+            return (deviceClass & BluetoothClass.Device.PERIPHERAL_POINTING)
+                    == BluetoothClass.Device.PERIPHERAL_POINTING;
+        } catch (IllegalArgumentException e) {
+            return true;
         }
     }
 
