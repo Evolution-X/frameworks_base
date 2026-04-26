@@ -54,6 +54,13 @@ class VariableDateView(context: Context, attrs: AttributeSet) : TextView(context
      * Use during animations if the container will change its size but this view should not change
      */
     var freezeSwitching = false
+        set(value) {
+            val wasFrozen = field
+            field = value
+            if (wasFrozen && !value) {
+                requestLayout()
+            }
+        }
 
     private var onMeasureListener: OnMeasureListener? = null
 
