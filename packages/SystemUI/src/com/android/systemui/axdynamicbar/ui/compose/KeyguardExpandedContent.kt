@@ -8,8 +8,6 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.StartOffset
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -65,6 +63,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -75,6 +74,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.StrokeCap
@@ -209,309 +209,417 @@ private fun KeyguardMediaPanel(event: IslandEvent.Media, interactor: IslandActio
     val colors = rememberMediaColors(event)
     val motionScheme = MaterialTheme.motionScheme
 
-    Column(
+    Box(
         modifier = Modifier
             .widthIn(max = ExpandedMaxWidth)
             .fillMaxSize()
-            .padding(horizontal = SpaceSection),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .padding(horizontal = SpaceSection)
+            .clip(ShapeXl)
+            .background(CardBg)
+            .border(1.dp, CardBorderBrush, ShapeXl)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {},
+            ),
     ) {
-        Box(
-            modifier = Modifier
-                .weight(1f, fill = true)
-                .fillMaxWidth(),
-            contentAlignment = Alignment.Center,
-        ) {
-            AnimatedContent(
-                targetState = event.albumArt,
-                transitionSpec = {
-                    fadeIn(motionScheme.defaultEffectsSpec()) togetherWith
-                        fadeOut(motionScheme.fastEffectsSpec()) using
-                        SizeTransform(clip = false)
-                },
-                contentKey = { it?.hashCode() ?: 0 },
-                label = "kg_media_album_art",
-            ) { art ->
-                if (art != null) {
-                    Image(
-                        bitmap = art.toScaledBitmap(SizeAlbumLg),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .aspectRatio(1f)
-                            .clip(ShapeLg),
-                        contentScale = ContentScale.Crop,
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .aspectRatio(1f)
-                            .clip(ShapeLg)
-                            .background(colors.tonal),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(Icons.Filled.MusicNote, null, tint = colors.accent.copy(AlphaDisabled), modifier = Modifier.size(SpacePanelLarge))
-                    }
-                }
-            }
-        }
-
-        Spacer(Modifier.height(SpaceLg))
-
-        val trackText = event.track.ifEmpty { stringResource(R.string.ax_dynamic_bar_now_playing) }
         AnimatedContent(
-            targetState = trackText,
+            targetState = event.albumArt,
             transitionSpec = {
                 fadeIn(motionScheme.defaultEffectsSpec()) togetherWith
                     fadeOut(motionScheme.fastEffectsSpec()) using
                     SizeTransform(clip = false)
             },
-            label = "kg_media_track",
-        ) { title ->
-            Text(
-                title,
-                color = Color.White,
-                style = MaterialTheme.typography.titleLarge,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+            contentKey = { it?.hashCode() ?: 0 },
+            label = "kg_media_backdrop",
+        ) { art ->
+            Box(modifier = Modifier.fillMaxSize()) { 
+                if (art != null) {
+                    Image(
+                        bitmap = art.toScaledBitmap(350.dp),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .matchParentSize()
+                            .graphicsLayer {
+                                scaleX = 1.15f
+                                scaleY = 1.15f
+                            }
+                            .blur(32.dp),
+                        contentScale = ContentScale.Crop,
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(Brush.verticalGradient(listOf(colors.tonal, CardBg)))
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(
+                            Brush.verticalGradient(
+                                0f to Color.Black.copy(alpha = 0.30f),
+                                0.45f to Color.Black.copy(alpha = 0.55f),
+                                1f to Color.Black.copy(alpha = 0.88f),
+                            )
+                        )
+                )
+
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(colors.accent.copy(alpha = 0.08f))
+                )
+            }
         }
 
-        if (event.artist.isNotEmpty()) {
-            Spacer(Modifier.height(SpaceMd))
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(SpaceSection),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f, fill = true)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                AnimatedContent(
+                    targetState = event.albumArt,
+                    transitionSpec = {
+                        fadeIn(motionScheme.defaultEffectsSpec()) togetherWith
+                            fadeOut(motionScheme.fastEffectsSpec()) using
+                            SizeTransform(clip = false)
+                    },
+                    contentKey = { it?.hashCode() ?: 0 },
+                    label = "kg_media_album_art",
+                ) { art ->
+                    if (art != null) {
+                        Image(
+                            bitmap = art.toScaledBitmap(SizeAlbumLg),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .aspectRatio(1f)
+                                .clip(ShapeLg),
+                            contentScale = ContentScale.Crop,
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .aspectRatio(1f)
+                                .clip(ShapeLg)
+                                .background(colors.tonal),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Filled.MusicNote,
+                                null,
+                                tint = colors.accent.copy(alpha = AlphaDisabled),
+                                modifier = Modifier.size(SpacePanelLarge),
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(SpaceLg))
+
+            val trackText = event.track.ifEmpty { stringResource(R.string.ax_dynamic_bar_now_playing) }
             AnimatedContent(
-                targetState = event.artist,
+                targetState = trackText,
                 transitionSpec = {
                     fadeIn(motionScheme.defaultEffectsSpec()) togetherWith
                         fadeOut(motionScheme.fastEffectsSpec()) using
                         SizeTransform(clip = false)
                 },
-                label = "kg_media_artist",
-            ) { artist ->
+                label = "kg_media_track",
+            ) { title ->
                 Text(
-                    artist,
-                    color = Color.White.copy(alpha = AlphaSecondary),
-                    style = MaterialTheme.typography.bodyMedium,
+                    title,
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleLarge,
                     textAlign = TextAlign.Center,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-        }
 
-        Spacer(Modifier.height(SpaceLg))
+            if (event.artist.isNotEmpty()) {
+                Spacer(Modifier.height(SpaceMd))
+                AnimatedContent(
+                    targetState = event.artist,
+                    transitionSpec = {
+                        fadeIn(motionScheme.defaultEffectsSpec()) togetherWith
+                            fadeOut(motionScheme.fastEffectsSpec()) using
+                            SizeTransform(clip = false)
+                    },
+                    label = "kg_media_artist",
+                ) { artist ->
+                    Text(
+                        artist,
+                        color = Color.White.copy(alpha = AlphaSecondary),
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
 
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .border(1.dp, CardBorderBrush, ShapeCard),
-            shape = ShapeCard,
-            color = CardBg,
-        ) {
-            Column(
+            Spacer(Modifier.height(SpaceLg))
+
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = SpaceXxl, vertical = SpaceLg),
-                verticalArrangement = Arrangement.Center,
+                    .border(1.dp, CardBorderBrush, ShapeCard),
+                shape = ShapeCard,
+                color = Color.Black.copy(alpha = 0.22f),
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = SpaceXxl, vertical = SpaceLg),
+                    verticalArrangement = Arrangement.Center,
                 ) {
                     Row(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(SpaceMd),
-                    ) {
-                        event.appIcon?.let { icon ->
-                            Image(
-                                bitmap = icon.toScaledBitmap(SizeIconSm),
-                                contentDescription = null,
-                                modifier = Modifier.size(SizeIconSm).clip(ShapeXs),
-                                colorFilter = ColorFilter.tint(colors.accent),
-                            )
-                        } ?: Icon(
-                            Icons.Filled.MusicNote,
-                            null,
-                            tint = colors.accent,
-                            modifier = Modifier.size(SizeIconSm),
-                        )
-                        Text(
-                            event.outputDeviceName.ifBlank {
-                                stringResource(R.string.ax_dynamic_bar_now_playing)
-                            },
-                            color = OnCardText,
-                            style = MaterialTheme.typography.labelMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    Surface(
-                        onClick = {
-                            interactor.openMediaOutputSwitcher()
-                            interactor.collapseIsland()
-                        },
-                        shape = ShapeChip,
-                        color = colors.accent.copy(alpha = AlphaSubtle),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = SpaceLg, vertical = SpaceSm),
+                            modifier = Modifier.weight(1f),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(SpaceXs),
+                            horizontalArrangement = Arrangement.spacedBy(SpaceMd),
                         ) {
-                            Icon(
-                                Icons.Filled.VolumeUp,
-                                stringResource(R.string.ax_dynamic_bar_output),
+                            event.appIcon?.let { icon ->
+                                Image(
+                                    bitmap = icon.toScaledBitmap(SizeIconSm),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(SizeIconSm).clip(ShapeXs),
+                                    colorFilter = ColorFilter.tint(colors.accent),
+                                )
+                            } ?: Icon(
+                                Icons.Filled.MusicNote,
+                                null,
                                 tint = colors.accent,
                                 modifier = Modifier.size(SizeIconSm),
                             )
+                            Text(
+                                event.outputDeviceName.ifBlank {
+                                    stringResource(R.string.ax_dynamic_bar_now_playing)
+                                },
+                                color = Color.White,
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+
+                        Surface(
+                            onClick = {
+                                interactor.openMediaOutputSwitcher()
+                                interactor.collapseIsland()
+                            },
+                            shape = ShapeChip,
+                            color = colors.accent.copy(alpha = AlphaSubtle),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = SpaceLg, vertical = SpaceSm),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(SpaceXs),
+                            ) {
+                                Icon(
+                                    Icons.Filled.VolumeUp,
+                                    stringResource(R.string.ax_dynamic_bar_output),
+                                    tint = colors.accent,
+                                    modifier = Modifier.size(SizeIconSm),
+                                )
+                            }
                         }
                     }
-                }
 
-                if (event.duration > 0L) {
-                    Spacer(Modifier.height(SpaceMd))
-                    val mediaProgress = rememberMediaProgress(event)
-                    var isSeeking by remember { mutableStateOf(false) }
-                    var seekProgress by remember { mutableFloatStateOf(mediaProgress.progress) }
-                    if (!isSeeking) seekProgress = mediaProgress.progress
-                    val displayMs =
-                        if (isSeeking) (seekProgress * event.duration).toLong()
-                        else mediaProgress.positionMs
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(SpaceSection)
-                            .pointerInput("tap") {
-                                detectTapGestures { offset ->
-                                    val f = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
-                                    seekProgress = f
-                                    interactor.seekTo((f * event.duration).toLong())
+                    if (event.duration > 0L) {
+                        Spacer(Modifier.height(SpaceMd))
+                        val mediaProgress = rememberMediaProgress(event)
+                        var isSeeking by remember { mutableStateOf(false) }
+                        var seekProgress by remember { mutableFloatStateOf(mediaProgress.progress) }
+                        if (!isSeeking) seekProgress = mediaProgress.progress
+                        val displayMs =
+                            if (isSeeking) (seekProgress * event.duration).toLong()
+                            else mediaProgress.positionMs
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(SpaceSection)
+                                .pointerInput("tap") {
+                                    detectTapGestures { offset ->
+                                        val f = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
+                                        seekProgress = f
+                                        interactor.seekTo((f * event.duration).toLong())
+                                    }
                                 }
-                            }
-                            .pointerInput("drag") {
-                                detectHorizontalDragGestures(
-                                    onDragStart = { offset ->
-                                        isSeeking = true
-                                        seekProgress = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
-                                    },
-                                    onDragEnd = {
-                                        isSeeking = false
-                                        interactor.seekTo((seekProgress * event.duration).toLong())
-                                    },
-                                    onDragCancel = { isSeeking = false },
-                                    onHorizontalDrag = { change, _ ->
-                                        seekProgress = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
-                                        change.consume()
-                                    },
-                                )
-                            },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        LinearWavyProgressIndicator(
-                            progress = { seekProgress },
+                                .pointerInput("drag") {
+                                    detectHorizontalDragGestures(
+                                        onDragStart = { offset ->
+                                            isSeeking = true
+                                            seekProgress =
+                                                (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
+                                        },
+                                        onDragEnd = {
+                                            isSeeking = false
+                                            interactor.seekTo((seekProgress * event.duration).toLong())
+                                        },
+                                        onDragCancel = { isSeeking = false },
+                                        onHorizontalDrag = { change, _ ->
+                                            seekProgress =
+                                                (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
+                                            change.consume()
+                                        },
+                                    )
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            LinearWavyProgressIndicator(
+                                progress = { seekProgress },
+                                modifier = Modifier.fillMaxWidth(),
+                                color = colors.accent,
+                                trackColor = colors.accent.copy(alpha = AlphaSubtle),
+                                amplitude = { if (event.isPlaying) 1f else 0f },
+                            )
+                        }
+
+                        Spacer(Modifier.height(SpaceXs))
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            color = colors.accent,
-                            trackColor = colors.accent.copy(alpha = AlphaSubtle),
-                            amplitude = { if (event.isPlaying) 1f else 0f },
-                        )
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                formatElapsedTime(displayMs),
+                                color = Color.White.copy(alpha = AlphaSecondary),
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                            Text(
+                                formatElapsedTime(event.duration),
+                                color = Color.White.copy(alpha = AlphaSecondary),
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        }
                     }
-                    Spacer(Modifier.height(SpaceXs))
+
+                    Spacer(Modifier.height(SpaceMd))
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(formatElapsedTime(displayMs), color = OnCardSecondary, style = MaterialTheme.typography.labelSmall)
-                        Text(formatElapsedTime(event.duration), color = OnCardSecondary, style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-
-                Spacer(Modifier.height(SpaceMd))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    IconButton(
-                        onClick = {
-                            event.customActions.firstOrNull()?.let {
-                                interactor.sendCustomAction(it.action)
-                            }
-                        },
-                        modifier = Modifier.size(SizeButtonLg),
-                    ) {
-                        val ca = event.customActions.firstOrNull()
-                        if (ca != null) {
-                            CustomActionIcon(ca, tint = OnCardSecondary, modifier = Modifier.size(SizeIconMd))
-                        } else {
-                            Icon(Icons.Filled.Shuffle, stringResource(R.string.ax_dynamic_bar_shuffle), tint = OnCardSecondary, modifier = Modifier.size(SizeIconMd))
-                        }
-                    }
-
-                    Spacer(Modifier.width(SpaceSm))
-
-                    IconButton(
-                        onClick = { interactor.skipPrev() },
-                        modifier = Modifier.size(SizeButtonLg),
-                    ) {
-                        Icon(Icons.Filled.SkipPrevious, stringResource(R.string.ax_dynamic_bar_previous), tint = OnCardText, modifier = Modifier.size(SizeIconMd))
-                    }
-
-                    Spacer(Modifier.width(SpaceSm))
-
-                    Surface(
-                        onClick = { interactor.togglePlayPause() },
-                        modifier = Modifier.size(SizeButtonLg),
-                        shape = CircleShape,
-                        color = colors.accent,
-                    ) {
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                            AnimatedContent(
-                                targetState = event.isPlaying,
-                                transitionSpec = {
-                                    fadeIn(motionScheme.defaultEffectsSpec()) togetherWith
-                                        fadeOut(motionScheme.fastEffectsSpec())
-                                },
-                                label = "kg_media_playpause",
-                            ) { playing ->
+                        IconButton(
+                            onClick = {
+                                event.customActions.firstOrNull()?.let {
+                                    interactor.sendCustomAction(it.action)
+                                }
+                            },
+                            modifier = Modifier.size(SizeButtonLg),
+                        ) {
+                            val ca = event.customActions.firstOrNull()
+                            if (ca != null) {
+                                CustomActionIcon(ca, tint = Color.White.copy(alpha = AlphaSecondary), modifier = Modifier.size(SizeIconMd))
+                            } else {
                                 Icon(
-                                    if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                                    if (playing) stringResource(R.string.ax_dynamic_bar_pause) else stringResource(R.string.ax_dynamic_bar_play),
-                                    tint = colors.onAccent,
+                                    Icons.Filled.Shuffle,
+                                    stringResource(R.string.ax_dynamic_bar_shuffle),
+                                    tint = Color.White.copy(alpha = AlphaSecondary),
                                     modifier = Modifier.size(SizeIconMd),
                                 )
                             }
                         }
-                    }
 
-                    Spacer(Modifier.width(SpaceSm))
+                        Spacer(Modifier.width(SpaceSm))
 
-                    IconButton(
-                        onClick = { interactor.skipNext() },
-                        modifier = Modifier.size(SizeButtonLg),
-                    ) {
-                        Icon(Icons.Filled.SkipNext, stringResource(R.string.ax_dynamic_bar_next), tint = OnCardText, modifier = Modifier.size(SizeIconMd))
-                    }
+                        IconButton(
+                            onClick = { interactor.skipPrev() },
+                            modifier = Modifier.size(SizeButtonLg),
+                        ) {
+                            Icon(
+                                Icons.Filled.SkipPrevious,
+                                stringResource(R.string.ax_dynamic_bar_previous),
+                                tint = Color.White,
+                                modifier = Modifier.size(SizeIconMd),
+                            )
+                        }
 
-                    Spacer(Modifier.width(SpaceSm))
+                        Spacer(Modifier.width(SpaceSm))
 
-                    IconButton(
-                        onClick = {
-                            event.customActions.getOrNull(1)?.let {
-                                interactor.sendCustomAction(it.action)
+                        Surface(
+                            onClick = { interactor.togglePlayPause() },
+                            modifier = Modifier.size(SizeButtonLg),
+                            shape = CircleShape,
+                            color = colors.accent,
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.fillMaxSize(),
+                            ) {
+                                AnimatedContent(
+                                    targetState = event.isPlaying,
+                                    transitionSpec = {
+                                        fadeIn(motionScheme.defaultEffectsSpec()) togetherWith
+                                            fadeOut(motionScheme.fastEffectsSpec())
+                                    },
+                                    label = "kg_media_playpause",
+                                ) { playing ->
+                                    Icon(
+                                        if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                                        if (playing) stringResource(R.string.ax_dynamic_bar_pause)
+                                        else stringResource(R.string.ax_dynamic_bar_play),
+                                        tint = colors.onAccent,
+                                        modifier = Modifier.size(SizeIconMd),
+                                    )
+                                }
                             }
-                        },
-                        modifier = Modifier.size(SizeButtonLg),
-                    ) {
-                        val ca = event.customActions.getOrNull(1)
-                        if (ca != null) {
-                            CustomActionIcon(ca, tint = OnCardSecondary, modifier = Modifier.size(SizeIconMd))
-                        } else {
-                            Icon(Icons.Filled.Shuffle, stringResource(R.string.ax_dynamic_bar_shuffle), tint = OnCardSecondary, modifier = Modifier.size(SizeIconMd))
+                        }
+
+                        Spacer(Modifier.width(SpaceSm))
+
+                        IconButton(
+                            onClick = { interactor.skipNext() },
+                            modifier = Modifier.size(SizeButtonLg),
+                        ) {
+                            Icon(
+                                Icons.Filled.SkipNext,
+                                stringResource(R.string.ax_dynamic_bar_next),
+                                tint = Color.White,
+                                modifier = Modifier.size(SizeIconMd),
+                            )
+                        }
+
+                        Spacer(Modifier.width(SpaceSm))
+
+                        IconButton(
+                            onClick = {
+                                event.customActions.getOrNull(1)?.let {
+                                    interactor.sendCustomAction(it.action)
+                                }
+                            },
+                            modifier = Modifier.size(SizeButtonLg),
+                        ) {
+                            val ca = event.customActions.getOrNull(1)
+                            if (ca != null) {
+                                CustomActionIcon(ca, tint = Color.White.copy(alpha = AlphaSecondary), modifier = Modifier.size(SizeIconMd))
+                            } else {
+                                Icon(
+                                    Icons.Filled.Shuffle,
+                                    stringResource(R.string.ax_dynamic_bar_shuffle),
+                                    tint = Color.White.copy(alpha = AlphaSecondary),
+                                    modifier = Modifier.size(SizeIconMd),
+                                )
+                            }
                         }
                     }
                 }
