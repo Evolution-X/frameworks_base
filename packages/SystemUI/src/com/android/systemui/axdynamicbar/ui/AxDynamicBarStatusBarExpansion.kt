@@ -17,6 +17,7 @@
 package com.android.systemui.axdynamicbar.ui
 
 import com.android.systemui.axdynamicbar.domain.AxDynamicBarInteractor
+import com.android.systemui.axdynamicbar.model.IslandEvent
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Application
 import javax.inject.Inject
@@ -50,6 +51,16 @@ constructor(
             .onEach { if (it) collapse() }
             .launchIn(applicationScope)
 
+        interactor.uiState
+            .map { state ->
+                state.events.isEmpty() || state.events.all { it is IslandEvent.AospChip }
+            }
+            .distinctUntilChanged()
+            .onEach { shouldCollapse ->
+                if (shouldCollapse) collapse()
+            }
+            .launchIn(applicationScope)
+
         combine(
             interactor.qsExpansion.map { it > 0f }.distinctUntilChanged(),
             interactor.legacyShadeExpansion.map { it > 0f }.distinctUntilChanged(),
@@ -61,7 +72,8 @@ constructor(
     }
 
     fun expand() {
-        if (interactor.uiState.value.topEvent == null) return
+        val state = interactor.uiState.value
+        if (state.events.isEmpty() || state.events.all { it is IslandEvent.AospChip }) return
         _intent.value = true
     }
 
