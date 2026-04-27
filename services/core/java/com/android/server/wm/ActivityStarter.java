@@ -1827,13 +1827,14 @@ class ActivityStarter {
         if (com.android.wm.shell.Flags.enableCreateAnyBubble()) {
             final Task activityTask = mLastStartActivityRecord.getTask();
             // Sets the launch-next-to-bubble policy if requested
-            if (options != null && options.getLaunchNextToBubble()) {
+            if (options != null && options.getLaunchNextToBubble()
+                    && !mStartActivity.isActivityTypeHomeOrRecents()) {
                 activityTask.mLaunchNextToBubble = true;
             }
 
             // Propagate the launch-next-to-bubble policy from the source Task if any
-            if (mSourceRecord != null && mSourceRecord.getTask().mLaunchNextToBubble) {
-                activityTask.mLaunchNextToBubble = true;
+            if (mSourceRecord != null && mSourceRecord.getTask().mLaunchNextToBubble
+                    && !mStartActivity.isActivityTypeHomeOrRecents()) {
 
                 // Also propagate the windowingMode and bounds if not set.
                 if (options == null || (options.getLaunchWindowingMode() == WINDOWING_MODE_UNDEFINED
@@ -3117,7 +3118,7 @@ class ActivityStarter {
             if (Flags.fixBalReparentExistingTask() && mBalVerdict.blocks()) {
                 // Stays on the same root task if the activity launch is not allowed.
                 mTargetRootTask = origRootTask;
-            } else if (mSourceRecord != null && mSourceRecord.mLaunchRootTask != null) {
+            } else if (mSourceRecord != null && mSourceRecord.mLaunchRootTask != null && !mStartActivity.isActivityTypeHomeOrRecents()) {
                 // Inherit the target-root-task from source to ensure trampoline activities will be
                 // launched into the same root task.
                 mTargetRootTask = Task.fromWindowContainerToken(mSourceRecord.mLaunchRootTask);
