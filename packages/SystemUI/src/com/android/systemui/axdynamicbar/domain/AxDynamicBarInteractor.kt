@@ -121,17 +121,6 @@ constructor(
             scheduleAutoDismiss(it, if (it.isRinging) 30_000L else 5_000L)
         }
 
-        repository.notification.onEventCompleted = { sbnKey ->
-            val event = _uiState.value.events.find { event ->
-                when (event) {
-                    is IslandEvent.PromotedOngoing -> event.sbn.key == sbnKey
-                    is IslandEvent.Sports -> event.key == sbnKey
-                    else -> false
-                }
-            }
-            event?.let { dismissEvent(it) }
-        }
-
         repository.media.onMediaSessionLost = { repository.media.clear() }
 
         repository.biometric.onBiometricUnlock = { scheduleAutoDismiss(it) }
@@ -140,32 +129,6 @@ constructor(
             repository.notification.audioRecordingEvent.collect { event ->
                 if (event?.state == RecordingState.SAVED) {
                     scheduleAutoDismiss(event, 5_000L)
-                }
-            }
-        }
-
-        applicationScope.launch {
-            repository.notification.promotedOngoingEvents.collect { events ->
-                events.forEach { event ->
-                    if (event.progress >= 1f && !event.isIndeterminate) {
-                        val eventId = event.id
-                        if (autoDismissJobs[eventId] == null) {
-                            scheduleAutoDismiss(event, 3_000L)
-                        }
-                    }
-                }
-            }
-        }
-
-        applicationScope.launch {
-            repository.notification.sportsEvents.collect { events ->
-                events.forEach { event ->
-                    if (event.status == IslandEvent.GameStatus.FINAL) {
-                        val eventId = event.id
-                        if (autoDismissJobs[eventId] == null) {
-                            scheduleAutoDismiss(event, 15_000L)
-                        }
-                    }
                 }
             }
         }
@@ -372,13 +335,6 @@ constructor(
                         forceVisible = false,
                         notificationAlert = current.notificationAlert,
                     )
-
-                    events.forEach { event ->
-                        val ms = event.behavior.autoDismissMs ?: return@forEach
-                        if (autoDismissJobs[event.id] == null && event.id !in dismissedEventIds) {
-                            scheduleAutoDismiss(event)
-                        }
-                    }
             }
         }
     }
@@ -440,7 +396,6 @@ constructor(
             is IslandEvent.Hotspot -> repository.connectivity.clearHotspot()
             is IslandEvent.Charging -> repository.system.clearCharging()
             is IslandEvent.Alarm -> repository.notification.clearAlarm()
-            is IslandEvent.Call -> repository.notification.clearCall(event.sbn.key)
             is IslandEvent.Timer -> repository.notification.clearTimer()
             is IslandEvent.Stopwatch -> repository.notification.clearStopwatch()
             is IslandEvent.RingerMode -> repository.system.clearRinger()
