@@ -36,8 +36,6 @@
     <string name="pocket_mode_instructions_header">بۆ بەکارهێنانی مۆبایلەکەت:</string>
     <string name="pocket_mode_instruction_step1">١. دڵنیابەرەوە کە ناوچە شینەکە (هەستەوەری نزیکی) کە لە سەرەوە نیشان دراوە، دانەپۆشراوە و خاوێنە لە تۆز و خۆڵ.</string>
     <string name="pocket_mode_instruction_step2">٢. دوگمەی وزە (Power) دابگرە و ڕایبگرە بۆ چوونە دەرەوە لە دۆخی گیرفان.</string>
-    <!-- App lock -->
-    <string name="unlock_application">کردنەوەی <xliff:g id="label" example="Telegram">%1$s</xliff:g></string>
     <!-- Sleep Mode -->
     <string name="notification_channel_sleep">دۆخی خەوتن</string>
     <string name="sleep_mode_notification_title">دۆخی خەوتن چالاک کرا</string>
