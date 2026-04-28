@@ -108,11 +108,9 @@ fun AxDynamicBarKeyguardChip(
     val isOnKeyguard by viewModel.isOnKeyguard.collectAsStateWithLifecycle()
     val isEnabled by viewModel.isEnabled.collectAsStateWithLifecycle()
     val isKeyguardEnabled by viewModel.isKeyguardEnabled.collectAsStateWithLifecycle()
-    val keyguardBatteryChipMode by viewModel.keyguardBatteryChipMode.collectAsStateWithLifecycle()
     val batteryInfo by viewModel.keyguardBatteryInfo.collectAsStateWithLifecycle()
     val isKeyguardExpanded by viewModel.isKeyguardExpanded.collectAsStateWithLifecycle()
     val touchSlop = LocalViewConfiguration.current.touchSlop
-    val batteryString by viewModel.batteryString.collectAsStateWithLifecycle()
 
     val motionScheme = MaterialTheme.motionScheme
 
@@ -240,12 +238,8 @@ fun AxDynamicBarKeyguardChip(
                     )
                 }
             } else {
-                KeyguardBatteryChip(
-                    batteryInfo,
-                    keyguardBatteryChipMode,
-                    batteryString,
-                    modifier,
-                )
+                
+                KeyguardBatteryChip(batteryInfo)
             }
         }
     }
@@ -506,16 +500,7 @@ private fun KeyguardChipBody(
 }
 
 @Composable
-private fun KeyguardBatteryChip(
-    info: KeyguardBatteryInfo,
-    keyguardBatteryChipMode: Int,
-    batteryString: String,
-    modifier: Modifier,
-) {
-    if (keyguardBatteryChipMode <= 0) return
-
-    if (keyguardBatteryChipMode == 1 && !info.isCharging) return
-
+private fun KeyguardBatteryChip(info: KeyguardBatteryInfo) {
     val accent = when {
         info.isCharging -> BatteryChargingColor
         info.isPowerSave -> BatteryPowerSaveColor
@@ -525,11 +510,10 @@ private fun KeyguardBatteryChip(
 
     Box(contentAlignment = Alignment.Center) {
         Row(
-            modifier = modifier
+            modifier = Modifier
                 .height(ChipHeight)
                 .clip(ChipShape)
                 .background(accent)
-                .widthIn(max = 260.dp)
                 .padding(horizontal = SpaceMd),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -540,17 +524,6 @@ private fun KeyguardBatteryChip(
                 AnimatedBatteryFillIcon(info.level, contentColor, BatteryIconSize)
             }
             Spacer(Modifier.width(SpaceXs))
-            if (info.isCharging) {
-                Text(
-                    batteryString,
-                    style = PillPrimary,
-                    color = contentColor.copy(alpha = AlphaSecondary),
-                    maxLines = 2,
-                    overflow = TextOverflow.Clip,
-                    modifier = modifier.basicMarquee(),
-                )
-                return
-            }
             Text(
                 "${info.level}%",
                 style = PillPrimary,
@@ -692,10 +665,6 @@ private fun KeyguardPrimaryText(event: IslandEvent, color: Color, modifier: Modi
             )
         }
         is IslandEvent.Alarm -> MarqueeText(event.label.ifEmpty { stringResource(R.string.ax_dynamic_bar_alarm) }, color, modifier)
-        is IslandEvent.Call -> {
-                if (event.callStartTimeMs > 0) CallTimerText(event, modifier, color)
-                else MarqueeText(event.callType ?: stringResource(R.string.ax_dynamic_bar_call), color, modifier)
-        }
         is IslandEvent.Casting -> MarqueeText(event.deviceName.take(12), color, modifier)
         is IslandEvent.Torch -> MarqueeText(
             if (event.supportsLevel) "${(event.level.toFloat() / event.maxLevel * 100).toInt()}%"
@@ -750,7 +719,6 @@ private fun secondaryTextFor(event: IslandEvent): String? = when (event) {
             "%d:%02d".format(cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE))
         } else null
     }
-    is IslandEvent.Call -> event.callerName
     is IslandEvent.Casting -> stringResource(R.string.ax_dynamic_bar_cast_short)
     is IslandEvent.Vpn -> stringResource(R.string.ax_dynamic_bar_active)
     is IslandEvent.BiometricUnlock -> event.sourceName
@@ -765,27 +733,6 @@ private fun secondaryTextFor(event: IslandEvent): String? = when (event) {
         else -> null
     }
     else -> null
-}
-
-
-@Composable
-private fun CallTimerText(event: IslandEvent.Call, modifier: Modifier, overrideColor: Color? = null) {
-    val isActive = event.callType == "Phone:active"
-    if (isActive) {
-        var elapsedMs by remember(event.callStartTimeMs) {
-            mutableLongStateOf((System.currentTimeMillis() - event.callStartTimeMs).coerceAtLeast(0L))
-        }
-        LaunchedEffect(event.callStartTimeMs) {
-            while (true) {
-                delay(1000)
-                elapsedMs = (System.currentTimeMillis() - event.callStartTimeMs).coerceAtLeast(0L)
-            }
-        }
-        val color = overrideColor ?: GreenAccent
-        Text(formatElapsedTime(elapsedMs), color = color, style = PillMono, modifier = modifier)
-    } else {
-        MarqueeText(stringResource(R.string.ax_dynamic_bar_incoming_call), overrideColor ?: BlueAccent, modifier)
-    }
 }
 
 @Composable
@@ -983,3 +930,4 @@ private fun StopwatchTimeText(event: IslandEvent.Stopwatch, color: Color, modifi
         Text(formatStopwatch(elapsedMs), color = color, style = PillMono, modifier = modifier)
     }
 }
+

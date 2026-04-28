@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FlashlightOn
 import androidx.compose.material.icons.filled.Lock
@@ -89,7 +88,6 @@ internal fun PillEventIcon(event: IslandEvent, tint: Color? = null) {
         is IslandEvent.RingerMode -> RingerIcon(event, tint)
         is IslandEvent.Vpn -> AnimatedShieldIcon(tint ?: IndigoAccent)
         is IslandEvent.Clipboard -> AnimatedClipboardIcon(tint ?: IndigoAccent)
-        is IslandEvent.Call -> CallPillIcon(event)
         is IslandEvent.Notification -> NotificationPillIcon(event)
         is IslandEvent.AppSwitch -> AppSwitchPillIcon(event)
         is IslandEvent.Torch ->
@@ -209,7 +207,7 @@ private fun MediaPillIcon(event: IslandEvent.Media) {
     }
         ?: Box(
             modifier =
-                Modifier.size(16.dp).clip(CircleShape).background(OrangeAccent.copy(alpha = 0.32f)),
+                Modifier.size(16.dp).clip(CircleShape).background(OrangeAccent.copy(alpha = AlphaSubtle + 0.05f)),
             contentAlignment = Alignment.Center,
         ) {
             WaveformAnimation(OrangeAccent, Modifier.size(10.dp), isAnimating = event.isPlaying, barCount = 3)
@@ -652,20 +650,6 @@ private fun AnimatedRecentsIcon(color: Color) {
 }
 
 @Composable
-private fun CallPillIcon(event: IslandEvent.Call) {
-    val icon = event.appIcon
-    icon?.let {
-        Image(
-            bitmap = it.toScaledBitmap(16.dp),
-            contentDescription = null,
-            modifier =
-                Modifier.size(16.dp)
-                    .clip(ShapeXs),
-        )
-    } ?: Icon(Icons.Filled.Call, null, tint = GreenAccent, modifier = Modifier.size(SizeBadge))
-}
-
-@Composable
 private fun NotificationPillIcon(event: IslandEvent.Notification) {
     val icon = event.senderIcon ?: event.appIcon
     val isRound = event.isConversation && event.senderIcon != null
@@ -1019,21 +1003,18 @@ internal fun PillEventText(
         is IslandEvent.Vpn -> MarqueeLabel(stringResource(R.string.ax_dynamic_bar_vpn_active), overrideColor ?: IndigoAccent, modifier)
         is IslandEvent.Clipboard ->
             MarqueeLabel(event.preview.ifEmpty { stringResource(R.string.ax_dynamic_bar_copied) }, overrideColor ?: IndigoAccent, modifier)
-        is IslandEvent.Call -> {
-            if (event.callStartTimeMs > 0L) {
+        is IslandEvent.Notification -> {
+            if (event.callStartTimeMs > 0L && event.appName.startsWith("Phone:")) {
                 CallTimerText(event, modifier, overrideColor)
             } else {
-                NotifBellBadge(modifier, notifCount)
-            }
-        }
-        is IslandEvent.Notification -> {
-            val name = event.senderName ?: if (event.isConversation) event.title else null
-            if (name != null) {
-                val label = if (event.isGroupConversation && event.conversationTitle != null)
-                    "$name · ${event.conversationTitle}" else name
-                MarqueeLabel(label, overrideColor ?: BlueAccent, modifier)
-            } else {
-                NotifBellBadge(modifier, notifCount)
+                val name = event.senderName ?: if (event.isConversation) event.title else null
+                if (name != null) {
+                    val label = if (event.isGroupConversation && event.conversationTitle != null)
+                        "$name · ${event.conversationTitle}" else name
+                    MarqueeLabel(label, overrideColor ?: BlueAccent, modifier)
+                } else {
+                    NotifBellBadge(modifier, notifCount)
+                }
             }
         }
         is IslandEvent.AppSwitch ->
@@ -1190,8 +1171,8 @@ private fun StopwatchText(event: IslandEvent.Stopwatch, modifier: Modifier, over
 }
 
 @Composable
-private fun CallTimerText(event: IslandEvent.Call, modifier: Modifier, overrideColor: Color? = null) {
-    val isActive = event.callType == "Phone:active"
+private fun CallTimerText(event: IslandEvent.Notification, modifier: Modifier, overrideColor: Color? = null) {
+    val isActive = event.appName == "Phone:active"
     if (isActive) {
         var elapsedMs by remember(event.callStartTimeMs) {
             mutableLongStateOf((System.currentTimeMillis() - event.callStartTimeMs).coerceAtLeast(0L))
@@ -1205,7 +1186,7 @@ private fun CallTimerText(event: IslandEvent.Call, modifier: Modifier, overrideC
         val color = overrideColor ?: GreenAccent
         Text(formatElapsedTime(elapsedMs), color = color, style = PillMono, modifier = modifier)
     } else {
-        MarqueeLabel(stringResource(R.string.ax_dynamic_bar_incoming_call), overrideColor ?: BlueAccent, modifier)
+        MarqueeLabel(event.senderName ?: event.title ?: stringResource(R.string.ax_dynamic_bar_incoming_call), overrideColor ?: BlueAccent, modifier)
     }
 }
 

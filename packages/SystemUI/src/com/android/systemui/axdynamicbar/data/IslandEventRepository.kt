@@ -166,12 +166,10 @@ constructor(
 
         val highGroupA =
             combine(
-                notification.callEvents,
                 screenRecord.screenRecordEvent,
                 micCamFiltered,
                 castingFiltered,
-            ) { call, rec, micCam, cast ->
-                (if (isTypeEnabled("call")) call else emptyList()) +
+            ) { rec, micCam, cast ->
                 listOfNotNull(
                     rec?.takeIf { isTypeEnabled("screen_recording") },
                     micCam?.takeIf { isTypeEnabled("privacy") },

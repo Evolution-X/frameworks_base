@@ -53,7 +53,6 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalViewConfiguration
-import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import android.graphics.drawable.Drawable
@@ -96,7 +95,6 @@ fun AxDynamicBarChip(
     val keyguardCarrier by viewModel.keyguardCarrierText.collectAsStateWithLifecycle()
     
     val carrierName = if (isOnKeyguard && ignoreKeyguard) keyguardCarrier.takeIf { it.isNotBlank() } else null
-    val chipTextMaxWidth = dimensionResource(R.dimen.ongoing_activity_chip_max_text_width)
     val screenWidthPx = with(LocalDensity.current) {
         LocalConfiguration.current.screenWidthDp.dp.toPx()
     }
@@ -276,7 +274,7 @@ fun AxDynamicBarChip(
                                         color = contentColor,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.widthIn(max = chipTextMaxWidth).basicMarquee(iterations = 1),
+                                        modifier = Modifier.widthIn(max = 100.dp).basicMarquee(iterations = 1),
                                     )
                                 }
                             }
@@ -324,7 +322,7 @@ fun AxDynamicBarChip(
                             ) { event ->
                                 PillEventText(
                                     event,
-                                    Modifier.widthIn(max = chipTextMaxWidth),
+                                    Modifier.widthIn(max = 88.dp),
                                     overrideColor = contentColor,
                                 )
                             }
