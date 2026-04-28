@@ -70,14 +70,6 @@
     <!-- FPS view text placeholder -->
     <string name="fps_text_placeholder">Klatki na sekundę: <xliff:g id="fps" example="90">%1$d</xliff:g>
   </string>
-    <!-- USB function dialog - copied from Settings -->
-    <string name="usb_use_charging_only">Brak transferu danych</string>
-    <string name="usb_use_file_transfers">Transfer plików</string>
-    <string name="usb_use_photo_transfers">Przesyłanie zdjęć</string>
-    <string name="usb_use_uvc_webcam">Kamera internetowa</string>
-    <string name="usb_use_tethering">Udostępnianie sieci przez USB</string>
-    <string name="usb_use_MIDI">MIDI</string>
-    <string name="usb_use">Użyj USB do</string>
     <!-- Autobrightness tile -->
     <string name="quick_settings_autobrightness_label">Automatyczna jasność</string>
     <!-- Label for notification action to delete a screen recording file [CHAR LIMIT=35] -->
@@ -253,4 +245,18 @@
     <string name="ax_dynamic_bar_sports_final">Finał</string>
     <string name="ax_dynamic_bar_sports_halftime">Przerwa</string>
     <string name="ax_dynamic_bar_sports_upcoming">Wkrótce</string>
+    <!-- Screenshot -->
+    <string name="quick_settings_screenshot_label">Zrzut ekranu</string>
+    <!-- Essential Notifications -->
+    <string name="essential_notifications_title">Podstawowe</string>
+    <string name="essential_notifications_summary">Ważne wiadomości i alerty</string>
+    <!-- USB Mode Picker -->
+    <string name="usb_mode_picker_title">Wybierz tryb USB</string>
+    <string name="usb_mode_file_transfer">Przesyłanie plików</string>
+    <string name="usb_mode_tethering">Udostępnianie sieci przez USB</string>
+    <string name="usb_mode_midi">MIDI</string>
+    <string name="usb_mode_photo_transfer">Przesyłanie zdjęć i filmów</string>
+    <string name="usb_mode_webcam">Kamera internetowa USB</string>
+    <string name="usb_mode_charging_only">Tylko ładowanie</string>
+    <string name="usb_charging_status">Ładowanie USB jest włączone</string>
 </resources>
