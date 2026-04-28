@@ -36,6 +36,10 @@
     <string name="pocket_mode_instructions_header">如需使用您的手机：</string>
     <string name="pocket_mode_instruction_step1">1. 确保蓝色区域（接近传感器）不被遮挡，无泥土或灰尘。</string>
     <string name="pocket_mode_instruction_step2">2. 按住电源键退出口袋模式。</string>
-    <!-- App lock -->
-    <string name="unlock_application">解锁 <xliff:g id="label" example="Telegram">%1$s</xliff:g></string>
+    <!-- Sleep Mode -->
+    <string name="notification_channel_sleep">睡眠模式</string>
+    <string name="sleep_mode_notification_title">睡眠模式已启用</string>
+    <string name="sleep_mode_notification_content">点击关闭睡眠模式</string>
+    <string name="sleep_mode_enabled_toast">睡眠模式已开启</string>
+    <string name="sleep_mode_disabled_toast">睡眠模式已关闭</string>
 </resources>
