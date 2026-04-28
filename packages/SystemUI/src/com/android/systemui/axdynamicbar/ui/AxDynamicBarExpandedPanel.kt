@@ -24,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -142,13 +143,10 @@ constructor(
         val statusBarTop = windowMetrics.windowInsets
             .getInsets(WindowInsets.Type.statusBars())
             .top
-        val hasCutout = windowMetrics.windowInsets
-            .getInsets(WindowInsets.Type.displayCutout())
-            .top > 0
 
         val view =
             ComposeView(context).apply {
-                setContent { PlatformTheme { OverlayContent(viewModel, statusBarTop, hasCutout) } }
+                setContent { PlatformTheme { OverlayContent(viewModel, statusBarTop) } }
             }
 
         view.setViewTreeLifecycleOwner(lifecycleOwner)
@@ -237,13 +235,13 @@ constructor(
 }
 
 @Composable
-private fun OverlayContent(viewModel: AxDynamicBarChipViewModel, statusBarHeightPx: Int, hasCutout: Boolean) {
+private fun OverlayContent(viewModel: AxDynamicBarChipViewModel, statusBarHeightPx: Int) {
     val density = LocalDensity.current
     val isLargeScreen = Utilities.isLargeScreen(LocalContext.current)
-
-    val largeScreenExtra = if (isLargeScreen) 4.dp else 0.dp
-    val topPad = if (hasCutout) largeScreenExtra
-        else with(density) { statusBarHeightPx.toDp() } + largeScreenExtra
+    
+    val topPad = if (isLargeScreen) {
+        with(density) { statusBarHeightPx.toDp() } + 4.dp
+    } else 0.dp
     val chipState by viewModel.chipState.collectAsStateWithLifecycle()
     val isExpanded by viewModel.isExpanded.collectAsStateWithLifecycle()
     val uiState by viewModel.interactor.uiState.collectAsStateWithLifecycle()
@@ -268,6 +266,11 @@ private fun OverlayContent(viewModel: AxDynamicBarChipViewModel, statusBarHeight
 
     val originX = chipX
     val origin = TransformOrigin(originX, 0f)
+    
+    val chipAlignment = BiasAlignment(
+        horizontalBias = originX * 2f - 1f,  
+        verticalBias = -1f,                    
+    )
 
     AnimatedVisibility(
         visibleState = expandedVisible,
@@ -315,7 +318,7 @@ private fun OverlayContent(viewModel: AxDynamicBarChipViewModel, statusBarHeight
                     }
                 }
                 .padding(top = topPad),
-            contentAlignment = Alignment.TopCenter,
+            contentAlignment = chipAlignment,
         ) {
             chipState?.let { state ->
                 ExpandedIslandContent(
@@ -329,26 +332,24 @@ private fun OverlayContent(viewModel: AxDynamicBarChipViewModel, statusBarHeight
         }
     }
 
-    val alertOrigin = TransformOrigin(0.5f, 0f)
-
     AnimatedVisibility(
         visibleState = notifVisible,
         enter = fadeIn(tween(300)) + scaleIn(
             animationSpec = tween(300),
             initialScale = 0.4f,
-            transformOrigin = alertOrigin,
+            transformOrigin = origin,
         ),
         exit = fadeOut(tween(250)) + scaleOut(
             animationSpec = tween(250),
             targetScale = 0.4f,
-            transformOrigin = alertOrigin,
+            transformOrigin = origin,
         ),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = topPad),
-            contentAlignment = Alignment.TopCenter,
+            contentAlignment = chipAlignment,
         ) {
             val alert = lastAlert.value
             if (alert != null) {
@@ -390,3 +391,4 @@ private class PanelLifecycleOwner : LifecycleOwner, SavedStateRegistryOwner,
         lifecycleRegistry.handleLifecycleEvent(event)
     }
 }
+

@@ -112,9 +112,6 @@ constructor(
     private val _nowPlayingEvent = MutableStateFlow<IslandEvent.NowPlaying?>(null)
     val nowPlayingEvent: StateFlow<IslandEvent.NowPlaying?> = _nowPlayingEvent.asStateFlow()
 
-    private val _callEvents = MutableStateFlow<List<IslandEvent.Call>>(emptyList())
-    val callEvents: StateFlow<List<IslandEvent.Call>> = _callEvents.asStateFlow()
-
     @Volatile var disabledTypes: Set<String> = emptySet()
 
     private var recorderPackage: String? = null
@@ -137,7 +134,6 @@ constructor(
     var onAlarmEvent: ((IslandEvent.Alarm) -> Unit)? = null
     var onNotificationPosted: ((IslandEvent.Notification) -> Unit)? = null
     var onScreenRecordNotificationTime: ((Long) -> Unit)? = null
-    var onEventCompleted: ((String) -> Unit)? = null
 
     @Volatile private var listening = false
     @Volatile private var timerJob: Job? = null
@@ -174,9 +170,6 @@ constructor(
                         accumulatedPauseMs = 0L
                     }
                 }
-
-                _callEvents.value =
-                    _callEvents.value.filter { it.sbn.key != sbn.key }
 
                 _promotedOngoingEvents.value =
                     _promotedOngoingEvents.value.filter { it.sbn.key != sbn.key }
@@ -246,7 +239,7 @@ constructor(
                             extras.containsKey(Notification.EXTRA_DECLINE_INTENT) ||
                             extras.containsKey(Notification.EXTRA_HANG_UP_INTENT)
                     if (isCallStyle) {
-                        if ("call" !in disabledTypes) handleCallNotification(sbn, extras)
+                        handleCallNotification(sbn, extras)
                         return
                     }
                 }
@@ -372,11 +365,8 @@ constructor(
                     return
                 }
                 if (!sbn.isOngoing) {
-                    val removed = _promotedOngoingEvents.value.filter { it.sbn.key == sbn.key }
-                    _promotedOngoingEvents.value = _promotedOngoingEvents.value.filter { it.sbn.key != sbn.key }
-                    if (removed.isNotEmpty()) {
-                        removed.forEach { onEventCompleted?.invoke(it.sbn.key) }
-                    }
+                    _promotedOngoingEvents.value =
+                        _promotedOngoingEvents.value.filter { it.sbn.key != sbn.key }
                 }
                 if (sbn.isOngoing) return
                 if ("notification" in disabledTypes) return
@@ -566,7 +556,6 @@ constructor(
         _timerEvent.value = null
         _stopwatchEvent.value = null
         _alarmEvent.value = null
-        _callEvents.value = emptyList()
         _notificationEvents.value = emptyList()
         _promotedOngoingEvents.value = emptyList()
         _sportsEvents.value = emptyList()
@@ -608,10 +597,6 @@ constructor(
 
     fun clearAlarm() {
         _alarmEvent.value = null
-    }
-
-    fun clearCall(key: String) {
-        _callEvents.value = _callEvents.value.filter { it.sbn.key != key }
     }
 
     private fun handleTimer(
@@ -790,7 +775,6 @@ constructor(
             } catch (_: Exception) {
                 null
             }
-
         val allActions = sbn.notification?.actions ?: emptyArray()
         val actions =
             allActions
@@ -820,21 +804,20 @@ constructor(
         val callStart = if (callWhen > 0L) callWhen else System.currentTimeMillis()
 
         val event =
-            IslandEvent.Call(
+            IslandEvent.Notification(
                 sbn = sbn,
-                callerName = callerName,
-                number = number,
+                title = callerName,
+                text = number,
                 appIcon = icon,
-                callerPhoto = callerPhoto,
-                callType = callType,
-                callStartTimeMs = callStart,
+                appName = callType,
                 actions = actions,
+                senderIcon = callerPhoto,
+                senderName = callerName,
+                isConversation = false,
+                callStartTimeMs = callStart,
             )
-
-        val current = _callEvents.value.toMutableList()
-        current.removeAll { it.sbn.key == sbn.key }
-        current.add(0, event)
-        _callEvents.value = current
+        applicationScope.launch { notificationFlow.emit(event) }
+        onNotificationPosted?.invoke(event)
     }
 
     private fun isPromotable(sbn: StatusBarNotification, extras: Bundle): Boolean {
@@ -884,13 +867,6 @@ constructor(
         current.removeAll { it.sbn.key == sbn.key }
         current.add(0, event)
         _promotedOngoingEvents.value = current
-
-        if (progress >= 1f && !indeterminate) {
-            applicationScope.launch {
-                delay(3_000L)
-                onEventCompleted?.invoke(sbn.key)
-            }
-        }
     }
 
     fun clearPromotedOngoing(key: String) {
@@ -1040,12 +1016,6 @@ constructor(
         current.removeAll { it.key == sbn.key }
         current.add(0, event)
         _sportsEvents.value = current
-        if (status == IslandEvent.GameStatus.FINAL) {
-            applicationScope.launch {
-                delay(15_000L)
-                onEventCompleted?.invoke(sbn.key)
-            }
-        }
         return true
     }
 
