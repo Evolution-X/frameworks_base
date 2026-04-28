@@ -54,7 +54,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:alpha="0.9"
-            android:layout_marginTop="9dp"
+            android:layout_marginTop="7dp"
             android:fontFamily="@font/subway"
             android:includeFontPadding="false"
             android:format12Hour="hmm"
