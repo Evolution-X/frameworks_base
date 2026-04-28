@@ -41,6 +41,11 @@ private fun extraBottomMarginPx(context: Context): Int =
 private val HIDDEN_VIEW_IDS = listOf(
     R.id.shared_notification_container,
     R.id.notificationShelf,
+    R.id.bc_smartspace_view,
+    R.id.smartspace_card_pager,
+    R.id.smartspace_page_indicator,
+    R.id.keyguard_slice_view,
+    R.id.keyguard_weather_area,
     R.id.now_playing_view,
 )
 
