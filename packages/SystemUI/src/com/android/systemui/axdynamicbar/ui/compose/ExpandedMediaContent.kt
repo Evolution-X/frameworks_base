@@ -362,22 +362,16 @@ private fun MediaSeekBar(
     var displayFraction by remember { mutableStateOf(serverFraction) }
 
     val interactorRef = rememberUpdatedState(interactor)
-
-    // Read the dismiss swipe lock provided by MagneticSwipeToDismiss
     val swipeLock = LocalDismissSwipeLock.current
 
-    // Smooth frame-interpolated progress when playing, snaps when paused or scrubbing
     LaunchedEffect(positionMs, durationMs, isPlaying) {
         if (isScrubbing) return@LaunchedEffect
-
         displayFraction = serverFraction
-
         if (!isPlaying || durationMs <= 0L) return@LaunchedEffect
-
         val startWallMs = System.currentTimeMillis()
         val startProgressMs = positionMs
         while (true) {
-            delay(16L) // ~60 fps
+            delay(16L)
             if (isScrubbing) break
             val elapsed = System.currentTimeMillis() - startWallMs
             val interpolated = ((startProgressMs + elapsed).toFloat() / durationMs).coerceIn(0f, 1f)
@@ -390,30 +384,24 @@ private fun MediaSeekBar(
     val accentArgb = accent.toArgb()
     val trackAlphaArgb = accent.copy(alpha = AlphaSubtle).toArgb()
 
-    Column(verticalArrangement = Arrangement.spacedBy(SpaceXs)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                formatElapsedTime(displayMs),
-                color = SubtleGray,
-                style = MaterialTheme.typography.labelSmall,
-            )
-            Text(
-                formatElapsedTime(durationMs),
-                color = SubtleGray,
-                style = MaterialTheme.typography.labelSmall,
-            )
-        }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(SpaceXs),
+    ) {
+        Text(
+            formatElapsedTime(displayMs),
+            color = SubtleGray,
+            style = MaterialTheme.typography.labelSmall,
+        )
 
         Box(
             modifier = Modifier
-                .fillMaxWidth()
+                .weight(1f)
                 .height(SeekBarHeight)
                 .pointerInput(swipeLock) {
                     awaitEachGesture {
-                        awaitPointerEvent() // DOWN
+                        awaitPointerEvent()
                         swipeLock.value = true
                         try {
                             do {
@@ -526,7 +514,6 @@ private fun MediaSeekBar(
 
                         val layer = bar.progressDrawable as? LayerDrawable
 
-                        // Re-tint track colors
                         layer?.findDrawableByLayerId(android.R.id.background)
                             ?.setTint(trackAlphaArgb)
                         layer?.findDrawableByLayerId(android.R.id.secondaryProgress)
@@ -548,6 +535,12 @@ private fun MediaSeekBar(
                 )
             }
         }
+
+        Text(
+            formatElapsedTime(durationMs),
+            color = SubtleGray,
+            style = MaterialTheme.typography.labelSmall,
+        )
     }
 }
 
