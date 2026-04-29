@@ -38,6 +38,7 @@ import java.util.stream.Stream;
 public class BiometricFrameworkStatsLogger {
 
     private static final String TAG = "BiometricFrameworkStatsLogger";
+    private static final boolean DEBUG = false;
 
     private static final BiometricFrameworkStatsLogger sInstance =
             new BiometricFrameworkStatsLogger();
@@ -280,7 +281,9 @@ public class BiometricFrameworkStatsLogger {
 
     private long sanitizeLatency(long latency) {
         if (latency < 0) {
-            Slog.w(TAG, "found a negative latency : " + latency);
+            if (DEBUG) {
+                Slog.w(TAG, "found a negative latency : " + latency);
+            }
             return -1;
         }
         return latency;
