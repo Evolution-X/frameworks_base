@@ -58,6 +58,7 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -114,6 +115,7 @@ public class SystemSensorManager extends SensorManager {
             long nativeInstance, int handle, int type, float[] floatValues, int[] intValues);
 
     private static final Object sLock = new Object();
+    private static final Object sSensorBlockedAppLock = new Object();
     @GuardedBy("sLock")
     private static boolean sNativeClassInited = false;
     @GuardedBy("sLock")
@@ -152,7 +154,6 @@ public class SystemSensorManager extends SensorManager {
 
     private Optional<Boolean> mHasHighSamplingRateSensorsPermission = Optional.empty();
 
-    private String mBlockedPackageList;
     private final Set<String> mBlockedApps =
         Collections.newSetFromMap(new ConcurrentHashMap<>());
 
@@ -270,28 +271,46 @@ public class SystemSensorManager extends SensorManager {
     }
 
     private void parsePackageList() {
-        String blockedApp = Settings.Global.getString(mContext.getContentResolver(),
+        synchronized (sSensorBlockedAppLock) {
+            mBlockedApps.clear();
+            mBlockedApps.addAll(getSensorBlockedAppList(mContext));
+        }
+    }
+
+    private static ArrayList<String> getSensorBlockedAppList(Context context) {
+        String blockedApp = Settings.Global.getString(context.getContentResolver(),
                     Settings.Global.SENSOR_BLOCKED_APP);
         if (blockedApp == null) {
-            blockedApp = TextUtils.join("|", mContext.getResources().getStringArray(
+            blockedApp = TextUtils.join("|", context.getResources().getStringArray(
                     com.android.internal.R.array.config_blockPackagesSensorDrain));
         }
-        splitAndAddToArrayList(blockedApp, "\\|");
+
+        final ArrayList<String> blockedApps = new ArrayList<>();
+        if (blockedApp != null) {
+            for (String app : TextUtils.split(blockedApp, "\\|")) {
+                final String packageName = app.trim();
+                if (!packageName.isEmpty()) {
+                    blockedApps.add(packageName);
+                }
+            }
+        }
+        return normalizeBlockedAppList(blockedApps);
+    }
+
+    private static ArrayList<String> normalizeBlockedAppList(List<String> blockedApps) {
+        return new ArrayList<>(new LinkedHashSet<>(blockedApps));
+    }
+
+    private static void savePackageList(Context context, List<String> arrayList) {
+        final String value = TextUtils.join("|", normalizeBlockedAppList(arrayList));
+        Settings.Global.putString(context.getContentResolver(),
+                Settings.Global.SENSOR_BLOCKED_APP, value);
     }
 
     private void savePackageList(ArrayList<String> arrayList) {
-        String setting = Settings.Global.SENSOR_BLOCKED_APP;
-
-        List<String> settings = new ArrayList<String>();
-        for (String app : arrayList) {
-            settings.add(app.toString());
+        synchronized (sSensorBlockedAppLock) {
+            savePackageList(mContext, arrayList);
         }
-        final String value = TextUtils.join("|", settings);
-        if (TextUtils.equals(setting, Settings.Global.SENSOR_BLOCKED_APP)) {
-            mBlockedPackageList = value;
-        }
-        Settings.Global.putString(mContext.getContentResolver(),
-                setting, value);
     }
 
     private void addBlockedApp(String packageName) {
@@ -310,12 +329,18 @@ public class SystemSensorManager extends SensorManager {
         }
     }
 
-    private void splitAndAddToArrayList(String baseString, String separator) {
-        mBlockedApps.clear();
-        if (baseString != null) {
-            for (String s : TextUtils.split(baseString, separator)) {
-                final String v = s.trim();
-                if (!v.isEmpty()) mBlockedApps.add(v);
+    public static void removePackageFromSensorBlockList(Context context, String pkgName) {
+        synchronized (sSensorBlockedAppLock) {
+            final ArrayList<String> blockedApps = getSensorBlockedAppList(context);
+            boolean removed = false;
+            for (int i = blockedApps.size() - 1; i >= 0; i--) {
+                if (TextUtils.equals(blockedApps.get(i), pkgName)) {
+                    blockedApps.remove(i);
+                    removed = true;
+                }
+            }
+            if (removed) {
+                savePackageList(context, blockedApps);
             }
         }
     }
