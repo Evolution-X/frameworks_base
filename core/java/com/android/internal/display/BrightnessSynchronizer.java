@@ -100,8 +100,10 @@ public class BrightnessSynchronizer {
         }
         mLatestFloatBrightness = getScreenBrightnessFloat();
         mLatestIntBrightness = getScreenBrightnessInt();
-        Slog.i(TAG, "Initial brightness readings: " + mLatestIntBrightness + "(int), "
-                + mLatestFloatBrightness + "(float)");
+        if (DEBUG) {
+            Slog.i(TAG, "Initial brightness readings: " + mLatestIntBrightness + "(int), "
+                    + mLatestFloatBrightness + "(float)");
+        }
 
         if (!Float.isNaN(mLatestFloatBrightness)) {
             mPendingUpdate = new BrightnessUpdate(BrightnessUpdate.TYPE_FLOAT,
@@ -113,7 +115,9 @@ public class BrightnessSynchronizer {
             final float defaultBrightness = mContext.getResources().getFloat(
                     com.android.internal.R.dimen.config_screenBrightnessSettingDefaultFloat);
             mPendingUpdate = new BrightnessUpdate(BrightnessUpdate.TYPE_FLOAT, defaultBrightness);
-            Slog.i(TAG, "Setting initial brightness to default value of: " + defaultBrightness);
+            if (DEBUG) {
+                Slog.i(TAG, "Setting initial brightness to default value of: " + defaultBrightness);
+            }
         }
 
         mBrightnessSyncObserver.startObserving(mHandler);
@@ -213,7 +217,7 @@ public class BrightnessSynchronizer {
         runUpdate();
 
         // If we created a new update and it is still pending after the update, add a log.
-        if (!swallowUpdate && mPendingUpdate != null) {
+        if (DEBUG && !swallowUpdate && mPendingUpdate != null) {
             Slog.i(TAG, "New PendingUpdate: " + mPendingUpdate + ", prev=" + prevUpdate);
         }
     }
@@ -234,7 +238,7 @@ public class BrightnessSynchronizer {
                 if (mCurrentUpdate.isRunning()) {
                     break; // current update is still running, nothing to do.
                 } else if (mCurrentUpdate.isCompleted()) {
-                    if (mCurrentUpdate.madeUpdates()) {
+                    if (DEBUG && mCurrentUpdate.madeUpdates()) {
                         Slog.i(TAG, "Completed Update: " + mCurrentUpdate);
                     }
                     mCurrentUpdate = null;
@@ -359,10 +363,13 @@ public class BrightnessSynchronizer {
                         Slog.d(TAG, "Sending MSG_RUN_UPDATE for "
                                 + toStringLabel(mSourceType, mBrightness));
                     }
-                    Slog.i(TAG, "[" + mId + "] New Update "
-                            + toStringLabel(mSourceType, mBrightness) + " set brightness values: "
-                            + toStringLabel(mUpdatedTypes & TYPE_FLOAT, brightnessFloat) + " "
-                            + toStringLabel(mUpdatedTypes & TYPE_INT, brightnessInt));
+                    if (DEBUG) {
+                        Slog.i(TAG, "[" + mId + "] New Update "
+                                + toStringLabel(mSourceType, mBrightness)
+                                + " set brightness values: "
+                                + toStringLabel(mUpdatedTypes & TYPE_FLOAT, brightnessFloat) + " "
+                                + toStringLabel(mUpdatedTypes & TYPE_INT, brightnessInt));
+                    }
 
                     mHandler.sendEmptyMessageAtTime(MSG_RUN_UPDATE,
                             mClock.uptimeMillis() + WAIT_FOR_RESPONSE_MILLIS);
@@ -401,8 +408,10 @@ public class BrightnessSynchronizer {
 
             if (floatUpdateConfirmed || intUpdateConfirmed) {
                 mConfirmedTypes |= type;
-                Slog.i(TAG, "Swallowing update of " + toStringLabel(type, brightness)
-                        + " by update: " + this);
+                if (DEBUG) {
+                    Slog.i(TAG, "Swallowing update of " + toStringLabel(type, brightness)
+                            + " by update: " + this);
+                }
                 return true;
             }
             return false;

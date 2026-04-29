@@ -1257,11 +1257,13 @@ class LogicalDisplayMapper implements DisplayDeviceRepository.Listener {
             }
             newGroup.addDisplayLocked(display);
             display.updateDisplayGroupIdLocked(groupId);
-            Slog.i(TAG, "Setting new display group " + groupId + " for display "
-                    + displayId + ", from previous group: "
-                    + (oldGroup != null ? oldGroup.getGroupId() : "null")
-                    + ", for reason: " + mDisplayGroupAllocator.getReason()
-                    + ", with flags: " + newGroup.getFlags());
+            if (DEBUG) {
+                Slog.i(TAG, "Setting new display group " + groupId + " for display "
+                        + displayId + ", from previous group: "
+                        + (oldGroup != null ? oldGroup.getGroupId() : "null")
+                        + ", for reason: " + mDisplayGroupAllocator.getReason()
+                        + ", with flags: " + newGroup.getFlags());
+            }
         }
     }
 
@@ -1346,7 +1348,9 @@ class LogicalDisplayMapper implements DisplayDeviceRepository.Listener {
     private void applyLayoutLocked() {
         final Layout oldLayout = mCurrentLayout;
         mCurrentLayout = mDeviceStateToLayoutMap.get(mDeviceState.getIdentifier());
-        Slog.i(TAG, "Applying layout: " + mCurrentLayout + ", Previous layout: " + oldLayout);
+        if (DEBUG) {
+            Slog.i(TAG, "Applying layout: " + mCurrentLayout + ", Previous layout: " + oldLayout);
+        }
 
         // Go through each of the displays in the current layout set.
         final int size = mCurrentLayout.size();
