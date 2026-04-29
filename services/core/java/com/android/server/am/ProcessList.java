@@ -2991,27 +2991,29 @@ public final class ProcessList extends ProcessListInternal
 
         Watchdog.getInstance().processStarted(app.processName, pid);
 
-        checkSlow(app.getStartTime(), "startProcess: building log message");
-        StringBuilder buf = mStringBuilder;
-        buf.setLength(0);
-        buf.append("Start proc ");
-        buf.append(pid);
-        buf.append(':');
-        buf.append(app.processName);
-        buf.append('/');
-        UserHandle.formatUid(buf, app.getStartUid());
-        if (app.getIsolatedEntryPoint() != null) {
-            buf.append(" [");
-            buf.append(app.getIsolatedEntryPoint());
-            buf.append("]");
+        if (DEBUG_PROCESSES) {
+            checkSlow(app.getStartTime(), "startProcess: building log message");
+            StringBuilder buf = mStringBuilder;
+            buf.setLength(0);
+            buf.append("Start proc ");
+            buf.append(pid);
+            buf.append(':');
+            buf.append(app.processName);
+            buf.append('/');
+            UserHandle.formatUid(buf, app.getStartUid());
+            if (app.getIsolatedEntryPoint() != null) {
+                buf.append(" [");
+                buf.append(app.getIsolatedEntryPoint());
+                buf.append("]");
+            }
+            buf.append(" for ");
+            buf.append(app.getHostingRecord().getType());
+            if (app.getHostingRecord().getName() != null) {
+                buf.append(" ");
+                buf.append(app.getHostingRecord().getName());
+            }
+            mService.reportUidInfoMessageLocked(TAG, buf.toString(), app.getStartUid());
         }
-        buf.append(" for ");
-        buf.append(app.getHostingRecord().getType());
-        if (app.getHostingRecord().getName() != null) {
-            buf.append(" ");
-            buf.append(app.getHostingRecord().getName());
-        }
-        mService.reportUidInfoMessageLocked(TAG, buf.toString(), app.getStartUid());
         synchronized (mProcLock) {
             app.setPid(pid);
             app.setUsingWrapper(usingWrapper);

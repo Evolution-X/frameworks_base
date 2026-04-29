@@ -44,6 +44,7 @@ import java.util.Arrays;
 @android.ravenwood.annotation.RavenwoodKeepWholeClass
 public class ModemPowerProfile {
     private static final String TAG = "ModemPowerProfile";
+    private static final boolean DEBUG = false;
 
     private static final String TAG_SLEEP = "sleep";
     private static final String TAG_IDLE = "idle";
@@ -495,9 +496,11 @@ public class ModemPowerProfile {
             if (!Double.isNaN(value)) return value;
         }
 
-        Slog.w(TAG,
-                "getAverageBatteryDrainMaH called with unexpected key: 0x" + Integer.toHexString(
-                        key) + ", " + keyToString(key));
+        if (DEBUG) {
+            Slog.w(TAG,
+                    "getAverageBatteryDrainMaH called with unexpected key: 0x"
+                            + Integer.toHexString(key) + ", " + keyToString(key));
+        }
         return Double.NaN;
     }
 
