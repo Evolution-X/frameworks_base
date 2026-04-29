@@ -829,8 +829,6 @@ public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
     // Lineage sdk activity related helper
     private LineageActivityManager mLineageActivityManager;
 
-    private SystemSensorManager mSystemSensorManager;
-
     private final class SettingObserver extends ContentObserver {
         private final Uri mFontScaleUri = Settings.System.getUriFor(FONT_SCALE);
         private final Uri mHideErrorDialogsUri = Settings.Global.getUriFor(HIDE_ERROR_DIALOGS);
@@ -927,9 +925,6 @@ public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
         // LineageActivityManager depends on settings so we can initialize only
         // after providers are available.
         mLineageActivityManager = new LineageActivityManager(mContext);
-
-        // Block sensor usage per app
-        mSystemSensorManager = new SystemSensorManager(mContext, mContext.getMainLooper());
     }
 
     public void retrieveSettings(ContentResolver resolver) {
@@ -7082,10 +7077,8 @@ public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
                 mAppWarnings.onPackageUninstalled(name, userId);
                 mCompatModePackages.handlePackageUninstalledLocked(name);
                 mPackageConfigPersister.onPackageUninstall(name, userId);
-                if (mSystemSensorManager != null) {
-                   mSystemSensorManager.notePackageUninstalled(name);
-                }
             }
+            SystemSensorManager.removePackageFromSensorBlockList(mContext, name);
             mWindowStyleCache.invalidatePackage(name);
         }
 
