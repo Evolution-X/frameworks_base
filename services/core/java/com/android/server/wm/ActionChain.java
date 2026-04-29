@@ -48,6 +48,7 @@ import java.util.ArrayList;
  */
 public class ActionChain {
     private static final String TAG = "TransitionChain";
+    private static final boolean DEBUG = false;
 
     /**
      * Normal link type. This means the action was expected and is properly linked to the
@@ -181,7 +182,9 @@ public class ActionChain {
             return null;
         }
         if (isFinishing()) {
-            Slog.e(TAG, "Trying to collect into a finished transition");
+            if (DEBUG) {
+                Slog.e(TAG, "Trying to collect into a finished transition");
+            }
             return null;
         }
         if (transition.mController.getCollectingTransition() != mTransition) {

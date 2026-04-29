@@ -59,6 +59,7 @@ import java.util.UUID;
  */
 final class DreamController {
     private static final String TAG = "DreamController";
+    private static final boolean DEBUG = false;
 
     // How long we wait for a newly bound dream to create the service connection
     private static final int DREAM_CONNECTION_TIMEOUT = 5 * 1000;
@@ -180,9 +181,11 @@ final class DreamController {
             mContext.sendBroadcastAsUser(mCloseNotificationShadeIntent, UserHandle.ALL,
                     null /* receiverPermission */, mCloseNotificationShadeOptions);
 
-            Slog.i(TAG, "Starting dream: name=" + name
-                    + ", isPreviewMode=" + isPreviewMode + ", canDoze=" + canDoze
-                    + ", userId=" + userId + ", reason='" + reason + "'");
+            if (DEBUG) {
+                Slog.i(TAG, "Starting dream: name=" + name
+                        + ", isPreviewMode=" + isPreviewMode + ", canDoze=" + canDoze
+                        + ", userId=" + userId + ", reason='" + reason + "'");
+            }
 
             final DreamRecord oldDream = mCurrentDream;
             mCurrentDream = new DreamRecord(token, name, isPreviewMode, canDoze, userId, wakeLock);
@@ -265,7 +268,9 @@ final class DreamController {
      * if there hasn't been any user interaction in a while.
      */
     private void resetScreenTimeout() {
-        Slog.i(TAG, "Resetting screen timeout");
+        if (DEBUG) {
+            Slog.i(TAG, "Resetting screen timeout");
+        }
         long time = SystemClock.uptimeMillis();
         mPowerManager.userActivity(time, USER_ACTIVITY_EVENT_OTHER,
                 USER_ACTIVITY_FLAG_NO_CHANGE_LIGHTS);
@@ -329,13 +334,15 @@ final class DreamController {
                 }
             }
 
-            Slog.i(TAG, "Stopping dream: name=" + dream.mName
-                    + ", isPreviewMode=" + dream.mIsPreviewMode
-                    + ", canDoze=" + dream.mCanDoze
-                    + ", userId=" + dream.mUserId
-                    + ", reason='" + reason + "'"
-                    + (dream.mStopReason == null ? "" : "(from '"
-                    + dream.mStopReason + "')"));
+            if (DEBUG) {
+                Slog.i(TAG, "Stopping dream: name=" + dream.mName
+                        + ", isPreviewMode=" + dream.mIsPreviewMode
+                        + ", canDoze=" + dream.mCanDoze
+                        + ", userId=" + dream.mUserId
+                        + ", reason='" + reason + "'"
+                        + (dream.mStopReason == null ? "" : "(from '"
+                        + dream.mStopReason + "')"));
+            }
             MetricsLogger.hidden(mContext,
                     dream.mCanDoze ? MetricsEvent.DOZING : MetricsEvent.DREAMING);
             MetricsLogger.histogram(mContext,
