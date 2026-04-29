@@ -2673,12 +2673,14 @@ public final class PowerManagerService extends SystemService
 
             case WAKEFULNESS_AWAKE:
                 traceMethodName = "wakeUp";
-                Slog.i(TAG, "Waking up from "
-                        + PowerManagerInternal.wakefulnessToString(currentWakefulness)
-                        + " (uid=" + uid
-                        + ", reason=" + PowerManager.wakeReasonToString(reason)
-                        + ", details=" + details
-                        + ")...");
+                if (DEBUG) {
+                    Slog.i(TAG, "Waking up from "
+                            + PowerManagerInternal.wakefulnessToString(currentWakefulness)
+                            + " (uid=" + uid
+                            + ", reason=" + PowerManager.wakeReasonToString(reason)
+                            + ", details=" + details
+                            + ")...");
+                }
                 mLastGlobalWakeTime = eventTime;
                 mLastGlobalWakeReason = reason;
                 mLastGlobalWakeTimeRealtime = mClock.elapsedRealtime();
@@ -4032,10 +4034,12 @@ public final class PowerManagerService extends SystemService
             // Remember the initial battery level when the dream started.
             if (startDreaming && isDreaming) {
                 mDreamsBatteryLevelDrain = 0;
-                if (wakefulness == WAKEFULNESS_DOZING) {
-                    Slog.i(TAG, "Dozing...");
-                } else {
-                    Slog.i(TAG, "Dreaming...");
+                if (DEBUG) {
+                    if (wakefulness == WAKEFULNESS_DOZING) {
+                        Slog.i(TAG, "Dozing...");
+                    } else {
+                        Slog.i(TAG, "Dreaming...");
+                    }
                 }
             }
 
