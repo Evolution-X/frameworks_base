@@ -996,7 +996,10 @@ final class LocalDisplayAdapter extends DisplayAdapter {
                             final long start = SystemClock.uptimeMillis();
                             mSurfaceControlProxy.setDisplayPowerMode(token, mode);
                             final long end = SystemClock.uptimeMillis();
-                            Slog.i(TAG, "SF.setDisplayPowerMode took " + (end - start) + "ms");
+                            if (DEBUG) {
+                                Slog.i(TAG, "SF.setDisplayPowerMode took " + (end - start)
+                                        + "ms");
+                            }
                             Trace.traceCounter(Trace.TRACE_TAG_POWER, "DisplayPowerMode", mode);
                         } finally {
                             Trace.traceEnd(Trace.TRACE_TAG_POWER);
