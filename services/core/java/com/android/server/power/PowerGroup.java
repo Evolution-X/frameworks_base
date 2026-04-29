@@ -232,8 +232,10 @@ public class PowerGroup {
      * as it can fail in that attempt
      */
     public void setDreamManagerAttemptedDozingLocked(boolean dreamManagerAttemptedDozing) {
-        Slog.i(TAG, "dreamManagerAttemptedDozing status changed to "
-                + dreamManagerAttemptedDozing + " for group " + mGroupId);
+        if (DEBUG) {
+            Slog.i(TAG, "dreamManagerAttemptedDozing status changed to "
+                    + dreamManagerAttemptedDozing + " for group " + mGroupId);
+        }
         mDreamManagerAttemptedDozing = dreamManagerAttemptedDozing;
     }
 
@@ -321,13 +323,15 @@ public class PowerGroup {
 
         Trace.traceBegin(Trace.TRACE_TAG_POWER, "wakePowerGroup" + mGroupId);
         try {
-            Slog.i(TAG, "Waking up power group from "
-                    + PowerManagerInternal.wakefulnessToString(mWakefulness)
-                    + " (groupId=" + mGroupId
-                    + ", uid=" + uid
-                    + ", reason=" + PowerManager.wakeReasonToString(reason)
-                    + ", details=" + details
-                    + ")...");
+            if (DEBUG) {
+                Slog.i(TAG, "Waking up power group from "
+                        + PowerManagerInternal.wakefulnessToString(mWakefulness)
+                        + " (groupId=" + mGroupId
+                        + ", uid=" + uid
+                        + ", reason=" + PowerManager.wakeReasonToString(reason)
+                        + ", details=" + details
+                        + ")...");
+            }
             Trace.asyncTraceBegin(Trace.TRACE_TAG_POWER, TRACE_SCREEN_ON, mGroupId);
             // The instrument will be timed out automatically after 2 seconds.
             latencyTracker.onActionStart(ACTION_TURN_ON_SCREEN, String.valueOf(mGroupId));
@@ -357,7 +361,10 @@ public class PowerGroup {
 
         Trace.traceBegin(Trace.TRACE_TAG_POWER, "dreamPowerGroup" + getGroupId());
         try {
-            Slog.i(TAG, "Napping power group (groupId=" + getGroupId() + ", uid=" + uid + ")...");
+            if (DEBUG) {
+                Slog.i(TAG, "Napping power group (groupId=" + getGroupId() + ", uid=" + uid
+                        + ")...");
+            }
             setSandmanSummonedLocked(true);
             setWakefulnessLocked(
                     WAKEFULNESS_DREAMING,
@@ -402,12 +409,14 @@ public class PowerGroup {
                     Math.max(reason, PowerManager.GO_TO_SLEEP_REASON_MIN));
             long millisSinceLastUserActivity = eventTime - Math.max(
                     mLastUserActivityTimeNoChangeLights, mLastUserActivityTime);
-            Slog.i(TAG, "Powering off display group due to "
-                    + PowerManager.sleepReasonToString(reason)
-                    + " (groupId= " + getGroupId() + ", uid= " + uid
-                    + ", millisSinceLastUserActivity=" + millisSinceLastUserActivity
-                    + ", lastUserActivityEvent=" + PowerManager.userActivityEventToString(
-                    mLastUserActivityEvent) + ")...");
+            if (DEBUG) {
+                Slog.i(TAG, "Powering off display group due to "
+                        + PowerManager.sleepReasonToString(reason)
+                        + " (groupId= " + getGroupId() + ", uid= " + uid
+                        + ", millisSinceLastUserActivity=" + millisSinceLastUserActivity
+                        + ", lastUserActivityEvent=" + PowerManager.userActivityEventToString(
+                        mLastUserActivityEvent) + ")...");
+            }
 
             setSandmanSummonedLocked(/* isSandmanSummoned= */ true);
             setWakefulnessLocked(WAKEFULNESS_DOZING, eventTime, uid, reason, /* opUid= */ 0,
@@ -425,9 +434,11 @@ public class PowerGroup {
 
         Trace.traceBegin(Trace.TRACE_TAG_POWER, "sleepPowerGroup");
         try {
-            Slog.i(TAG,
-                    "Sleeping power group (groupId=" + getGroupId() + ", uid=" + uid + ", reason="
-                            + PowerManager.sleepReasonToString(reason) + ")...");
+            if (DEBUG) {
+                Slog.i(TAG,
+                        "Sleeping power group (groupId=" + getGroupId() + ", uid=" + uid
+                                + ", reason=" + PowerManager.sleepReasonToString(reason) + ")...");
+            }
             setSandmanSummonedLocked(/* isSandmanSummoned= */ true);
             setWakefulnessLocked(WAKEFULNESS_ASLEEP, eventTime, uid, reason, /* opUid= */0,
                     /* opPackageName= */ null, /* details= */ null);
