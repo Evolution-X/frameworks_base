@@ -207,6 +207,12 @@ public class ApplicationPackageManager extends PackageManager {
 
     private final boolean mUseSystemFeaturesCache;
 
+    // Spoof setting caches — refreshed by ContentObserver, avoids per-call Settings reads
+    private static volatile boolean sTensorGlobalEnabled = false;
+    private static volatile Set<String> sTensorTargets = null;
+    private static volatile boolean sPhotosSpoofEnabled = true;
+    private static boolean sSpoofObserverRegistered = false;
+
     UserManager getUserManager() {
         if (mUserManager == null) {
             mUserManager = UserManager.get(mContext);
@@ -795,10 +801,15 @@ public class ApplicationPackageManager extends PackageManager {
             final List<FeatureInfo> list = new ArrayList<>(parceledList.getList());
 
             // Inject Tensor features when toggle is enabled
-            final boolean forceTensor = !Process.isIsolated() && Settings.Secure.getInt(
-                    mContext.getContentResolver(), Settings.Secure.PI_TENSOR_SPOOF, 0) == 1;
+            final String callingPkg = ActivityThread.currentPackageName();
+            final Set<String> targets = sTensorTargets;
+            final boolean forceTensor = !IS_TENSOR_DEVICE
+                    && sTensorGlobalEnabled
+                    && callingPkg != null
+                    && targets != null
+                    && targets.contains(callingPkg);
 
-            if (forceTensor && !IS_TENSOR_DEVICE) {
+            if (forceTensor) {
                 for (String feature : FEATURES_TENSOR) {
                     boolean exists = false;
 
@@ -948,8 +959,7 @@ public class ApplicationPackageManager extends PackageManager {
         if (name != null && pkg != null && PRIV_PKGS.contains(pkg)) {
             final boolean photosSpoof = !Process.isIsolated()
                 && "com.google.android.apps.photos".equals(pkg)
-                && (Settings.Secure.getInt(mContext.getContentResolver(),
-                Settings.Secure.PI_PHOTOS_SPOOF, 1) == 1);
+                && sPhotosSpoofEnabled;
             if (photosSpoof) {
                 if (FEATURES_PIXEL.contains(name)) return false;
                 if (FEATURES_PIXEL_OTHERS.contains(name)) return true;
@@ -964,21 +974,21 @@ public class ApplicationPackageManager extends PackageManager {
         }
 
         if (name != null && FEATURES_TENSOR.contains(name)) {
-            final boolean forceTensor = !Process.isIsolated() && Settings.Secure.getInt(
-                    mContext.getContentResolver(), Settings.Secure.PI_TENSOR_SPOOF, 0) == 1;
-
             // Do not interfere with real Tensor devices
             if (IS_TENSOR_DEVICE) {
                 return mHasSystemFeatureCache.query(
                         new HasSystemFeatureQuery(name, version));
             }
 
-            // Only override if user explicitly enabled the toggle
-            if (forceTensor) {
+            // Check cached tensor targets — populated once and refreshed via ContentObserver
+            final Set<String> targets = sTensorTargets;
+            if (sTensorGlobalEnabled
+                    && pkg != null
+                    && targets != null
+                    && targets.contains(pkg)) {
                 return true;
             }
 
-            // Otherwise, behave like stock
             return mHasSystemFeatureCache.query(
                     new HasSystemFeatureQuery(name, version));
         }
@@ -2446,6 +2456,47 @@ public class ApplicationPackageManager extends PackageManager {
         mContext = context;
         mPM = pm;
         mUseSystemFeaturesCache = isSystemFeaturesCacheAvailable();
+        if (!Process.isIsolated()) {
+            registerSpoofSettingsObserver();
+        }
+    }
+
+    private void registerSpoofSettingsObserver() {
+        synchronized (ApplicationPackageManager.class) {
+            if (sSpoofObserverRegistered) return;
+            sSpoofObserverRegistered = true;
+        }
+        final ContentResolver cr = mContext.getContentResolver();
+        final Runnable refresh = () -> {
+            try {
+                sTensorGlobalEnabled = Settings.Secure.getInt(
+                        cr, "pi_tensor_spoof", 0) == 1;
+                final String raw = Settings.Secure.getString(cr, "tensor_targets");
+                sTensorTargets = (raw == null || raw.isEmpty())
+                        ? Collections.emptySet()
+                        : new ArraySet<>(Arrays.asList(raw.split(",")));
+                sPhotosSpoofEnabled = Settings.Secure.getInt(
+                        cr, Settings.Secure.PI_PHOTOS_SPOOF, 1) == 1;
+            } catch (Throwable t) {
+                // Settings provider not ready yet; cache stays at safe defaults
+            }
+        };
+        try {
+            final android.database.ContentObserver observer =
+                    new android.database.ContentObserver(null) {
+                @Override
+                public void onChange(boolean selfChange) { refresh.run(); }
+            };
+            cr.registerContentObserver(
+                    Settings.Secure.getUriFor("pi_tensor_spoof"), false, observer);
+            cr.registerContentObserver(
+                    Settings.Secure.getUriFor("tensor_targets"), false, observer);
+            cr.registerContentObserver(
+                    Settings.Secure.getUriFor(Settings.Secure.PI_PHOTOS_SPOOF), false, observer);
+        } catch (Throwable t) {
+            // Observer registration failed; feature will remain disabled
+        }
+        refresh.run();
     }
 
     private static boolean isSystemFeaturesCacheAvailable() {
