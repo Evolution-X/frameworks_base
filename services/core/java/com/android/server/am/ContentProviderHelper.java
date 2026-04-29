@@ -109,6 +109,7 @@ import java.util.Objects;
  */
 public class ContentProviderHelper {
     private static final String TAG = "ContentProviderHelper";
+    private static final boolean DEBUG = false;
 
     private final ActivityManagerService mService;
 
@@ -1207,8 +1208,10 @@ public class ContentProviderHelper {
 
     int checkContentProviderUriPermission(Uri uri, int userId, int callingUid, int modeFlags) {
         if (Thread.holdsLock(mService.mActivityTaskManager.getGlobalLock())) {
-            Slog.wtf(TAG, new IllegalStateException("Unable to check Uri permission"
-                    + " because caller is holding WM lock; assuming permission denied"));
+            if (DEBUG) {
+                Slog.w(TAG, "Unable to check Uri permission because caller is holding WM lock; "
+                        + "assuming permission denied");
+            }
             return PackageManager.PERMISSION_DENIED;
         }
 
