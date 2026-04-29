@@ -1515,18 +1515,32 @@ private fun ContentScope.MediaObject(
 }
 
 @Composable
-fun rememberShowMediaPlayer(): Boolean {
+fun rememberShowMediaPlayer(): Int {
     val context = LocalContext.current
-    return remember {
-        val cr = context.contentResolver
-        try {
-            Settings.Secure.getIntForUser(
-                cr, Settings.Secure.QS_SHOW_MEDIA_PLAYER, 1, UserHandle.USER_CURRENT
-            ) == 1
-        } catch (_: Throwable) {
-            true
+    val cr = context.contentResolver
+
+    fun read(): Int = try {
+        Settings.Secure.getIntForUser(
+            cr, Settings.Secure.QS_SHOW_MEDIA_PLAYER, 2, UserHandle.USER_CURRENT
+        )
+    } catch (_: Throwable) { 2 }
+
+    var position by remember { mutableIntStateOf(read()) }
+
+    DisposableEffect(Unit) {
+        val observer = object : ContentObserver(null) {
+            override fun onChange(selfChange: Boolean) {
+                context.mainExecutor.execute { position = read() }
+            }
         }
+        cr.registerContentObserver(
+            Settings.Secure.getUriFor(Settings.Secure.QS_SHOW_MEDIA_PLAYER),
+            false, observer, UserHandle.USER_ALL,
+        )
+        onDispose { cr.unregisterContentObserver(observer) }
     }
+
+    return position
 }
 
 @Composable
@@ -1568,17 +1582,21 @@ fun QuickQuickSettingsLayout(
     val brightnessSettings = rememberQsBrightnessSettings()
     val sliderAtTop = brightnessSettings.sliderAtTop
     val showSlider = brightnessSettings.showSlider
-    val showMediaPlayer = rememberShowMediaPlayer()
+    val mediaPosition = rememberShowMediaPlayer()
     val widgetPanelEnabled = rememberWidgetPanelEnabled()
 
     Column(verticalArrangement = spacedBy(dimensionResource(R.dimen.qs_tile_margin_vertical))) {
         Spacer(modifier = Modifier.height { if (widgetPanelEnabled) 4.dp.roundToPx() else 0 })
 
+        if (mediaPosition == 1 && !mediaInRow) {
+            media()
+        }
+
         if (showSlider == 2 && sliderAtTop) {
             brightness()
         }
 
-        if (mediaInRow && showMediaPlayer) {
+        if (mediaInRow && mediaPosition != 0) {
             Row(
                 horizontalArrangement = spacedBy(dimensionResource(R.dimen.qs_tile_margin_vertical)),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1594,7 +1612,7 @@ fun QuickQuickSettingsLayout(
             brightness()
         }
 
-        if (showMediaPlayer && !mediaInRow) {
+        if (mediaPosition == 2 && !mediaInRow) {
             media()
         }
     }
@@ -1612,17 +1630,21 @@ fun QuickSettingsLayout(
     val brightnessSettings = rememberQsBrightnessSettings()
     val sliderAtTop = brightnessSettings.sliderAtTop
     val showSlider = brightnessSettings.showSlider
-    val showMediaPlayer = rememberShowMediaPlayer()
+    val mediaPosition = rememberShowMediaPlayer()
 
     Column(
         verticalArrangement = spacedBy(dimensionResource(R.dimen.qs_tile_margin_vertical)),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        if (mediaPosition == 1 && !mediaInRow) {
+            media()
+        }
+
         if (showSlider != 0 && sliderAtTop) {
             brightness()
         }
 
-        if (mediaInRow && showMediaPlayer) {
+        if (mediaInRow && mediaPosition != 0) {
             Row(
                 horizontalArrangement = spacedBy(QuickSettingsShade.Dimensions.Padding),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1638,7 +1660,7 @@ fun QuickSettingsLayout(
             brightness()
         }
 
-        if (showMediaPlayer && !mediaInRow) {
+        if (mediaPosition == 2 && !mediaInRow) {
             media()
         }
     }
