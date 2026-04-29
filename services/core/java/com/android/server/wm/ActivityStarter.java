@@ -985,7 +985,9 @@ class ActivityStarter {
     private void logResult(int res) {
         mSupervisor.getLaunchParamsController().flushLog();
         mRequest.logMessage.append(" result code=").append(res);
-        Slog.i(TAG, mRequest.logMessage.toString());
+        if (DEBUG_RESULTS) {
+            Slog.i(TAG, mRequest.logMessage.toString());
+        }
         mRequest.logMessage.setLength(0);
     }
 
@@ -3103,8 +3105,10 @@ class ActivityStarter {
                 // This activity is not being started from another...  in this
                 // case we -always- start a new task.
                 if ((mLaunchFlags & FLAG_ACTIVITY_NEW_TASK) == 0 && mInTask == null) {
-                    Slog.w(TAG, "startActivity called from non-Activity context; forcing " +
-                            "Intent.FLAG_ACTIVITY_NEW_TASK for: " + mIntent);
+                    if (DEBUG_RESULTS) {
+                        Slog.w(TAG, "startActivity called from non-Activity context; forcing "
+                                + "Intent.FLAG_ACTIVITY_NEW_TASK for: " + mIntent);
+                    }
                     mLaunchFlags |= FLAG_ACTIVITY_NEW_TASK;
                 }
             } else if (mSourceRecord.launchMode == LAUNCH_SINGLE_INSTANCE) {
