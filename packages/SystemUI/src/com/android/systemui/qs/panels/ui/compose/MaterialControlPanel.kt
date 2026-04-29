@@ -97,7 +97,7 @@ fun MaterialControlPanel(
                     Settings.Secure.putIntForUser(
                         cr,
                         Settings.Secure.QS_SHOW_MEDIA_PLAYER,
-                        if (nowEnabled) 0 else 1,
+                        if (enabled) 0 else 2,
                         UserHandle.USER_CURRENT,
                     )
                 } catch (_: Exception) {}
@@ -122,7 +122,7 @@ fun MaterialControlPanel(
             Settings.Secure.putIntForUser(
                 cr,
                 Settings.Secure.QS_SHOW_MEDIA_PLAYER,
-                if (enabled) 0 else 1,
+                if (enabled) 0 else 2,
                 UserHandle.USER_CURRENT,
             )
         } catch (_: Exception) {}
