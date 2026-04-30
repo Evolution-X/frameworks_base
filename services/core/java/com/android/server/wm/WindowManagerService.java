@@ -446,8 +446,10 @@ public class WindowManagerService extends IWindowManager.Stub
     /** Indicates we are removing the focused window when updating the focus. */
     static final int UPDATE_FOCUS_REMOVING_FOCUS = 4;
 
-    private static final String SYSTEM_SECURE = "ro.secure";
-    private static final String SYSTEM_DEBUGGABLE = "ro.debuggable";
+    private static final boolean SYSTEM_SECURE = SystemProperties.getBoolean("ro.secure", true);
+    private static final boolean SYSTEM_DEBUGGABLE =
+            SystemProperties.getBoolean("ro.debuggable", false);
+    private static final String WINDOW_IGNORE_SECURE = "window_ignore_secure";
 
     private static final String DENSITY_OVERRIDE = "ro.config.density_override";
     private static final String SIZE_OVERRIDE = "ro.config.size_override";
@@ -838,6 +840,8 @@ public class WindowManagerService extends IWindowManager.Stub
                 Settings.Secure.getUriFor(Settings.Secure.IMMERSIVE_MODE_CONFIRMATIONS);
         private final Uri mDisableSecureWindowsUri =
                 Settings.Secure.getUriFor(Settings.Secure.DISABLE_SECURE_WINDOWS);
+        private final Uri mWindowIgnoreSecureUri =
+                Settings.Secure.getUriFor(WINDOW_IGNORE_SECURE);
         private final Uri mMagnifyImeEnabledUri = Settings.Secure.getUriFor(
                 Settings.Secure.ACCESSIBILITY_MAGNIFICATION_MAGNIFY_NAV_AND_IME);
         private final Uri mPolicyControlUri =
@@ -877,6 +881,8 @@ public class WindowManagerService extends IWindowManager.Stub
             resolver.registerContentObserver(mImmersiveModeConfirmationsUri, false, this,
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(mDisableSecureWindowsUri, false, this,
+                    UserHandle.USER_ALL);
+            resolver.registerContentObserver(mWindowIgnoreSecureUri, false, this,
                     UserHandle.USER_ALL);
             if (com.android.server.accessibility.Flags.enableMagnificationMagnifyNavBarAndIme()) {
                 resolver.registerContentObserver(mMagnifyImeEnabledUri, false, this,
@@ -938,7 +944,7 @@ public class WindowManagerService extends IWindowManager.Stub
                 return;
             }
 
-            if (mDisableSecureWindowsUri.equals(uri)) {
+            if (mDisableSecureWindowsUri.equals(uri) || mWindowIgnoreSecureUri.equals(uri)) {
                 updateDisableSecureWindows();
                 return;
             }
@@ -1060,23 +1066,26 @@ public class WindowManagerService extends IWindowManager.Stub
         }
 
         void updateDisableSecureWindows() {
-            if (!SystemProperties.getBoolean(SYSTEM_DEBUGGABLE, false)) {
-                return;
+            final ContentResolver resolver = mContext.getContentResolver();
+            final boolean ignoreSecureWindows =
+                    Settings.Secure.getInt(resolver, WINDOW_IGNORE_SECURE, 0) == 1;
+            boolean disableSecureWindows = false;
+            if (SYSTEM_DEBUGGABLE) {
+                try {
+                    disableSecureWindows = Settings.Secure.getIntForUser(resolver,
+                            Settings.Secure.DISABLE_SECURE_WINDOWS, 0) != 0;
+                } catch (Settings.SettingNotFoundException e) {
+                    disableSecureWindows = false;
+                }
             }
-
-            boolean disableSecureWindows;
-            try {
-                disableSecureWindows = Settings.Secure.getIntForUser(mContext.getContentResolver(),
-                        Settings.Secure.DISABLE_SECURE_WINDOWS, 0) != 0;
-            } catch (Settings.SettingNotFoundException e) {
-                disableSecureWindows = false;
-            }
-            if (mDisableSecureWindows == disableSecureWindows) {
+            if (mDisableSecureWindows == disableSecureWindows
+                    && mIgnoreSecureWindows == ignoreSecureWindows) {
                 return;
             }
 
             synchronized (mGlobalLock) {
                 mDisableSecureWindows = disableSecureWindows;
+                mIgnoreSecureWindows = ignoreSecureWindows;
                 mRoot.refreshSecureSurfaceState();
             }
         }
@@ -1256,6 +1265,7 @@ public class WindowManagerService extends IWindowManager.Stub
     private final ScreenRecordingCallbackController mScreenRecordingCallbackController;
 
     private volatile boolean mDisableSecureWindows = false;
+    private volatile boolean mIgnoreSecureWindows = false;
 
     /** Creates an instance of the WindowManagerService for the system server. */
     public static WindowManagerService main(@NonNull final Context context,
@@ -5495,8 +5505,7 @@ public class WindowManagerService extends IWindowManager.Stub
     }
 
     private boolean isSystemSecure() {
-        return "1".equals(SystemProperties.get(SYSTEM_SECURE, "1")) &&
-                "0".equals(SystemProperties.get(SYSTEM_DEBUGGABLE, "0"));
+        return SYSTEM_SECURE && !SYSTEM_DEBUGGABLE;
     }
 
     /**
@@ -7313,6 +7322,7 @@ public class WindowManagerService extends IWindowManager.Stub
         });
         pw.print("  mBlurEnabled="); pw.println(mBlurController.getBlurEnabled());
         pw.print("  mDisableSecureWindows="); pw.println(mDisableSecureWindows);
+        pw.print("  mIgnoreSecureWindows="); pw.println(mIgnoreSecureWindows);
 
         mInputManagerCallback.dump(pw, "  ");
         mSnapshotController.dump(pw, " ");
@@ -10961,8 +10971,7 @@ public class WindowManagerService extends IWindowManager.Stub
     }
 
     boolean getDisableSecureWindows() {
-        return Settings.Global.getInt(mContext.getContentResolver(),
-                Settings.Global.WINDOW_IGNORE_SECURE, 0) == 1 || mDisableSecureWindows;
+        return mIgnoreSecureWindows || mDisableSecureWindows;
     }
 
     /**
