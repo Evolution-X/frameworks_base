@@ -153,6 +153,7 @@ public final class DeviceStateProviderImplTest {
 
         verify(listener).onStateChanged(mIntegerCaptor.capture());
         assertEquals(DEFAULT_DEVICE_STATE.getIdentifier(), mIntegerCaptor.getValue().intValue());
+        verify(mContext, never()).getSystemService(eq(SENSOR_SERVICE));
     }
 
     @Test
@@ -298,6 +299,7 @@ public final class DeviceStateProviderImplTest {
                 eq(SUPPORTED_DEVICE_STATES_CHANGED_INITIALIZED));
         verify(listener).onStateChanged(mIntegerCaptor.capture());
         assertEquals(1, mIntegerCaptor.getValue().intValue());
+        verify(mContext, never()).getSystemService(eq(SENSOR_SERVICE));
     }
 
     private DeviceStateProviderImpl create_sensorBasedProvider(Sensor sensor) {
