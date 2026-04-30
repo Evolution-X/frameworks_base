@@ -421,6 +421,7 @@ public final class DeviceStateProviderImpl implements DeviceStateProvider,
 
         // The set of Sensor(s) that this instance should register to receive SensorEvent(s) from.
         final ArraySet<Sensor> sensorsToListenTo = new ArraySet<>();
+        SensorManager sensorManager = null;
 
         for (int i = 0; i < stateConditions.size(); i++) {
             final int state = deviceStates.get(i).getIdentifier();
@@ -460,12 +461,24 @@ public final class DeviceStateProviderImpl implements DeviceStateProvider,
             }
 
             List<SensorCondition> sensorConditions = conditions.getSensor();
+            if (!sensorConditions.isEmpty() && sensorManager == null) {
+                sensorManager = mContext.getSystemService(SensorManager.class);
+                if (sensorManager == null) {
+                    Slog.e(TAG, "SensorManager is unavailable.");
+                    allRequiredComponentsFound = false;
+                }
+            }
             for (int j = 0; j < sensorConditions.size(); j++) {
                 SensorCondition sensorCondition = sensorConditions.get(j);
                 final String expectedSensorType = sensorCondition.getType();
                 final String expectedSensorName = sensorCondition.getName();
 
-                final Sensor foundSensor = findSensor(expectedSensorType, expectedSensorName);
+                if (!allRequiredComponentsFound) {
+                    break;
+                }
+
+                final Sensor foundSensor =
+                        findSensor(sensorManager, expectedSensorType, expectedSensorName);
                 if (foundSensor == null) {
                     Slog.e(TAG, "Failed to find Sensor with type: " + expectedSensorType
                             + " and name: " + expectedSensorName);
@@ -508,7 +521,6 @@ public final class DeviceStateProviderImpl implements DeviceStateProvider,
             inputManager.registerLidSwitchCallback(this);
         }
 
-        final SensorManager sensorManager = mContext.getSystemService(SensorManager.class);
         for (int i = 0; i < sensorsToListenTo.size(); i++) {
             Sensor sensor = sensorsToListenTo.valueAt(i);
             sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_FASTEST);
@@ -516,8 +528,7 @@ public final class DeviceStateProviderImpl implements DeviceStateProvider,
     }
 
     @Nullable
-    private Sensor findSensor(String type, String name) {
-        final SensorManager sensorManager = mContext.getSystemService(SensorManager.class);
+    private Sensor findSensor(@NonNull SensorManager sensorManager, String type, String name) {
         final List<Sensor> sensors = sensorManager.getSensorList(Sensor.TYPE_ALL);
         for (int sensorIndex = 0; sensorIndex < sensors.size(); sensorIndex++) {
             final Sensor sensor = sensors.get(sensorIndex);
