@@ -71,6 +71,7 @@ class WallpaperController {
     // with the wallpaper.
     private WindowState mWallpaperTarget = null;
 
+    private static final float WALLPAPER_ZOOM_EPSILON = 0.003f;
     private float mLastWallpaperZoomOut = 0;
     private WindowState mMaxZoomOutWindow = null;
 
@@ -426,22 +427,23 @@ class WallpaperController {
     }
 
     void setWallpaperZoomOut(WindowState window, float zoom) {
-        if (Float.compare(window.mWallpaperZoomOut, zoom) != 0) {
-            float oldMaxZoom = mLastWallpaperZoomOut;
-            window.mWallpaperZoomOut = zoom;
+        if (Math.abs(window.mWallpaperZoomOut - zoom) < WALLPAPER_ZOOM_EPSILON) {
+            return;
+        }
+        final float oldMaxZoom = mLastWallpaperZoomOut;
+        window.mWallpaperZoomOut = zoom;
 
-            if (Float.compare(zoom, mLastWallpaperZoomOut) > 0) {
-                mLastWallpaperZoomOut = zoom;
-                mMaxZoomOutWindow = window;
-            } else if (window == mMaxZoomOutWindow || Float.compare(oldMaxZoom, mLastWallpaperZoomOut) == 0) {
-                computeLastWallpaperZoomOut();
-            }
+        if (zoom > mLastWallpaperZoomOut + WALLPAPER_ZOOM_EPSILON) {
+            mLastWallpaperZoomOut = zoom;
+            mMaxZoomOutWindow = window;
+        } else if (window == mMaxZoomOutWindow) {
+            computeLastWallpaperZoomOut();
+        }
 
-            if (Float.compare(oldMaxZoom, mLastWallpaperZoomOut) != 0) {
-                for (int i = mWallpaperTokens.size() - 1; i >= 0; i--) {
-                    final WallpaperWindowToken token = mWallpaperTokens.get(i);
-                    token.updateWallpaperOffset();
-                }
+        if (Math.abs(oldMaxZoom - mLastWallpaperZoomOut) >= WALLPAPER_ZOOM_EPSILON) {
+            for (int i = mWallpaperTokens.size() - 1; i >= 0; i--) {
+                final WallpaperWindowToken token = mWallpaperTokens.get(i);
+                token.updateWallpaperOffset();
             }
         }
     }
