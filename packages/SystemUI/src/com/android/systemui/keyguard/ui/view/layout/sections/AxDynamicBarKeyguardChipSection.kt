@@ -21,6 +21,7 @@ import com.android.systemui.res.R
 import com.android.systemui.shade.ShadeDisplayAware
 import com.android.systemui.statusbar.KeyguardIndicationController
 import com.android.systemui.util.ScrimUtils
+import com.android.systemui.util.WallpaperDepthUtils
 import javax.inject.Inject
 import kotlinx.coroutines.DisposableHandle
 import kotlinx.coroutines.flow.collectLatest
@@ -122,6 +123,7 @@ constructor(
         expanded: Boolean,
         lowUdfps: Boolean,
     ) {
+        WallpaperDepthUtils.get()?.setDynamicBarExpanded(expanded)
         rebindPreDrawAction(constraintLayout, expanded)
         TransitionManager.endTransitions(constraintLayout)
         if (expanded) {
@@ -147,12 +149,17 @@ constructor(
             v.alpha = 1f
             if (v.visibility != visibility) v.visibility = visibility
         }
+         WallpaperDepthUtils.get()?.let {
+            if (visibility == View.INVISIBLE) it.hideDepthWallpaper()
+            else it.updateDepthWallpaperVisibility()
+        }
     }
 
     private fun enforceHidden(constraintLayout: ConstraintLayout) {
         hiddenTargets(constraintLayout).forEach { v ->
             if (v.visibility != View.INVISIBLE) v.visibility = View.INVISIBLE
         }
+        WallpaperDepthUtils.get()?.hideDepthWallpaper()
     }
 
     override fun applyConstraints(constraintSet: ConstraintSet) {
@@ -238,6 +245,7 @@ constructor(
         TransitionManager.endTransitions(constraintLayout)
         enforceAction?.let { ScrimUtils.get().removeKeyguardPreDrawAction(it) }
         enforceAction = null
+        WallpaperDepthUtils.get()?.setDynamicBarExpanded(false)
         expansionHandle?.dispose()
         expansionHandle = null
         bindHandle?.dispose()
