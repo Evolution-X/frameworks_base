@@ -65,6 +65,7 @@ import android.os.Trace;
 import android.os.UserHandle;
 import android.permission.PermissionManager;
 import android.text.TextUtils;
+import android.util.ArrayMap;
 import android.util.ArraySet;
 import android.util.Slog;
 import android.view.IWindow;
@@ -129,6 +130,9 @@ class Session extends IWindowSession.Stub implements IBinder.DeathRecipient {
     private String mRelayoutTag;
     private final InsetsSourceControl.Array mDummyControls =  new InsetsSourceControl.Array();
     final boolean mSetsUnrestrictedKeepClearAreas;
+    private final ArrayMap<IBinder, Float> mPendingWallpaperZoomOut = new ArrayMap<>();
+    private final Runnable mApplyPendingWallpaperZoomOut = this::applyPendingWallpaperZoomOut;
+    private boolean mApplyWallpaperZoomOutPending;
 
     public Session(WindowManagerService service, IWindowSessionCallback callback) {
         this(service, callback, Binder.getCallingPid(), Binder.getCallingUid());
@@ -603,10 +607,30 @@ class Session extends IWindowSession.Stub implements IBinder.DeathRecipient {
                     + zoom);
         }
         synchronized (mService.mGlobalLock) {
+            mPendingWallpaperZoomOut.put(window, zoom);
+            if (!mApplyWallpaperZoomOutPending) {
+                mApplyWallpaperZoomOutPending = true;
+                mService.mH.post(mApplyPendingWallpaperZoomOut);
+            }
+        }
+    }
+
+    private void applyPendingWallpaperZoomOut() {
+        synchronized (mService.mGlobalLock) {
+            mApplyWallpaperZoomOutPending = false;
+            final int size = mPendingWallpaperZoomOut.size();
+            if (size == 0) {
+                return;
+            }
+            final ArrayMap<IBinder, Float> pending = new ArrayMap<>(mPendingWallpaperZoomOut);
+            mPendingWallpaperZoomOut.clear();
             final long ident = Binder.clearCallingIdentity();
             try {
-                actionOnWallpaper(window, (wpController, windowState) ->
-                        wpController.setWallpaperZoomOut(windowState, zoom));
+                for (int i = 0; i < size; i++) {
+                    final float zoom = pending.valueAt(i);
+                    actionOnWallpaper(pending.keyAt(i), (wpController, windowState) ->
+                            wpController.setWallpaperZoomOut(windowState, zoom));
+                }
             } finally {
                 Binder.restoreCallingIdentity(ident);
             }
