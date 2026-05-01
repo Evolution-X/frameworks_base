@@ -7826,6 +7826,12 @@ public final class Settings {
         public static final String AMBIENT_SHOW_SETTINGS_ICONS = "ambient_show_settings_icons";
 
         /**
+         * Select QS tile animation style
+         * @hide
+         */
+        public static final String QS_TILE_ANIMATION_STYLE = "qs_tile_animation_style";
+
+        /**
          * Keys we no longer back up under the current schema, but want to continue to
          * process when restoring historical backup datasets.
          *
