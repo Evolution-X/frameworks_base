@@ -240,6 +240,7 @@ fun ContentScope.Tile(
         }
 
         val shapeMode = rememberTileShapeMode()
+        val animationStyle = rememberQSTileAnimationStyle()
         val wantCircle = shapeMode == 4 && iconOnly
         val tileShape =
             if (wantCircle && !classicStyle) CircleShape
@@ -279,6 +280,7 @@ fun ContentScope.Tile(
                     }
                     .fillMaxWidth()
                     .height(tileHeight)
+                    .tileToggleAnimation(animationStyle, uiState.state)
                     .thenIf(currentBounceableInfo != null) {
                         Modifier.bounceable(
                             currentBounceableInfo!!.bounceable,
