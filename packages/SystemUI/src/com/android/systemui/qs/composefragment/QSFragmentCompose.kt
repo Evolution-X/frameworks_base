@@ -1515,60 +1515,58 @@ private fun ContentScope.MediaObject(
 }
 
 @Composable
+private fun <T> rememberObservedSetting(
+    uri: android.net.Uri,
+    read: () -> T,
+): T {
+    val context = LocalContext.current
+    val cr = context.contentResolver
+    var value by remember { mutableStateOf(read()) }
+
+    DisposableEffect(uri) {
+        val observer = object : ContentObserver(null) {
+            override fun onChange(selfChange: Boolean) {
+                context.mainExecutor.execute { value = read() }
+            }
+        }
+        cr.registerContentObserver(uri, false, observer, UserHandle.USER_ALL)
+        onDispose { cr.unregisterContentObserver(observer) }
+    }
+
+    return value
+}
+
+@Composable
 fun rememberShowMediaPlayer(): Int {
     val context = LocalContext.current
     val cr = context.contentResolver
 
-    fun read(): Int = try {
-        Settings.Secure.getIntForUser(
-            cr, Settings.Secure.QS_SHOW_MEDIA_PLAYER, 2, UserHandle.USER_CURRENT
-        )
-    } catch (_: Throwable) { 2 }
-
-    var position by remember { mutableIntStateOf(read()) }
-
-    DisposableEffect(Unit) {
-        val observer = object : ContentObserver(null) {
-            override fun onChange(selfChange: Boolean) {
-                context.mainExecutor.execute { position = read() }
-            }
-        }
-        cr.registerContentObserver(
-            Settings.Secure.getUriFor(Settings.Secure.QS_SHOW_MEDIA_PLAYER),
-            false, observer, UserHandle.USER_ALL,
-        )
-        onDispose { cr.unregisterContentObserver(observer) }
-    }
-
-    return position
+    return rememberObservedSetting(
+        uri = Settings.Secure.getUriFor(Settings.Secure.QS_SHOW_MEDIA_PLAYER),
+        read = {
+            try {
+                Settings.Secure.getIntForUser(
+                    cr, Settings.Secure.QS_SHOW_MEDIA_PLAYER, 2, UserHandle.USER_CURRENT
+                )
+            } catch (_: Throwable) { 2 }
+        },
+    )
 }
 
 @Composable
 private fun rememberWidgetPanelEnabled(): Boolean {
     val context = LocalContext.current
     val cr = context.contentResolver
-
-    fun read(): Boolean = try {
-        Settings.System.getIntForUser(
-            cr, Settings.System.QS_WIDGET_PANEL, 0, UserHandle.USER_CURRENT
-        ) == 1
-    } catch (_: Exception) { false }
-
-    var enabled by remember { mutableStateOf(read()) }
-
-    DisposableEffect(Unit) {
-        val handler = Handler(Looper.getMainLooper())
-        val observer = object : ContentObserver(handler) {
-            override fun onChange(selfChange: Boolean) { enabled = read() }
-        }
-        cr.registerContentObserver(
-            Settings.System.getUriFor(Settings.System.QS_WIDGET_PANEL),
-            false, observer, UserHandle.USER_ALL,
-        )
-        onDispose { cr.unregisterContentObserver(observer) }
-    }
-
-    return enabled
+    return rememberObservedSetting(
+        uri = Settings.System.getUriFor(Settings.System.QS_WIDGET_PANEL),
+        read = {
+            try {
+                Settings.System.getIntForUser(
+                    cr, Settings.System.QS_WIDGET_PANEL, 0, UserHandle.USER_CURRENT
+                ) == 1
+            } catch (_: Exception) { false }
+        },
+    )
 }
 
 @Composable
