@@ -112,6 +112,8 @@ final class ActivityManagerConstants extends ContentObserver {
             "imperceptible_kill_exempt_packages";
     private static final String KEY_IMPERCEPTIBLE_KILL_EXEMPT_PROC_STATES =
             "imperceptible_kill_exempt_proc_states";
+    private static final String KEY_CACHED_APP_FREEZER_EXEMPT_PACKAGES =
+            "cached_app_freezer_exempt_packages";
     static final String KEY_SERVICE_RESTART_DURATION = "service_restart_duration";
     static final String KEY_SERVICE_RESET_RUN_DURATION = "service_reset_run_duration";
     static final String KEY_SERVICE_RESTART_DURATION_FACTOR = "service_restart_duration_factor";
@@ -962,6 +964,11 @@ final class ActivityManagerConstants extends ContentObserver {
     public ArraySet<Integer> IMPERCEPTIBLE_KILL_EXEMPT_PROC_STATES = new ArraySet<Integer>();
 
     /**
+     * Packages that should not be frozen by the cached app freezer.
+     */
+    public ArraySet<String> CACHED_APP_FREEZER_EXEMPT_PACKAGES = new ArraySet<String>();
+
+    /**
      * The threshold for the amount of PendingIntent for each UID, there will be
      * warning logs if the number goes beyond this threshold.
      */
@@ -979,6 +986,7 @@ final class ActivityManagerConstants extends ContentObserver {
 
     private List<String> mDefaultImperceptibleKillExemptPackages;
     private List<Integer> mDefaultImperceptibleKillExemptProcStates;
+    private List<String> mDefaultCachedAppFreezerExemptPackages;
 
     /**
      * Indicates the maximum time spent waiting for the network rules to get updated.
@@ -1258,6 +1266,9 @@ final class ActivityManagerConstants extends ContentObserver {
                             case KEY_IMPERCEPTIBLE_KILL_EXEMPT_PROC_STATES:
                                 updateImperceptibleKillExemptions();
                                 break;
+                            case KEY_CACHED_APP_FREEZER_EXEMPT_PACKAGES:
+                                updateCachedAppFreezerExemptPackages();
+                                break;
                             case KEY_FORCE_BACKGROUND_CHECK_ON_RESTRICTED_APPS:
                                 updateForceRestrictedBackgroundCheck();
                                 break;
@@ -1452,8 +1463,12 @@ final class ActivityManagerConstants extends ContentObserver {
                 context.getResources().getIntArray(
                 com.android.internal.R.array.config_defaultImperceptibleKillingExemptionProcStates))
                 .boxed().collect(Collectors.toList());
+        mDefaultCachedAppFreezerExemptPackages = Arrays.asList(
+                context.getResources().getStringArray(
+                com.android.internal.R.array.config_defaultCachedAppFreezerExemptionPkgs));
         IMPERCEPTIBLE_KILL_EXEMPT_PACKAGES.addAll(mDefaultImperceptibleKillExemptPackages);
         IMPERCEPTIBLE_KILL_EXEMPT_PROC_STATES.addAll(mDefaultImperceptibleKillExemptProcStates);
+        CACHED_APP_FREEZER_EXEMPT_PACKAGES.addAll(mDefaultCachedAppFreezerExemptPackages);
         mDefaultBinderHeavyHitterWatcherEnabled = context.getResources().getBoolean(
                 com.android.internal.R.bool.config_defaultBinderHeavyHitterWatcherEnabled);
         mDefaultBinderHeavyHitterWatcherBatchSize = context.getResources().getInteger(
@@ -2039,6 +2054,16 @@ final class ActivityManagerConstants extends ContentObserver {
         }
     }
 
+    private void updateCachedAppFreezerExemptPackages() {
+        CACHED_APP_FREEZER_EXEMPT_PACKAGES.clear();
+        CACHED_APP_FREEZER_EXEMPT_PACKAGES.addAll(mDefaultCachedAppFreezerExemptPackages);
+        final String val = DeviceConfig.getString(DeviceConfig.NAMESPACE_ACTIVITY_MANAGER,
+                KEY_CACHED_APP_FREEZER_EXEMPT_PACKAGES, null);
+        if (!TextUtils.isEmpty(val)) {
+            CACHED_APP_FREEZER_EXEMPT_PACKAGES.addAll(Arrays.asList(val.split(",")));
+        }
+    }
+
     private void updateEnableAutomaticSystemServerHeapDumps() {
         if (!mSystemServerAutomaticHeapDumpEnabled) {
             Slog.wtf(TAG,
@@ -2431,6 +2456,8 @@ final class ActivityManagerConstants extends ContentObserver {
         pw.println(Arrays.toString(IMPERCEPTIBLE_KILL_EXEMPT_PROC_STATES.toArray()));
         pw.print("  "); pw.print(KEY_IMPERCEPTIBLE_KILL_EXEMPT_PACKAGES); pw.print("=");
         pw.println(Arrays.toString(IMPERCEPTIBLE_KILL_EXEMPT_PACKAGES.toArray()));
+        pw.print("  "); pw.print(KEY_CACHED_APP_FREEZER_EXEMPT_PACKAGES); pw.print("=");
+        pw.println(Arrays.toString(CACHED_APP_FREEZER_EXEMPT_PACKAGES.toArray()));
         pw.print("  "); pw.print(KEY_MIN_ASSOC_LOG_DURATION); pw.print("=");
         pw.println(MIN_ASSOC_LOG_DURATION);
         pw.print("  "); pw.print(KEY_BINDER_HEAVY_HITTER_WATCHER_ENABLED); pw.print("=");
