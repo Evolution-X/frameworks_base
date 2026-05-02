@@ -4776,6 +4776,7 @@
   <java-symbol type="integer" name="config_app_exit_info_history_list_size" />
 
   <java-symbol type="array" name="config_defaultImperceptibleKillingExemptionPkgs" />
+  <java-symbol type="array" name="config_defaultCachedAppFreezerExemptionPkgs" />
   <java-symbol type="array" name="config_defaultImperceptibleKillingExemptionProcStates" />
 
   <java-symbol type="color" name="conversation_important_highlight" />
