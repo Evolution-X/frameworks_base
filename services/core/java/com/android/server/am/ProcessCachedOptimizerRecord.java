@@ -43,12 +43,14 @@ public final class ProcessCachedOptimizerRecord {
     static final int SHOULD_NOT_FREEZE_REASON_UID_ALLOWLISTED = 1 << 1;
     static final int SHOULD_NOT_FREEZE_REASON_BINDER_ALLOW_OOM_MANAGEMENT = 1 << 2;
     static final int SHOULD_NOT_FREEZE_REASON_BIND_WAIVE_PRIORITY = 1 << 3;
+    static final int SHOULD_NOT_FREEZE_REASON_FREEZER_EXEMPT_PACKAGE = 1 << 4;
 
     @IntDef(flag = true, prefix = {"SHOULD_NOT_FREEZE_REASON_"}, value = {
         SHOULD_NOT_FREEZE_REASON_NONE,
         SHOULD_NOT_FREEZE_REASON_UID_ALLOWLISTED,
         SHOULD_NOT_FREEZE_REASON_BINDER_ALLOW_OOM_MANAGEMENT,
         SHOULD_NOT_FREEZE_REASON_BIND_WAIVE_PRIORITY,
+        SHOULD_NOT_FREEZE_REASON_FREEZER_EXEMPT_PACKAGE,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface ShouldNotFreezeReason {}
