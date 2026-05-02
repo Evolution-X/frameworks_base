@@ -8984,6 +8984,13 @@ public final class Settings {
         }
 
         /**
+         * A comma-separated list of package names that should disable hardware overlays while
+         * they are in the foreground.
+         * @hide
+         */
+        public static final String DISABLE_HW_OVERLAYS_APPS = "disable_hw_overlays_apps";
+
+        /**
          * Control whether to enable adaptive sleep mode.
          * @hide
          */
