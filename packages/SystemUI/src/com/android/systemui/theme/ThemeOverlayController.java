@@ -730,7 +730,7 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
                 JSONObject object = new JSONObject(overlayPackageJson);
                 mContrast = object.optDouble("_contrast_level", 0.0);
                 mChromaBoost = object.optDouble("_chroma_boost", 0.0);
-                mIsFidelityEnabled = object.optBoolean("_fidelity_enabled", true);
+                mIsFidelityEnabled = object.optBoolean("_fidelity_enabled", false);
                 if (DEBUG) {
                     Log.d(TAG, "Custom theme settings: contrast=" + mContrast
                             + " chromaBoost=" + mChromaBoost
