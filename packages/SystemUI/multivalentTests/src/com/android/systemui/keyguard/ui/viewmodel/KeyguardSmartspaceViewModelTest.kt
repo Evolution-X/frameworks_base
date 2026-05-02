@@ -29,6 +29,7 @@ import com.android.systemui.kosmos.runTest
 import com.android.systemui.plugins.keyguard.ui.clocks.ClockController
 import com.android.systemui.shade.domain.interactor.enableSingleShade
 import com.android.systemui.shade.domain.interactor.enableSplitShade
+import com.android.systemui.statusbar.lockscreen.lockscreenSmartspaceController
 import com.android.systemui.testKosmos
 import com.android.systemui.util.mockito.whenever
 import com.google.common.truth.Truth.assertThat
@@ -179,5 +180,17 @@ class KeyguardSmartspaceViewModelTest : SysuiTestCase() {
             enableSingleShade()
 
             assertThat(isFullWidthShade).isTrue()
+        }
+
+    @Test
+    fun isSmartspaceEnabled_reflectsCurrentControllerState() =
+        kosmos.runTest {
+            whenever(lockscreenSmartspaceController.isEnabled).thenReturn(true)
+
+            assertThat(underTest.isSmartspaceEnabled).isTrue()
+
+            whenever(lockscreenSmartspaceController.isEnabled).thenReturn(false)
+
+            assertThat(underTest.isSmartspaceEnabled).isFalse()
         }
 }
