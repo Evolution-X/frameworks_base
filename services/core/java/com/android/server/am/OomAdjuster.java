@@ -2558,6 +2558,10 @@ public abstract class OomAdjuster {
      * Return whether or not a process should be frozen.
      */
     static boolean getFreezePolicy(ProcessRecordInternal proc) {
+        if (proc.shouldNotFreeze()) {
+            return false;
+        }
+
         if (Flags.cpuTimeCapabilityBasedFreezePolicy()) {
             if ((proc.getCurCapability() & ALL_CPU_TIME_CAPABILITIES) != 0) {
                 /// App is important enough (see {@link #getCpuCapability} and
@@ -2569,12 +2573,6 @@ public abstract class OomAdjuster {
             // Default, freeze a process.
             return true;
         } else {
-            // The CPU capability handling covers all setShouldNotFreeze paths. Must check
-            // shouldNotFreeze, if the CPU capability is not being used.
-            if (proc.shouldNotFreeze()) {
-                return false;
-            }
-
             // Reasons to freeze:
             if (proc.getCurAdj() >= CACHED_APP_MIN_ADJ) {
                 // Oomscore is in a high enough state, it is safe to freeze.
