@@ -59,6 +59,9 @@ import static com.android.server.am.ActivityManagerService.TAG_BACKUP;
 import static com.android.server.am.ActivityManagerService.TAG_OOM_ADJ;
 import static com.android.server.am.ActivityManagerService.TAG_UID_OBSERVERS;
 import static com.android.server.am.ProcessCachedOptimizerRecord.SHOULD_NOT_FREEZE_REASON_BINDER_ALLOW_OOM_MANAGEMENT;
+import static com.android.server.am.ProcessCachedOptimizerRecord.SHOULD_NOT_FREEZE_REASON_FREEZER_EXEMPT_PACKAGE;
+import static com.android.server.am.ProcessCachedOptimizerRecord.SHOULD_NOT_FREEZE_REASON_NONE;
+import static com.android.server.am.ProcessCachedOptimizerRecord.SHOULD_NOT_FREEZE_REASON_UID_ALLOWLISTED;
 import static com.android.server.am.ProcessList.BACKUP_APP_ADJ;
 import static com.android.server.am.ProcessList.CACHED_APP_MAX_ADJ;
 import static com.android.server.am.ProcessList.CACHED_APP_MIN_ADJ;
@@ -1146,10 +1149,21 @@ public class OomAdjusterImpl extends OomAdjuster {
         app.setAdjSource(null);
         app.setAdjTarget(null);
 
-        // If this UID is currently allowlisted, it should not be frozen.
+        // Some processes must stay unfrozen even when their oom_adj otherwise allows freezing.
         final UidRecordInternal uidRec = app.getUidRecord();
-        app.setShouldNotFreeze(uidRec != null && uidRec.isCurAllowListed(), false /* dryRun */,
-                ProcessCachedOptimizerRecord.SHOULD_NOT_FREEZE_REASON_UID_ALLOWLISTED, mAdjSeq);
+        final boolean uidAllowlisted = uidRec != null && uidRec.isCurAllowListed();
+        final boolean freezerExemptPackage =
+                mService.mConstants.CACHED_APP_FREEZER_EXEMPT_PACKAGES.contains(
+                        app.getPackageName());
+        int shouldNotFreezeReason = SHOULD_NOT_FREEZE_REASON_NONE;
+        if (uidAllowlisted) {
+            shouldNotFreezeReason |= SHOULD_NOT_FREEZE_REASON_UID_ALLOWLISTED;
+        }
+        if (freezerExemptPackage) {
+            shouldNotFreezeReason |= SHOULD_NOT_FREEZE_REASON_FREEZER_EXEMPT_PACKAGE;
+        }
+        app.setShouldNotFreeze(uidAllowlisted || freezerExemptPackage, false /* dryRun */,
+                shouldNotFreezeReason, mAdjSeq);
 
         final boolean reportDebugMsgs =
                 DEBUG_OOM_ADJ_REASON || mService.mCurOomAdjUid == app.getApplicationUid();
