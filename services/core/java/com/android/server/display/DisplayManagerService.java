@@ -76,6 +76,8 @@ import android.annotation.RequiresPermission;
 import android.annotation.SuppressLint;
 import android.annotation.UserIdInt;
 import android.app.ActivityManager;
+import android.app.ActivityTaskManager;
+import android.app.ActivityTaskManager.RootTaskInfo;
 import android.app.ActivityManagerInternal;
 import android.app.AppOpsManager;
 import android.app.TaskStackListener;
@@ -138,6 +140,7 @@ import android.os.IBinder.FrozenStateChangeCallback;
 import android.os.IThermalService;
 import android.os.Looper;
 import android.os.Message;
+import android.os.Parcel;
 import android.os.PermissionEnforcer;
 import android.os.PowerManager;
 import android.os.Process;
@@ -296,6 +299,13 @@ public final class DisplayManagerService extends SystemService {
     private static final int MSG_DELIVER_DISPLAY_GROUP_EVENT = 8;
     private static final int MSG_RECEIVED_DEVICE_STATE = 9;
     private static final int MSG_DISPATCH_PENDING_PROCESS_EVENTS = 10;
+    private static final int MSG_UPDATE_DISABLE_HW_OVERLAYS = 11;
+    private static final String SURFACE_FLINGER_SERVICE_KEY = "SurfaceFlinger";
+    private static final String SURFACE_COMPOSER_INTERFACE_KEY = "android.ui.ISurfaceComposer";
+    private static final int SURFACE_FLINGER_DISABLE_OVERLAYS_CODE = 1008;
+    private static final int SURFACE_FLINGER_READ_CODE = 1010;
+    private static final int SETTING_VALUE_ON = 1;
+    private static final int SETTING_VALUE_OFF = 0;
     private static final int[] EMPTY_ARRAY = new int[0];
     private static final HdrConversionMode HDR_CONVERSION_MODE_UNSUPPORTED = new HdrConversionMode(
             HDR_CONVERSION_UNSUPPORTED);
@@ -564,6 +574,12 @@ public final class DisplayManagerService extends SystemService {
 
     // Receives notifications about changes to task stack.
     private TaskStackListener mTaskStackListener;
+
+    @GuardedBy("mSyncRoot")
+    private boolean mPerAppDisableHwOverlaysActive;
+
+    @GuardedBy("mSyncRoot")
+    private boolean mPerAppDisableHwOverlaysOwned;
 
     // Keeps note of what state the device is in, used for idle screen brightness mode.
     private boolean mIsDocked;
@@ -866,6 +882,7 @@ public final class DisplayManagerService extends SystemService {
                 scheduleTopologiesReload(mCurrentUserId, /*isUserSwitching=*/ true);
             }
         }
+        schedulePerAppDisableHwOverlaysUpdate();
     }
 
     /**
@@ -893,9 +910,8 @@ public final class DisplayManagerService extends SystemService {
             mContext.getSystemService(DeviceStateManager.class).registerCallback(
                     mHandlerExecutor, new DeviceStateListener());
 
-            if (mFlags.isDisplayMirrorInLockTaskModeEnabled()) {
-                setupTaskStackListener();
-            }
+            setupTaskStackListener();
+            schedulePerAppDisableHwOverlaysUpdate();
 
             mLogicalDisplayMapper.onWindowManagerReady();
             scheduleTraversalLocked(false);
@@ -942,6 +958,7 @@ public final class DisplayManagerService extends SystemService {
         mHandler.sendEmptyMessage(MSG_REGISTER_ADDITIONAL_DISPLAY_ADAPTERS);
 
         mSettingsObserver = new SettingsObserver();
+        schedulePerAppDisableHwOverlaysUpdate();
 
         mBrightnessSynchronizer.startSynchronizing();
 
@@ -1268,6 +1285,10 @@ public final class DisplayManagerService extends SystemService {
                                 Settings.Secure.INCLUDE_DEFAULT_DISPLAY_IN_TOPOLOGY),
                         false, this, UserHandle.USER_ALL);
             }
+
+            mContext.getContentResolver().registerContentObserver(
+                    Settings.Secure.getUriFor(Settings.Secure.DISABLE_HW_OVERLAYS_APPS),
+                    false, this, UserHandle.USER_ALL);
         }
 
         @Override
@@ -1298,6 +1319,10 @@ public final class DisplayManagerService extends SystemService {
                     }
                 }
                 return;
+            }
+
+            if (Settings.Secure.getUriFor(Settings.Secure.DISABLE_HW_OVERLAYS_APPS).equals(uri)) {
+                schedulePerAppDisableHwOverlaysUpdate();
             }
         }
     }
@@ -3876,10 +3901,23 @@ public final class DisplayManagerService extends SystemService {
     }
 
     private void setupTaskStackListener() {
+        if (mTaskStackListener != null) {
+            return;
+        }
         mTaskStackListener = new TaskStackListener() {
             @Override
             public void onLockTaskModeChanged(int mode) {
-                updateMirrorBuiltInDisplaySettingLocked(/*shouldSendDisplayChangeEvent=*/ true);
+                synchronized (mSyncRoot) {
+                    if (mFlags.isDisplayMirrorInLockTaskModeEnabled()) {
+                        updateMirrorBuiltInDisplaySettingLocked(
+                                /*shouldSendDisplayChangeEvent=*/ true);
+                    }
+                }
+            }
+
+            @Override
+            public void onTaskStackChanged() {
+                schedulePerAppDisableHwOverlaysUpdate();
             }
         };
 
@@ -3888,6 +3926,131 @@ public final class DisplayManagerService extends SystemService {
         } catch (Exception e) {
             Slog.w(TAG, "Failed to call registerTaskStackListener", e);
         }
+    }
+
+    private void schedulePerAppDisableHwOverlaysUpdate() {
+        mHandler.removeMessages(MSG_UPDATE_DISABLE_HW_OVERLAYS);
+        mHandler.sendEmptyMessage(MSG_UPDATE_DISABLE_HW_OVERLAYS);
+    }
+
+    private void updatePerAppDisableHwOverlays() {
+        if (mActivityTaskManagerInternal == null) {
+            return;
+        }
+
+        final int userId;
+        synchronized (mSyncRoot) {
+            userId = mCurrentUserId;
+        }
+
+        final ArraySet<String> configuredPackages = parsePackageList(Settings.Secure.getStringForUser(
+                mContext.getContentResolver(), Settings.Secure.DISABLE_HW_OVERLAYS_APPS, userId));
+        final String topPackage = getFocusedTopPackageName();
+        final boolean shouldDisableOverlays =
+                topPackage != null && configuredPackages.contains(topPackage);
+
+        synchronized (mSyncRoot) {
+            if (shouldDisableOverlays) {
+                if (!mPerAppDisableHwOverlaysActive) {
+                    final boolean overlaysAlreadyDisabled = areHardwareOverlaysDisabled();
+                    if (!overlaysAlreadyDisabled) {
+                        setHardwareOverlaysDisabled(true);
+                    }
+                    mPerAppDisableHwOverlaysOwned = !overlaysAlreadyDisabled;
+                }
+                mPerAppDisableHwOverlaysActive = true;
+                return;
+            }
+
+            if (mPerAppDisableHwOverlaysActive && mPerAppDisableHwOverlaysOwned) {
+                setHardwareOverlaysDisabled(false);
+            }
+            mPerAppDisableHwOverlaysActive = false;
+            mPerAppDisableHwOverlaysOwned = false;
+        }
+    }
+
+    @Nullable
+    private String getFocusedTopPackageName() {
+        try {
+            final RootTaskInfo focusedRootTask = ActivityTaskManager.getService()
+                    .getFocusedRootTaskInfo();
+            if (focusedRootTask == null || focusedRootTask.topActivity == null) {
+                return null;
+            }
+            return focusedRootTask.topActivity.getPackageName();
+        } catch (RemoteException e) {
+            Slog.w(TAG, "Failed to resolve focused app for per-app HW overlays", e);
+            return null;
+        }
+    }
+
+    private boolean areHardwareOverlaysDisabled() {
+        final IBinder surfaceFlinger = ServiceManager.getService(SURFACE_FLINGER_SERVICE_KEY);
+        if (surfaceFlinger == null) {
+            return false;
+        }
+
+        Parcel data = null;
+        Parcel reply = null;
+        try {
+            data = Parcel.obtain();
+            reply = Parcel.obtain();
+            data.writeInterfaceToken(SURFACE_COMPOSER_INTERFACE_KEY);
+            surfaceFlinger.transact(SURFACE_FLINGER_READ_CODE, data, reply, 0 /* flags */);
+            reply.readInt(); // showCpu
+            reply.readInt(); // enableGL
+            reply.readInt(); // showUpdates
+            reply.readInt(); // showBackground
+            return reply.readInt() != SETTING_VALUE_OFF;
+        } catch (RemoteException e) {
+            Slog.w(TAG, "Failed to read Disable HW overlays state", e);
+            return false;
+        } finally {
+            if (reply != null) {
+                reply.recycle();
+            }
+            if (data != null) {
+                data.recycle();
+            }
+        }
+    }
+
+    private void setHardwareOverlaysDisabled(boolean disabled) {
+        final IBinder surfaceFlinger = ServiceManager.getService(SURFACE_FLINGER_SERVICE_KEY);
+        if (surfaceFlinger == null) {
+            return;
+        }
+
+        Parcel data = null;
+        try {
+            data = Parcel.obtain();
+            data.writeInterfaceToken(SURFACE_COMPOSER_INTERFACE_KEY);
+            data.writeInt(disabled ? SETTING_VALUE_ON : SETTING_VALUE_OFF);
+            surfaceFlinger.transact(SURFACE_FLINGER_DISABLE_OVERLAYS_CODE, data,
+                    null /* reply */, 0 /* flags */);
+        } catch (RemoteException e) {
+            Slog.w(TAG, "Failed to update Disable HW overlays state", e);
+        } finally {
+            if (data != null) {
+                data.recycle();
+            }
+        }
+    }
+
+    private static ArraySet<String> parsePackageList(@Nullable String packageList) {
+        final ArraySet<String> packages = new ArraySet<>();
+        if (TextUtils.isEmpty(packageList)) {
+            return packages;
+        }
+
+        for (String packageName : packageList.split(",")) {
+            final String trimmedPackageName = packageName.trim();
+            if (!trimmedPackageName.isEmpty()) {
+                packages.add(trimmedPackageName);
+            }
+        }
+        return packages;
     }
 
     private IMediaProjectionManager getProjectionService() {
@@ -4408,6 +4571,10 @@ public final class DisplayManagerService extends SystemService {
 
                 case MSG_DISPATCH_PENDING_PROCESS_EVENTS:
                     dispatchPendingProcessEvents(msg.obj);
+                    break;
+
+                case MSG_UPDATE_DISABLE_HW_OVERLAYS:
+                    updatePerAppDisableHwOverlays();
                     break;
             }
         }
