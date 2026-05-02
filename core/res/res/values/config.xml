@@ -6278,6 +6278,9 @@
     <!-- Packages that can't be killed even if it's requested to be killed on imperceptible -->
     <string-array name="config_defaultImperceptibleKillingExemptionPkgs" translatable="false" />
 
+    <!-- Packages that should not be frozen by the cached app freezer. -->
+    <string-array name="config_defaultCachedAppFreezerExemptionPkgs" translatable="false" />
+
     <!-- Proc States that can't be killed even if it's requested to be killed on imperceptible -->
     <integer-array name="config_defaultImperceptibleKillingExemptionProcStates">
       <item>0</item> <!-- PROCESS_STATE_PERSISTENT -->
