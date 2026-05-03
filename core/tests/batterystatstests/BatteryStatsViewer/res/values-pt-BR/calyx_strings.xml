@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!--
+     SPDX-FileCopyrightText: 2023 The Calyx Institute
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <string name="app_name">Battery Stats Viewer</string>
+    <string name="header">Estatísticas da bateria</string>
+    <string name="display_dashboard_summary">Veja estatísticas detalhadas de uso da bateria</string>
+</resources>
