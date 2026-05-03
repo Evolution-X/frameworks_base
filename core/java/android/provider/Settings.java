@@ -14628,6 +14628,11 @@ public final class Settings {
         public static final String PULSE_RENDERER = "pulse_renderer";
 
         /**
+         * @hide
+         */
+        public static final String PULSE_BASS_HAPTICS = "pulse_bass_haptics";
+
+        /**
          * Whether to pulse ambient on new music tracks
          * @hide
          */
