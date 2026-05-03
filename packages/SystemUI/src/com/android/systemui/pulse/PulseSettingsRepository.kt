@@ -164,17 +164,9 @@ class PulseSettingsRepository(private val context: Context) {
         }
     }
 
-    private fun getDensitySafe(): Float {
-        return try {
-            context.resources?.displayMetrics?.density ?: 1f
-        } catch (e: Exception) {
-            1f // Fallback to 1f if any exception occurs
-        }
-    }
-
-    fun getBarGapPx(): Float = 2f * getDensitySafe()
+    fun getBarGapPx(): Float = 2f * context.resources.displayMetrics.density
     fun getDivisions(): Int = 16
-    fun getBlockStrokePx(): Float = 4f * getDensitySafe()
-    fun getFilledBlockSizePx(): Float = 4f * getDensitySafe()
-    fun getEmptyBlockSizePx(): Float = 1f * getDensitySafe()
+    fun getBlockStrokePx(): Float = 4f * context.resources.displayMetrics.density
+    fun getFilledBlockSizePx(): Float = 4f * context.resources.displayMetrics.density
+    fun getEmptyBlockSizePx(): Float = 1f * context.resources.displayMetrics.density
 }
