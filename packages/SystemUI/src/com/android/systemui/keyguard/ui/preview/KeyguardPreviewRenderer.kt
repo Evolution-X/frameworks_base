@@ -327,8 +327,8 @@ constructor(
 
                 smallDateView =
                     lockscreenSmartspaceController.buildAndConnectDateView(previewContext, false)
-                parentView.addView(largeDateView)
-                parentView.addView(smallDateView)
+                largeDateView?.let { parentView.addView(it) }
+                smallDateView?.let { parentView.addView(it) }
             }
             cs.applyTo(parentView)
         } else {
