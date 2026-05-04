@@ -927,11 +927,14 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
 
     private void attachCustomOverlays() {
         ViewGroup overlay = getScrimOverlayContainer();
+        ViewGroup root = (ViewGroup) getNotificationShadeWindowView();
 
         detachFromParent(mMediaViewController.getMediaArtScrim());
         detachFromParent(mPulseViewController.getPulseView());
 
-        overlay.addView(mMediaViewController.getMediaArtScrim(),
+        View scrimBehind = root.findViewById(R.id.scrim_behind);
+        int scrimBehindIndex = Math.max(root.indexOfChild(scrimBehind), 0);
+        root.addView(mMediaViewController.getMediaArtScrim(), scrimBehindIndex,
                 new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
