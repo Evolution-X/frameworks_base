@@ -105,6 +105,7 @@ constructor(
     private val deviceProvisionedController: DeviceProvisionedController,
     private val bypassController: KeyguardBypassController,
     private val keyguardUpdateMonitor: KeyguardUpdateMonitor,
+    private val clockRegistry: com.android.systemui.shared.clocks.ClockRegistry,
     private val smartspaceViewModelFactory: SmartspaceViewModel.Factory,
     dumpManager: DumpManager,
     private val execution: Execution,
@@ -352,6 +353,7 @@ constructor(
         if (!isEnabled || !isDateWeatherDecoupled) {
             return null
         }
+        if (isLargeClock && clockRegistry.currentClockId == "DIGITAL_CLOCK_WEATHER") return null
 
         val view =
             buildView(
@@ -372,6 +374,7 @@ constructor(
         if (!isEnabled || !isDateWeatherDecoupled) {
             return null
         }
+        if (isLargeClock && clockRegistry.currentClockId == "DIGITAL_CLOCK_WEATHER") return null
 
         val view =
             buildView(
