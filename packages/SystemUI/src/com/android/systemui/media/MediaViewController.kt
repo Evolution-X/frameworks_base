@@ -68,6 +68,7 @@ class MediaViewController @Inject constructor(
     private var bouncerShowingOrKeyguardDismissing = false
     private var keyguardShowing = false
     private var isDozing = false
+    private var isGlanceableHubShowing = false
 
     private var mediaFilter = 0
     private var mediaFadeLevel = 40
@@ -250,6 +251,7 @@ class MediaViewController @Inject constructor(
         if (bouncerShowingOrKeyguardDismissing) return false
         if (artworkDrawable == null) return false
         if (!isCollapsed) return false
+        if (isGlanceableHubShowing) return false
         if (isDozing && ambientEnabled) return true
         if (keyguardShowing && !isDozing) return true
         return false
@@ -487,6 +489,16 @@ class MediaViewController @Inject constructor(
             dismissingKeyguard = false
         } else {
             cleanupResources(false)
+        }
+        coroutineScope.launch {
+            onMediaStateChanged()
+        }
+    }
+
+    fun onGlanceableHubShowingChanged(showing: Boolean) {
+        isGlanceableHubShowing = showing
+        if (isGlanceableHubShowing) {
+            cleanupResources(true)
         }
         coroutineScope.launch {
             onMediaStateChanged()
