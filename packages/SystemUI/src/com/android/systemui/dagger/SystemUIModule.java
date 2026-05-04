@@ -589,16 +589,6 @@ public abstract class SystemUIModule {
     }
     @Provides
     @SysUISingleton
-    static BcSmartspaceConfigProvider provideBcSmartspaceConfigPlugin(FeatureFlags featureFlags) {
-        return new BcSmartspaceConfigProvider(featureFlags);
-    }
-    @Provides
-    @SysUISingleton
-    static BcSmartspaceDataPlugin provideBcSmartspaceDataPlugin() {
-        return new BcSmartspaceDataProvider();
-    }
-    @Provides
-    @SysUISingleton
     @Named(SmartspaceModule.DATE_SMARTSPACE_DATA_PLUGIN)
     static BcSmartspaceDataPlugin provideDateSmartspaceDataPlugin() {
         return new DateSmartspaceDataProvider();

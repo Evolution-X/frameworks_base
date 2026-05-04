@@ -99,6 +99,13 @@ public final class BcSmartspaceDataProvider implements BcSmartspaceDataPlugin {
     @Override
     public void registerConfigProvider(BcSmartspaceConfigPlugin configPlugin) {
         mConfigProvider = configPlugin;
+        // Propagate to already-attached views
+        for (View view : mViews) {
+            if (view instanceof BcSmartspaceDataPlugin.SmartspaceView) {
+                ((BcSmartspaceDataPlugin.SmartspaceView) view)
+                        .registerConfigProvider(configPlugin);
+            }
+        }
     }
 
     @Override
