@@ -70,6 +70,7 @@ public final class DateSmartspaceDataProvider implements BcSmartspaceDataPlugin 
         View view =
                 LayoutInflater.from(context)
                         .inflate(R.layout.date_plus_extras, (ViewGroup) null, false);
+        view.setVisibility(View.GONE);
         view.addOnAttachStateChangeListener(this.mStateChangeListener);
         return (BcSmartspaceDataPlugin.SmartspaceView) view;
     }

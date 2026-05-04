@@ -52,6 +52,11 @@ public class DateSmartspaceView extends LinearLayout
 
     @Override
     public final void onAttachedToWindow() {
+        if (getVisibility() == View.GONE) {
+            super.onAttachedToWindow();
+            return;
+        }
+
         Handler handler;
         super.onAttachedToWindow();
         if (TextUtils.equals(mUiSurface, BcSmartspaceDataPlugin.UI_SURFACE_LOCK_SCREEN_AOD)) {
