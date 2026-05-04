@@ -49,4 +49,8 @@
 
     <!-- GameSpace -->
     <string name="gamespace_new_game_added"><xliff:g id="name" example="MyApp">%s</xliff:g> added to GameSpace</string>
+
+     <!-- BatteryStatsViewer -->
+    <string name="battery_stats_viewer_header">Battery stats</string>
+    <string name="battery_stats_viewer_display_dashboard_summary">View detailed battery usage stats</string>
 </resources>
