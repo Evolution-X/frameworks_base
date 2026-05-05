@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-     Copyright (C) 2019-2024 The Evolution X Project
+     SPDX-FileCopyrightText: Evolution X
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
@@ -20,12 +20,8 @@
     <!-- Launcher Restart -->
     <string name="launcher_restart_title">پێویستە لانچەر دەستپێبکاتەوە</string>
     <string name="launcher_restart_message">بۆ ئەوەی هەموو گۆڕانکارییەکان جێبەجێ بن، پێویستە لانچەر دەستپێبکاتەوە. ئێستا لانچەر دەستپێبکەمەوە؟</string>
-    <!-- Lock gesture -->
-    <string name="gesture_locked_warning">دوبارە بیخلیسکێنە بۆ کردنەوەی ئاماژەکان</string>
     <!-- Cycle through ringer modes -->
     <string name="volume_dialog_ringer_guidance_normal">پەیوەندییەکان و ئاگادارییەکان زەنگیان بۆ لێدەدرێت</string>
-    <!-- Game Space -->
-    <string name="gamespace_new_game_added"><xliff:g id="name" example="MyApp">%s</xliff:g> زیادکرا بۆ شوێنی یاری (Game Space)</string>
     <!-- PowerOffAlarmService -->
     <string name="notification_channel_poweroff_alarm">زەنگی کاتی کوژانەوە</string>
     <string name="poweroff_alarm_title">زەنگی کاتی کوژانەوە دانرا</string>
@@ -42,4 +38,6 @@
     <string name="sleep_mode_notification_content">دابگرە بۆ کوژاندنەوەی دۆخی خەوتن</string>
     <string name="sleep_mode_enabled_toast">دۆخی خەوتن هەڵکرا</string>
     <string name="sleep_mode_disabled_toast">دۆخی خەوتن کوژێنرایەوە</string>
+    <!-- GameSpace -->
+    <string name="gamespace_new_game_added"><xliff:g id="name" example="MyApp">%s</xliff:g> زیادکرا بۆ شوێنی یاری (Game Space)</string>
 </resources>
