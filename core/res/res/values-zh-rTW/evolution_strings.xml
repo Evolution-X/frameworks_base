@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-     Copyright (C) 2019-2024 The Evolution X Project
+     SPDX-FileCopyrightText: Evolution X
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
@@ -20,12 +20,8 @@
     <!-- Launcher Restart -->
     <string name="launcher_restart_title">需要重新啟動桌面啟動器</string>
     <string name="launcher_restart_message">如果要讓所有變更生效，需要重新啟動桌面啟動器。現在重新啟動桌面啟動器？</string>
-    <!-- Lock gesture -->
-    <string name="gesture_locked_warning">再滑動一次以解鎖手勢</string>
     <!-- Cycle through ringer modes -->
     <string name="volume_dialog_ringer_guidance_normal">有來電和通知時會響起</string>
-    <!-- Game Space -->
-    <string name="gamespace_new_game_added"><xliff:g id="name" example="MyApp">%s</xliff:g> 已加入 GameSpace</string>
     <!-- PowerOffAlarmService -->
     <string name="notification_channel_poweroff_alarm">關機鬧鐘</string>
     <string name="poweroff_alarm_title">關機鬧鐘設定</string>
@@ -42,4 +38,6 @@
     <string name="sleep_mode_notification_content">點此關閉睡眠模式</string>
     <string name="sleep_mode_enabled_toast">睡眠模式已開啟</string>
     <string name="sleep_mode_disabled_toast">睡眠模式已關閉</string>
+    <!-- GameSpace -->
+    <string name="gamespace_new_game_added"><xliff:g id="name" example="MyApp">%s</xliff:g> 已加入 GameSpace</string>
 </resources>
