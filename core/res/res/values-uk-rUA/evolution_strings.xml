@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-     Copyright (C) 2019-2024 The Evolution X Project
+     SPDX-FileCopyrightText: Evolution X
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
@@ -20,12 +20,8 @@
     <!-- Launcher Restart -->
     <string name="launcher_restart_title">Необхідне перезавантаження інтерфейсу системи</string>
     <string name="launcher_restart_message">Для застосування змін потрібно перезаватажити системний інтерфейс. Перезавантажити зараз?</string>
-    <!-- Lock gesture -->
-    <string name="gesture_locked_warning">Проведіть ще раз, щоб розблокувати жести</string>
     <!-- Cycle through ringer modes -->
     <string name="volume_dialog_ringer_guidance_normal">Звуковий сигнал для викликів і сповіщень увімкнено</string>
-    <!-- Game Space -->
-    <string name="gamespace_new_game_added"><xliff:g id="name" example="MyApp">%s</xliff:g> додано до ігрової області</string>
     <!-- PowerOffAlarmService -->
     <string name="notification_channel_poweroff_alarm">Вимкнення будильника</string>
     <string name="poweroff_alarm_title">Будильник вимкнено</string>
@@ -42,4 +38,6 @@
     <string name="sleep_mode_notification_content">Торкніться, щоб вимкнути режим сну</string>
     <string name="sleep_mode_enabled_toast">Увімкнено режим сну</string>
     <string name="sleep_mode_disabled_toast">Вимкнено режим сну</string>
+    <!-- GameSpace -->
+    <string name="gamespace_new_game_added"><xliff:g id="name" example="MyApp">%s</xliff:g> додано до ігрової області</string>
 </resources>
