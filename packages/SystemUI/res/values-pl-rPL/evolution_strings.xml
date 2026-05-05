@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-     Copyright (C) 2019-2025 Evolution X
+     SPDX-FileCopyrightText: Evolution X
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
@@ -93,9 +93,6 @@
     <!-- 4G icon -->
     <string name="show_fourg_icon_title">Ikona 4G</string>
     <!-- Notification counter -->
-    <!-- Smart Pixels QS Tile -->
-    <string name="quick_settings_smart_pixels">Inteligentne piksele</string>
-    <string name="quick_settings_smart_pixels_on_power_save">Automatyczne włączanie inteligentnych pikseli</string>
     <!-- QuickSettings: InternetDialog: Summary for how many devices are connected to the hotspot [CHAR LIMIT=NONE] -->
     <plurals name="quick_settings_internet_hotspot_summary_num_devices">
         <item quantity="one">%d połączone urządzenie</item>
@@ -207,6 +204,7 @@
     <string name="ax_dynamic_bar_wireless_charging">Ładowanie bezprzewodowe</string>
     <string name="ax_dynamic_bar_until_full">do pełnego</string>
     <string name="ax_dynamic_bar_battery_saver">Oszczędzanie baterii</string>
+    <string name="ax_dynamic_bar_call">Połączenie</string>
     <string name="ax_dynamic_bar_incoming_call">Połączenie przychodzące</string>
     <string name="ax_dynamic_bar_connected">Połączono</string>
     <string name="ax_dynamic_bar_disconnect">Rozłącz</string>
@@ -259,4 +257,10 @@
     <string name="usb_mode_webcam">Kamera internetowa USB</string>
     <string name="usb_mode_charging_only">Tylko ładowanie</string>
     <string name="usb_charging_status">Ładowanie USB jest włączone</string>
+    <!-- Smart Pixels -->
+    <string name="quick_settings_smart_pixels_label">Inteligentne piksele</string>
+    <string name="quick_settings_smart_pixels_on">Włączone</string>
+    <string name="quick_settings_smart_pixels_off">Wyłączone</string>
+    <string name="smart_pixels_percent_label">Procent pikseli</string>
+    <string name="smart_pixels_percent_format"><xliff:g id="percent" example="25">%d</xliff:g>%%</string>
 </resources>
