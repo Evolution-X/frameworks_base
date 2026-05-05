@@ -89,6 +89,8 @@ import com.android.systemui.keyguard.shared.model.KeyguardState;
 import com.android.systemui.monet.ColorScheme;
 import com.android.systemui.monet.DynamicColors;
 import com.android.systemui.settings.UserTracker;
+import com.android.systemui.statusbar.policy.ConfigurationController;
+import com.android.systemui.statusbar.policy.ConfigurationController.ConfigurationListener;
 import com.android.systemui.statusbar.policy.DeviceProvisionedController;
 import com.android.systemui.statusbar.policy.DeviceProvisionedController.DeviceProvisionedListener;
 import com.android.systemui.user.utils.UserScopedService;
@@ -135,6 +137,16 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
     protected static final String TAG = "ThemeOverlayController";
     private static final boolean DEBUG = false;
 
+    private static final String ACTION_BOOTANIM_STYLE_CHANGED =
+            "org.evolution.intent.action.BOOTANIM_STYLE_CHANGED";
+
+    private static final int[] BOOTANIM_COLOR_RES_IDS = {
+            android.R.color.system_accent3_500,
+            android.R.color.system_accent1_500,
+            android.R.color.system_accent2_500,
+            android.R.color.system_accent1_300,
+    };
+
     private final ThemeOverlayApplier mThemeManager;
     private final UserManager mUserManager;
     private final BroadcastDispatcher mBroadcastDispatcher;
@@ -153,6 +165,7 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
     private final WallpaperManager mWallpaperManager;
     private final ActivityManager mActivityManager;
     protected final SystemPropertiesHelper mSystemPropertiesHelper;
+    private final ConfigurationController mConfigurationController;
     @VisibleForTesting
     protected ColorScheme mColorScheme;
     // If fabricated overlays were already created for the current theme.
@@ -456,7 +469,8 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
             UiModeManager uiModeManager, // TODO(b/362682063) legacy argument, remove
             UserScopedService<UiModeManager> uiModeManagerProvider,
             ActivityManager activityManager,
-            SystemPropertiesHelper systemPropertiesHelper
+            SystemPropertiesHelper systemPropertiesHelper,
+            ConfigurationController configurationController
     ) {
         mContext = context;
         mIsMonetEnabled = featureFlags.isEnabled(Flags.MONET);
@@ -478,6 +492,7 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
         mUiModeManagerProvider = uiModeManagerProvider;
         mActivityManager = activityManager;
         mSystemPropertiesHelper = systemPropertiesHelper;
+        mConfigurationController = configurationController;
         dumpManager.registerDumpable(TAG, this);
 
         Flow<Boolean> isFinishedInAsleepStateFlow = mKeyguardTransitionInteractor
@@ -488,6 +503,24 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
     @Override
     public void start() {
         if (DEBUG) Log.d(TAG, "Start");
+
+        if (getClass() == ThemeOverlayController.class) {
+            mConfigurationController.addCallback(new ConfigurationListener() {
+                @Override
+                public void onThemeChanged() {
+                    setBootColorSystemProps();
+                }
+            });
+            mBroadcastDispatcher.registerReceiver(new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    setBootColorSystemProps();
+                }
+            }, new IntentFilter(ACTION_BOOTANIM_STYLE_CHANGED),
+                    mMainExecutor, UserHandle.ALL);
+            setBootColorSystemProps();
+        }
+
         final IntentFilter filter = new IntentFilter();
         filter.addAction(Intent.ACTION_PROFILE_ADDED);
         filter.addAction(Intent.ACTION_WALLPAPER_CHANGED);
@@ -696,6 +729,19 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
 
     protected int getAccentColor(@NonNull WallpaperColors wallpaperColors) {
         return ColorScheme.getSeedColor(wallpaperColors);
+    }
+
+    protected void setBootColorSystemProps() {
+        try {
+            for (int i = 0; i < BOOTANIM_COLOR_RES_IDS.length; i++) {
+                final int color = mResources.getColor(BOOTANIM_COLOR_RES_IDS[i], null);
+                mSystemPropertiesHelper.set(
+                        "persist.bootanim.color" + (i + 1),
+                        Integer.toString(color));
+            }
+        } catch (RuntimeException e) {
+            Log.w(TAG, "Cannot set bootanim sysprop", e);
+        }
     }
 
     @VisibleForTesting
