@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-     Copyright (C) 2019-2024 The Evolution X Project
+     SPDX-FileCopyrightText: Evolution X
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
@@ -20,12 +20,8 @@
     <!-- Launcher Restart -->
     <string name="launcher_restart_title">Launcher-újraindítás szükséges</string>
     <string name="launcher_restart_message">Az összes módosítás érvénybe léptetéséhez Launcher-újraindítás szükséges. Újraindítja most?</string>
-    <!-- Lock gesture -->
-    <string name="gesture_locked_warning">A vezérlők feloldásához csúsztasson újból</string>
     <!-- Cycle through ringer modes -->
     <string name="volume_dialog_ringer_guidance_normal">A hívások és értesítések rezegni fognak</string>
-    <!-- Game Space -->
-    <string name="gamespace_new_game_added"><xliff:g id="name" example="MyApp">%s</xliff:g> hozzáadva a Játéktérhez</string>
     <!-- PowerOffAlarmService -->
     <string name="notification_channel_poweroff_alarm">Ébresztés kikapcsolt állapotban</string>
     <string name="poweroff_alarm_title">Az \'Ébresztés kikapcsolt állapotban\' beállítása</string>
@@ -42,4 +38,6 @@
     <string name="sleep_mode_notification_content">Érintse meg az Alvómód kikapcsolásához</string>
     <string name="sleep_mode_enabled_toast">Az Alvómód bekapcsolva</string>
     <string name="sleep_mode_disabled_toast">Az Alvómód kikapcsolva</string>
+    <!-- GameSpace -->
+    <string name="gamespace_new_game_added"><xliff:g id="name" example="MyApp">%s</xliff:g> hozzáadva a Játéktérhez</string>
 </resources>
