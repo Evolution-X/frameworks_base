@@ -8956,7 +8956,10 @@ public class WindowManagerService extends IWindowManager.Stub
                         && target.getDisplayContent().getImeInputTarget() != null
                         && target.getDisplayContent().getImeInputTarget() != target) {
                     WindowState ws = target.getDisplayContent().getImeInputTarget().getWindowState();
-                    if (ws != null && (ws.mRemoved || ws.mDestroying)) {
+                    if (ws == null) {
+                        return false;
+                    }
+                    if (ws.mRemoved || ws.mDestroying) {
                         return true;
                     }
                 }
