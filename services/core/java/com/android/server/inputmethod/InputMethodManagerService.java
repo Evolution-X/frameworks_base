@@ -1964,7 +1964,8 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
             }
             userData.mVisibilityStateComputer.setLastImeTargetWindow(focusedWindow);
         }
-        if (isShowRequestedForCurrentWindow(userId) && focusedWindow != null) {
+        final boolean showed = isShowRequestedForCurrentWindow(userId) && focusedWindow != null;
+        if (showed) {
             ProtoLog.v(IMMS_DEBUG, "Attach new input asks to show input");
             // Re-use current statsToken, if it exists.
             final var statsToken = userData.mCurStatsToken != null ? userData.mCurStatsToken
@@ -1972,11 +1973,22 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
                             SoftInputShowHideReason.ATTACH_NEW_INPUT, userId);
             userData.mCurStatsToken = null;
             showCurrentInputInternal(focusedWindow, statsToken);
-        } else if (isStale) {
+        }
+        if (isStale && !showed) {
             var statsToken = createStatsTokenForFocusedClient(false,
                     SoftInputShowHideReason.HIDE_SOFT_INPUT, userId);
             hideCurrentInputLocked(focusedWindow, statsToken,
                     SoftInputShowHideReason.HIDE_SOFT_INPUT, userId);
+            // Re-show for the new target if it wants the keyboard.
+            if (isShowRequestedForCurrentWindow(userId)) {
+                final IBinder newTarget =
+                        userData.mVisibilityStateComputer.getLastImeTargetWindow();
+                if (newTarget != null) {
+                    var showToken = createStatsTokenForFocusedClient(true,
+                            SoftInputShowHideReason.SHOW_RESTORE_IME_VISIBILITY, userId);
+                    showCurrentInputInternal(newTarget, showToken);
+                }
+            }
         }
 
         final var curId = bindingController.getCurId();
