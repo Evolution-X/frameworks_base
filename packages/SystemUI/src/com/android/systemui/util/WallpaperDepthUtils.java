@@ -70,6 +70,7 @@ public class WallpaperDepthUtils {
     private Bitmap mWallpaperBitmap;
     private int mOffsetX;
     private int mOffsetY;
+    private boolean mUnlocking;
 
     private WallpaperDepthUtils(Context context, ScrimController scrimController) {
         mContext = context.getApplicationContext();
@@ -102,6 +103,20 @@ public class WallpaperDepthUtils {
 
     public static WallpaperDepthUtils get() {
         return instance;
+    }
+
+    public void onUnlockStarted() {
+        mUnlocking = true;
+        hideDepthWallpaperImmediate();
+    }
+
+    public void onUnlockCancelled() {
+        mUnlocking = false;
+        updateDepthWallpaperVisibility();
+    }
+
+    public void onUnlockCompleted() {
+        mUnlocking = false;
     }
     
     public void onDozingChanged(boolean dozing) {
@@ -209,6 +224,7 @@ public class WallpaperDepthUtils {
                 && !mBouncerShowing
                 && !mGlanceableHubShowing
                 && !mDynamicBarExpanded
+                && !mUnlocking
                 && currentState == ScrimState.KEYGUARD
                 && mContext.getResources().getConfiguration().orientation != Configuration.ORIENTATION_LANDSCAPE
                 && !MediaViewController.get(mContext).albumArtVisible();
@@ -227,8 +243,23 @@ public class WallpaperDepthUtils {
     }
     
     public void hideDepthWallpaper() {
-        if (mLockScreenSubject.getVisibility() == View.GONE) return;
+        if (mLockScreenSubject == null || mLockScreenSubject.getVisibility() == View.GONE) return;
         mLockScreenSubject.post(() -> mLockScreenSubject.setVisibility(View.GONE));
+    }
+
+    public void hideDepthWallpaperImmediate() {
+        if (mLockScreenSubject == null) return;
+        mLockScreenSubject.post(() -> {
+            mLockScreenSubject.animate().cancel();
+            mLockScreenSubject.animate()
+                    .alpha(0f)
+                    .setDuration(120)
+                    .withEndAction(() -> {
+                        mLockScreenSubject.setVisibility(View.GONE);
+                        mLockScreenSubject.setAlpha(1f);
+                    })
+                    .start();
+        });
     }
 
     public Bitmap getResizedBitmap(Bitmap wallpaperBitmap, float xOffsetDp, float yOffsetDp) {
