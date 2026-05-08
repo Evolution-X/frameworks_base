@@ -115,6 +115,7 @@ import android.os.Trace;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.Settings;
+import android.text.InputType;
 import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.ArraySet;
@@ -2102,6 +2103,9 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
             return InputBindResult.NO_IME;
         }
 
+        final boolean retryShowForRealEditor = shouldRetryShowForRealEditorLocked(
+                userData, editorInfo);
+
         if (userData.mCurClient != cs) {
             prepareClientSwitchLocked(cs, userId);
         }
@@ -2142,6 +2146,10 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
             return InputBindResult.NO_EDITOR;
         }
 
+        if (retryShowForRealEditor) {
+            visibilityStateComputer.setInputShown(false);
+        }
+
         // Check if the input method is changing.
         // We expect the caller has already verified that the client is allowed to access this
         // display ID.
@@ -2175,6 +2183,26 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
 
         bindingController.unbindCurrentMethod();
         return bindingController.bindCurrentMethod();
+    }
+
+    @GuardedBy("ImfLock.class")
+    private boolean shouldRetryShowForRealEditorLocked(@NonNull UserData userData,
+            @NonNull EditorInfo editorInfo) {
+        final var visibilityStateComputer = userData.mVisibilityStateComputer;
+        if (!Flags.reportAnimatingInsetsTypes() || !visibilityStateComputer.isInputShown()) {
+            return false;
+        }
+        if (editorInfo.inputType == InputType.TYPE_NULL) {
+            return false;
+        }
+        final EditorInfo previousEditorInfo = userData.mCurEditorInfo;
+        if (previousEditorInfo != null && previousEditorInfo.inputType != InputType.TYPE_NULL) {
+            return false;
+        }
+        final ImeTargetWindowState targetWindowState = visibilityStateComputer.getWindowStateOrNull(
+                userData.mImeBindingState.mFocusedWindow);
+        return targetWindowState != null && targetWindowState.hasEditorFocused()
+                && targetWindowState.isRequestedImeVisible();
     }
 
     /**
