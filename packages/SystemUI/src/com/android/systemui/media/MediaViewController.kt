@@ -599,6 +599,7 @@ class MediaViewController @Inject constructor(
             if (scrimState == STATE_SCRIM_VISIBLE) {
                 updateAodAlpha()
             }
+            updateMediaElevation()
             updateMediaState()
         }
     }
@@ -608,8 +609,14 @@ class MediaViewController @Inject constructor(
             if (scrimState == STATE_SCRIM_VISIBLE) {
                 updateAodAlpha()
             }
+            updateMediaElevation()
             updateMediaState()
         }
+    }
+
+    private fun updateMediaElevation() {
+        val ambient = isDozing() || isPulsing()
+        mediaScrim.translationZ = if (ambient) 1f else 0f
     }
 
     override fun onExpandedFractionChanged(expandedFraction: Float) {
