@@ -203,12 +203,19 @@ class PulseViewController @Inject constructor(
 
     override fun onDozingChanged(dozing: Boolean) {
         isDozing = dozing
+        updateViewElevation()
         updateState()
     }
 
     override fun setPulsing(pulsing: Boolean) {
         isPulsing = pulsing
+        updateViewElevation()
         updateState()
+    }
+
+    private fun updateViewElevation() {
+        val ambient = ScrimUtils.get().isDozing() || isPulsing
+        view.translationZ = if (ambient) 1f else 0f
     }
 
     override fun onExpandedFractionChanged(expandedFraction: Float) {
