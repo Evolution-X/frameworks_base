@@ -53,6 +53,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -72,6 +73,9 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CustomColorScheme
+import com.android.systemui.volume.dialog.sliders.ui.compose.rememberGradientColorMode
+import com.android.systemui.volume.dialog.sliders.ui.compose.rememberGradientCustomColors
+import com.android.systemui.volume.dialog.sliders.ui.compose.rememberVolumeGradientEnabled
 
 private val CORNER_DEFAULT = 26.dp
 private val CORNER_ROUNDED = 50.dp
@@ -171,6 +175,19 @@ fun MaterialVerticalBrightnessSlider(
         animationSpec = tween(300),
         label = "BrightnessIconTint",
     )
+    val gradientEnabled = rememberVolumeGradientEnabled()
+    val gradientColors = if (rememberGradientColorMode() == 1) {
+        val g = rememberGradientCustomColors()
+        listOf(g.startColor, g.endColor)
+    } else {
+        listOf(
+            MaterialTheme.colorScheme.primary,
+            MaterialTheme.colorScheme.secondary,
+        )
+    }
+    val fillBrush: Brush? = if (gradientEnabled)
+        Brush.verticalGradient(colors = gradientColors.reversed())
+    else null
     val iconRes = if (autoMode) R.drawable.ic_qs_brightness_auto_on
                   else R.drawable.ic_qs_brightness_auto_off
 
@@ -270,7 +287,12 @@ fun MaterialVerticalBrightnessSlider(
                 .fillMaxWidth()
                 .fillMaxHeight(currentFraction)
                 .align(Alignment.BottomCenter)
-                .background(fillColor, shape),
+                .then(
+                    if (fillBrush != null)
+                        Modifier.background(fillBrush, shape)
+                    else
+                        Modifier.background(fillColor, shape)
+                ),
         )
 
         Icon(
