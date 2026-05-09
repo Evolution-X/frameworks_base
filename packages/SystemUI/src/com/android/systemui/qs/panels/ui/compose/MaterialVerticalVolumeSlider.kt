@@ -55,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -65,6 +66,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CustomColorScheme
+import com.android.systemui.volume.dialog.sliders.ui.compose.rememberGradientColorMode
+import com.android.systemui.volume.dialog.sliders.ui.compose.rememberGradientCustomColors
+import com.android.systemui.volume.dialog.sliders.ui.compose.rememberVolumeGradientEnabled
 
 private val CORNER_DEFAULT = 26.dp
 private val CORNER_ROUNDED = 50.dp
@@ -173,6 +177,28 @@ fun MaterialVerticalVolumeSlider(
         animationSpec = tween(350),
         label = "VolumeIconTint",
     )
+    val gradientEnabled = rememberVolumeGradientEnabled()
+    val normalGradientColors = if (rememberGradientColorMode() == 1) {
+        val g = rememberGradientCustomColors()
+        listOf(g.startColor, g.endColor)
+    } else {
+        listOf(
+            MaterialTheme.colorScheme.primary,
+            MaterialTheme.colorScheme.secondary,
+        )
+    }
+    val vibrateGradientColors = listOf(
+        MaterialTheme.colorScheme.tertiary,
+        MaterialTheme.colorScheme.tertiaryContainer,
+    )
+    val fillBrush: Brush? = when {
+        !gradientEnabled -> null
+        ringerMode == AudioManager.RINGER_MODE_NORMAL ->
+            Brush.verticalGradient(colors = normalGradientColors.reversed())
+        ringerMode == AudioManager.RINGER_MODE_VIBRATE ->
+            Brush.verticalGradient(colors = vibrateGradientColors.reversed())
+        else -> null
+    }
 
     val iconRes = when (ringerMode) {
         AudioManager.RINGER_MODE_SILENT -> R.drawable.ic_volume_off
@@ -237,7 +263,12 @@ fun MaterialVerticalVolumeSlider(
                 .fillMaxWidth()
                 .fillMaxHeight(currentFraction)
                 .align(Alignment.BottomCenter)
-                .background(fillColor, shape),
+                .then(
+                    if (fillBrush != null)
+                        Modifier.background(fillBrush, shape)
+                    else
+                        Modifier.background(fillColor, shape)
+                ),
         )
 
         Icon(
