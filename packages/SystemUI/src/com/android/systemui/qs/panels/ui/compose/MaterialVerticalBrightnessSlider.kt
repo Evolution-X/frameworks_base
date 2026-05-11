@@ -232,8 +232,8 @@ fun MaterialVerticalBrightnessSlider(
                     view.parent?.requestDisallowInterceptTouchEvent(true)
 
                     val downLinear = yToLinear(down.position.y, size.height)
-                    linearBrightness = downLinear
-                    writeLinearBrightness(downLinear)
+                    val downTime = System.currentTimeMillis()
+                    var dragging = false
 
                     longPressJob = scope.launch {
                         delay(500)
@@ -254,12 +254,19 @@ fun MaterialVerticalBrightnessSlider(
                         view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                     }
 
-                    var dragging = false
                     try {
                         while (true) {
                             val event = awaitPointerEvent(PointerEventPass.Main)
                             val ptr = event.changes.firstOrNull { it.id == down.id } ?: break
-                            if (!ptr.pressed) { longPressJob?.cancel(); break }
+                            if (!ptr.pressed) {
+                                val heldMs = System.currentTimeMillis() - downTime
+                                if (!dragging && heldMs < 500) {
+                                    linearBrightness = downLinear
+                                    writeLinearBrightness(downLinear)
+                                }
+                                longPressJob?.cancel()
+                                break
+                            }
 
                             val dragAmt = ptr.position.y - down.position.y
                             if (!dragging && abs(dragAmt) > viewConfiguration.touchSlop) {
