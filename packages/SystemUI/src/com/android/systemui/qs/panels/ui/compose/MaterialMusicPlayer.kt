@@ -16,7 +16,10 @@
 
 package com.android.systemui.qs.panels.ui.compose
 
+import android.app.PendingIntent
 import android.content.Context
+import android.content.ComponentName
+import android.content.Intent
 import android.graphics.Bitmap
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
@@ -88,7 +91,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
+import com.android.settingslib.media.MediaOutputConstants
+
+import com.android.systemui.ActivityIntentHelper
+import com.android.systemui.Dependency
+import com.android.systemui.media.dialog.MediaOutputDialogReceiver
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CustomColorScheme
+import com.android.systemui.plugins.ActivityStarter
+import com.android.systemui.statusbar.NotificationLockscreenUserManager
+import com.android.systemui.statusbar.policy.KeyguardStateController
 
 private data class MediaState(
     val title: String? = null,
@@ -100,11 +111,16 @@ private data class MediaState(
 )
 
 @Composable
-fun MaterialMusicPlayer(modifier: Modifier = Modifier) {
+fun MaterialMusicPlayer(modifier: Modifier = Modifier)  {
     val context = LocalContext.current
     val sessionManager = remember {
         context.getSystemService(Context.MEDIA_SESSION_SERVICE) as? MediaSessionManager
     }
+
+    val keyguardStateController = remember { Dependency.get(KeyguardStateController::class.java) }
+    val activityIntentHelper = remember { ActivityIntentHelper(context) }
+    val activityStarter = remember { Dependency.get(ActivityStarter::class.java) }
+    val lockscreenUserManager = remember { Dependency.get(NotificationLockscreenUserManager::class.java) }
 
     var mediaState by remember { mutableStateOf(MediaState()) }
 
@@ -174,7 +190,14 @@ fun MaterialMusicPlayer(modifier: Modifier = Modifier) {
         }
     }
 
-    MaterialMusicPlayerContent(mediaState = mediaState, modifier = modifier)
+    MaterialMusicPlayerContent(
+        mediaState = mediaState, 
+        keyguardStateController = keyguardStateController,
+        activityStarter = activityStarter,
+        activityIntentHelper = activityIntentHelper, 
+        lockscreenUserManager = lockscreenUserManager,
+        modifier = modifier, 
+    )
 }
 
 @Composable
@@ -248,7 +271,14 @@ private fun SkipButton(
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun MaterialMusicPlayerContent(mediaState: MediaState, modifier: Modifier = Modifier) {
+private fun MaterialMusicPlayerContent(
+    mediaState: MediaState, 
+    keyguardStateController: KeyguardStateController,
+    activityStarter: ActivityStarter,
+    activityIntentHelper: ActivityIntentHelper,
+    lockscreenUserManager: NotificationLockscreenUserManager,
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
     val tileColor = CustomColorScheme.current.qsTileColor
 
@@ -332,7 +362,36 @@ private fun MaterialMusicPlayerContent(mediaState: MediaState, modifier: Modifie
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = mediaState?.controller != null) {
+                        val pkg = mediaState?.controller?.packageName ?: return@clickable
+                        val pending = mediaState?.controller?.sessionActivity ?: context.packageManager
+                            .getLaunchIntentForPackage(pkg)
+                            ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            ?.let { PendingIntent.getActivity(context, 0, it, PendingIntent.FLAG_IMMUTABLE) }
+                            ?: return@clickable
+
+                        val showOverLockscreen = keyguardStateController.isShowing &&
+                            activityIntentHelper.wouldPendingShowOverLockscreen(
+                                pending,
+                                lockscreenUserManager.currentUserId
+                            )
+
+                        if (showOverLockscreen) {
+                            activityStarter.startPendingIntentMaybeDismissingKeyguard(
+                                pending,
+                                /* dismissShade = */ true,
+                                /* intentSentUiThreadCallback = */ null,
+                                /* animationController = */ null,
+                                /* fillIntent = */ null,
+                                /* extraOptions = */ null,
+                                /* customMessage = */ null
+                            )
+                        } else {
+                            activityStarter.postStartActivityDismissingKeyguard(pending, null)
+                        }
+                    }
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -370,6 +429,16 @@ private fun MaterialMusicPlayerContent(mediaState: MediaState, modifier: Modifie
                             if (mediaState.albumArt != null) Color.Black.copy(alpha = 0.3f)
                             else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.7f)
                         )
+                        .clickable(true) {
+                            val pkg = mediaState?.controller?.packageName ?: return@clickable
+                            val intent = Intent(MediaOutputConstants.ACTION_LAUNCH_MEDIA_OUTPUT_DIALOG).apply {
+                                    putExtra(MediaOutputConstants.EXTRA_PACKAGE_NAME, pkg)
+                                    component = ComponentName("com.android.systemui", MediaOutputDialogReceiver::class.java.name)
+                                }
+                            if (pkg != null) {
+                                context.sendBroadcast(intent)
+                            }
+                        }
                         .padding(horizontal = 6.dp, vertical = 4.dp),
                     contentAlignment = Alignment.Center,
                 ) {
