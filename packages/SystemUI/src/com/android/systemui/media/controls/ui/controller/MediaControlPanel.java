@@ -99,6 +99,7 @@ import com.android.systemui.media.controls.ui.animation.MetadataAnimationHandler
 import com.android.systemui.media.controls.ui.binder.SeekBarObserver;
 import com.android.systemui.media.controls.ui.view.GutsViewHolder;
 import com.android.systemui.media.controls.ui.view.MediaViewHolder;
+import com.android.systemui.media.controls.ui.view.WaveformSeekBar;
 import com.android.systemui.media.controls.ui.viewmodel.SeekBarViewModel;
 import com.android.systemui.media.controls.util.MediaDataUtils;
 import com.android.systemui.media.controls.util.MediaUiEventLogger;
@@ -342,6 +343,23 @@ public class MediaControlPanel {
     @Nullable
     public MediaViewHolder getMediaViewHolder() {
         return mMediaViewHolder;
+    }
+
+    public void refreshSeekBarTheme() {
+        if (mMediaViewHolder != null && mMediaViewHolder.getSeekBar() instanceof WaveformSeekBar) {
+            WaveformSeekBar seekBar = (WaveformSeekBar) mMediaViewHolder.getSeekBar();
+            seekBar.refreshTheme();
+            updateWaveformSeekBarColor();
+        }
+    }
+
+    private void updateWaveformSeekBarColor() {
+        if (mColorSchemeTransition != null
+                && mMediaViewHolder != null
+                && mMediaViewHolder.getSeekBar() instanceof WaveformSeekBar) {
+            ((WaveformSeekBar) mMediaViewHolder.getSeekBar()).setMediaColor(
+                    mColorSchemeTransition.getSurfaceEffectColor());
+        }
     }
 
     /**
@@ -905,6 +923,7 @@ public class MediaControlPanel {
             int screenWidth = bounds.width();
             int screenHeight = bounds.height();
             Drawable albumArt = getScaledBackground(artworkIcon, screenWidth, screenHeight);
+            MediaSessionManager.Companion.get().onAlbumArtChanged(albumArt);
             WallpaperColors wallpaperColors = getWallpaperColor(artworkIcon);
             boolean darkTheme = false;
             if (wallpaperColors != null) {
@@ -938,12 +957,12 @@ public class MediaControlPanel {
                 }
                 mArtworkBoundId = reqId;
 
-                MediaSessionManager.Companion.get().onAlbumArtChanged(albumArt);
-                MediaSessionManager.Companion.get().onMediaColorsChanged(colorScheme.getAccent1().getS100());
-
                 // Transition Colors to current color scheme
                 boolean colorSchemeChanged;
                 colorSchemeChanged = mColorSchemeTransition.updateColorScheme(colorScheme);
+
+                MediaSessionManager.Companion.get().onMediaColorsChanged(colorScheme.getAccent1().getS100());
+                updateWaveformSeekBarColor();
 
                 // Bind the album view to the artwork or a transition drawable
                 ImageView albumView = mMediaViewHolder.getAlbumView();
