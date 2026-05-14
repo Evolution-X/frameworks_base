@@ -287,6 +287,11 @@ public final class NotificationPanelViewController implements
             "system:" + Settings.System.STATUS_BAR_CUSTOM_HEADER_HEIGHT;
     private static final String STATUS_BAR_CUSTOM_HEADER_SHADOW =
             "system:" + Settings.System.STATUS_BAR_CUSTOM_HEADER_SHADOW;
+    private static final String STATUS_BAR_BRIGHTNESS_CONTROL =
+            "system:" + Settings.System.STATUS_BAR_BRIGHTNESS_CONTROL;
+    private static final String STATUS_BAR_BRIGHTNESS_CONTROL_LOCKSCREEN =
+            "system:" + Settings.System.STATUS_BAR_BRIGHTNESS_CONTROL_LOCKSCREEN;
+
     private static final Rect M_DUMMY_DIRTY_RECT = new Rect(0, 0, 1, 1);
     private static final Rect EMPTY_RECT = new Rect();
     //TODO(b/394977231) delete this temporary workaround used only by tests
@@ -547,6 +552,9 @@ public final class NotificationPanelViewController implements
     private float mShadeHeaderExpansion;
     private Drawable mCurrentBackground;
     private StatusBarHeaderMachine mStatusBarHeaderMachine;
+
+    private boolean mBrightnessControl;
+    private boolean mBrightnessControlLockscreen;
 
     private final NPVCDownEventState.Buffer mLastDownEvents;
     private final KeyguardClockInteractor mKeyguardClockInteractor;
@@ -3781,6 +3789,9 @@ public final class NotificationPanelViewController implements
             mTunerService.addTunable(this, STATUS_BAR_CUSTOM_HEADER);
             mTunerService.addTunable(this, STATUS_BAR_CUSTOM_HEADER_HEIGHT);
             mTunerService.addTunable(this, STATUS_BAR_CUSTOM_HEADER_SHADOW);
+            mTunerService.addTunable(this, STATUS_BAR_BRIGHTNESS_CONTROL);
+            mTunerService.addTunable(this, STATUS_BAR_BRIGHTNESS_CONTROL_LOCKSCREEN);
+
             // Theme might have changed between inflating this view and attaching it to the
             // window, so
             // force a call to onThemeChanged
@@ -3833,6 +3844,14 @@ public final class NotificationPanelViewController implements
                     if (mHeaderImageEnabled) {
                         mView.post(() -> updateHeaderImage());
                     }
+                    break;
+                case STATUS_BAR_BRIGHTNESS_CONTROL:
+                    mBrightnessControl =
+                            TunerService.parseIntegerSwitch(newValue, false);
+                    break;
+                case STATUS_BAR_BRIGHTNESS_CONTROL_LOCKSCREEN:
+                    mBrightnessControlLockscreen =
+                            TunerService.parseIntegerSwitch(newValue, false);
                     break;
                 default:
                     break;
@@ -4229,6 +4248,20 @@ public final class NotificationPanelViewController implements
                     && event.getDownTime() == mStatusBarLongPressDowntime) {
                 mShadeLog.d("Touch has same down time as Status Bar long press. Ignoring.");
                 return false;
+            }
+            if (mBrightnessControl) {
+                final int actionIndex = event.getActionIndex();
+                final float swipeY = event.getY(actionIndex);
+                if (swipeY < mStatusBarMinHeight &&
+                        (mBarState != KEYGUARD || mBrightnessControlLockscreen)) {
+                    mCentralSurfaces.brightnessControl(event);
+                    final int action = event.getActionMasked();
+                    if (action == MotionEvent.ACTION_UP
+                            || action == MotionEvent.ACTION_CANCEL) {
+                        mCentralSurfaces.onBrightnessChanged(true);
+                    }
+                    return true;
+                }
             }
             if (!mHeadsUpTouchHelper.isTrackingHeadsUp() && mQsController.handleTouch(
                     event, isFullyCollapsed(), isShadeOrQsHeightAnimationRunning())) {
