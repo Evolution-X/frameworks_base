@@ -302,8 +302,6 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
 
     private static final String PULSE_ON_NEW_TRACKS =
             Settings.Secure.PULSE_ON_NEW_TRACKS;
-    private static final String STATUS_BAR_BRIGHTNESS_CONTROL =
-            "system:" + Settings.System.STATUS_BAR_BRIGHTNESS_CONTROL;
 
     private static final int MSG_LAUNCH_TRANSITION_TIMEOUT = 1003;
     private static final int MSG_LONG_PRESS_BRIGHTNESS_CHANGE = 1004;
@@ -667,7 +665,6 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
     private int mLinger;
     private int mQuickQsOffsetHeight;
     private boolean mBrightnessChanged;
-    private boolean mBrightnessControl;
     private float mCurrentBrightness;
 
     /**
@@ -1007,7 +1004,6 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
         createAndAddWindows(result);
 
         mTunerService.addTunable(this, PULSE_ON_NEW_TRACKS);
-        mTunerService.addTunable(this, STATUS_BAR_BRIGHTNESS_CONTROL);
 
         // Set up the initial notification state. This needs to happen before CommandQueue.disable()
         setUpPresenter();
@@ -1394,7 +1390,6 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
                         mShadeSurface.updateExpansionAndVisibility();
                         setBouncerShowingForStatusBarComponents(mBouncerShowing);
                         checkBarModes();
-                        mPhoneStatusBarViewController.setBrightnessControlEnabled(mBrightnessControl);
                         mBurnInProtectionController.setPhoneStatusBarView(mPhoneStatusBarViewController.getPhoneStatusBarView());
                     });
         }
@@ -3194,12 +3189,6 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
                 KeyguardSliceProvider sliceProvider = KeyguardSliceProvider.getAttachedInstance();
                 if (sliceProvider != null)
                     sliceProvider.setPulseOnNewTracks(showPulseOnNewTracks);
-                break;
-            case STATUS_BAR_BRIGHTNESS_CONTROL:
-                mBrightnessControl =
-                        TunerService.parseIntegerSwitch(newValue, false);
-                if (mPhoneStatusBarViewController != null)
-                    mPhoneStatusBarViewController.setBrightnessControlEnabled(mBrightnessControl);
                 break;
             default:
                 break;
