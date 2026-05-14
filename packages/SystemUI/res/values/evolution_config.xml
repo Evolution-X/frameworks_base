@@ -81,4 +81,12 @@
     <bool name="config_themedBatteryPillIconLeading">true</bool>
     <bool name="config_themedBatteryPillOutline">false</bool>
     <bool name="config_themedBatteryPillNub">true</bool>
+
+    <!-- WaveForm Engine -->
+    <string name="config_qs_waveform_path" translatable="false"></string>
+    <integer-array name="config_qs_waveform_lut" />
+    <dimen name="config_qs_waveform_height">16dp</dimen>
+    <dimen name="config_qs_waveform_length">80dp</dimen>
+    <integer name="config_qs_waveform_layers">1</integer>
+    <integer name="config_qs_waveform_fill_alpha">0</integer>
 </resources>

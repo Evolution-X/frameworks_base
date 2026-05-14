@@ -842,8 +842,7 @@ private fun NowPlayingWaveformBar(
         factory = { ctx ->
             WaveformSeekBar(ctx).apply {
                 max = 10_000
-                setWaveformColor(android.graphics.Color.WHITE)
-                setThumbColor(android.graphics.Color.WHITE)
+                setMediaColor(android.graphics.Color.WHITE)
                 setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                     override fun onProgressChanged(sb: SeekBar?, v: Int, fromUser: Boolean) {
                         if (fromUser) onSeekRef.value(v / 10_000f)
