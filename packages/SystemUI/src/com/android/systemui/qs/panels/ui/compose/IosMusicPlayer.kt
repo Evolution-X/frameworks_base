@@ -17,26 +17,22 @@
 package com.android.systemui.qs.panels.ui.compose
 
 import android.app.PendingIntent
-import android.content.Context
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
-import android.media.MediaMetadata
-import android.media.session.MediaController
-import android.media.session.MediaSessionManager
-import android.media.session.PlaybackState
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.view.KeyEvent
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -99,117 +95,45 @@ import com.android.systemui.qs.panels.ui.compose.infinitegrid.CustomColorScheme
 import com.android.systemui.statusbar.NotificationLockscreenUserManager
 import com.android.systemui.statusbar.policy.KeyguardStateController
 
-private data class IosMusicPlayerState(
-    val title: String? = null,
-    val artist: String? = null,
-    val albumArt: Bitmap? = null,
-    val isPlaying: Boolean = false,
-    val controller: MediaController? = null,
-)
-
 @Composable
 fun IosMusicPlayer(modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val sessionManager = remember {
-        context.getSystemService(Context.MEDIA_SESSION_SERVICE) as? MediaSessionManager
-    }
-
     val keyguardStateController = remember { Dependency.get(KeyguardStateController::class.java) }
     val activityIntentHelper = remember { ActivityIntentHelper(context) }
     val activityStarter = remember { Dependency.get(ActivityStarter::class.java) }
     val lockscreenUserManager = remember { Dependency.get(NotificationLockscreenUserManager::class.java) }
 
-    var mediaState by remember { mutableStateOf(IosMusicPlayerState()) }
-
-    DisposableEffect(Unit) {
-        var controllerCallback: MediaController.Callback? = null
-        var currentController: MediaController? = null
-
-        val logic = object {
-            fun attachCallback(ctrl: MediaController?) {
-                if (currentController == ctrl) return
-                controllerCallback?.let { cb -> currentController?.unregisterCallback(cb) }
-                currentController = ctrl
-                if (ctrl == null) return
-                val cb = object : MediaController.Callback() {
-                    override fun onMetadataChanged(m: MediaMetadata?) { refreshActiveSessions() }
-                    override fun onPlaybackStateChanged(s: PlaybackState?) { refreshActiveSessions() }
-                    override fun onSessionDestroyed() { refreshActiveSessions() }
-                }
-                ctrl.registerCallback(cb)
-                controllerCallback = cb
-            }
-
-            fun refreshActiveSessions() {
-                val sessions = try {
-                    sessionManager?.getActiveSessions(null) ?: emptyList()
-                } catch (_: Exception) { emptyList() }
-
-                val active = sessions.firstOrNull { c ->
-                    c.playbackState?.state == PlaybackState.STATE_PLAYING ||
-                        c.playbackState?.state == PlaybackState.STATE_PAUSED ||
-                        c.playbackState?.state == PlaybackState.STATE_FAST_FORWARDING ||
-                        c.playbackState?.state == PlaybackState.STATE_REWINDING ||
-                        c.playbackState?.state == PlaybackState.STATE_BUFFERING
-                } ?: sessions.firstOrNull()
-
-                attachCallback(active)
-
-                if (active == null) {
-                    mediaState = IosMusicPlayerState()
-                    return
-                }
-                val meta = active.metadata
-                mediaState = IosMusicPlayerState(
-                    title = meta?.getString(MediaMetadata.METADATA_KEY_TITLE),
-                    artist = meta?.getString(MediaMetadata.METADATA_KEY_ARTIST)
-                        ?: meta?.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST),
-                    albumArt = meta?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
-                        ?: meta?.getBitmap(MediaMetadata.METADATA_KEY_ART),
-                    isPlaying = active.playbackState?.state == PlaybackState.STATE_PLAYING,
-                    controller = active,
-                )
-            }
-        }
-
-        logic.refreshActiveSessions()
-        val sessionListener = MediaSessionManager.OnActiveSessionsChangedListener {
-            logic.refreshActiveSessions()
-        }
-        try { sessionManager?.addOnActiveSessionsChangedListener(sessionListener, null) }
-        catch (_: Exception) {}
-
-        onDispose {
-            try { sessionManager?.removeOnActiveSessionsChangedListener(sessionListener) }
-            catch (_: Exception) {}
-            controllerCallback?.let { cb -> currentController?.unregisterCallback(cb) }
-        }
-    }
+    val mediaState = rememberMediaState()
 
     IosMusicPlayerContent(
-        mediaState = mediaState, 
-        activityStarter = activityStarter, 
+        mediaState = mediaState,
+        activityStarter = activityStarter,
         keyguardStateController = keyguardStateController,
-        activityIntentHelper = activityIntentHelper, 
+        activityIntentHelper = activityIntentHelper,
         lockscreenUserManager = lockscreenUserManager,
-        modifier = modifier, 
+        modifier = modifier,
     )
 }
+
+// ---------------------------------------------------------------------------
+// Content
+// ---------------------------------------------------------------------------
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun IosMusicPlayerContent(
-    mediaState: IosMusicPlayerState, 
+    mediaState: SharedMediaState,
     activityStarter: ActivityStarter,
     keyguardStateController: KeyguardStateController,
     activityIntentHelper: ActivityIntentHelper,
     lockscreenUserManager: NotificationLockscreenUserManager,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
     val hasMedia = mediaState.controller != null
+    val hasAlbumArt = mediaState.albumArt != null
 
     val tileColor = CustomColorScheme.current.qsTileColor
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -217,14 +141,23 @@ private fun IosMusicPlayerContent(
     val onSurface = MaterialTheme.colorScheme.onSurface
     val onVariant = MaterialTheme.colorScheme.onSurfaceVariant
 
+    // Audio output device detection
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     var deviceType by remember { mutableStateOf(AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) }
     DisposableEffect(audioManager) {
         fun update() {
-            val out = try { audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS) }
-                      catch (_: Exception) { emptyArray() }
-            val bt   = out.any { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO }
-            val wire = out.any { it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES || it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET || it.type == AudioDeviceInfo.TYPE_USB_HEADSET }
+            val out = try {
+                audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+            } catch (_: Exception) { emptyArray() }
+            val bt = out.any {
+                it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+            }
+            val wire = out.any {
+                it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+                it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+                it.type == AudioDeviceInfo.TYPE_USB_HEADSET
+            }
             deviceType = when {
                 bt   -> AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
                 wire -> AudioDeviceInfo.TYPE_WIRED_HEADPHONES
@@ -246,24 +179,25 @@ private fun IosMusicPlayerContent(
         else                                  -> Icons.Filled.Smartphone
     }
 
+    // Pulsing icon alpha when playing
     val infiniteTransition = rememberInfiniteTransition(label = "audio_pulse")
     val alphaAnim by infiniteTransition.animateFloat(
         initialValue = 0.4f,
-        targetValue  = 1f,
+        targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation  = tween(800, easing = LinearEasing),
+            animation = tween(800, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "audio_pulse_alpha",
     )
     val iconAlpha = if (mediaState.isPlaying) alphaAnim else 0.5f
 
+    // Optimistic play/pause state so the UI responds immediately.
     var localIsPlaying by remember(mediaState.controller, mediaState.isPlaying) {
         mutableStateOf(mediaState.isPlaying)
     }
 
     val playSrc = remember { MutableInteractionSource() }
-    val playPressed by playSrc.collectIsPressedAsState()
 
     val titleColor by animateColorAsState(
         targetValue = if (hasMedia) Color.White else onSurface,
@@ -278,11 +212,56 @@ private fun IosMusicPlayerContent(
     val controlTint = if (hasMedia) Color.White else onSurface
     val controlTintDisabled = controlTint.copy(alpha = 0.38f)
 
+    // Helper: resolve or build a PendingIntent for the active session's app.
+    fun resolveSessionPendingIntent(): PendingIntent? {
+        val pkg = mediaState.packageName ?: return null
+        return mediaState.controller?.sessionActivity
+            ?: context.packageManager
+                .getLaunchIntentForPackage(pkg)
+                ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                ?.let { PendingIntent.getActivity(context, 0, it, PendingIntent.FLAG_IMMUTABLE) }
+    }
+
+    // Helper: launch the session's app, handling lock-screen correctly.
+    fun launchSessionApp() {
+        val pending = resolveSessionPendingIntent() ?: return
+        val showOverLockscreen = keyguardStateController.isShowing &&
+            activityIntentHelper.wouldPendingShowOverLockscreen(
+                pending,
+                lockscreenUserManager.currentUserId,
+            )
+        if (showOverLockscreen) {
+            activityStarter.startPendingIntentMaybeDismissingKeyguard(
+                pending,
+                /* dismissShade = */ true,
+                /* intentSentUiThreadCallback = */ null,
+                /* animationController = */ null,
+                /* fillIntent = */ null,
+                /* extraOptions = */ null,
+                /* customMessage = */ null,
+            )
+        } else {
+            activityStarter.postStartActivityDismissingKeyguard(pending, null)
+        }
+    }
+
+    // Helper: send the broadcast to open the media output picker.
+    fun launchMediaOutputDialog() {
+        val pkg = mediaState.packageName ?: return
+        context.sendBroadcast(
+            Intent(MediaOutputConstants.ACTION_LAUNCH_MEDIA_OUTPUT_DIALOG).apply {
+                putExtra(MediaOutputConstants.EXTRA_PACKAGE_NAME, pkg)
+                component = ComponentName("com.android.systemui", MediaOutputDialogReceiver::class.java.name)
+            }
+        )
+    }
+
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(24.dp))
             .background(tileColor),
     ) {
+        // Album art background
         mediaState.albumArt?.let { bmp ->
             Image(
                 painter = BitmapPainter(bmp.asImageBitmap()),
@@ -295,6 +274,7 @@ private fun IosMusicPlayerContent(
             )
         }
 
+        // Gradient overlay when media is active
         if (hasMedia) {
             Box(
                 modifier = Modifier
@@ -316,40 +296,15 @@ private fun IosMusicPlayerContent(
                 .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
+            // ---- Top row: album art thumbnail + track info + output picker ----
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.clickable(enabled = mediaState?.controller != null) {
-                    val pkg = mediaState?.controller?.packageName ?: return@clickable
-                    val pending = mediaState?.controller?.sessionActivity ?: context.packageManager
-                        .getLaunchIntentForPackage(pkg)
-                        ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        ?.let { PendingIntent.getActivity(context, 0, it, PendingIntent.FLAG_IMMUTABLE) }
-                        ?: return@clickable
-
-                    val showOverLockscreen = keyguardStateController.isShowing &&
-                        activityIntentHelper.wouldPendingShowOverLockscreen(
-                            pending,
-                            lockscreenUserManager.currentUserId
-                        )
-
-                    if (showOverLockscreen) {
-                        activityStarter.startPendingIntentMaybeDismissingKeyguard(
-                            pending,
-                            /* dismissShade = */ true,
-                            /* intentSentUiThreadCallback = */ null,
-                            /* animationController = */ null,
-                            /* fillIntent = */ null,
-                            /* extraOptions = */ null,
-                            /* customMessage = */ null
-                        )
-                    } else {
-                        activityStarter.postStartActivityDismissingKeyguard(pending, null)
-                    }
-                }
+                modifier = Modifier.clickable(enabled = hasMedia, onClick = ::launchSessionApp),
             ) {
-                if (mediaState.albumArt != null) {
+                // Album art thumbnail or placeholder
+                if (hasAlbumArt) {
                     Image(
-                        painter = BitmapPainter(mediaState.albumArt.asImageBitmap()),
+                        painter = BitmapPainter(mediaState.albumArt!!.asImageBitmap()),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
@@ -399,6 +354,7 @@ private fun IosMusicPlayerContent(
                     }
                 }
 
+                // Audio output picker button
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
@@ -406,16 +362,7 @@ private fun IosMusicPlayerContent(
                             if (hasMedia) Color.Black.copy(alpha = 0.3f)
                             else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.7f)
                         )
-                        .clickable(true) {
-                            val pkg = mediaState?.controller?.packageName ?: return@clickable
-                            val intent = Intent(MediaOutputConstants.ACTION_LAUNCH_MEDIA_OUTPUT_DIALOG).apply {
-                                    putExtra(MediaOutputConstants.EXTRA_PACKAGE_NAME, pkg)
-                                    component = ComponentName("com.android.systemui", MediaOutputDialogReceiver::class.java.name)
-                                }
-                            if (pkg != null) {
-                                context.sendBroadcast(intent)
-                            }
-                        }
+                        .clickable(enabled = hasMedia, onClick = ::launchMediaOutputDialog)
                         .padding(horizontal = 6.dp, vertical = 4.dp),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -428,6 +375,7 @@ private fun IosMusicPlayerContent(
                 }
             }
 
+            // ---- Bottom row: playback controls ----
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
@@ -435,12 +383,13 @@ private fun IosMusicPlayerContent(
             ) {
                 IconButton(
                     onClick = { mediaState.controller?.transportControls?.skipToPrevious() },
+                    enabled = hasMedia,
                     modifier = Modifier.size(40.dp),
                 ) {
                     Icon(
                         Icons.Filled.SkipPrevious,
                         contentDescription = "Previous",
-                        tint = if (mediaState.controller != null) controlTint else controlTintDisabled,
+                        tint = if (hasMedia) controlTint else controlTintDisabled,
                         modifier = Modifier.size(28.dp),
                     )
                 }
@@ -464,6 +413,7 @@ private fun IosMusicPlayerContent(
                             } else {
                                 localIsPlaying = true
                                 ctrl.transportControls.play()
+                                // Some apps need a key event to actually start audio.
                                 scope.launch(Dispatchers.IO) {
                                     try {
                                         val am = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
@@ -473,6 +423,7 @@ private fun IosMusicPlayerContent(
                                 }
                             }
                         },
+                        enabled = hasMedia,
                         modifier = Modifier.size(46.dp),
                     ) {
                         Crossfade(
@@ -483,7 +434,7 @@ private fun IosMusicPlayerContent(
                             Icon(
                                 imageVector = if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                                 contentDescription = if (playing) "Pause" else "Play",
-                                tint = if (mediaState.controller != null) controlTint else controlTintDisabled,
+                                tint = if (hasMedia) controlTint else controlTintDisabled,
                                 modifier = Modifier.size(28.dp),
                             )
                         }
@@ -492,12 +443,13 @@ private fun IosMusicPlayerContent(
 
                 IconButton(
                     onClick = { mediaState.controller?.transportControls?.skipToNext() },
+                    enabled = hasMedia,
                     modifier = Modifier.size(40.dp),
                 ) {
                     Icon(
                         Icons.Filled.SkipNext,
                         contentDescription = "Next",
-                        tint = if (mediaState.controller != null) controlTint else controlTintDisabled,
+                        tint = if (hasMedia) controlTint else controlTintDisabled,
                         modifier = Modifier.size(28.dp),
                     )
                 }
