@@ -140,4 +140,7 @@
 
     <!-- GameSpace -->
     <java-symbol type="string" name="gamespace_new_game_added" />
+
+    <!-- Vibrator service -->
+    <java-symbol type="array" name="config_textureTickVibePattern" />
 </resources>
