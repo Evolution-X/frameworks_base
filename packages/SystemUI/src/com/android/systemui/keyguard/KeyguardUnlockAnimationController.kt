@@ -492,8 +492,7 @@ constructor(
 
     override fun onStartedWakingUp() {
         cancelWallpaperZoomAnimator()
-        hasPendingScreenOnWallpaperZoom =
-            keyguardStateController.isShowing || statusBarStateController.isDozing
+        hasPendingScreenOnWallpaperZoom = keyguardStateController.isShowing
         if (hasPendingScreenOnWallpaperZoom) {
             keyguardViewController.viewRootImpl.view?.postOnAnimation(
                 setScreenOnWallpaperZoomRunnable
@@ -820,11 +819,14 @@ constructor(
         setSurfaceBehindAppearAmount(1f, wallpapers = false)
 
         try {
+            val biometricUnlockController = biometricUnlockControllerLazy.get()
             // Begin the animation, waiting for the shade to animate out.
-            launcherUnlockController?.playUnlockAnimation(
+            launcherUnlockController?.playUnlockAnimationWithWallpaperDepth(
                 true /* unlocked */,
                 LAUNCHER_ICONS_ANIMATION_DURATION_MS /* duration */,
                 getLauncherUnlockRevealStartDelay(), /* startDelay */
+                biometricUnlockController.isWakeAndUnlock &&
+                    biometricUnlockController.mode != MODE_WAKE_AND_UNLOCK_FROM_DREAM,
             )
         } catch (e: Exception) {
             // Hello! If you are here investigating a bug where Launcher is blank (no icons)

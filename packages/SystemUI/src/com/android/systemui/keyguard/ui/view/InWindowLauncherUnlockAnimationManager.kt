@@ -30,6 +30,8 @@ import com.android.systemui.keyguard.ui.viewmodel.InWindowLauncherAnimationViewM
 import com.android.systemui.shared.system.smartspace.ILauncherUnlockAnimationController
 import com.android.systemui.shared.system.smartspace.ISysuiUnlockAnimationController
 import com.android.systemui.shared.system.smartspace.SmartspaceState
+import com.android.systemui.statusbar.phone.BiometricUnlockController
+import com.android.systemui.statusbar.phone.BiometricUnlockController.MODE_WAKE_AND_UNLOCK_FROM_DREAM
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 
@@ -50,6 +52,7 @@ constructor(
     val interactor: InWindowLauncherUnlockAnimationInteractor,
     val viewModel: InWindowLauncherAnimationViewModel,
     @Application val scope: CoroutineScope,
+    private val biometricUnlockController: BiometricUnlockController,
 ) : ISysuiUnlockAnimationController.Stub() {
 
     /**
@@ -161,7 +164,13 @@ constructor(
     ) {
         if (preparedForUnlock) {
             launcherAnimationController?.let { launcher ->
-                launcher.playUnlockAnimation(unlocked, duration, startDelay)
+                launcher.playUnlockAnimationWithWallpaperDepth(
+                    unlocked,
+                    duration,
+                    startDelay,
+                    biometricUnlockController.isWakeAndUnlock &&
+                        biometricUnlockController.mode != MODE_WAKE_AND_UNLOCK_FROM_DREAM,
+                )
                 interactor.setStartedUnlockAnimation(true)
             }
         } else {
