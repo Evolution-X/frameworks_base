@@ -35,6 +35,9 @@ interface ILauncherUnlockAnimationController {
     // single action, such as biometric auth, and doesn't need to control individual frames.
     oneway void playUnlockAnimation(boolean unlocked, long duration, long startDelay);
 
+    oneway void playUnlockAnimationWithWallpaperDepth(boolean unlocked, long duration,
+        long startDelay, boolean animateWallpaperDepth);
+
     // Set the selected page on Launcher's smartspace.
     oneway void setSmartspaceSelectedPage(int selectedPage);
 
