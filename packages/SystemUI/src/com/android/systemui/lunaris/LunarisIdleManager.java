@@ -89,6 +89,10 @@ public class LunarisIdleManager {
 
     private volatile long mLastScanStartMs = 0L;
 
+    private volatile boolean mSleepModeTriggerEnabled = false;
+    private volatile boolean mIsSleepModeActive = false;
+    private BroadcastReceiver mSleepModeReceiver;
+
     public enum IdleAction {
         STANDBY_BUCKET_RARE,
         STANDBY_BUCKET_RESTRICTED,
@@ -235,6 +239,7 @@ public class LunarisIdleManager {
         registerBatteryReceiver();
         registerAlarmReceiver();
         registerDozeReceiver();
+        registerSleepModeReceiver();
         initScanWakeLock();
         initRunnables();
     }
@@ -259,6 +264,10 @@ public class LunarisIdleManager {
         }
         if (!mEnabled) {
             Log.d(TAG, "LunarisIdleManager disabled — skipping");
+            return;
+        }
+        if (mSleepModeTriggerEnabled && !mIsSleepModeActive) {
+            Log.d(TAG, "Sleep-Mode trigger enabled but Sleep Mode is off — skipping");
             return;
         }
         if (mIsRunning) {
@@ -306,6 +315,7 @@ public class LunarisIdleManager {
         unregisterBatteryReceiver();
         unregisterDozeReceiver();
         unregisterAlarmReceiver();
+        unregisterSleepModeReceiver();
         releaseWakeLockIfHeld();
         synchronized (sLock) { sInstance = null; }
         Log.d(TAG, "LunarisIdleManager cleaned up");
@@ -399,6 +409,66 @@ public class LunarisIdleManager {
     private static IdleAction parseAction(String s) {
         try { return IdleAction.valueOf(s); }
         catch (Exception e) { return IdleAction.STANDBY_BUCKET_RARE; }
+    }
+
+    public boolean isSleepModeTriggerEnabled() {
+        if (mDestroyed) return false;
+        return mSleepModeTriggerEnabled;
+    }
+
+    public void setSleepModeTriggerEnabled(boolean enabled) {
+        if (mDestroyed) return;
+        mSleepModeTriggerEnabled = enabled;
+        Settings.Secure.putInt(mContext.getContentResolver(),
+                Settings.Secure.IDLE_MANAGER_SLEEP_MODE_TRIGGER, enabled ? 1 : 0);
+        Log.d(TAG, "Sleep-Mode trigger set to: " + enabled);
+        if (!enabled && mEnabled && !mIsRunning) {
+            executeManager();
+        } else if (enabled && !mIsSleepModeActive && mIsRunning) {
+            haltManager();
+        }
+    }
+
+    private void registerSleepModeReceiver() {
+        mSleepModeReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (intent == null) return;
+                if (!Settings.Secure.SLEEP_MODE_ENABLED.equals(
+                        intent.getStringExtra("key"))) return;
+                onSleepModeChanged();
+            }
+        };
+    }
+
+    private void unregisterSleepModeReceiver() {
+        if (mSleepModeReceiver != null) {
+            try { mContext.unregisterReceiver(mSleepModeReceiver); }
+            catch (IllegalArgumentException ignored) {}
+            mSleepModeReceiver = null;
+        }
+    }
+
+    private void onSleepModeChanged() {
+        if (mDestroyed) return;
+        boolean sleepActive = Settings.Secure.getInt(
+                mContext.getContentResolver(),
+                Settings.Secure.SLEEP_MODE_ENABLED, 0) == 1;
+        Log.d(TAG, "onSleepModeChanged: sleepActive=" + sleepActive
+                + " triggerEnabled=" + mSleepModeTriggerEnabled);
+        if (sleepActive == mIsSleepModeActive) return;
+        mIsSleepModeActive = sleepActive;
+        if (!mSleepModeTriggerEnabled || !mEnabled) return;
+        if (sleepActive) {
+            if (!mIsRunning) {
+                executeManager();
+            }
+        } else {
+            if (mIsRunning) {
+                haltManager();
+                restoreAllBuckets();
+            }
+        }
     }
 
     private void initScanWakeLock() {
@@ -848,6 +918,11 @@ public class LunarisIdleManager {
             });
         }
 
+        mSleepModeTriggerEnabled = Settings.Secure.getInt(
+                cr, Settings.Secure.IDLE_MANAGER_SLEEP_MODE_TRIGGER, 0) == 1;
+        mIsSleepModeActive = Settings.Secure.getInt(
+                cr, Settings.Secure.SLEEP_MODE_ENABLED, 0) == 1;
+
         String appsJson = Settings.Secure.getString(cr, Settings.Secure.IDLE_MANAGER_APPS);
         Log.d(TAG, "loadConfigFromSettings: json=" + appsJson);
         mAppConfigCache = parseAppConfigs(appsJson);
@@ -862,11 +937,18 @@ public class LunarisIdleManager {
             public void onChange(boolean selfChange, @Nullable Uri uri) {
                 Log.d(TAG, "Settings changed — refreshing config");
                 loadConfigFromSettings();
+                Uri sleepModeUri = Settings.Secure.getUriFor(
+                        Settings.Secure.SLEEP_MODE_ENABLED);
+                if (sleepModeUri != null && sleepModeUri.equals(uri)) {
+                    onSleepModeChanged();
+                }
             }
         };
         for (String key : new String[]{
                 Settings.Secure.IDLE_MANAGER,
-                Settings.Secure.IDLE_MANAGER_APPS}) {
+                Settings.Secure.IDLE_MANAGER_APPS,
+                Settings.Secure.IDLE_MANAGER_SLEEP_MODE_TRIGGER,
+                Settings.Secure.SLEEP_MODE_ENABLED}) {
             cr.registerContentObserver(
                     Settings.Secure.getUriFor(key), false, mSettingsObserver);
         }
