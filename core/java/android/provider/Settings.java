@@ -14688,6 +14688,11 @@ public final class Settings {
         public static final String IDLE_MANAGER_RESTORE_PENDING = "idle_manager_restore_pending";
 
         /**
+         * @hide
+         */
+        public static final String IDLE_MANAGER_SLEEP_MODE_TRIGGER = "idle_manager_sleep_mode_trigger";
+
+        /**
          * Lockscreen custom clock face
          * @hide
          */
