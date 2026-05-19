@@ -42,21 +42,49 @@
                 android:singleLine="true"
                 android:textColor="#fefefe"
                 android:textSize="290dp" />
+
         </LinearLayout>
     </LinearLayout>
 
-    <TextClock
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginStart="22dp"
         android:layout_marginTop="-50dp"
-        android:fontFamily="@font/general_sans"
-        android:format12Hour="EEE, dd/MM"
-        android:format24Hour="EEE, dd/MM"
-        android:includeFontPadding="false"
-        android:singleLine="true"
-        android:textAlignment="viewStart"
-        android:textAllCaps="true"
-        android:textColor="#fefefe"
-        android:textSize="15dp" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextClock
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/general_sans"
+            android:format12Hour="EEE, dd/MM"
+            android:format24Hour="EEE, dd/MM"
+            android:includeFontPadding="false"
+            android:singleLine="true"
+            android:textAlignment="viewStart"
+            android:textAllCaps="true"
+            android:textColor="#fefefe"
+            android:textSize="15dp" />
+
+        <com.android.systemui.weather.WeatherImageView
+            android:id="@+id/weather_image"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="4dp"
+            android:visibility="gone" />
+
+        <com.android.systemui.weather.WeatherTextView
+            android:id="@+id/weather_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/general_sans"
+            android:textAllCaps="true"
+            android:textColor="#fefefe"
+            android:textSize="15dp"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
 </LinearLayout>
