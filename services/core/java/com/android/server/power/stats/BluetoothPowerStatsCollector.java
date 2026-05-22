@@ -18,6 +18,7 @@ package com.android.server.power.stats;
 import android.annotation.Nullable;
 import android.bluetooth.BluetoothActivityEnergyInfo;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothStatusCodes;
 import android.bluetooth.UidTraffic;
 import android.content.pm.PackageManager;
 import android.hardware.power.stats.EnergyConsumerType;
@@ -82,6 +83,7 @@ public class BluetoothPowerStatsCollector extends PowerStatsCollector {
     private long mLastRxTime;
     private long mLastTxTime;
     private long mLastIdleTime;
+    private boolean mIsHardwareStatsSupported = true;
 
     private static class UidStats {
         public long rxCount;
@@ -165,6 +167,10 @@ public class BluetoothPowerStatsCollector extends PowerStatsCollector {
     }
 
     private BluetoothActivityEnergyInfo collectBluetoothActivityInfo() {
+        if (!mIsHardwareStatsSupported) {
+            return null;
+        }
+
         CompletableFuture<BluetoothActivityEnergyInfo> immediateFuture = new CompletableFuture<>();
         boolean success = mBluetoothStatsRetriever.requestControllerActivityEnergyInfo(
                 Runnable::run,
@@ -177,6 +183,10 @@ public class BluetoothPowerStatsCollector extends PowerStatsCollector {
 
                     @Override
                     public void onBluetoothActivityEnergyInfoError(int error) {
+                        if (error == BluetoothStatusCodes.FEATURE_NOT_SUPPORTED) {
+                            mIsHardwareStatsSupported = false;
+                            Slog.i(TAG, "Bluetooth hardware does not support energy info collection");
+                        }
                         immediateFuture.completeExceptionally(
                                 new RuntimeException("error: " + error));
                     }
@@ -191,7 +201,9 @@ public class BluetoothPowerStatsCollector extends PowerStatsCollector {
             activityInfo = immediateFuture.get(BLUETOOTH_ACTIVITY_REQUEST_TIMEOUT,
                     TimeUnit.MILLISECONDS);
         } catch (Exception e) {
-            Slog.e(TAG, "Cannot acquire BluetoothActivityEnergyInfo", e);
+            if (mIsHardwareStatsSupported) {
+                Slog.e(TAG, "Cannot acquire BluetoothActivityEnergyInfo", e);
+            }
             activityInfo = null;
         }
 
