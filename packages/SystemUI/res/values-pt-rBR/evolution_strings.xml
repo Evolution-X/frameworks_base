@@ -13,7 +13,7 @@
     <!-- Text while recognizing face -->
     <string name="face_unlock_recognizing">Reconhecendo o rosto...</string>
     <!-- Flashlight Strength -->
-    <string name="flashlight_strength_title">Força da Lanterna</string>
+    <string name="flashlight_strength_title">Intensidade da Lanterna</string>
     <string name="flashlight_strength_turn_off">Desligar</string>
     <string name="flashlight_strength_turn_on">Ligar</string>
     <!-- Button to restart SystemUI, within the Restart Options dialog -->
@@ -144,6 +144,15 @@
     <!-- Sleep Mode -->
     <string name="quick_settings_sleep_mode_label">Modo de suspensão</string>
     <string name="default_user_name">Evolution X</string>
+    <!-- Essential Notifications -->
+    <string name="essential_notifications_title">Essenciais</string>
+    <string name="essential_notifications_summary">Mensagens e alertas importantes</string>
+    <!-- Smart Pixels -->
+    <string name="quick_settings_smart_pixels_label">Pixels Inteligentes</string>
+    <string name="quick_settings_smart_pixels_on">Ligado</string>
+    <string name="quick_settings_smart_pixels_off">Desligado</string>
+    <string name="smart_pixels_percent_label">Porcentagem de pixels</string>
+    <string name="smart_pixels_percent_format"><xliff:g id="percent" example="25">%d</xliff:g>%%</string>
     <!-- AxDynamicBar strings [CHAR LIMIT=NONE] -->
     <string name="ax_dynamic_bar_timer">Temporizador</string>
     <string name="ax_dynamic_bar_stopwatch">Cronômetro</string>
@@ -153,7 +162,7 @@
     <string name="ax_dynamic_bar_hotspot_active">Hotspot Ativo</string>
     <string name="ax_dynamic_bar_vpn_active">VPN ativa</string>
     <string name="ax_dynamic_bar_screen_recording">Gravação de tela</string>
-    <string name="ax_dynamic_bar_now_playing">Tocando agora</string>
+    <string name="ax_dynamic_bar_now_playing">Now playing</string>
     <string name="ax_dynamic_bar_media_output">Saída de mídia</string>
     <string name="ax_dynamic_bar_sound_mode">Modo de som</string>
     <string name="ax_dynamic_bar_silent">Silencioso</string>
@@ -241,9 +250,6 @@
     <string name="ax_dynamic_bar_sports_upcoming">Em breve</string>
     <!-- Screenshot -->
     <string name="quick_settings_screenshot_label">Captura de tela</string>
-    <!-- Essential Notifications -->
-    <string name="essential_notifications_title">Essenciais</string>
-    <string name="essential_notifications_summary">Mensagens e alertas importantes</string>
     <!-- USB Mode Picker -->
     <string name="usb_mode_picker_title">Selecione o modo USB</string>
     <string name="usb_mode_file_transfer">Transferência de arquivo</string>
@@ -253,10 +259,4 @@
     <string name="usb_mode_webcam">Webcam USB</string>
     <string name="usb_mode_charging_only">Apenas carregar</string>
     <string name="usb_charging_status">O carregamento USB está ativado</string>
-    <!-- Smart Pixels -->
-    <string name="quick_settings_smart_pixels_label">Pixels Inteligentes</string>
-    <string name="quick_settings_smart_pixels_on">Ligado</string>
-    <string name="quick_settings_smart_pixels_off">Desligado</string>
-    <string name="smart_pixels_percent_label">Porcentagem de pixels</string>
-    <string name="smart_pixels_percent_format"><xliff:g id="percent" example="25">%d</xliff:g>%%</string>
 </resources>
