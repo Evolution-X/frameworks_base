@@ -62,7 +62,7 @@
     <string name="quick_settings_compass_W">Zach</string>
     <string name="quick_settings_compass_NW">Płn-Zach</string>
     <!-- Screenshot Tile -->
-    <string name="screenshot_long_press">Długie naciśnięcie - wybrany region</string>
+    <string name="screenshot_long_press">Przytrzymaj i wybierz obszar</string>
     <!-- CPUInfo tile -->
     <string name="quick_settings_cpuinfo_label">Informacje o procesorze</string>
     <!-- FPS Info tile -->
@@ -126,7 +126,7 @@
     <string name="onthego_notif_camera_changed">Zmieniono tryb aparatu</string>
     <string name="onthego_transparency">Przeźroczysty</string>
     <string name="onthego_front_camera">Użyj przedniej kamery</string>
-    <string name="onthego_service_toggle">Automatycznie restartuj usługę</string>
+    <string name="onthego_service_toggle">Automatycznie zrestartuj usługę</string>
     <string name="onthego_channel_name">Główny</string>
     <string name="global_action_onthego">Przeźroczysty ekran</string>
     <!-- Privacy Indicator -->
@@ -148,8 +148,17 @@
     <!-- Sleep Mode -->
     <string name="quick_settings_sleep_mode_label">Tryb uśpienia</string>
     <string name="default_user_name">Evolution X</string>
+    <!-- Essential Notifications -->
+    <string name="essential_notifications_title">Podstawowe</string>
+    <string name="essential_notifications_summary">Ważne wiadomości i alerty</string>
+    <!-- Smart Pixels -->
+    <string name="quick_settings_smart_pixels_label">Inteligentne piksele</string>
+    <string name="quick_settings_smart_pixels_on">Włączone</string>
+    <string name="quick_settings_smart_pixels_off">Wyłączone</string>
+    <string name="smart_pixels_percent_label">Procent pikseli</string>
+    <string name="smart_pixels_percent_format"><xliff:g id="percent" example="25">%d</xliff:g>%%</string>
     <!-- AxDynamicBar strings [CHAR LIMIT=NONE] -->
-    <string name="ax_dynamic_bar_timer">Minutnik</string>
+    <string name="ax_dynamic_bar_timer">Licznik</string>
     <string name="ax_dynamic_bar_stopwatch">Stoper</string>
     <string name="ax_dynamic_bar_alarm">Alarm</string>
     <string name="ax_dynamic_bar_flashlight">Latarka</string>
@@ -173,7 +182,7 @@
     <string name="ax_dynamic_bar_copy_image">Kopiuj obraz</string>
     <string name="ax_dynamic_bar_clipboard_image_desc">Obraz ze schowka</string>
     <string name="ax_dynamic_bar_image">Obraz</string>
-    <string name="ax_dynamic_bar_url">Link</string>
+    <string name="ax_dynamic_bar_url">Łącze</string>
     <string name="ax_dynamic_bar_dismiss">Odrzuć</string>
     <string name="ax_dynamic_bar_open">Otwórz</string>
     <string name="ax_dynamic_bar_stop">Zatrzymaj</string>
@@ -245,9 +254,6 @@
     <string name="ax_dynamic_bar_sports_upcoming">Wkrótce</string>
     <!-- Screenshot -->
     <string name="quick_settings_screenshot_label">Zrzut ekranu</string>
-    <!-- Essential Notifications -->
-    <string name="essential_notifications_title">Podstawowe</string>
-    <string name="essential_notifications_summary">Ważne wiadomości i alerty</string>
     <!-- USB Mode Picker -->
     <string name="usb_mode_picker_title">Wybierz tryb USB</string>
     <string name="usb_mode_file_transfer">Przesyłanie plików</string>
@@ -257,10 +263,4 @@
     <string name="usb_mode_webcam">Kamera internetowa USB</string>
     <string name="usb_mode_charging_only">Tylko ładowanie</string>
     <string name="usb_charging_status">Ładowanie USB jest włączone</string>
-    <!-- Smart Pixels -->
-    <string name="quick_settings_smart_pixels_label">Inteligentne piksele</string>
-    <string name="quick_settings_smart_pixels_on">Włączone</string>
-    <string name="quick_settings_smart_pixels_off">Wyłączone</string>
-    <string name="smart_pixels_percent_label">Procent pikseli</string>
-    <string name="smart_pixels_percent_format"><xliff:g id="percent" example="25">%d</xliff:g>%%</string>
 </resources>
