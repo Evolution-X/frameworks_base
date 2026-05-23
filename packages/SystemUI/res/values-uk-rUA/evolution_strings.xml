@@ -146,6 +146,15 @@
     <!-- Sleep Mode -->
     <string name="quick_settings_sleep_mode_label">Режим сну</string>
     <string name="default_user_name">Логотип Evolution X</string>
+    <!-- Essential Notifications -->
+    <string name="essential_notifications_title">Основні речі</string>
+    <string name="essential_notifications_summary">Важливі повідомлення та сповіщення</string>
+    <!-- Smart Pixels -->
+    <string name="quick_settings_smart_pixels_label">Розумні пікселі</string>
+    <string name="quick_settings_smart_pixels_on">Увімкнено</string>
+    <string name="quick_settings_smart_pixels_off">Вимкнено</string>
+    <string name="smart_pixels_percent_label">Відсоток пікселів</string>
+    <string name="smart_pixels_percent_format"><xliff:g id="percent" example="25">%d</xliff:g>%%</string>
     <!-- AxDynamicBar strings [CHAR LIMIT=NONE] -->
     <string name="ax_dynamic_bar_timer">Таймер</string>
     <string name="ax_dynamic_bar_stopwatch">Секундомір</string>
@@ -243,9 +252,6 @@
     <string name="ax_dynamic_bar_sports_upcoming">Найближчі</string>
     <!-- Screenshot -->
     <string name="quick_settings_screenshot_label">Скріншот</string>
-    <!-- Essential Notifications -->
-    <string name="essential_notifications_title">Основні речі</string>
-    <string name="essential_notifications_summary">Важливі повідомлення та сповіщення</string>
     <!-- USB Mode Picker -->
     <string name="usb_mode_picker_title">Вибрати режим USB</string>
     <string name="usb_mode_file_transfer">Передача файлів</string>
@@ -255,10 +261,4 @@
     <string name="usb_mode_webcam">USB Вебкам</string>
     <string name="usb_mode_charging_only">Тільки зарядка</string>
     <string name="usb_charging_status">Заряджання через USB ввімкнено</string>
-    <!-- Smart Pixels -->
-    <string name="quick_settings_smart_pixels_label">Розумні пікселі</string>
-    <string name="quick_settings_smart_pixels_on">Увімкнено</string>
-    <string name="quick_settings_smart_pixels_off">Вимкнено</string>
-    <string name="smart_pixels_percent_label">Відсоток пікселів</string>
-    <string name="smart_pixels_percent_format"><xliff:g id="percent" example="25">%d</xliff:g>%%</string>
 </resources>
