@@ -79,6 +79,7 @@ import com.android.systemui.volume.dialog.sliders.ui.compose.rememberVolumeGradi
 
 private val CORNER_DEFAULT = 26.dp
 private val CORNER_ROUNDED = 50.dp
+private val CORNER_INNER = 28.dp
 
 @Composable
 fun MaterialVerticalBrightnessSlider(
@@ -193,6 +194,7 @@ fun MaterialVerticalBrightnessSlider(
 
     val cornerRadius = if (rounded) CORNER_ROUNDED else CORNER_DEFAULT
     val shape = RoundedCornerShape(cornerRadius)
+    val fillShape = RoundedCornerShape(if (rounded) CORNER_INNER else CORNER_DEFAULT)
     val trackBg  = CustomColorScheme.current.qsTileColor
 
     fun yToLinear(y: Float, heightPx: Int): Float {
@@ -296,9 +298,9 @@ fun MaterialVerticalBrightnessSlider(
                 .align(Alignment.BottomCenter)
                 .then(
                     if (fillBrush != null)
-                        Modifier.background(fillBrush, shape)
+                        Modifier.background(fillBrush, fillShape)
                     else
-                        Modifier.background(fillColor, shape)
+                        Modifier.background(fillColor, fillShape)
                 ),
         )
 
