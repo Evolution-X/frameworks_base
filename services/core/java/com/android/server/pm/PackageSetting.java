@@ -73,6 +73,7 @@ import com.android.server.pm.pkg.SharedLibrary;
 import com.android.server.pm.pkg.SharedLibraryWrapper;
 import com.android.server.pm.pkg.SuspendParams;
 import com.android.server.pm.verify.developer.DeveloperVerificationStatusInternal;
+import com.android.server.SystemConfig;
 import com.android.server.utils.SnapshotCache;
 import com.android.server.utils.WatchedArraySet;
 
@@ -1324,6 +1325,9 @@ public class PackageSetting extends SettingBase implements PackageStateInternal 
     }
 
     boolean disableComponentLPw(String componentClassName, int userId) {
+        if (SystemConfig.getInstance().isComponentLocked(this.mName, componentClassName)) {
+            return false;
+        }
         PackageUserStateImpl state = modifyUserStateComponents(userId, true, false);
         boolean changed = state.getEnabledComponentsNoCopy() != null
                 ? state.getEnabledComponentsNoCopy().remove(componentClassName) : false;
