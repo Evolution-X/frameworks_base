@@ -67,7 +67,7 @@ internal fun eventStyleFor(event: IslandEvent): EventStyle = when (event) {
         },
     )
     is IslandEvent.Media -> EventStyle(
-        accent = PurpleAccent,
+        accent = MediaDefaultAccent,
         icon = Icons.Filled.MusicNote,
         labelRes = R.string.ax_dynamic_bar_music,
     )
