@@ -92,6 +92,10 @@ public final class PixelPropsUtils {
     private static final Map<String, Object> propsToChangePixelTablet;
     private static final Map<String, ArrayList<String>> propsToKeep;
 
+    // Pixel device codename ("mustang" = Pixel 10 Pro XL) used as the GMS spoof target
+    // for Mosey / Quick Share — Phenotype gates key on the exact model.
+    private static final String MOSEY_PIXEL_CODENAME = "mustang";
+
     private static volatile Set<String> mLauncherPkgs;
     private static volatile Set<String> mExemptedUidPkgs;
 
@@ -323,9 +327,14 @@ public final class PixelPropsUtils {
             final boolean isTablet = isDeviceTablet(context);
             Map<String, Object> resolvedProps = null;
             try {
-                final String codename = (sPpModel != null && !sPpModel.isEmpty())
-                        ? sPpModel
-                        : (isTablet ? "tangorpro" : "mustang");
+                // GMS is pinned to the Mosey codename so Quick Share Phenotype gates
+                final boolean moseySpoofEnabled = sPpTargets != null
+                        && sPpTargets.contains("com.google.android.mosey");
+                final String codename = (packageName.equals(PACKAGE_GMS) && moseySpoofEnabled)
+                        ? MOSEY_PIXEL_CODENAME
+                        : (sPpModel != null && !sPpModel.isEmpty()
+                                ? sPpModel
+                                : (isTablet ? "tangorpro" : "mustang"));
                 final PixelDeviceRepository.PixelProfile profile =
                         PixelDeviceRepository.getProfileByCodename(
                                 context, codename, isTablet);
