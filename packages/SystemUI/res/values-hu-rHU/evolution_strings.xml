@@ -144,6 +144,15 @@
     <!-- Sleep Mode -->
     <string name="quick_settings_sleep_mode_label">Alvómód</string>
     <string name="default_user_name">Evolution X</string>
+    <!-- Essential Notifications -->
+    <string name="essential_notifications_title">Legfontosabbak</string>
+    <string name="essential_notifications_summary">A fontos üzenetek és riasztások</string>
+    <!-- Smart Pixels -->
+    <string name="quick_settings_smart_pixels_label">Intelligens pixelek</string>
+    <string name="quick_settings_smart_pixels_on">Be</string>
+    <string name="quick_settings_smart_pixels_off">Ki</string>
+    <string name="smart_pixels_percent_label">Pixel százalék</string>
+    <string name="smart_pixels_percent_format"><xliff:g id="percent" example="25">%d</xliff:g>%%</string>
     <!-- AxDynamicBar strings [CHAR LIMIT=NONE] -->
     <string name="ax_dynamic_bar_timer">Időzítő</string>
     <string name="ax_dynamic_bar_stopwatch">Stopperóra</string>
@@ -241,9 +250,6 @@
     <string name="ax_dynamic_bar_sports_upcoming">Hamarosan</string>
     <!-- Screenshot -->
     <string name="quick_settings_screenshot_label">Képernyőkép</string>
-    <!-- Essential Notifications -->
-    <string name="essential_notifications_title">Legfontosabbak</string>
-    <string name="essential_notifications_summary">A fontos üzenetek és riasztások</string>
     <!-- USB Mode Picker -->
     <string name="usb_mode_picker_title">Válasszon az USB-módokból</string>
     <string name="usb_mode_file_transfer">Fájlátvitel</string>
@@ -253,10 +259,4 @@
     <string name="usb_mode_webcam">USB-webkamera</string>
     <string name="usb_mode_charging_only">Csak töltés</string>
     <string name="usb_charging_status">Az USB-töltés bekapcsolva</string>
-    <!-- Smart Pixels -->
-    <string name="quick_settings_smart_pixels_label">Intelligens pixelek</string>
-    <string name="quick_settings_smart_pixels_on">Be</string>
-    <string name="quick_settings_smart_pixels_off">Ki</string>
-    <string name="smart_pixels_percent_label">Pixel százalék</string>
-    <string name="smart_pixels_percent_format"><xliff:g id="percent" example="25">%d</xliff:g>%%</string>
 </resources>
