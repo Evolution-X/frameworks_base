@@ -8,6 +8,7 @@ import android.content.Intent
 import android.graphics.drawable.Drawable
 import androidx.core.graphics.ColorUtils
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -120,6 +121,7 @@ internal val PinkAccent = Color(0xFFFF2D55)
 internal val OrangeAccent = Color(0xFFFF9500)
 internal val YellowAccent = Color(0xFFFFCC00)
 internal val GreenAccent = Color(0xFF34C759)
+internal val MediaDefaultAccent = Color(0xFFAB47BC)
 internal val MintAccent = Color(0xFF63E6BE)
 internal val TealAccent = Color(0xFF5AC8FA)
 internal val BlueAccent = Color(0xFF007AFF)
@@ -384,7 +386,7 @@ internal fun ActionChip(
         onClick = onClick,
         shape = ShapeChip,
         color = bg,
-        modifier = modifier,
+        modifier = modifier.border(1.2.dp, color.copy(alpha = 0.12f), ShapeChip),
     ) {
         Row(
             modifier = Modifier.height(SizeActionHeight).padding(horizontal = SpacePanel),
@@ -412,7 +414,7 @@ internal fun ExpressivePillButton(
         onClick = onClick,
         shape = RoundedCornerShape(percent = 50),
         color = backgroundColor,
-        modifier = modifier,
+        modifier = modifier.border(1.2.dp, contentColor.copy(alpha = 0.12f), RoundedCornerShape(percent = 50)),
     ) {
         Row(
             modifier = Modifier.height(SizeActionHeight).padding(horizontal = SpacePanel),
