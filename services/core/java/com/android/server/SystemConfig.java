@@ -319,6 +319,12 @@ public class SystemConfig {
     final ArrayMap<String, ArrayMap<String, Boolean>> mPackageComponentEnabledState =
             new ArrayMap<>();
 
+    // Packages mapped to sets of component class names that must never be set to
+    // COMPONENT_ENABLED_STATE_DISABLED. Driven by `locked="true"` on a
+    // <component> entry inside <component-override> in sysconfig XML.
+    final ArrayMap<String, ArraySet<String>> mPackageComponentLockedState =
+            new ArrayMap<>();
+
     // Package names that are exempted from private API blacklisting
     final ArraySet<String> mHiddenApiPackageWhitelist = new ArraySet<>();
 
@@ -503,6 +509,15 @@ public class SystemConfig {
 
     public ArrayMap<String, Boolean> getComponentsEnabledStates(String packageName) {
         return mPackageComponentEnabledState.get(packageName);
+    }
+
+    public boolean isComponentLocked(String packageName, String className) {
+        final ArraySet<String> locked = mPackageComponentLockedState.get(packageName);
+        return locked != null && locked.contains(className);
+    }
+
+    public ArrayMap<String, ArraySet<String>> getLockedComponents() {
+        return mPackageComponentLockedState;
     }
 
     public ArraySet<String> getDisabledUntilUsedPreinstalledCarrierApps() {
@@ -968,6 +983,9 @@ public class SystemConfig {
                         break;
                     case "component-override":
                         readComponentOverrides(parser, permFile);
+                        break;
+                    case "locked-component":
+                        readLockedComponent(parser, permFile);
                         break;
                     case "backup-transport-whitelisted-service":
                         readBackupTransportWhitelistedService(
@@ -2369,6 +2387,33 @@ public class SystemConfig {
                 componentEnabledStates.put(clsname, !"false".equals(enabled));
             }
         }
+    }
+
+    private void readLockedComponent(XmlPullParser parser, File permFile) {
+        String pkgname = parser.getAttributeValue(null, "package");
+        String clsname = parser.getAttributeValue(null, "class");
+        if (pkgname == null) {
+            Slog.w(TAG, "<locked-component> without package in "
+                    + permFile + " at " + parser.getPositionDescription());
+            return;
+        }
+        if (clsname == null) {
+            Slog.w(TAG, "<locked-component> without class in "
+                    + permFile + " at " + parser.getPositionDescription());
+            return;
+        }
+        if (clsname.startsWith(".")) {
+            clsname = pkgname + clsname;
+        }
+        pkgname = pkgname.intern();
+        clsname = clsname.intern();
+
+        ArraySet<String> lockedComponents = mPackageComponentLockedState.get(pkgname);
+        if (lockedComponents == null) {
+            lockedComponents = new ArraySet<>();
+            mPackageComponentLockedState.put(pkgname, lockedComponents);
+        }
+        lockedComponents.add(clsname);
     }
 
     private void readPublicNativeLibrariesList() {
