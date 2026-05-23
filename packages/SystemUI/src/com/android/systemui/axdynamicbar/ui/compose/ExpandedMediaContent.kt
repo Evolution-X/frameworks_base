@@ -73,6 +73,9 @@ private val ControlButtonSize = 44.dp
 private val ControlIconSize = 22.dp
 private val SeekBarHeight = 28.dp
 
+private val AlbumNameColor = Color.White
+private val ArtistNameColor = Color.White.copy(alpha = 0.8f)
+
 @Composable
 internal fun MediaCard(event: IslandEvent.Media, interactor: IslandActions) {
     val colors = rememberMediaColors(event)
@@ -152,7 +155,7 @@ internal fun MediaCard(event: IslandEvent.Media, interactor: IslandActions) {
                     ) {
                         Text(
                             event.track.ifEmpty { stringResource(R.string.ax_dynamic_bar_now_playing) },
-                            color = OnCardText,
+                            color = AlbumNameColor,
                             style = MaterialTheme.typography.titleMedium,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
@@ -243,7 +246,7 @@ internal fun MediaExpanded(
             ) {
                 Text(
                     event.track.ifEmpty { stringResource(R.string.ax_dynamic_bar_now_playing) },
-                    color = OnCardText,
+                    color = AlbumNameColor,
                     style = MaterialTheme.typography.titleSmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -251,7 +254,7 @@ internal fun MediaExpanded(
                 if (event.artist.isNotEmpty()) {
                     Text(
                         event.artist,
-                        color = accent,
+                        color = ArtistNameColor,
                         style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -391,7 +394,7 @@ private fun MediaSeekBar(
     ) {
         Text(
             formatElapsedTime(displayMs),
-            color = SubtleGray,
+            color = ArtistNameColor,
             style = MaterialTheme.typography.labelSmall,
         )
 
@@ -538,7 +541,7 @@ private fun MediaSeekBar(
 
         Text(
             formatElapsedTime(durationMs),
-            color = SubtleGray,
+            color = ArtistNameColor,
             style = MaterialTheme.typography.labelSmall,
         )
     }
@@ -670,7 +673,7 @@ internal fun RowScope.CompactMediaRow(
     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(SpaceXxs)) {
         Text(
             event.track.ifEmpty { stringResource(R.string.ax_dynamic_bar_music) },
-            color = OnCardText,
+            color = AlbumNameColor,
             style = MaterialTheme.typography.bodySmall,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -678,7 +681,7 @@ internal fun RowScope.CompactMediaRow(
         if (event.artist.isNotEmpty())
             Text(
                 event.artist,
-                color = SubtleGray,
+                color = ArtistNameColor,
                 style = MaterialTheme.typography.labelSmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
