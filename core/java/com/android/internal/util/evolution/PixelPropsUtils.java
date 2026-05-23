@@ -37,9 +37,11 @@ import android.os.Process;
 import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.provider.Settings;
+import android.util.ArraySet;
 import android.util.Log;
 
 import com.android.internal.R;
+import com.android.internal.util.evolution.PixelDeviceRepository;
 import com.android.internal.util.evolution.Utils;
 
 import java.lang.reflect.Field;
@@ -64,6 +66,9 @@ public final class PixelPropsUtils {
     private static final String PACKAGE_PHOTOS = "com.google.android.apps.photos";
     private static final String PACKAGE_SI = "com.google.android.settings.intelligence";
     private static final String PACKAGE_SNAPCHAT = "com.snapchat.android";
+
+    private static final String PI_PP_TARGETS_KEY = "pi_pp_targets";
+    private static final String PI_PP_MODEL_KEY   = "pi_pp_model";
 
     private static final String TAG = PixelPropsUtils.class.getSimpleName();
     private static final boolean DEBUG = false;
@@ -102,8 +107,8 @@ public final class PixelPropsUtils {
     private static final Pattern SUPPORTED_PIXEL_PATTERN =
             Pattern.compile("^Pixel ([3-9]|[1-9][0-9])([a-zA-Z ].*)?$");
 
-    // Packages to Spoof as the most recent Pixel device
-    private static final Set<String> packagesToChangeRecentPixel = new HashSet<>(Arrays.asList(
+    // Default target packages — used as fallback when pi_pp_targets not yet written
+    private static final Set<String> DEFAULT_PP_TARGETS = new HashSet<>(Arrays.asList(
             "com.amazon.avod.thirdpartyclient",
             "com.android.chrome",
             "com.breel.wallpapers20",
@@ -149,11 +154,12 @@ public final class PixelPropsUtils {
     private static final boolean sIsCustomForkBuild = detectCustomFork();
     private static final boolean sIsMainlineDevice = detectMainlinePixelDevice();
 
-    // Cached spoof settings — refreshed by ContentObserver, avoids per-call Settings reads
     private static volatile boolean sPhotosSpoofEnabled = true;
     private static volatile boolean sSnapchatSpoofEnabled = false;
     private static volatile boolean sPixelPropsSpoofEnabled = true;
     private static volatile boolean sInitialized = false;
+    private static volatile Set<String> sPpTargets = null;
+    private static volatile String sPpModel = null;
 
     private static boolean detectCustomFork() {
         char[] k = new char[]{'d','e','v','o','l','u','t','i','o','n'};
@@ -240,6 +246,11 @@ public final class PixelPropsUtils {
                         cr, Settings.Secure.PI_SNAPCHAT_SPOOF, 0) == 1;
                 sPixelPropsSpoofEnabled = Settings.Secure.getInt(
                         cr, Settings.Secure.PI_PP_SPOOF, 1) == 1;
+                final String rawTargets = Settings.Secure.getString(cr, PI_PP_TARGETS_KEY);
+                sPpTargets = (rawTargets == null || rawTargets.isEmpty())
+                        ? new ArraySet<>(DEFAULT_PP_TARGETS)
+                        : new ArraySet<>(Arrays.asList(rawTargets.split(",")));
+                sPpModel = Settings.Secure.getString(cr, PI_PP_MODEL_KEY);
             } catch (Throwable t) {
                 // Settings provider not ready yet; cache stays at safe defaults
             }
@@ -256,6 +267,10 @@ public final class PixelPropsUtils {
                     Settings.Secure.getUriFor(Settings.Secure.PI_SNAPCHAT_SPOOF), false, observer);
             cr.registerContentObserver(
                     Settings.Secure.getUriFor(Settings.Secure.PI_PP_SPOOF), false, observer);
+            cr.registerContentObserver(
+                    Settings.Secure.getUriFor(PI_PP_TARGETS_KEY), false, observer);
+            cr.registerContentObserver(
+                    Settings.Secure.getUriFor(PI_PP_MODEL_KEY), false, observer);
         } catch (Throwable t) {
             // Observer registration failed; cached defaults remain
         }
@@ -310,16 +325,63 @@ public final class PixelPropsUtils {
 
         sIsExcluded = isGoogleCameraPackage(packageName);
 
+        final Set<String> ppTargets;
+        if (sPpTargets == null) {
+            // Pre-assign sentinel so a partial failure doesn't leave sPpTargets null
+            sPpTargets = new ArraySet<>(DEFAULT_PP_TARGETS);
+            try {
+                final android.content.ContentResolver cr = context.getContentResolver();
+                final String raw = Settings.Secure.getString(cr, PI_PP_TARGETS_KEY);
+                if (raw != null && !raw.isEmpty()) {
+                    sPpTargets = new ArraySet<>(Arrays.asList(raw.split(",")));
+                }
+                final String model = Settings.Secure.getString(cr, PI_PP_MODEL_KEY);
+                if (model != null && !model.isEmpty()) sPpModel = model;
+            } catch (Throwable t) {
+                // sPpTargets already holds the safe default; no retry next call
+            }
+        }
+        ppTargets = sPpTargets;
+
         if (!sIsExcluded
-                && packagesToChangeRecentPixel.contains(packageName)
+                && ppTargets.contains(packageName)
                 && !sIsMainlineDevice
                 && sPixelPropsSpoofEnabled) {
 
-            if (isDeviceTablet(context)) {
-                propsToChange.putAll(propsToChangePixelTablet);
-            } else {
-                propsToChange.putAll(propsToChangeRecentPixel);
+            // Resolve model profile from cache, falling back to hardcoded defaults
+            final boolean isTablet = isDeviceTablet(context);
+            Map<String, Object> resolvedProps = null;
+            try {
+                final String codename = (sPpModel != null && !sPpModel.isEmpty())
+                        ? sPpModel
+                        : (isTablet ? "tangorpro" : "mustang");
+                final PixelDeviceRepository.PixelProfile profile =
+                        PixelDeviceRepository.getProfileByCodename(
+                                context, codename, isTablet);
+                if (profile != null) {
+                    resolvedProps = new HashMap<>();
+                    resolvedProps.put("BRAND",       "google");
+                    resolvedProps.put("MANUFACTURER","Google");
+                    resolvedProps.put("BOARD",       profile.getDevice());
+                    resolvedProps.put("DEVICE",      profile.getDevice());
+                    resolvedProps.put("PRODUCT",     profile.getProduct());
+                    resolvedProps.put("HARDWARE",    profile.getDevice());
+                    resolvedProps.put("MODEL",       profile.getModel());
+                    resolvedProps.put("ID",          profile.getBuildId());
+                    resolvedProps.put("TYPE",        "user");
+                    resolvedProps.put("TAGS",        "release-keys");
+                    resolvedProps.put("FINGERPRINT", profile.getFingerprint());
+                }
+            } catch (Throwable t) {
+                dlog("Profile resolve failed, using hardcoded fallback: " + t.getMessage());
             }
+
+            if (resolvedProps == null) {
+                // Full fallback to hardcoded map
+                resolvedProps = isTablet ? propsToChangePixelTablet : propsToChangeRecentPixel;
+            }
+
+            propsToChange.putAll(resolvedProps);
 
             dlog("Defining props for: " + packageName);
             for (Map.Entry<String, Object> prop : propsToChange.entrySet()) {
