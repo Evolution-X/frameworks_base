@@ -143,6 +143,15 @@
     <!-- Sleep Mode -->
     <string name="quick_settings_sleep_mode_label">Mode Tidur</string>
     <string name="default_user_name">Evolution X</string>
+    <!-- Essential Notifications -->
+    <string name="essential_notifications_title">Hal-hal penting</string>
+    <string name="essential_notifications_summary">Pesan dan peringatan penting</string>
+    <!-- Smart Pixels -->
+    <string name="quick_settings_smart_pixels_label">Piksel Cerdas</string>
+    <string name="quick_settings_smart_pixels_on">Aktif</string>
+    <string name="quick_settings_smart_pixels_off">Nonaktif</string>
+    <string name="smart_pixels_percent_label">Persentase piksel</string>
+    <string name="smart_pixels_percent_format"><xliff:g id="percent" example="25">%d</xliff:g>%%</string>
     <!-- AxDynamicBar strings [CHAR LIMIT=NONE] -->
     <string name="ax_dynamic_bar_timer">Penghitung waktu</string>
     <string name="ax_dynamic_bar_stopwatch">Penghitung detik</string>
@@ -240,9 +249,6 @@
     <string name="ax_dynamic_bar_sports_upcoming">Akan datang</string>
     <!-- Screenshot -->
     <string name="quick_settings_screenshot_label">Tangkapan layar</string>
-    <!-- Essential Notifications -->
-    <string name="essential_notifications_title">Hal-hal penting</string>
-    <string name="essential_notifications_summary">Pesan dan peringatan penting</string>
     <!-- USB Mode Picker -->
     <string name="usb_mode_picker_title">Pilih mode USB</string>
     <string name="usb_mode_file_transfer">Transfer file</string>
@@ -252,10 +258,4 @@
     <string name="usb_mode_webcam">USB Webcam</string>
     <string name="usb_mode_charging_only">Hanya pengisian daya</string>
     <string name="usb_charging_status">Pengisian daya USB sedang aktif</string>
-    <!-- Smart Pixels -->
-    <string name="quick_settings_smart_pixels_label">Piksel Cerdas</string>
-    <string name="quick_settings_smart_pixels_on">Aktif</string>
-    <string name="quick_settings_smart_pixels_off">Nonaktif</string>
-    <string name="smart_pixels_percent_label">Persentase piksel</string>
-    <string name="smart_pixels_percent_format"><xliff:g id="percent" example="25">%d</xliff:g>%%</string>
 </resources>
