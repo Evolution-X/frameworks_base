@@ -110,7 +110,7 @@ fun MaterialVerticalVolumeSlider(
         mutableStateOf(false)
     }
 
-    val targetFraction = volumeFraction.coerceAtLeast(0.05f)
+    val targetFraction = volumeFraction.coerceIn(0f, 1f)
 
     val animFraction by animateFloatAsState(
         targetValue = targetFraction,
