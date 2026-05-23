@@ -4376,6 +4376,33 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
 
         mUserManager.systemReady();
 
+        // Sweep stale per-user disable overrides for any component declared
+        // locked="true" in <component-override>. The guard in
+        // PackageSetting.disableComponentLPw prevents future re-entry.
+        synchronized (mLock) {
+            final ArrayMap<String, ArraySet<String>> lockedComponents =
+                    SystemConfig.getInstance().getLockedComponents();
+            if (!lockedComponents.isEmpty()) {
+                final int[] userIds = mUserManager.getUserIds();
+                for (int i = 0; i < lockedComponents.size(); i++) {
+                    final PackageSetting ps =
+                            mSettings.getPackageLPr(lockedComponents.keyAt(i));
+                    if (ps == null) {
+                        continue;
+                    }
+                    final ArraySet<String> classes = lockedComponents.valueAt(i);
+                    for (int j = 0; j < classes.size(); j++) {
+                        final String className = classes.valueAt(j);
+                        for (int userId : userIds) {
+                            if (ps.restoreComponentLPw(className, userId)) {
+                                mSettings.writePackageRestrictionsLPr(userId);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Watch for external volumes that come and go over time
         final StorageManager storage = mInjector.getSystemService(StorageManager.class);
         storage.registerListener(mStorageEventHelper);
