@@ -72,6 +72,7 @@ import com.android.systemui.volume.dialog.sliders.ui.compose.rememberVolumeGradi
 
 private val CORNER_DEFAULT = 26.dp
 private val CORNER_ROUNDED = 50.dp
+private val CORNER_INNER = 28.dp
 
 @Composable
 fun MaterialVerticalVolumeSlider(
@@ -210,6 +211,7 @@ fun MaterialVerticalVolumeSlider(
     val trackBg = tileColor
     val cornerRadius = if (rounded) CORNER_ROUNDED else CORNER_DEFAULT
     val shape = RoundedCornerShape(cornerRadius)
+    val fillShape = RoundedCornerShape(if (rounded) CORNER_INNER else CORNER_DEFAULT)
 
     Box(
         modifier = modifier
@@ -265,9 +267,9 @@ fun MaterialVerticalVolumeSlider(
                 .align(Alignment.BottomCenter)
                 .then(
                     if (fillBrush != null)
-                        Modifier.background(fillBrush, shape)
+                        Modifier.background(fillBrush, fillShape)
                     else
-                        Modifier.background(fillColor, shape)
+                        Modifier.background(fillColor, fillShape)
                 ),
         )
 
