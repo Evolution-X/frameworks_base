@@ -103,7 +103,7 @@
     <string name="usage_wifi_default_suffix">وایفای</string>
     <!-- Kill button in notification guts -->
     <string name="force_stop_dlg_title">بە زۆر ڕاگرتن؟</string>
-    <string name="force_stop_dlg_text">ئەگەر ئەپێک بە زۆر ڕابگریت، ڕەنگە تووشی کێشە ببێت.</string>
+    <string name="force_stop_dlg_text">ئەگەر بەرنامەیەک بە زۆر ڕابگریت، ڕەنگە تووشی کێشە ببێت.</string>
     <!-- On The Go -->
     <string name="onthego_notif_ticker">تایبەتمەندی \"لە کاتی ڕۆشتن\" کارا کرا</string>
     <string name="onthego_notif_title">تایبەتمەندی \"لە کاتی ڕۆشتن\" چالاکە</string>
@@ -136,6 +136,15 @@
     <!-- Sleep Mode -->
     <string name="quick_settings_sleep_mode_label">دۆخی خەوتن</string>
     <string name="default_user_name">Evolution X</string>
+    <!-- Essential Notifications -->
+    <string name="essential_notifications_title">ئاگادارییە بنەڕەتییەکان</string>
+    <string name="essential_notifications_summary">نامە و ئاگادارکردنەوە گرنگەکان</string>
+    <!-- Smart Pixels -->
+    <string name="quick_settings_smart_pixels_label">پیکسڵە زیرەکەکان</string>
+    <string name="quick_settings_smart_pixels_on">کارایە</string>
+    <string name="quick_settings_smart_pixels_off">ناچالاکە</string>
+    <string name="smart_pixels_percent_label">ڕێژەی پیکسڵ</string>
+    <string name="smart_pixels_percent_format"><xliff:g id="percent" example="25">%d</xliff:g>%%</string>
     <!-- AxDynamicBar strings [CHAR LIMIT=NONE] -->
     <string name="ax_dynamic_bar_timer">کاتژمێر (Timer)</string>
     <string name="ax_dynamic_bar_stopwatch">کاتژمێری ڕاوەستان</string>
@@ -204,7 +213,7 @@
     <string name="ax_dynamic_bar_connecting">پەیوەست دەبێت\u2026</string>
     <string name="ax_dynamic_bar_one_device">١ ئامێر</string>
     <string name="ax_dynamic_bar_bluetooth_device">ئامێری بلوتووس</string>
-    <string name="ax_dynamic_bar_apps_count"><xliff:g id="count" example="2">%d</xliff:g> ئەپ</string>
+    <string name="ax_dynamic_bar_apps_count"><xliff:g id="count" example="2">%d</xliff:g> بەرنامە</string>
     <string name="ax_dynamic_bar_just_now">ئێستا</string>
     <string name="ax_dynamic_bar_mins_ago"><xliff:g id="count" example="5">%d</xliff:g> خ پێش ئێستا</string>
     <string name="ax_dynamic_bar_hours_ago"><xliff:g id="count" example="2">%d</xliff:g> ک پێش ئێستا</string>
@@ -224,7 +233,7 @@
     <string name="ax_dynamic_bar_alignment">ڕێکخستنی شوێن</string>
     <string name="ax_dynamic_bar_cam_short">کامێرا</string>
     <string name="ax_dynamic_bar_mic_short">مایک</string>
-    <string name="ax_dynamic_bar_recent_apps">ئەپە دواییەکان</string>
+    <string name="ax_dynamic_bar_recent_apps">بەرنامە دواییەکان</string>
     <string name="ax_dynamic_bar_count_running"><xliff:g id="count" example="3">%d</xliff:g> چالاکە</string>
     <string name="ax_dynamic_bar_sports_vs">بەرامبەر</string>
     <string name="ax_dynamic_bar_sports_live">ڕاستەوخۆ</string>
@@ -233,9 +242,6 @@
     <string name="ax_dynamic_bar_sports_upcoming">داهاتوو</string>
     <!-- Screenshot -->
     <string name="quick_settings_screenshot_label">وێنەی ڕوونما</string>
-    <!-- Essential Notifications -->
-    <string name="essential_notifications_title">ئاگادارییە بنەڕەتییەکان</string>
-    <string name="essential_notifications_summary">نامە و ئاگادارکردنەوە گرنگەکان</string>
     <!-- USB Mode Picker -->
     <string name="usb_mode_picker_title">دیاریکردنی دۆخی USB</string>
     <string name="usb_mode_file_transfer">گواستنەوەی فایل</string>
@@ -245,10 +251,4 @@
     <string name="usb_mode_webcam">وێبکامی USB</string>
     <string name="usb_mode_charging_only">تەنها بارگاویکردن</string>
     <string name="usb_charging_status">بارگاویکردنی USB چالاکە</string>
-    <!-- Smart Pixels -->
-    <string name="quick_settings_smart_pixels_label">پیکسڵە زیرەکەکان</string>
-    <string name="quick_settings_smart_pixels_on">کارایە</string>
-    <string name="quick_settings_smart_pixels_off">ناچالاکە</string>
-    <string name="smart_pixels_percent_label">ڕێژەی پیکسڵ</string>
-    <string name="smart_pixels_percent_format"><xliff:g id="percent" example="25">%d</xliff:g>%%</string>
 </resources>
