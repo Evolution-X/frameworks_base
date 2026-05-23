@@ -115,16 +115,16 @@ internal val BatteryNeutralColor: Color
     @Composable get() = MaterialTheme.colorScheme.surfaceVariant
 internal val ChipContentDark = Color(0xFF1B1B1B)
 
-internal val RedAccent = Color(0xFFEF5350)
-internal val PinkAccent = Color(0xFFEC407A)
-internal val OrangeAccent = Color(0xFFFFA726)
-internal val YellowAccent = Color(0xFFFFCA28)
-internal val GreenAccent = Color(0xFF66BB6A)
-internal val MintAccent = Color(0xFF26A69A)
-internal val TealAccent = Color(0xFF29B6F6)
-internal val BlueAccent = Color(0xFF42A5F5)
-internal val IndigoAccent = Color(0xFF7E57C2)
-internal val PurpleAccent = Color(0xFFAB47BC)
+internal val RedAccent = Color(0xFFFF3B30)
+internal val PinkAccent = Color(0xFFFF2D55)
+internal val OrangeAccent = Color(0xFFFF9500)
+internal val YellowAccent = Color(0xFFFFCC00)
+internal val GreenAccent = Color(0xFF34C759)
+internal val MintAccent = Color(0xFF63E6BE)
+internal val TealAccent = Color(0xFF5AC8FA)
+internal val BlueAccent = Color(0xFF007AFF)
+internal val IndigoAccent = Color(0xFF5856D6)
+internal val PurpleAccent = Color(0xFFAF52DE)
 internal val PausedGray = Color(0xFF8E8E93)
 
 internal val ExpandedMaxWidth = 420.dp
