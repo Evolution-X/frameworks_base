@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/clock_frame"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_gravity="top"
-    android:gravity="top"
+    android:layout_gravity="center_horizontal|top"
+    android:gravity="center_horizontal|top"
     android:orientation="vertical">
 
     <LinearLayout
@@ -42,30 +43,29 @@
                 android:singleLine="true"
                 android:textColor="#fefefe"
                 android:textSize="290dp" />
-
         </LinearLayout>
     </LinearLayout>
 
-    <LinearLayout
-        android:layout_width="match_parent"
+    <TextClock
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="22dp"
-        android:layout_marginTop="-50dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:layout_gravity="center"
+        android:layout_marginTop="-30dp"
+        android:fontFamily="@font/general_sans"
+        android:format12Hour="EEE, dd/MM"
+        android:format24Hour="EEE, dd/MM"
+        android:includeFontPadding="false"
+        android:singleLine="true"
+        android:textAllCaps="true"
+        android:textColor="#fefefe"
+        android:textSize="15dp" />
 
-        <TextClock
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:fontFamily="@font/general_sans"
-            android:format12Hour="EEE, dd/MM"
-            android:format24Hour="EEE, dd/MM"
-            android:includeFontPadding="false"
-            android:singleLine="true"
-            android:textAlignment="viewStart"
-            android:textAllCaps="true"
-            android:textColor="#fefefe"
-            android:textSize="15dp" />
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:layout_gravity="center"
+        android:layout_marginTop="4dp">
 
         <com.android.systemui.weather.WeatherImageView
             android:id="@+id/weather_image"
@@ -79,6 +79,8 @@
             android:id="@+id/weather_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="8dp"
             android:fontFamily="@font/general_sans"
             android:textAllCaps="true"
             android:textColor="#fefefe"
