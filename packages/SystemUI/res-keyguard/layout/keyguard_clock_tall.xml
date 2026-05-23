@@ -11,7 +11,6 @@
     <TextClock
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:fontFamily="@*android:string/config_clockFontFamily"
         android:format12Hour="dd MMM yyyy"
         android:format24Hour="dd MMM yyyy"
         android:gravity="center"
@@ -19,6 +18,7 @@
         android:textAlignment="center"
         android:textColor="#f9f9f9"
         android:textSize="20dp"
+        android:layout_marginBottom="-40dp"
         android:includeFontPadding="false"
         android:textStyle="bold" />
 
@@ -79,9 +79,9 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="4dp"
             android:layout_marginEnd="8dp"
-            android:fontFamily="@*android:string/config_clockFontFamily"
             android:textColor="@android:color/white"
             android:textSize="20dp"
+            android:textStyle="bold"            
             android:visibility="gone" />
 
     </LinearLayout>
