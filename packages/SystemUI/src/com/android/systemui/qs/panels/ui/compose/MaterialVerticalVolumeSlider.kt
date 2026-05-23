@@ -66,6 +66,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CustomColorScheme
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberTileHaptic
 import com.android.systemui.volume.dialog.sliders.ui.compose.rememberGradientColorMode
 import com.android.systemui.volume.dialog.sliders.ui.compose.rememberGradientCustomColors
 import com.android.systemui.volume.dialog.sliders.ui.compose.rememberVolumeGradientEnabled
@@ -81,6 +82,8 @@ fun MaterialVerticalVolumeSlider(
 ) {
     val context = LocalContext.current
     val view = LocalView.current
+    val hapticEnabled = rememberTileHaptic()
+    var lastHapticStep by remember { mutableIntStateOf(-1) }
     val scope = rememberCoroutineScope()
 
     val audioManager = remember {
@@ -228,13 +231,23 @@ fun MaterialVerticalVolumeSlider(
             }
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
-                    onDragStart = { isDragging = true },
+                    onDragStart = {
+                        isDragging = true
+                        lastHapticStep = -1
+                    },
                     onDragEnd = { isDragging = false },
                     onDragCancel = { isDragging = false },
                     onVerticalDrag = { change, _ ->
                         change.consume()
                         val fraction = 1f - (change.position.y / size.height).coerceIn(0f, 1f)
                         volumeFraction = fraction
+                        if (hapticEnabled) {
+                            val step = (fraction * 20).toInt()
+                            if (step != lastHapticStep) {
+                                lastHapticStep = step
+                                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                            }
+                        }
                         val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
                         val target = (fraction * maxVol).toInt().coerceIn(0, maxVol)
                         scope.launch(Dispatchers.IO) {
