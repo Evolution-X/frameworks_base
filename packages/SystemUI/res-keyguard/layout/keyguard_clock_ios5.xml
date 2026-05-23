@@ -33,7 +33,7 @@
         android:singleLine="true"
         android:textAlignment="center"
         android:textColor="@android:color/white"
-        android:textSize="400dp" />
+        android:textSize="420dp" />
 
     <LinearLayout
         android:layout_width="wrap_content"
