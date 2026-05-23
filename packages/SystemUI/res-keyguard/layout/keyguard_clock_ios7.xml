@@ -40,7 +40,7 @@
             android:singleLine="true"
             android:textAlignment="center"
             android:textColor="#f9f9f9"
-            android:textSize="390dp" />
+            android:textSize="410dp" />
 
         <TextClock
             android:layout_width="wrap_content"
@@ -53,7 +53,7 @@
             android:singleLine="true"
             android:textAlignment="center"
             android:textColor="@android:color/white"
-            android:textSize="390dp" />
+            android:textSize="410dp" />
 
     </LinearLayout>
 
