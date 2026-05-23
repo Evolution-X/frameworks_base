@@ -10,7 +10,7 @@
     <string name="url_copy_failed">هەڵەیەک ڕوویدا لە کاتی بەرزکردنەوەی لۆگەکە بۆ Pasty</string>
     <!-- Settings Restart -->
     <string name="settings_restart_title">پێویستە ڕێکخستنەکان دەستپێبکاتەوە</string>
-    <string name="settings_restart_message">بۆ ئەوەی هەموو گۆڕانکارییەکان جێبەجێ بن، پێویستە ئەپی ڕێکخستنەکان دەستپێبکاتەوە. ئێستا ئەپی ڕێکخستنەکان دەستپێبکەمەوە؟</string>
+    <string name="settings_restart_message">بۆ ئەوەی هەموو گۆڕانکارییەکان جێبەجێ بن، پێویستە بەرنامەی ڕێکخستنەکان دەستپێبکاتەوە. ئێستا بەرنامەی ڕێکخستنەکان دەستپێبکەمەوە؟</string>
     <!-- System Reboot -->
     <string name="system_restart_title">پێویستە سیستەم دەستپێبکاتەوە</string>
     <string name="system_restart_message">بۆ ئەوەی هەموو گۆڕانکارییەکان جێبەجێ بن، پێویستە سیستەم دەستپێبکاتەوە. ئێستا سیستەم دەستپێبکەمەوە؟</string>
