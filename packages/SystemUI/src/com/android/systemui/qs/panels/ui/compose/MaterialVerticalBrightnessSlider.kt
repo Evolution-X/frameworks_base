@@ -46,6 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -73,6 +74,7 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CustomColorScheme
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberTileHaptic
 import com.android.systemui.volume.dialog.sliders.ui.compose.rememberGradientColorMode
 import com.android.systemui.volume.dialog.sliders.ui.compose.rememberGradientCustomColors
 import com.android.systemui.volume.dialog.sliders.ui.compose.rememberVolumeGradientEnabled
@@ -134,6 +136,8 @@ fun MaterialVerticalBrightnessSlider(
     var isDragging by remember { mutableStateOf(false) }
 
     val targetFraction = linearToFraction(linearBrightness)
+    val hapticEnabled = rememberTileHaptic()
+    var lastHapticStep by remember { mutableIntStateOf(-1) }
 
     val animFraction by animateFloatAsState(
         targetValue = targetFraction,
@@ -275,11 +279,20 @@ fun MaterialVerticalBrightnessSlider(
                                 dragging = true
                                 isDragging = true
                                 longPressJob?.cancel()
+                                lastHapticStep = -1
                             }
                             if (dragging) {
                                 ptr.consume()
                                 val v = yToLinear(ptr.position.y, size.height)
                                 linearBrightness = v
+                                if (hapticEnabled) {
+                                val frac = linearToFraction(v)
+                                val step = (frac * 20).toInt()
+                                if (step != lastHapticStep) {
+                                    lastHapticStep = step
+                                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                }
+                            }
                                 writeLinearBrightness(v)
                             }
                         }
