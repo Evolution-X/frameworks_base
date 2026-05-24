@@ -658,6 +658,18 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
         mState = state;
         TrackTracer.instantForGroup("scrim", "state", mState.ordinal());
 
+        if (state == ScrimState.AOD || state == ScrimState.PULSING
+                || oldState == ScrimState.AOD || oldState == ScrimState.PULSING) {
+            mInFrontTint = Color.BLACK;
+            mBehindTint = Color.BLACK;
+            mNotificationsTint = Color.BLACK;
+            updateScrimColor(mScrimInFront, mInFrontAlpha, mInFrontTint);
+            if (mScrimBehind != null) {
+                updateScrimColor(mScrimBehind, mBehindAlpha, mBehindTint);
+            }
+            updateScrimColor(mNotificationsScrim, mNotificationsAlpha, mNotificationsTint);
+        }
+
         if (mCallback != null) {
             mCallback.onCancelled();
         }
@@ -1308,15 +1320,28 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
         // Make sure we have the right gradients and their opacities will satisfy GAR.
         if (mNeedsDrawableColorUpdate) {
             mNeedsDrawableColorUpdate = false;
-            // Only animate scrim color if the scrim view is actually visible
-            boolean animateScrimInFront = mScrimInFront.getViewAlpha() != 0 && !mBlankScreen;
-            boolean animateBehindScrim = mScrimBehind != null && mScrimBehind.getViewAlpha() != 0 && !mBlankScreen;
-            boolean animateScrimNotifications = mNotificationsScrim.getViewAlpha() != 0
-                    && !mBlankScreen;
+            if (mState == ScrimState.AOD || mState == ScrimState.PULSING) {
+                GradientColors blackColors = new GradientColors();
+                blackColors.setMainColor(Color.BLACK);
+                blackColors.setSecondaryColor(Color.BLACK);
+                blackColors.setSupportsDarkText(false);
+                mScrimInFront.setColors(blackColors, false);
+                if (mScrimBehind != null) {
+                    mScrimBehind.setColors(blackColors, false);
+                }
+                mNotificationsScrim.setColors(blackColors, false);
+            } else {
+                boolean animateScrimInFront = mScrimInFront.getViewAlpha() != 0 && !mBlankScreen;
+                boolean animateBehindScrim = mScrimBehind != null && mScrimBehind.getViewAlpha() != 0 && !mBlankScreen;
+                boolean animateScrimNotifications = mNotificationsScrim.getViewAlpha() != 0
+                        && !mBlankScreen;
 
-            mScrimInFront.setColors(mColors, animateScrimInFront);
-            mScrimBehind.setColors(mColors, animateBehindScrim);
-            mNotificationsScrim.setColors(mColors, animateScrimNotifications);
+                mScrimInFront.setColors(mColors, animateScrimInFront);
+                if (mScrimBehind != null) {
+                    mScrimBehind.setColors(mColors, animateBehindScrim);
+                }
+                mNotificationsScrim.setColors(mColors, animateScrimNotifications);
+             }
 
             if (mScrimBehind != null) {
                 dispatchBackScrimState(mScrimBehind.getViewAlpha());
@@ -1562,12 +1587,16 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
 
         // When unlocking with fingerprint, we'll fade the scrims from black to transparent.
         // At the end of the animation we need to remove the tint.
-        if (state == ScrimState.UNLOCKED) {
+        if (state == ScrimState.UNLOCKED
+                || state == ScrimState.AOD
+                || state == ScrimState.PULSING) {
             mInFrontTint = Color.TRANSPARENT;
             mBehindTint = mState.getBehindTint();
             mNotificationsTint = mState.getNotifTint();
             updateScrimColor(mScrimInFront, mInFrontAlpha, mInFrontTint);
-            updateScrimColor(mScrimBehind, mBehindAlpha, mBehindTint);
+            if (mScrimBehind != null) {
+                updateScrimColor(mScrimBehind, mBehindAlpha, mBehindTint);
+            }
             updateScrimColor(mNotificationsScrim, mNotificationsAlpha, mNotificationsTint);
         }
     }
