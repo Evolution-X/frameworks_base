@@ -25,6 +25,7 @@ import com.android.systemui.statusbar.notification.collection.NotificationEntry
 import com.android.systemui.statusbar.notification.collection.PipelineEntry
 import com.android.systemui.statusbar.notification.collection.provider.HighPriorityProvider
 import com.android.systemui.statusbar.notification.shared.NotificationBundleUi
+import com.android.systemui.statusbar.notification.stack.BUCKET_SILENT
 import com.android.systemui.statusbar.policy.KeyguardStateController
 import com.android.systemui.util.ListenerSet
 import com.android.systemui.util.asIndenting
@@ -225,6 +226,7 @@ constructor(
 
     private fun shouldHideIfEntrySilent(entry: PipelineEntry): VisState =
         when {
+            entry.section?.bucket?.let { it != BUCKET_SILENT } == true -> SHOW
             // Show if explicitly high priority (not hidden)
             highPriorityProvider.isExplicitlyHighPriority(entry) -> SHOW
             // Ambient notifications are hidden always from lock screen
