@@ -656,7 +656,8 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
     }
 
     private boolean shouldShowRestartSubmenu() {
-        return PowerMenuUtils.isAdvancedRestartPossible(mContext);
+        return PowerMenuUtils.isAdvancedRestartPossible(mContext)
+                && mRestartItems.size() > 1;
     }
 
     /**
@@ -694,6 +695,23 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
 
     @VisibleForTesting
     protected String[] getRestartActions() {
+        if (mUserManager.isGuestUser()) {
+            return new String[0];
+        }
+        String stored = LineageSettings.System.getStringForUser(
+                mContext.getContentResolver(),
+                LineageSettings.System.POWER_MENU_RESTART_ACTIONS,
+                ActivityManager.getCurrentUser());
+        if (stored != null) {
+            if (stored.isEmpty()) {
+                return new String[] { RESTART_ACTION_KEY_RESTART };
+            }
+            String[] userActions = stored.split("\\|");
+            String[] result = new String[userActions.length + 1];
+            result[0] = RESTART_ACTION_KEY_RESTART;
+            System.arraycopy(userActions, 0, result, 1, userActions.length);
+            return result;
+        }
         return mResources.getStringArray(
                 org.lineageos.platform.internal.R.array.config_restartActionsList);
     }
