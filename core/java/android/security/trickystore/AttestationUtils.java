@@ -196,8 +196,12 @@ public final class AttestationUtils {
     }
 
     public static int getPatchLevel(boolean isLong) {
-        TrickyStoreService.CustomPatchLevel customLevel = 
-            TrickyStoreService.getInstance().getCustomPatchLevel();
+        return getPatchLevel(isLong, null);
+    }
+
+    public static int getPatchLevel(boolean isLong, String[] packages) {
+        TrickyStoreService.CustomPatchLevel customLevel =
+            TrickyStoreService.getInstance().getCustomPatchLevelForPackage(packages);
         if (customLevel != null && customLevel.system != null) {
             Integer parsed = parsePatchLevel(customLevel.system, isLong);
             if (parsed != null) return parsed;
@@ -206,8 +210,12 @@ public final class AttestationUtils {
     }
 
     public static int getVendorPatchLevel(boolean isLong) {
-        TrickyStoreService.CustomPatchLevel customLevel = 
-            TrickyStoreService.getInstance().getCustomPatchLevel();
+        return getVendorPatchLevel(isLong, null);
+    }
+
+    public static int getVendorPatchLevel(boolean isLong, String[] packages) {
+        TrickyStoreService.CustomPatchLevel customLevel =
+            TrickyStoreService.getInstance().getCustomPatchLevelForPackage(packages);
         if (customLevel != null && customLevel.vendor != null) {
             Integer parsed = parsePatchLevel(customLevel.vendor, isLong);
             if (parsed != null) return parsed;
@@ -216,8 +224,12 @@ public final class AttestationUtils {
     }
 
     public static int getBootPatchLevel(boolean isLong) {
-        TrickyStoreService.CustomPatchLevel customLevel = 
-            TrickyStoreService.getInstance().getCustomPatchLevel();
+        return getBootPatchLevel(isLong, null);
+    }
+
+    public static int getBootPatchLevel(boolean isLong, String[] packages) {
+        TrickyStoreService.CustomPatchLevel customLevel =
+            TrickyStoreService.getInstance().getCustomPatchLevelForPackage(packages);
         if (customLevel != null && customLevel.boot != null) {
             Integer parsed = parsePatchLevel(customLevel.boot, isLong);
             if (parsed != null) return parsed;
