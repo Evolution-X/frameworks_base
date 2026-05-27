@@ -67,7 +67,11 @@ public final class PlayIntegritySpoofService {
     private volatile boolean mSpoofProps = true;
     private volatile boolean mSpoofProvider = true;
     private volatile boolean mSpoofSignature = false;
-    private volatile boolean mSpoofVendingBuild = true;
+    // Replaces the old all-or-nothing "spoofVendingBuild" boolean. This now matches
+    // upstream PlayIntegrityFork semantics: "0"/empty = disabled (default), "1"/"true" =
+    // spoof the configured FINGERPRINT field only, or any other value = use that literal
+    // string as a custom FINGERPRINT to serve to Play Store instead of the DroidGuard one.
+    private volatile String mSpoofVendingFinger = "0";
     private volatile boolean mSpoofVendingSdk = false;
     private volatile boolean mDebug = false;
 
@@ -129,6 +133,8 @@ public final class PlayIntegritySpoofService {
             if (secPatch != null && !secPatch.isEmpty()) {
                 mSystemProps.put("ro.build.version.security_patch", secPatch);
                 mSystemProps.put("ro.vendor.build.security_patch", secPatch);
+                mSystemProps.put("ro.system.build.version.security_patch", secPatch);
+                mSystemProps.put("ro.product.build.version.security_patch", secPatch);
             }
         } catch (Throwable e) {
             Log.e(TAG, "Failed to load PIF config", e);
@@ -208,8 +214,18 @@ public final class PlayIntegritySpoofService {
             case "spoofSignature":
                 mSpoofSignature = "1".equals(value) || "true".equalsIgnoreCase(value);
                 break;
+            case "spoofVendingFinger":
+                mSpoofVendingFinger = value;
+                break;
             case "spoofVendingBuild":
-                mSpoofVendingBuild = "1".equals(value) || "true".equalsIgnoreCase(value);
+                // Deprecated key from before this service matched upstream's
+                // FINGERPRINT-only vending spoof. Only honored as a fallback if
+                // spoofVendingFinger hasn't already been set by this config.
+                if ("0".equals(mSpoofVendingFinger)
+                        && ("1".equals(value) || "true".equalsIgnoreCase(value))) {
+                    Log.w(TAG, "spoofVendingBuild is deprecated, treating as spoofVendingFinger=1");
+                    mSpoofVendingFinger = "1";
+                }
                 break;
             case "spoofVendingSdk":
                 mSpoofVendingSdk = "1".equals(value) || "true".equalsIgnoreCase(value);
@@ -254,14 +270,12 @@ public final class PlayIntegritySpoofService {
         if (!isDroidGuard && !isVending) return;
 
         if (isVending) {
-            if (!mSpoofVendingBuild) {
-                if (mVerboseLogs > 0) Log.d(TAG, "Vending build spoofing disabled");
+            String vendingFingerprint = resolveVendingFingerprint();
+            if (vendingFingerprint == null) {
+                if (mVerboseLogs > 0) Log.d(TAG, "Vending FINGERPRINT spoofing disabled");
                 return;
             }
-            for (Map.Entry<String, String> entry : mBuildFields.entrySet()) {
-                if ("SDK_INT".equals(entry.getKey())) continue;
-                spoofField(entry.getKey(), entry.getValue(), "PS");
-            }
+            spoofField("FINGERPRINT", vendingFingerprint, "PS");
             return;
         }
 
@@ -282,32 +296,73 @@ public final class PlayIntegritySpoofService {
         }
     }
 
-    public void spoofSignature() {
+    /**
+     * Resolves the FINGERPRINT value that should be spoofed to the Play Store
+     * (com.android.vending) process, based on the spoofVendingFinger setting.
+     * Returns null if vending fingerprint spoofing is disabled.
+     *
+     * spoofVendingFinger may be:
+     *   "0" / "false" / empty -> disabled (default)
+     *   "1" / "true"          -> use the same FINGERPRINT configured for DroidGuard
+     *   anything else          -> treated as a literal custom FINGERPRINT value
+     */
+    private String resolveVendingFingerprint() {
+        String setting = mSpoofVendingFinger;
+        if (setting == null || setting.isEmpty()
+                || "0".equals(setting) || "false".equalsIgnoreCase(setting)) {
+            return null;
+        }
+        if ("1".equals(setting) || "true".equalsIgnoreCase(setting)) {
+            return mBuildFields.get("FINGERPRINT");
+        }
+        return setting;
+    }
+
+    /**
+     * Applies signature spoofing. Must be called with the current process name so
+     * this can be skipped for Play Store (com.android.vending); signature spoofing
+     * is only meaningful, and only safe, for DroidGuard's package-info checks.
+     */
+    public void spoofSignature(String processName) {
+        if (isVending(processName)) {
+            if (mVerboseLogs > 0) Log.d(TAG, "Signature spoofing skipped for Vending");
+            return;
+        }
         if (!mSpoofSignature || mSignatureSpoofed) return;
 
         Signature spoofedSignature = new Signature(Base64.decode(ROM_SIGNATURE_DATA, Base64.DEFAULT));
         Parcelable.Creator<PackageInfo> originalCreator = PackageInfo.CREATOR;
         Parcelable.Creator<PackageInfo> customCreator = new CustomPackageInfoCreator(originalCreator, spoofedSignature);
 
+        Field creatorField;
         try {
-            Field creatorField = findField(PackageInfo.class, "CREATOR");
+            creatorField = findField(PackageInfo.class, "CREATOR");
+        } catch (Exception e) {
+            Log.e(TAG, "Couldn't find PackageInfo.CREATOR: " + e);
+            return;
+        }
+        try {
             creatorField.setAccessible(true);
             creatorField.set(null, customCreator);
-            creatorField.setAccessible(false);
         } catch (Exception e) {
             Log.e(TAG, "Couldn't replace PackageInfoCreator: " + e);
             return;
+        } finally {
+            creatorField.setAccessible(false);
         }
 
         try {
             Field cacheField = findField(PackageManager.class, "sPackageInfoCache");
             cacheField.setAccessible(true);
-            Object cache = cacheField.get(null);
-            if (cache != null) {
-                Method clearMethod = cache.getClass().getMethod("clear");
-                clearMethod.invoke(cache);
+            try {
+                Object cache = cacheField.get(null);
+                if (cache != null) {
+                    Method clearMethod = cache.getClass().getMethod("clear");
+                    clearMethod.invoke(cache);
+                }
+            } finally {
+                cacheField.setAccessible(false);
             }
-            cacheField.setAccessible(false);
         } catch (Exception e) {
             if (mDebug) Log.d(TAG, "Couldn't clear PackageInfoCache: " + e);
         }
@@ -315,9 +370,12 @@ public final class PlayIntegritySpoofService {
         try {
             Field creatorsField = findField(Parcel.class, "mCreators");
             creatorsField.setAccessible(true);
-            Map<?, ?> mCreators = (Map<?, ?>) creatorsField.get(null);
-            if (mCreators != null) mCreators.clear();
-            creatorsField.setAccessible(false);
+            try {
+                Map<?, ?> mCreators = (Map<?, ?>) creatorsField.get(null);
+                if (mCreators != null) mCreators.clear();
+            } finally {
+                creatorsField.setAccessible(false);
+            }
         } catch (Exception e) {
             if (mDebug) Log.d(TAG, "Couldn't clear Parcel mCreators: " + e);
         }
@@ -325,9 +383,12 @@ public final class PlayIntegritySpoofService {
         try {
             Field creatorsField = findField(Parcel.class, "sPairedCreators");
             creatorsField.setAccessible(true);
-            Map<?, ?> sPairedCreators = (Map<?, ?>) creatorsField.get(null);
-            if (sPairedCreators != null) sPairedCreators.clear();
-            creatorsField.setAccessible(false);
+            try {
+                Map<?, ?> sPairedCreators = (Map<?, ?>) creatorsField.get(null);
+                if (sPairedCreators != null) sPairedCreators.clear();
+            } finally {
+                creatorsField.setAccessible(false);
+            }
         } catch (Exception e) {
             if (mDebug) Log.d(TAG, "Couldn't clear Parcel sPairedCreators: " + e);
         }
@@ -359,17 +420,25 @@ public final class PlayIntegritySpoofService {
             targetSdk = 32;
         }
 
+        Field field;
         try {
-            Field field = Build.VERSION.class.getDeclaredField("SDK_INT");
-            field.setAccessible(true);
+            field = Build.VERSION.class.getDeclaredField("SDK_INT");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to spoof SDK_INT", e);
+            return;
+        }
+
+        field.setAccessible(true);
+        try {
             int oldValue = field.getInt(null);
             if (oldValue != targetSdk) {
                 field.set(null, targetSdk);
                 Log.d(TAG + "/Java:DG", "[SDK_INT]: " + oldValue + " -> " + targetSdk);
             }
-            field.setAccessible(false);
         } catch (Exception e) {
             Log.e(TAG, "Failed to spoof SDK_INT", e);
+        } finally {
+            field.setAccessible(false);
         }
     }
 
@@ -379,10 +448,8 @@ public final class PlayIntegritySpoofService {
             return;
         }
 
+        Field field;
         try {
-            Field field;
-            String oldValue;
-
             if (hasField(Build.class, fieldName)) {
                 field = Build.class.getDeclaredField(fieldName);
             } else if (hasField(Build.VERSION.class, fieldName)) {
@@ -391,13 +458,17 @@ public final class PlayIntegritySpoofService {
                 if (mVerboseLogs > 1) Log.d(TAG, "Field not found: " + fieldName);
                 return;
             }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to locate field " + fieldName, e);
+            return;
+        }
 
-            field.setAccessible(true);
-            oldValue = String.valueOf(field.get(null));
+        field.setAccessible(true);
+        try {
+            String oldValue = String.valueOf(field.get(null));
 
             if (value.equals(oldValue)) {
                 if (mVerboseLogs > 2) Log.d(TAG, "[" + fieldName + "]: " + value + " (unchanged)");
-                field.setAccessible(false);
                 return;
             }
 
@@ -414,17 +485,16 @@ public final class PlayIntegritySpoofService {
                 newValue = Boolean.parseBoolean(value);
             } else {
                 Log.w(TAG, "Unsupported field type: " + fieldType);
-                field.setAccessible(false);
                 return;
             }
 
             field.set(null, newValue);
-            field.setAccessible(false);
-
             Log.d(TAG + "/Java:" + logSuffix, "[" + fieldName + "]: " + oldValue + " -> " + value);
 
         } catch (Exception e) {
             Log.e(TAG, "Failed to spoof " + fieldName, e);
+        } finally {
+            field.setAccessible(false);
         }
     }
 
@@ -469,6 +539,10 @@ public final class PlayIntegritySpoofService {
 
     public Map<String, String> getSystemProps() {
         return mSystemProps;
+    }
+
+    public String getSpoofVendingFinger() {
+        return mSpoofVendingFinger;
     }
 
     public boolean isConfigLoaded() {
