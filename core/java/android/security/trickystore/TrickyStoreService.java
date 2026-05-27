@@ -30,7 +30,9 @@ import java.nio.charset.StandardCharsets;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
 import java.security.spec.ECGenParameterSpec;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -48,7 +50,12 @@ public class TrickyStoreService {
     private final Map<String, Mode> mPackageModes = new ConcurrentHashMap<>();
 
     private volatile Boolean mTeeBroken = null;
+    private volatile long mLastRevocationCheckMs = 0L;
+    private volatile long mLastTargetsRefreshMs = 0L;
+    private static final long TARGETS_REFRESH_COOLDOWN_MS = 5_000L;
+    private static final long REVOCATION_CHECK_COOLDOWN_MS = 24 * 60 * 60 * 1000L;
     private volatile CustomPatchLevel mCustomPatchLevel = null;
+    private final Map<String, CustomPatchLevel> mPerPackagePatchLevels = new ConcurrentHashMap<>();
     private volatile String mLastKeyboxFingerprint = null;
 
     private final KeyBoxManager mKeyBoxManager;
@@ -89,6 +96,15 @@ public class TrickyStoreService {
         refreshTargets();
         refreshKeyBox();
         refreshPatchLevel();
+        // Eagerly warm up TEE status in the background so isTeeBroken() never
+        // returns a stale null when the settings UI reads it at startup.
+        new Thread(() -> {
+            try {
+                ensureTeeStatus();
+            } catch (Exception e) {
+                Log.w(TAG, "Background TEE check failed", e);
+            }
+        }, "TrickyStore-TeeInit").start();
         Log.i(TAG, "TrickyStoreService initialized");
     }
 
@@ -205,6 +221,12 @@ public class TrickyStoreService {
             return;
         }
         try {
+            if (!isValidKeyboxXml(xml)) {
+                mLastKeyboxFingerprint = null;
+                Log.e(TAG, "Keybox XML failed structural validation (missing keys or identifier)");
+                return;
+            }
+            checkKeyboxRevocation(xml);
             mKeyBoxManager.parseKeybox(xml);
             if (mKeyBoxManager.hasKeyboxes()) {
                 mLastKeyboxFingerprint = fingerprint;
@@ -237,6 +259,7 @@ public class TrickyStoreService {
 
     public void refreshPatchLevel() {
         String content = fetchFromAms(am -> am.getSpoofTrickyStorePatch());
+        mPerPackagePatchLevels.clear();
         if (content == null || content.isEmpty()) {
             mCustomPatchLevel = null;
             return;
@@ -255,46 +278,50 @@ public class TrickyStoreService {
     }
 
     private void parsePatchText(String content) {
-        StringBuilder filtered = new StringBuilder();
+        String currentPackage = null;
+        String system = null, vendor = null, boot = null, all = null;
+
         for (String raw : content.split("\n")) {
             String line = raw.trim();
-            if (!line.isEmpty() && !line.startsWith("#")) {
-                filtered.append(line).append("\n");
+            if (line.isEmpty() || line.startsWith("#")) continue;
+
+            if (line.startsWith("[") && line.endsWith("]")) {
+                flushPatchSection(currentPackage, system, vendor, boot, all);
+                currentPackage = line.substring(1, line.length() - 1).trim();
+                system = vendor = boot = all = null;
+                continue;
             }
-        }
 
-        String lines = filtered.toString().trim();
-        if (lines.isEmpty()) {
-            mCustomPatchLevel = null;
-            return;
-        }
-
-        String[] parts = lines.split("\n");
-        if (parts.length == 1 && !parts[0].contains("=")) {
-            mCustomPatchLevel = new CustomPatchLevel(parts[0], parts[0], parts[0], parts[0]);
-            return;
-        }
-
-        String system = null, vendor = null, boot = null, all = null;
-        for (String part : parts) {
-            int idx = part.indexOf('=');
+            int idx = line.indexOf('=');
             if (idx > 0) {
-                String key = part.substring(0, idx).trim().toLowerCase();
-                String value = part.substring(idx + 1).trim();
+                String key = line.substring(0, idx).trim().toLowerCase();
+                String value = line.substring(idx + 1).trim();
                 switch (key) {
                     case "system": system = value; break;
                     case "vendor": vendor = value; break;
-                    case "boot": boot = value; break;
-                    case "all": all = value; break;
+                    case "boot":   boot   = value; break;
+                    case "all":    all    = value; break;
                 }
+            } else {
+                all = line;
             }
         }
-        mCustomPatchLevel = new CustomPatchLevel(
+        flushPatchSection(currentPackage, system, vendor, boot, all);
+    }
+
+    private void flushPatchSection(String pkg, String system, String vendor, String boot, String all) {
+        if (system == null && vendor == null && boot == null && all == null) return;
+        CustomPatchLevel level = new CustomPatchLevel(
             system != null ? system : all,
             vendor != null ? vendor : all,
-            boot != null ? boot : all,
+            boot   != null ? boot   : all,
             all
         );
+        if (pkg == null) {
+            mCustomPatchLevel = level;
+        } else {
+            mPerPackagePatchLevels.put(pkg, level);
+        }
     }
 
     private void parsePatchJson(String content) throws IOException {
@@ -306,19 +333,35 @@ public class TrickyStoreService {
                 switch (key) {
                     case "system": system = reader.nextString(); break;
                     case "vendor": vendor = reader.nextString(); break;
-                    case "boot": boot = reader.nextString(); break;
-                    case "all": all = reader.nextString(); break;
+                    case "boot":   boot   = reader.nextString(); break;
+                    case "all":    all    = reader.nextString(); break;
+                    case "packages":
+                        reader.beginObject();
+                        while (reader.hasNext()) {
+                            String pkg = reader.nextName();
+                            String ps = null, pv = null, pb = null, pa = null;
+                            reader.beginObject();
+                            while (reader.hasNext()) {
+                                String pk = reader.nextName();
+                                switch (pk) {
+                                    case "system": ps = reader.nextString(); break;
+                                    case "vendor": pv = reader.nextString(); break;
+                                    case "boot":   pb = reader.nextString(); break;
+                                    case "all":    pa = reader.nextString(); break;
+                                    default: reader.skipValue(); break;
+                                }
+                            }
+                            reader.endObject();
+                            flushPatchSection(pkg, ps, pv, pb, pa);
+                        }
+                        reader.endObject();
+                        break;
                     default: reader.skipValue(); break;
                 }
             }
             reader.endObject();
         }
-        mCustomPatchLevel = new CustomPatchLevel(
-            system != null ? system : all,
-            vendor != null ? vendor : all,
-            boot != null ? boot : all,
-            all
-        );
+        flushPatchSection(null, system, vendor, boot, all);
     }
 
     private void ensureTeeStatus() {
@@ -332,6 +375,86 @@ public class TrickyStoreService {
                 }
             }
         }
+    }
+
+    private boolean isValidKeyboxXml(String xml) {
+        boolean hasEcdsa = xml.contains("<Key algorithm=\"ecdsa\">");
+        boolean hasRsa = xml.contains("<Key algorithm=\"rsa\">");
+        boolean hasId = xml.contains("<serial>") || xml.contains("DeviceID");
+        if (!hasEcdsa && !hasRsa) {
+            Log.e(TAG, "Keybox validation failed: no ECDSA or RSA key block found");
+            return false;
+        }
+        if (!hasId) {
+            Log.e(TAG, "Keybox validation failed: no identifier field (serial/DeviceID)");
+            return false;
+        }
+        if (!hasEcdsa) Log.w(TAG, "Keybox warning: missing ECDSA key block");
+        if (!hasRsa)   Log.w(TAG, "Keybox warning: missing RSA key block");
+        return true;
+    }
+
+    private void checkKeyboxRevocation(String xml) {
+        long now = System.currentTimeMillis();
+        if (now - mLastRevocationCheckMs < REVOCATION_CHECK_COOLDOWN_MS) {
+            Log.d(TAG, "Skipping revocation check — ran within 24h");
+            return;
+        }
+        new Thread(() -> {
+            try {
+                List<String> serials = extractCertSerials(xml);
+                if (serials.isEmpty()) return;
+                java.net.URL url = new java.net.URL(
+                        "https://android.googleapis.com/attestation/status?encrypted=0");
+                java.net.HttpURLConnection conn =
+                        (java.net.HttpURLConnection) url.openConnection();
+                conn.setConnectTimeout(10_000);
+                conn.setReadTimeout(10_000);
+                if (conn.getResponseCode() != java.net.HttpURLConnection.HTTP_OK) return;
+                String body = new String(
+                        conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                org.json.JSONObject entries =
+                        new org.json.JSONObject(body).optJSONObject("entries");
+                if (entries == null) return;
+                for (String serial : serials) {
+                    org.json.JSONObject entry = entries.optJSONObject(serial);
+                    if (entry == null) continue;
+                    String status = entry.optString("status", "").toUpperCase(java.util.Locale.US);
+                    if ("REVOKED".equals(status) || "SUSPENDED".equals(status)) {
+                        Log.w(TAG, "Keybox serial " + serial + " is " + status +
+                                " — attestation may fail");
+                    }
+                }
+                mLastRevocationCheckMs = now;
+            } catch (Exception e) {
+                Log.w(TAG, "Keybox revocation check failed", e);
+            }
+        }, "TrickyStore-RevocationCheck").start();
+    }
+
+    private List<String> extractCertSerials(String xml) {
+        List<String> serials = new ArrayList<>();
+        java.util.regex.Pattern p = java.util.regex.Pattern.compile(
+                "-----BEGIN CERTIFICATE-----([\\s\\S]+?)-----END CERTIFICATE-----");
+        java.util.regex.Matcher m = p.matcher(xml);
+        java.security.cert.CertificateFactory factory;
+        try {
+            factory = java.security.cert.CertificateFactory.getInstance("X.509");
+        } catch (Exception e) {
+            return serials;
+        }
+        while (m.find()) {
+            try {
+                byte[] der = Base64.getDecoder().decode(
+                        m.group(1).replaceAll("\\s", ""));
+                java.security.cert.X509Certificate cert =
+                        (java.security.cert.X509Certificate)
+                        factory.generateCertificate(
+                                new java.io.ByteArrayInputStream(der));
+                serials.add(cert.getSerialNumber().toString(16).toUpperCase(java.util.Locale.US));
+            } catch (Exception ignored) {}
+        }
+        return serials;
     }
 
     private boolean checkTeeBroken() {
@@ -362,7 +485,7 @@ public class TrickyStoreService {
 
     public boolean needHack(int callingUid, String[] packages) {
         if (packages == null) return false;
-        refreshTargets();
+        maybeRefreshTargets();
         ensureTeeStatus();
         for (String pkg : packages) {
             Mode mode = mPackageModes.get(pkg);
@@ -374,7 +497,7 @@ public class TrickyStoreService {
 
     public boolean needGenerate(int callingUid, String[] packages) {
         if (packages == null) return false;
-        refreshTargets();
+        maybeRefreshTargets();
         ensureTeeStatus();
         for (String pkg : packages) {
             Mode mode = mPackageModes.get(pkg);
@@ -382,6 +505,14 @@ public class TrickyStoreService {
             if (mode == Mode.AUTO && mTeeBroken) return true;
         }
         return false;
+    }
+
+    private void maybeRefreshTargets() {
+        long now = System.currentTimeMillis();
+        if (now - mLastTargetsRefreshMs >= TARGETS_REFRESH_COOLDOWN_MS) {
+            mLastTargetsRefreshMs = now;
+            refreshTargets();
+        }
     }
 
     public KeyBoxManager getKeyBoxManager() {
@@ -394,7 +525,27 @@ public class TrickyStoreService {
         return mCustomPatchLevel;
     }
 
+    public CustomPatchLevel getCustomPatchLevelForPackage(String[] packages) {
+        refreshPatchLevel();
+        if (packages != null) {
+            for (String pkg : packages) {
+                CustomPatchLevel level = mPerPackagePatchLevels.get(pkg);
+                if (level != null) return level;
+            }
+        }
+        return mCustomPatchLevel;
+    }
+
     public boolean hasKeyboxes() {
         return mKeyBoxManager.hasKeyboxes();
+    }
+
+    /**
+     * Returns whether the TEE is broken, forcing the check if it hasn't run yet.
+     * Safe to call from any thread; the underlying check is synchronized.
+     */
+    public boolean isTeeBroken() {
+        ensureTeeStatus();
+        return Boolean.TRUE.equals(mTeeBroken);
     }
 }
