@@ -13,6 +13,8 @@ import android.graphics.drawable.Drawable;
 import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import androidx.annotation.Nullable;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffColorFilter;
 
 public class ArcProgressWidget {
     public static Bitmap generateBitmap(Context context, int percentage, String textInside, int textInsideSizePx, @Nullable String textBottom, int textBottomSizePx, @Nullable String tf) {
@@ -21,6 +23,14 @@ public class ArcProgressWidget {
 
     public static Bitmap generateBitmap(Context context, int percentage, String textInside, int textInsideSizePx, @Nullable Drawable iconDrawable, int iconSizePx, @Nullable String tf) {
         return generateBitmap(context, percentage, textInside, textInsideSizePx, iconDrawable, iconSizePx, "Usage", 28, tf);
+    }
+
+    public static Bitmap generateBitmap(Context context, int percentage, String textInside, int textInsideSizePx, @Nullable Drawable iconDrawable, int iconSizePx, @Nullable String tf, int tintColor) {
+        return generateBitmap(context, percentage, textInside, textInsideSizePx, iconDrawable, iconSizePx, "Usage", 28, tf, tintColor);
+    }
+
+    public static Bitmap generateBitmap(Context context, int percentage, String textInside, int textInsideSizePx, @Nullable String textBottom, int textBottomSizePx, @Nullable String tf, int tintColor) {
+        return generateBitmap(context, percentage, textInside, textInsideSizePx, null, 28, textBottom, textBottomSizePx, tf, tintColor);
     }
 
     public static Bitmap generateBitmap(Context context, 
@@ -32,6 +42,19 @@ public class ArcProgressWidget {
             @Nullable String textBottom, 
             int textBottomSizePx, 
             @Nullable String tf) {
+        return generateBitmap(context, percentage, textInside, textInsideSizePx, iconDrawable, iconSizePx, textBottom, textBottomSizePx, tf, Color.WHITE);
+    }
+
+    public static Bitmap generateBitmap(Context context,
+            int percentage,
+            String textInside,
+            int textInsideSizePx,
+            @Nullable Drawable iconDrawable,
+            int iconSizePx,
+            @Nullable String textBottom,
+            int textBottomSizePx,
+            @Nullable String tf,
+            int tintColor) {
         int width = 400;
         int height = 400;
         int stroke = 40;
@@ -44,7 +67,7 @@ public class ArcProgressWidget {
         paint.setStrokeCap(Paint.Cap.ROUND);
         Paint mTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         mTextPaint.setTextSize(dp2px(context, textInsideSizePx));
-        mTextPaint.setColor(Color.WHITE);
+        mTextPaint.setColor(tintColor);
         mTextPaint.setTextAlign(Paint.Align.CENTER);
         final RectF arc = new RectF();
         arc.set(((float) stroke / 2) + padding, ((float) stroke / 2) + padding, width - padding - ((float) stroke / 2), height - padding - ((float) stroke / 2));
@@ -52,7 +75,7 @@ public class ArcProgressWidget {
         Canvas canvas = new Canvas(bitmap);
         paint.setColor(Color.argb(75, 255, 255, 255));
         canvas.drawArc(arc, minAngle, maxAngle, false, paint);
-        paint.setColor(Color.WHITE);
+        paint.setColor(tintColor);
         canvas.drawArc(arc, minAngle, ((float) maxAngle / 100) * percentage, false, paint);
         if (tf != null) {
             mTextPaint.setTypeface(Typeface.create(tf, Typeface.BOLD));
@@ -67,7 +90,7 @@ public class ArcProgressWidget {
             int right = left + size;
             int bottom = top + size;
             iconDrawable.setBounds(left, top, right, bottom);
-            iconDrawable.setColorFilter(new BlendModeColorFilter(Color.WHITE, BlendMode.SRC_IN));
+            iconDrawable.setColorFilter(new BlendModeColorFilter(tintColor, BlendMode.SRC_IN));
             iconDrawable.draw(canvas);
         } else if (textBottom != null) {
             mTextPaint.setTextSize(dp2px(context, textBottomSizePx));
