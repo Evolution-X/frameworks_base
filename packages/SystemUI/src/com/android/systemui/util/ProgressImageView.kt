@@ -29,8 +29,11 @@ import android.os.BatteryManager
 import android.provider.Settings
 import android.util.AttributeSet
 import android.graphics.Color
+import android.graphics.drawable.Drawable
 import android.widget.ImageView
 import androidx.core.content.ContextCompat
+import com.android.systemui.Dependency
+import com.android.systemui.plugins.statusbar.StatusBarStateController
 import kotlinx.coroutines.*
 
 import com.android.systemui.res.R
@@ -44,12 +47,35 @@ class ProgressImageView @JvmOverloads constructor(
     private var progressType: ProgressType = ProgressType.UNKNOWN
     private var progressPercent = -1
     private var batteryLevel = -1
+    private var isDozing = false
+    private val statusBarStateController: StatusBarStateController by lazy {
+        Dependency.get(StatusBarStateController::class.java)
+    }
     private var batteryTemperature = -1
     private var updateJob: Job? = null
     private var colorMode = COLOR_MODE_DEFAULT
     private var customColor = Color.WHITE
     private var receiverRegistered = false
     private var typeface: String? = null
+
+    private val statusBarStateListener = object : StatusBarStateController.StateListener {
+        override fun onStateChanged(newState: Int) {}
+
+        override fun onDozingChanged(dozing: Boolean) {
+            if (isDozing == dozing) return
+            isDozing = dozing
+            updateProgress()
+        }
+    }
+
+    private val screenOnReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == Intent.ACTION_SCREEN_ON) {
+                isDozing = false
+                updateProgress()
+            }
+        }
+    }
     
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -105,6 +131,10 @@ class ProgressImageView @JvmOverloads constructor(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        isDozing = statusBarStateController.isDozing
+        statusBarStateController.addCallback(statusBarStateListener)
+        val screenFilter = IntentFilter(Intent.ACTION_SCREEN_ON)
+        context.registerReceiver(screenOnReceiver, screenFilter, Context.RECEIVER_NOT_EXPORTED)
         context.contentResolver.registerContentObserver(
             Settings.System.getUriFor("lockscreen_info_widgets_enabled"),
             false,
@@ -143,6 +173,10 @@ class ProgressImageView @JvmOverloads constructor(
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+        statusBarStateController.removeCallback(statusBarStateListener)
+        runCatching {
+            context.unregisterReceiver(screenOnReceiver)
+        }
         context.contentResolver.unregisterContentObserver(settingsObserver)
         context.contentResolver.unregisterContentObserver(colorSettingsObserver)
         if (receiverRegistered) {
@@ -202,6 +236,7 @@ class ProgressImageView @JvmOverloads constructor(
     }
 
     private fun resolveWidgetColor(): Int = when (colorMode) {
+        isDozing -> Color.WHITE
         COLOR_MODE_ACCENT -> context.getColor(
             resources.getIdentifier("system_accent1_100", "color", "android")
         )
