@@ -28,6 +28,7 @@ import android.media.AudioManager
 import android.os.BatteryManager
 import android.provider.Settings
 import android.util.AttributeSet
+import android.graphics.Color
 import android.widget.ImageView
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.*
@@ -45,6 +46,8 @@ class ProgressImageView @JvmOverloads constructor(
     private var batteryLevel = -1
     private var batteryTemperature = -1
     private var updateJob: Job? = null
+    private var colorMode = COLOR_MODE_DEFAULT
+    private var customColor = Color.WHITE
     private var receiverRegistered = false
     private var typeface: String? = null
     
@@ -56,6 +59,21 @@ class ProgressImageView @JvmOverloads constructor(
                 batteryTemperature = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10
                 updateProgress()
             }
+        }
+    }
+
+    private val colorSettingsObserver = object : ContentObserver(null) {
+        override fun onChange(selfChange: Boolean) {
+            colorMode = Settings.System.getString(
+                context.contentResolver,
+                "lockscreen_widgets_color_mode"
+            ) ?: COLOR_MODE_DEFAULT
+            customColor = Settings.System.getInt(
+                context.contentResolver,
+                "lockscreen_widgets_custom_color",
+                Color.WHITE
+            )
+            updateProgress()
         }
     }
 
@@ -92,6 +110,25 @@ class ProgressImageView @JvmOverloads constructor(
             false,
             settingsObserver
         )
+        context.contentResolver.registerContentObserver(
+            Settings.System.getUriFor("lockscreen_widgets_color_mode"),
+            false,
+            colorSettingsObserver
+        )
+        context.contentResolver.registerContentObserver(
+            Settings.System.getUriFor("lockscreen_widgets_custom_color"),
+            false,
+            colorSettingsObserver
+        )
+        colorMode = Settings.System.getString(
+            context.contentResolver,
+            "lockscreen_widgets_color_mode"
+        ) ?: COLOR_MODE_DEFAULT
+        customColor = Settings.System.getInt(
+            context.contentResolver,
+            "lockscreen_widgets_custom_color",
+            Color.WHITE
+        )
         if (!receiverRegistered) {
             if (progressType == ProgressType.BATTERY || progressType == ProgressType.TEMPERATURE) {
                 val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
@@ -107,6 +144,7 @@ class ProgressImageView @JvmOverloads constructor(
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         context.contentResolver.unregisterContentObserver(settingsObserver)
+        context.contentResolver.unregisterContentObserver(colorSettingsObserver)
         if (receiverRegistered) {
             context.unregisterReceiver(batteryReceiver)
         }
@@ -157,9 +195,18 @@ class ProgressImageView @JvmOverloads constructor(
             40,
             icon,
             36,
-            typeface
+            typeface,
+            resolveWidgetColor()
         )
         setImageBitmap(widgetBitmap)
+    }
+
+    private fun resolveWidgetColor(): Int = when (colorMode) {
+        COLOR_MODE_ACCENT -> context.getColor(
+            resources.getIdentifier("system_accent1_100", "color", "android")
+        )
+        COLOR_MODE_CUSTOM -> customColor
+        else -> Color.WHITE
     }
 
     private fun getMemoryLevel(): Int {
@@ -184,5 +231,11 @@ class ProgressImageView @JvmOverloads constructor(
             "lockscreen_info_widgets_enabled", 0
         ) == 1
         visibility = if (enabled) VISIBLE else GONE
+    }
+
+    companion object {
+        const val COLOR_MODE_DEFAULT = "default"
+        const val COLOR_MODE_ACCENT = "accent"
+        const val COLOR_MODE_CUSTOM = "custom"
     }
 }
