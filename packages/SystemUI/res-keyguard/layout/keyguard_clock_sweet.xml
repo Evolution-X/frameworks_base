@@ -58,7 +58,7 @@
             android:fontFamily="@font/general_sans"
             android:textAllCaps="true"
             android:textColor="@android:color/white"
-            android:textSize="15dp"
+            android:textSize="20dp"
             android:visibility="gone" />
 
     </LinearLayout>
