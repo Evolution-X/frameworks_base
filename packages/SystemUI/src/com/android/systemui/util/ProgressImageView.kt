@@ -29,7 +29,6 @@ import android.os.BatteryManager
 import android.provider.Settings
 import android.util.AttributeSet
 import android.graphics.Color
-import android.graphics.drawable.Drawable
 import android.widget.ImageView
 import androidx.core.content.ContextCompat
 import com.android.systemui.Dependency
@@ -53,6 +52,7 @@ class ProgressImageView @JvmOverloads constructor(
     }
     private var batteryTemperature = -1
     private var updateJob: Job? = null
+    private var widgetOpacity = DEFAULT_OPACITY
     private var colorMode = COLOR_MODE_DEFAULT
     private var customColor = Color.WHITE
     private var receiverRegistered = false
@@ -85,6 +85,17 @@ class ProgressImageView @JvmOverloads constructor(
                 batteryTemperature = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10
                 updateProgress()
             }
+        }
+    }
+
+    private val opacityObserver = object : ContentObserver(null) {
+        override fun onChange(selfChange: Boolean) {
+            widgetOpacity = Settings.System.getInt(
+                context.contentResolver,
+                "lockscreen_widgets_transparency",
+                DEFAULT_OPACITY
+            ).coerceIn(0, 100)
+            applyWidgetAlpha()
         }
     }
 
@@ -131,6 +142,16 @@ class ProgressImageView @JvmOverloads constructor(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        widgetOpacity = Settings.System.getInt(
+            context.contentResolver,
+            "lockscreen_widgets_transparency",
+            DEFAULT_OPACITY
+        ).coerceIn(0, 100)
+        context.contentResolver.registerContentObserver(
+            Settings.System.getUriFor("lockscreen_widgets_transparency"),
+            false,
+            opacityObserver
+        )
         isDozing = statusBarStateController.isDozing
         statusBarStateController.addCallback(statusBarStateListener)
         val screenFilter = IntentFilter(Intent.ACTION_SCREEN_ON)
@@ -177,6 +198,7 @@ class ProgressImageView @JvmOverloads constructor(
         runCatching {
             context.unregisterReceiver(screenOnReceiver)
         }
+        context.contentResolver.unregisterContentObserver(opacityObserver)
         context.contentResolver.unregisterContentObserver(settingsObserver)
         context.contentResolver.unregisterContentObserver(colorSettingsObserver)
         if (receiverRegistered) {
@@ -214,6 +236,14 @@ class ProgressImageView @JvmOverloads constructor(
         }
     }
 
+    private fun applyWidgetAlpha() {
+        val effective = if (isDozing && widgetOpacity > AOD_OPACITY_CAP)
+            AOD_OPACITY_CAP
+        else
+            widgetOpacity
+        alpha = effective / 100f
+    }
+
     private fun updateImageView() {
         val degree = "\u2103"
         val progressText = if (progressType == ProgressType.TEMPERATURE) {
@@ -233,14 +263,15 @@ class ProgressImageView @JvmOverloads constructor(
             resolveWidgetColor()
         )
         setImageBitmap(widgetBitmap)
+        applyWidgetAlpha()
     }
 
-    private fun resolveWidgetColor(): Int = when (colorMode) {
+    private fun resolveWidgetColor(): Int = when {
         isDozing -> Color.WHITE
-        COLOR_MODE_ACCENT -> context.getColor(
+        colorMode == COLOR_MODE_ACCENT -> context.getColor(
             resources.getIdentifier("system_accent1_100", "color", "android")
         )
-        COLOR_MODE_CUSTOM -> customColor
+        colorMode == COLOR_MODE_CUSTOM -> customColor
         else -> Color.WHITE
     }
 
@@ -272,5 +303,7 @@ class ProgressImageView @JvmOverloads constructor(
         const val COLOR_MODE_DEFAULT = "default"
         const val COLOR_MODE_ACCENT = "accent"
         const val COLOR_MODE_CUSTOM = "custom"
+        private const val DEFAULT_OPACITY = 100
+        private const val AOD_OPACITY_CAP = 70
     }
 }
