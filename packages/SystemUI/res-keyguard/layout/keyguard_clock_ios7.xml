@@ -80,7 +80,8 @@
             android:fontFamily="@*android:string/config_clockFontFamily"
             android:textColor="@android:color/white"
             android:textSize="20dp"
-            android:visibility="gone" />
+            android:visibility="gone"
+            android:textStyle="bold" />
 
     </LinearLayout>
 
