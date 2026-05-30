@@ -8,20 +8,47 @@
     android:gravity="center_horizontal|top"
     android:orientation="vertical">
 
-    <TextClock
-        android:id="@+id/date_text"
-        android:layout_width="match_parent"
+    <LinearLayout
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_gravity="center"
         android:layout_marginTop="10dp"
-        android:textSize="20sp"
-        android:textColor="@android:color/white"
-        android:fontFamily="@font/Bebas"
-        android:singleLine="true"
-        android:textAllCaps="true"
         android:gravity="center"
-        android:textAlignment="center"
-        android:format12Hour="EEEE, MMMM d"
-        android:format24Hour="EEEE, MMMM d"/>
+        android:orientation="horizontal">
+
+        <TextClock
+            android:id="@+id/date_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="20sp"
+            android:textColor="@android:color/white"
+            android:fontFamily="@font/Bebas"
+            android:singleLine="true"
+            android:textAllCaps="true"
+            android:gravity="center"
+            android:textAlignment="center"
+            android:format12Hour="EEE, d MMM"
+            android:format24Hour="EEE, d MMM" />
+
+        <com.android.systemui.weather.WeatherImageView
+            android:id="@+id/weather_image"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:visibility="gone" />
+
+        <com.android.systemui.weather.WeatherTextView
+            android:id="@+id/weather_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:fontFamily="@font/Bebas"
+            android:textColor="@android:color/white"
+            android:textSize="20dp"
+            android:textAllCaps="true"
+            android:visibility="gone" />
+
+    </LinearLayout>
 
     <TextClock
         android:id="@+id/hour_text"
@@ -46,35 +73,6 @@
         android:layout_gravity="center"
         android:format12Hour="mm"
         android:format24Hour="mm"/>
-
-    <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:layout_gravity="center"
-        android:layout_marginTop="-10dp">
-
-        <com.android.systemui.weather.WeatherImageView
-            android:id="@+id/weather_image"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginEnd="4dp"
-            android:visibility="gone" />
-
-        <com.android.systemui.weather.WeatherTextView
-            android:id="@+id/weather_text"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="8dp"
-            android:fontFamily="@font/Bebas"
-            android:textColor="@android:color/white"
-            android:textSize="20dp"
-            android:textAllCaps="true"
-            android:visibility="gone" />
-
-    </LinearLayout>
 
 </LinearLayout>
 
