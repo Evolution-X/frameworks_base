@@ -102,10 +102,11 @@ class UsbModePickerDialogDelegate @Inject constructor(
                 override fun onReceive(ctx: Context, intent: Intent) {
                     val connected = intent.getBooleanExtra(UsbManager.USB_CONNECTED, false)
                     if (connected) {
+                        val functions = resolveFunctions(intent)
                         if (!shownForCurrentSession) {
                             shownForCurrentSession = true
                             if (keyguardStateController.isUnlocked) {
-                                showDialog()
+                                showDialog(functions)
                             } else {
                                 pendingShow = true
                             }
@@ -122,10 +123,13 @@ class UsbModePickerDialogDelegate @Inject constructor(
     }
 
     fun showDialog() {
+        showDialog(usbManager.currentFunctions)
+    }
+
+    private fun showDialog(functions: Long) {
         currentDialog?.dismiss()
 
-        val defaultFunctions = usbManager.screenUnlockedFunctions
-        val modes = buildModeList(defaultFunctions)
+        val modes = buildModeList(functions)
         if (modes.isEmpty()) return
 
         val statusText = resolveStatusText(modes)
@@ -133,7 +137,7 @@ class UsbModePickerDialogDelegate @Inject constructor(
         currentDialog = sysuiDialogFactory.createBottomSheet(
             context = shadeDialogContextInteractor.context,
             content = { dialog ->
-                UsbModePickerBottomSheet(dialog, modes, statusText)
+                UsbModePickerBottomSheet(dialog, modes, statusText, functions)
             },
         )
 
@@ -145,6 +149,7 @@ class UsbModePickerDialogDelegate @Inject constructor(
         dialog: SystemUIDialog,
         initialModes: List<UsbModeItem>,
         statusText: String,
+        currentFunctions: Long,
     ) {
         val isCurrentlyInDarkTheme = isSystemInDarkTheme()
         val cachedDarkTheme = remember { isCurrentlyInDarkTheme }
@@ -154,7 +159,7 @@ class UsbModePickerDialogDelegate @Inject constructor(
                 modes = initialModes,
                 statusText = statusText,
                 onModeSelected = { function ->
-                    onModeSelected(function)
+                    onModeSelected(function, currentFunctions)
                     dialog.dismiss()
                 },
                 onSettingsClick = {
@@ -185,8 +190,7 @@ class UsbModePickerDialogDelegate @Inject constructor(
         activityStarter.startActivity(intent, true)
     }
 
-    private fun onModeSelected(function: Long) {
-        val previousFunction = usbManager.screenUnlockedFunctions
+    private fun onModeSelected(function: Long, previousFunction: Long) {
         if (function == resolveDisplayFunction(previousFunction)) return
 
         if (isAuthRequired(function)) {
@@ -202,21 +206,46 @@ class UsbModePickerDialogDelegate @Inject constructor(
 
     private fun applyUsbFunction(function: Long, previousFunction: Long) {
         if (function == UsbManager.FUNCTION_RNDIS || function == UsbManager.FUNCTION_NCM) {
-            usbManager.screenUnlockedFunctions = function
             tetheringManager.startTethering(
                 TetheringManager.TETHERING_USB,
                 HandlerExecutor(mainHandler),
                 object : TetheringManager.StartTetheringCallback {
                     override fun onTetheringFailed(error: Int) {
-                        usbManager.screenUnlockedFunctions = previousFunction
                         usbManager.currentFunctions = previousFunction
                     }
                 },
             )
         } else {
-            usbManager.screenUnlockedFunctions = function
             usbManager.currentFunctions = function
         }
+    }
+
+    private fun resolveFunctions(intent: Intent): Long {
+        var functions = UsbManager.FUNCTION_NONE
+        if (intent.getBooleanExtra(UsbManager.USB_FUNCTION_MTP, false)
+            && intent.getBooleanExtra(UsbManager.USB_DATA_UNLOCKED, false)) {
+            functions = functions or UsbManager.FUNCTION_MTP
+        }
+        if (intent.getBooleanExtra(UsbManager.USB_FUNCTION_PTP, false)
+            && intent.getBooleanExtra(UsbManager.USB_DATA_UNLOCKED, false)) {
+            functions = functions or UsbManager.FUNCTION_PTP
+        }
+        if (intent.getBooleanExtra(UsbManager.USB_FUNCTION_RNDIS, false)) {
+            functions = functions or UsbManager.FUNCTION_RNDIS
+        }
+        if (intent.getBooleanExtra(UsbManager.USB_FUNCTION_MIDI, false)) {
+            functions = functions or UsbManager.FUNCTION_MIDI
+        }
+        if (intent.getBooleanExtra(UsbManager.USB_FUNCTION_ACCESSORY, false)) {
+            functions = functions or UsbManager.FUNCTION_ACCESSORY
+        }
+        if (intent.getBooleanExtra(UsbManager.USB_FUNCTION_NCM, false)) {
+            functions = functions or UsbManager.FUNCTION_NCM
+        }
+        if (intent.getBooleanExtra(UsbManager.USB_FUNCTION_UVC, false)) {
+            functions = functions or UsbManager.FUNCTION_UVC
+        }
+        return functions
     }
 
     private fun buildModeList(currentFunctions: Long): List<UsbModeItem> {
