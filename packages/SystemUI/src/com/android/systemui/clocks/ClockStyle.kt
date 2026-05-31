@@ -28,6 +28,7 @@ import android.widget.RelativeLayout
 import android.widget.TextClock
 import android.widget.TextView
 import com.android.systemui.Dependency
+import com.android.systemui.media.MediaSessionManager
 import com.android.systemui.plugins.statusbar.StatusBarStateController
 import com.android.systemui.res.R
 import com.android.systemui.tuner.TunerService
@@ -57,6 +58,8 @@ class ClockStyle @JvmOverloads constructor(
     private var clockFrameMarginTop = DEFAULT_MARGIN_TOP
     private var clockSizeScale = DEFAULT_CLOCK_SIZE
     private var aodAnimEnabled = true
+    private var albumArtColorEnabled = false
+    private var currentAlbumColor: Int? = null
 
     private var lastUpdateTimeMillis = 0L
     private var isDozing = false
@@ -111,6 +114,16 @@ class ClockStyle @JvmOverloads constructor(
         }
     }
 
+    private val mediaDataListener = object : MediaSessionManager.MediaDataListener {
+        override fun onPlaybackStateChanged(state: Int) {
+        }
+
+        override fun onMediaColorsChanged(color: Int) {
+            currentAlbumColor = color
+            if (albumArtColorEnabled) applyClockColors()
+        }
+    }
+
     override fun onFinishInflate() {
         super.onFinishInflate()
         clockStub = findViewById(R.id.clock_view_stub)
@@ -130,8 +143,12 @@ class ClockStyle @JvmOverloads constructor(
             CLOCK_FRAME_MARGIN_TOP_KEY,
             CLOCK_SIZE_KEY,
             CLOCK_AOD_ANIM_KEY,
+            CLOCK_ALBUM_ART_COLOR_KEY,
         )
         statusBarStateController.addCallback(statusBarStateListener)
+        if (albumArtColorEnabled) {
+            MediaSessionManager.get().addListener(mediaDataListener)
+        }
 
         isDozing = statusBarStateController.isDozing
         if (isDozing) {
@@ -157,6 +174,7 @@ class ClockStyle @JvmOverloads constructor(
 
         statusBarStateController.removeCallback(statusBarStateListener)
         tunerService.removeTunable(this)
+        runCatching { MediaSessionManager.get().removeListener(mediaDataListener) }
         handler.removeCallbacks(burnInProtectionRunnable)
         handler.removeCallbacks(aodTickRunnable)
         currentClockView?.animate()?.cancel()
@@ -204,6 +222,19 @@ class ClockStyle @JvmOverloads constructor(
             }
             CLOCK_AOD_ANIM_KEY -> {
                 aodAnimEnabled = TunerService.parseInteger(newValue, 1) != 0
+            }
+            CLOCK_ALBUM_ART_COLOR_KEY -> {
+                val wasEnabled = albumArtColorEnabled
+                albumArtColorEnabled = TunerService.parseInteger(newValue, 0) != 0
+                when {
+                    albumArtColorEnabled && !wasEnabled ->
+                        MediaSessionManager.get().addListener(mediaDataListener)
+                    !albumArtColorEnabled && wasEnabled -> {
+                        runCatching { MediaSessionManager.get().removeListener(mediaDataListener) }
+                        currentAlbumColor = null
+                    }
+                }
+                applyClockColors()
             }
         }
     }
@@ -394,12 +425,17 @@ class ClockStyle @JvmOverloads constructor(
         view.alpha = effective / 100f
     }
 
-    private fun resolveClockColor(): Int = when (colorMode) {
-        COLOR_MODE_ACCENT -> context.getColor(
-            resources.getIdentifier("system_accent1_100", "color", "android")
-        )
-        COLOR_MODE_CUSTOM -> customColor
-        else -> context.getColor(android.R.color.white)
+    private fun resolveClockColor(): Int {
+        if (albumArtColorEnabled) {
+            currentAlbumColor?.let { return it }
+        }
+        return when (colorMode) {
+            COLOR_MODE_ACCENT -> context.getColor(
+                resources.getIdentifier("system_accent1_100", "color", "android")
+            )
+            COLOR_MODE_CUSTOM -> customColor
+            else -> context.getColor(android.R.color.white)
+        }
     }
 
     private fun applyClockColors() {
@@ -605,6 +641,7 @@ class ClockStyle @JvmOverloads constructor(
         @JvmField val CLOCK_FRAME_MARGIN_TOP_KEY: String = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_MARGIN_TOP
         @JvmField val CLOCK_SIZE_KEY: String = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_SIZE
         @JvmField val CLOCK_AOD_ANIM_KEY: String = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_AOD_ANIM
+        @JvmField val CLOCK_ALBUM_ART_COLOR_KEY: String = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_ALBUM_ART_COLOR
 
         const val COLOR_MODE_DEFAULT = "default"
         const val COLOR_MODE_ACCENT = "accent"
