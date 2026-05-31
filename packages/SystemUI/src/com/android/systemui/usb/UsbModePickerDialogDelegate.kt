@@ -139,6 +139,7 @@ class UsbModePickerDialogDelegate @Inject constructor(
             content = { dialog ->
                 UsbModePickerBottomSheet(dialog, modes, statusText, functions)
             },
+            useAxBlur = true,
         )
 
         currentDialog?.show()
