@@ -514,6 +514,7 @@ public class NotificationStackScrollLayout
     private int mMinimumPaddings;
     private int mQsTilePadding;
     private boolean mSkinnyNotifsInLandscape;
+    private boolean mNotificationsDozing;
     private int mSidePaddings;
     private final Rect mBackgroundAnimationRect = new Rect();
     private final ArrayList<BiConsumer<Float, Float>> mExpandedHeightListeners = new ArrayList<>();
@@ -3552,6 +3553,9 @@ public class NotificationStackScrollLayout
                 row.setOnKeyguard(mIsOnLockscreen);
             }
         }
+        if (child instanceof ActivatableNotificationView activatableView) {
+            activatableView.setDozing(mNotificationsDozing);
+        }
         generateAddAnimation(child, false /* fromMoreCard */);
         updateAnimationState(child);
         updateChronometerForChild(child);
@@ -5234,6 +5238,7 @@ public class NotificationStackScrollLayout
             return;
         }
         mAmbientState.setDozing(dozing);
+        setNotificationsDozing(dozing);
         requestChildrenUpdate();
         notifyHeightChangeListener(mShelf);
     }
@@ -5727,6 +5732,9 @@ public class NotificationStackScrollLayout
         mAmbientState.setShelf(mShelf);
         mStateAnimator.setShelf(mShelf);
         shelf.bind(mAmbientState, this, mController.getNotificationRoundnessManager());
+        shelf.setDozing(mNotificationsDozing);
+        shelf.setOnKeyguard(SceneContainerFlag.isEnabled()
+                ? mIsOnLockscreen : mStatusBarState == StatusBarState.KEYGUARD);
     }
 
     /**
@@ -6257,9 +6265,34 @@ public class NotificationStackScrollLayout
      * the notification is pulsing.
      */
     public void setDozeAmount(float dozeAmount) {
+        float previousDozeAmount = mAmbientState.getDozeAmount();
         mAmbientState.setDozeAmount(dozeAmount);
+        if (dozeAmount > previousDozeAmount) {
+            setNotificationsDozing(true);
+        } else if (dozeAmount < previousDozeAmount) {
+            setNotificationsDozing(false);
+        }
         updateStackPosition();
         requestChildrenUpdate();
+    }
+
+    private void setNotificationsDozing(boolean dozing) {
+        if (mNotificationsDozing == dozing) {
+            return;
+        }
+        mNotificationsDozing = dozing;
+        for (int i = 0; i < getChildCount(); i++) {
+            View child = getChildAt(i);
+            if (child instanceof ActivatableNotificationView activatableView) {
+                activatableView.setDozing(dozing);
+            }
+        }
+        for (int i = 0; i < getTransientViewCount(); i++) {
+            View child = getTransientView(i);
+            if (child instanceof ActivatableNotificationView activatableView) {
+                activatableView.setDozing(dozing);
+            }
+        }
     }
 
     public boolean isFullyAwake() {
