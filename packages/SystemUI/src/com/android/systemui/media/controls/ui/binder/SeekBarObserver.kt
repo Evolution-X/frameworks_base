@@ -127,7 +127,9 @@ open class SeekBarObserver(private val holder: MediaViewHolder) :
 
         if (progressDrawable == null) {
             (holder.seekBar as? WaveformSeekBar)
-                ?.setWaveformPlaying(data.playing && !data.scrubbing)
+                ?.setWaveformPlaying(
+                    data.playing && !data.scrubbing && animationEnabled && data.listening
+                )
         }
 
         if (holder.seekBar.maxHeight != seekBarEnabledMaxHeight) {
