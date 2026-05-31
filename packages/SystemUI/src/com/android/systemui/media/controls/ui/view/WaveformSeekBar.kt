@@ -46,8 +46,9 @@ class WaveformSeekBar @JvmOverloads constructor(
     private val density = resources.displayMetrics.density
 
     private val backgroundRect = RectF()
+    private val thumbRect = RectF()
     private val genericPath = Path()
-    private val wavePath = Path()
+    private var waveLinePoints = FloatArray(0)
 
     private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val progressPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -66,6 +67,8 @@ class WaveformSeekBar @JvmOverloads constructor(
     private var trackHeight = 6f * density
     private var cornerRadius = 8f * density
     private var thumbRadius = 8f * density
+    private val stockThumbWidth = 4f * density
+    private val stockThumbHeight = 16f * density
 
     private var waveLut: IntArray? = null
     private var waveHeight = 12f * density
@@ -79,7 +82,9 @@ class WaveformSeekBar @JvmOverloads constructor(
     private var waveAmplitudeMultiplier = 0f
     private var waveAnimator: ValueAnimator? = null
     private var fadeAnimator: ValueAnimator? = null
-    private var mediaColor = Color.TRANSPARENT
+    private var mediaColor = context.getColor(R.color.media_on_background)
+    private var shouldAnimateWaveform = false
+    private var isAggregatedVisible = false
 
     var isPlaying = false
         private set
@@ -137,11 +142,12 @@ class WaveformSeekBar @JvmOverloads constructor(
 
     fun refreshTheme() {
         loadThemeResources()
+        syncWaveAnimation()
         invalidate()
     }
 
     private fun restoreStockSeekBar() {
-        thumb = context.getDrawable(R.drawable.media_seekbar_thumb)?.mutate()
+        thumb = transparentThumb
         progressDrawable =
             context.getDrawable(R.drawable.media_squiggly_progress)?.mutate()?.apply {
                 alpha = 255
@@ -151,6 +157,7 @@ class WaveformSeekBar @JvmOverloads constructor(
         progressTintList = context.getColorStateList(R.color.media_on_background)
         progressBackgroundTintList = context.getColorStateList(AndroidR.color.system_primary_dark)
         splitTrack = false
+        thumbPaint.color = mediaColor
     }
 
     private fun SquigglyProgress.configureStockSquiggly() {
@@ -167,7 +174,11 @@ class WaveformSeekBar @JvmOverloads constructor(
 
     fun setMediaColor(color: Int) {
         mediaColor = color
-        if (!customWaveformEnabled) return
+        if (!customWaveformEnabled) {
+            thumbPaint.color = color
+            invalidate()
+            return
+        }
         applyMediaColor()
         invalidate()
     }
@@ -180,7 +191,7 @@ class WaveformSeekBar @JvmOverloads constructor(
             duration = FADE_DURATION_MS
             addUpdateListener {
                 waveAmplitudeMultiplier = it.animatedValue as Float
-                invalidate()
+                postInvalidateOnAnimation()
             }
             start()
         }
@@ -191,7 +202,7 @@ class WaveformSeekBar @JvmOverloads constructor(
                 interpolator = LinearInterpolator()
                 addUpdateListener {
                     wavePhase = it.animatedValue as Float
-                    invalidate()
+                    postInvalidateOnAnimation()
                 }
                 start()
             }
@@ -199,28 +210,34 @@ class WaveformSeekBar @JvmOverloads constructor(
     }
 
     fun stopWaveAnimation() {
-        if (!isPlaying) return
+        shouldAnimateWaveform = false
+        stopWaveAnimation(true)
+    }
+
+    private fun stopWaveAnimation(animate: Boolean) {
+        if (!isPlaying && fadeAnimator?.isRunning != true && waveAmplitudeMultiplier == 0f) return
         isPlaying = false
         waveAnimator?.cancel()
         waveAnimator = null
         fadeAnimator?.cancel()
-        fadeAnimator = ValueAnimator.ofFloat(waveAmplitudeMultiplier, 0f).apply {
-            duration = FADE_DURATION_MS
-            addUpdateListener {
-                waveAmplitudeMultiplier = it.animatedValue as Float
-                invalidate()
+        fadeAnimator = null
+        if (animate && isAttachedToWindow && isAggregatedVisible && waveAmplitudeMultiplier > 0f) {
+            fadeAnimator = ValueAnimator.ofFloat(waveAmplitudeMultiplier, 0f).apply {
+                duration = FADE_DURATION_MS
+                addUpdateListener {
+                    waveAmplitudeMultiplier = it.animatedValue as Float
+                    postInvalidateOnAnimation()
+                }
+                start()
             }
-            start()
+        } else {
+            waveAmplitudeMultiplier = 0f
         }
     }
 
     fun setWaveformPlaying(playing: Boolean) {
-        if (!customWaveformEnabled) return
-        if (playing) {
-            startWaveAnimation()
-        } else {
-            stopWaveAnimation()
-        }
+        shouldAnimateWaveform = playing
+        syncWaveAnimation()
     }
 
     private fun cancelWaveAnimation() {
@@ -235,12 +252,27 @@ class WaveformSeekBar @JvmOverloads constructor(
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         loadThemeResources()
-        if (isPlaying) startWaveAnimation()
+        syncWaveAnimation()
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
-        stopWaveAnimation()
+        cancelWaveAnimation()
+    }
+
+    override fun onVisibilityAggregated(isVisible: Boolean) {
+        super.onVisibilityAggregated(isVisible)
+        isAggregatedVisible = isVisible
+        syncWaveAnimation()
+    }
+
+    private fun syncWaveAnimation() {
+        if (!customWaveformEnabled) return
+        if (shouldAnimateWaveform && isAttachedToWindow && isAggregatedVisible) {
+            startWaveAnimation()
+        } else {
+            stopWaveAnimation(!shouldAnimateWaveform && isAttachedToWindow && isAggregatedVisible)
+        }
     }
 
     private fun applyMediaColor() {
@@ -255,6 +287,7 @@ class WaveformSeekBar @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         if (!customWaveformEnabled) {
             super.onDraw(canvas)
+            drawStockThumb(canvas)
             return
         }
 
@@ -265,14 +298,19 @@ class WaveformSeekBar @JvmOverloads constructor(
         val centerY = height / 2f
         val trackTop = centerY - trackHeight / 2f
         val trackBottom = centerY + trackHeight / 2f
-        val ratio = if (max > 0) progress.toFloat() / max else 0f
-        val progressX = pLeft + drawWidth * ratio
+        val progressX = pLeft + drawWidth * progressRatio()
 
         drawBackground(canvas, pLeft, drawWidth, trackTop, trackBottom)
-        cachedPath?.let {
-            if (progressX > pLeft) drawSvgWave(canvas, it, pLeft, progressX, centerY)
-        } ?: waveLut?.let {
-            if (progressX > pLeft) drawLutWave(canvas, it, pLeft, progressX, trackTop, trackBottom)
+        if (progressX > pLeft) {
+            if (waveAmplitudeMultiplier <= 0f) {
+                canvas.drawLine(pLeft, centerY, progressX, centerY, progressPaint)
+            } else {
+                cachedPath?.let {
+                    drawSvgWave(canvas, it, pLeft, progressX, centerY)
+                } ?: waveLut?.let {
+                    drawLutWave(canvas, it, pLeft, progressX, trackTop, trackBottom)
+                }
+            }
         }
 
         if (isEnabled) {
@@ -280,6 +318,29 @@ class WaveformSeekBar @JvmOverloads constructor(
             canvas.drawCircle(progressX, centerY, thumbRadius, thumbPaint)
         }
     }
+
+    private fun drawStockThumb(canvas: Canvas) {
+        if (!isEnabled || transparentThumb.alphaValue <= 0) return
+        val pLeft = paddingLeft.toFloat()
+        val drawWidth = width.toFloat() - pLeft - paddingRight
+        if (drawWidth <= 0f) return
+        val progressX = pLeft + drawWidth * progressRatio()
+        val centerY = height / 2f
+        val halfWidth = stockThumbWidth / 2f
+        val halfHeight = stockThumbHeight / 2f
+        thumbRect.set(
+            progressX - halfWidth,
+            centerY - halfHeight,
+            progressX + halfWidth,
+            centerY + halfHeight,
+        )
+        val originalAlpha = thumbPaint.alpha
+        thumbPaint.alpha = originalAlpha * transparentThumb.alphaValue / 255
+        canvas.drawRoundRect(thumbRect, halfWidth, halfWidth, thumbPaint)
+        thumbPaint.alpha = originalAlpha
+    }
+
+    private fun progressRatio(): Float = if (max > 0) progress.toFloat() / max else 0f
 
     private fun drawBackground(
         canvas: Canvas,
@@ -300,49 +361,115 @@ class WaveformSeekBar @JvmOverloads constructor(
         top: Float,
         bottom: Float,
     ) {
-        val originalProgressAlpha = progressPaint.alpha
-        val originalFillAlpha = fillPaint.alpha
+        val drawFill = fillAlpha > 0
         val baselineY = (top + bottom) / 2f
         val edgeFadeWidth = min((endX - startX) / 2f, max(thumbRadius * 2f, waveLength / 8f))
+        val step = 2f * density
+        val pointCount = max(2, ((endX - startX) / step).toInt() + 2)
 
+        drawLutLineWave(
+            canvas,
+            lut,
+            startX,
+            endX,
+            baselineY,
+            edgeFadeWidth,
+            step,
+            pointCount,
+            drawFill,
+        )
+    }
+
+    private fun drawLutLineWave(
+        canvas: Canvas,
+        lut: IntArray,
+        startX: Float,
+        endX: Float,
+        baselineY: Float,
+        edgeFadeWidth: Float,
+        step: Float,
+        pointCount: Int,
+        drawFill: Boolean,
+    ) {
+        val originalProgressAlpha = progressPaint.alpha
+        val originalFillAlpha = fillPaint.alpha
+        val needed = max(4, (pointCount - 1) * 4)
+        if (waveLinePoints.size < needed) {
+            waveLinePoints = FloatArray(needed)
+        }
         for (layer in 0 until waveLayers) {
-            genericPath.reset()
-            wavePath.reset()
             val phaseOffset = layer * LAYER_PHASE_OFFSET
-            val alphaMultiplier = if (layer == 0) 1f else SECONDARY_LAYER_ALPHA_MULTIPLIER
-            progressPaint.alpha = (originalProgressAlpha * alphaMultiplier).toInt()
-            fillPaint.alpha = (fillAlpha * alphaMultiplier).toInt()
+            if (layer > 0) {
+                progressPaint.alpha =
+                    (originalProgressAlpha * SECONDARY_LAYER_ALPHA_MULTIPLIER).toInt()
+                if (drawFill) {
+                    fillPaint.alpha = (fillAlpha * SECONDARY_LAYER_ALPHA_MULTIPLIER).toInt()
+                }
+            }
+            if (drawFill) {
+                genericPath.rewind()
+                genericPath.incReserve(pointCount + 2)
+                genericPath.moveTo(startX, baselineY)
+            }
 
-            val step = 2f * density
             var previousX = startX
             var previousY = baselineY
-
-            genericPath.moveTo(startX, baselineY)
-            wavePath.moveTo(startX, baselineY)
-
+            var linePointCount = 0
             var x = startX + step
             while (x < endX) {
                 val y =
                     calculateLutWaveY(lut, x, startX, endX, phaseOffset, baselineY, edgeFadeWidth)
-                addSmoothPoint(genericPath, previousX, previousY, x, y)
-                addSmoothPoint(wavePath, previousX, previousY, x, y)
+                if (drawFill) {
+                    genericPath.lineTo(x, y)
+                }
+                linePointCount = addLineSegment(
+                    waveLinePoints,
+                    linePointCount,
+                    previousX,
+                    previousY,
+                    x,
+                    y,
+                )
                 previousX = x
                 previousY = y
                 x += step
             }
-
-            addSmoothPoint(genericPath, previousX, previousY, endX, baselineY)
-            addSmoothPoint(wavePath, previousX, previousY, endX, baselineY)
-            wavePath.lineTo(endX, baselineY)
-            genericPath.lineTo(endX, baselineY)
-            genericPath.close()
-
-            if (fillAlpha > 0) canvas.drawPath(genericPath, fillPaint)
-            canvas.drawPath(wavePath, progressPaint)
+            if (drawFill) {
+                genericPath.lineTo(endX, baselineY)
+                genericPath.close()
+                canvas.drawPath(genericPath, fillPaint)
+            }
+            linePointCount = addLineSegment(
+                waveLinePoints,
+                linePointCount,
+                previousX,
+                previousY,
+                endX,
+                baselineY,
+            )
+            canvas.drawLines(waveLinePoints, 0, linePointCount, progressPaint)
         }
+        if (waveLayers > 1) {
+            progressPaint.alpha = originalProgressAlpha
+            if (drawFill) {
+                fillPaint.alpha = originalFillAlpha
+            }
+        }
+    }
 
-        progressPaint.alpha = originalProgressAlpha
-        fillPaint.alpha = originalFillAlpha
+    private fun addLineSegment(
+        points: FloatArray,
+        index: Int,
+        startX: Float,
+        startY: Float,
+        endX: Float,
+        endY: Float,
+    ): Int {
+        points[index] = startX
+        points[index + 1] = startY
+        points[index + 2] = endX
+        points[index + 3] = endY
+        return index + 4
     }
 
     private fun calculateLutWaveY(
@@ -368,10 +495,6 @@ class WaveformSeekBar @JvmOverloads constructor(
             edgeMultiplier
     }
 
-    private fun addSmoothPoint(path: Path, previousX: Float, previousY: Float, x: Float, y: Float) {
-        path.quadTo(previousX, previousY, (previousX + x) / 2f, (previousY + y) / 2f)
-    }
-
     private fun drawSvgWave(canvas: Canvas, path: Path, startX: Float, endX: Float, centerY: Float) {
         val originalStyle = progressPaint.style
         progressPaint.style = Paint.Style.FILL
@@ -395,8 +518,15 @@ class WaveformSeekBar @JvmOverloads constructor(
     }
 
     private class TransparentDrawable : Drawable() {
+        var alphaValue = 255
+            private set
+
         override fun draw(canvas: Canvas) {}
-        override fun setAlpha(alpha: Int) {}
+        override fun setAlpha(alpha: Int) {
+            alphaValue = alpha
+            invalidateSelf()
+        }
+        override fun getAlpha(): Int = alphaValue
         override fun setColorFilter(colorFilter: ColorFilter?) {}
         override fun getOpacity(): Int = PixelFormat.TRANSPARENT
     }
