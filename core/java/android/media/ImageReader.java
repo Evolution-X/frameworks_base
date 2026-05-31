@@ -1292,6 +1292,15 @@ public class ImageReader implements AutoCloseable {
             return nativeGetHardwareBuffer();
         }
 
+        // OnePlus camera (APS) extension: returns a HardwareBuffer whose native object is an
+        // sp<GraphicBuffer> holder (the layout APS expects for the picture_metadata stream),
+        // not an AHardwareBuffer. The OnePlus camera SDK calls this reflectively; without it
+        // the SDK falls back to getHardwareBuffer() and APS reads a malformed metadata size.
+        public HardwareBuffer getOplusHardwareBuffer() {
+            throwISEIfImageIsInvalid();
+            return nativeGetOplusHardwareBuffer();
+        }
+
         @Override
         public @NamedDataSpace int getDataSpace() {
             throwISEIfImageIsInvalid();
@@ -1447,6 +1456,7 @@ public class ImageReader implements AutoCloseable {
         private synchronized native int nativeGetFormat(int readerFormat);
         private synchronized native int nativeGetFenceFd();
         private synchronized native HardwareBuffer nativeGetHardwareBuffer();
+        private synchronized native HardwareBuffer nativeGetOplusHardwareBuffer();
     }
 
     private synchronized native void nativeInit(Object weakSelf, int w, int h, int maxImgs,
