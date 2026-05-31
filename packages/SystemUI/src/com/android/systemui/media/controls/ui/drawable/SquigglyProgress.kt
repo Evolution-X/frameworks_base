@@ -32,7 +32,6 @@ import android.util.MathUtils.lerpInv
 import android.util.MathUtils.lerpInvSat
 import androidx.annotation.VisibleForTesting
 import com.android.app.animation.Interpolators
-import com.android.app.tracing.traceSection
 import com.android.internal.graphics.ColorUtils
 import kotlin.math.abs
 import kotlin.math.cos
@@ -40,6 +39,7 @@ import kotlin.math.cos
 private const val TAG = "Squiggly"
 
 private const val TWO_PI = (Math.PI * 2f).toFloat()
+private const val FRAME_DELAY_MS = 16L
 @VisibleForTesting internal const val DISABLED_ALPHA = 77
 
 class SquigglyProgress : Drawable() {
@@ -51,6 +51,13 @@ class SquigglyProgress : Drawable() {
     private var heightAnimator: ValueAnimator? = null
     private var phaseOffset = 0f
     private var lastFrameTime = -1L
+    private val frameCallback =
+        Runnable {
+            if (animate) {
+                invalidateSelf()
+                scheduleNextFrame()
+            }
+        }
 
     /* distance over which amplitude drops to zero, measured in wavelengths */
     private val transitionPeriods = 1.5f
@@ -106,6 +113,9 @@ class SquigglyProgress : Drawable() {
             field = value
             if (field) {
                 lastFrameTime = SystemClock.uptimeMillis()
+                scheduleNextFrame()
+            } else {
+                unscheduleSelf(frameCallback)
             }
             heightAnimator?.cancel()
             heightAnimator =
@@ -134,15 +144,12 @@ class SquigglyProgress : Drawable() {
         }
 
     override fun draw(canvas: Canvas) {
-        traceSection("SquigglyProgress#draw") { drawTraced(canvas) }
-    }
-
-    private fun drawTraced(canvas: Canvas) {
         if (animate) {
-            invalidateSelf()
             val now = SystemClock.uptimeMillis()
-            phaseOffset += (now - lastFrameTime) / 1000f * phaseSpeed
-            phaseOffset %= waveLength
+            if (waveLength > 0f) {
+                phaseOffset += (now - lastFrameTime) / 1000f * phaseSpeed
+                phaseOffset %= waveLength
+            }
             lastFrameTime = now
         }
 
@@ -163,32 +170,25 @@ class SquigglyProgress : Drawable() {
         val waveStart = -phaseOffset - waveLength / 2f
         val waveEnd = if (transitionEnabled) totalWidth else waveProgressPx
 
-        // helper function, computes amplitude for wave segment
-        val computeAmplitude: (Float, Float) -> Float = { x, sign ->
-            if (transitionEnabled) {
-                val length = transitionPeriods * waveLength
-                val coeff =
-                    lerpInvSat(waveProgressPx + length / 2f, waveProgressPx - length / 2f, x)
-                sign * heightFraction * lineAmplitude * coeff
-            } else {
-                sign * heightFraction * lineAmplitude
-            }
+        val dist = waveLength / 2f
+        if (dist <= 0f) {
+            return
         }
 
         // Reset path object to the start
         path.rewind()
+        path.incReserve(maxOf(1, ((waveEnd - waveStart) / dist).toInt() + 2))
         path.moveTo(waveStart, 0f)
 
         // Build the wave, incrementing by half the wavelength each time
         var currentX = waveStart
         var waveSign = 1f
-        var currentAmp = computeAmplitude(currentX, waveSign)
-        val dist = waveLength / 2f
+        var currentAmp = computeAmplitude(currentX, waveSign, waveProgressPx)
         while (currentX < waveEnd) {
             waveSign = -waveSign
             val nextX = currentX + dist
             val midX = currentX + dist / 2
-            val nextAmp = computeAmplitude(nextX, waveSign)
+            val nextAmp = computeAmplitude(nextX, waveSign, waveProgressPx)
             path.cubicTo(midX, currentAmp, midX, nextAmp, nextX, nextAmp)
             currentAmp = nextAmp
             currentX = nextX
@@ -261,5 +261,18 @@ class SquigglyProgress : Drawable() {
         wavePaint.color = ColorUtils.setAlphaComponent(tintColor, alpha)
         linePaint.color =
             ColorUtils.setAlphaComponent(tintColor, (DISABLED_ALPHA * (alpha / 255f)).toInt())
+    }
+
+    private fun scheduleNextFrame() {
+        scheduleSelf(frameCallback, SystemClock.uptimeMillis() + FRAME_DELAY_MS)
+    }
+
+    private fun computeAmplitude(x: Float, sign: Float, waveProgressPx: Float): Float {
+        if (!transitionEnabled) {
+            return sign * heightFraction * lineAmplitude
+        }
+        val length = transitionPeriods * waveLength
+        val coeff = lerpInvSat(waveProgressPx + length / 2f, waveProgressPx - length / 2f, x)
+        return sign * heightFraction * lineAmplitude * coeff
     }
 }
