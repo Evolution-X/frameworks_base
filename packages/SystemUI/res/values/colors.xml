@@ -50,6 +50,7 @@
     <color name="global_actions_grid_background">#F1F3F4</color>
 
     <!-- Colors for Power Menu Lite -->
+    <color name="global_actions_background_scrim">#99000000</color>
     <color name="global_actions_lite_button_background_focused">#808080</color>
     <color name="global_actions_lite_emergency_background">#F85D4D</color>
     <color name="global_actions_lite_emergency_background_new_color">#D8372D</color>

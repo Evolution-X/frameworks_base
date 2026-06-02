@@ -16,8 +16,7 @@
 * limitations under the License.
 */
 -->
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:androidprv="http://schemas.android.com/apk/prv/res/android">
-  <solid android:color="@androidprv:color/materialColorSurfaceContainerLow"/>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+  <solid android:color="@color/ax_blur_surface_container_expressive_tint"/>
   <corners android:radius="@dimen/global_actions_corner_radius" />
 </shape>

@@ -32,6 +32,7 @@ import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.android.app.tracing.coroutines.launchTraced as launch
+import com.android.internal.R as AndroidR
 import com.android.keyguard.logging.KeyguardQuickAffordancesLogger
 import com.android.systemui.animation.Expandable
 import com.android.systemui.animation.view.LaunchableImageView
@@ -39,6 +40,7 @@ import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.common.ui.binder.IconViewBinder
 import com.android.systemui.common.ui.view.updateLongClickListener
 import com.android.systemui.dagger.SysUISingleton
+import com.android.systemui.keyguard.ui.view.KeyguardQuickAffordanceButton
 import com.android.systemui.keyguard.ui.viewmodel.KeyguardQuickAffordanceHapticViewModel
 import com.android.systemui.keyguard.ui.viewmodel.KeyguardQuickAffordanceViewModel
 import com.android.systemui.lifecycle.repeatWhenAttached
@@ -90,12 +92,14 @@ constructor(
         val button = view as ImageView
         val configurationBasedDimensions = MutableStateFlow(loadFromResources(view))
         val hapticsViewModel = hapticsViewModelFactory.create()
+        var latestViewModel: KeyguardQuickAffordanceViewModel? = null
 
         val disposableHandle =
             view.repeatWhenAttached {
                 repeatOnLifecycle(Lifecycle.State.STARTED) {
                     launch {
                         viewModel.collect { buttonModel ->
+                            latestViewModel = buttonModel
                             updateButton(
                                 view = button,
                                 viewModel = buttonModel,
@@ -123,6 +127,7 @@ constructor(
         return object : Binding {
             override fun onConfigurationChanged() {
                 configurationBasedDimensions.value = loadFromResources(view)
+                latestViewModel?.let { updateButtonColors(button, it) }
             }
 
             override fun destroy() {
@@ -174,30 +179,8 @@ constructor(
         }
 
         view.isActivated = viewModel.isActivated
-        view.drawable.setTint(
-            view.context.getColor(
-                if (viewModel.isActivated) {
-                    com.android.internal.R.color.materialColorOnPrimaryFixed
-                } else {
-                    com.android.internal.R.color.materialColorOnSurface
-                }
-            )
-        )
-
-        view.backgroundTintList =
-            if (!viewModel.isSelected) {
-                ColorStateList.valueOf(
-                    view.context.getColor(
-                        if (viewModel.isActivated) {
-                            com.android.internal.R.color.materialColorPrimaryFixed
-                        } else {
-                            com.android.internal.R.color.materialColorSurfaceContainerHigh
-                        }
-                    )
-                )
-            } else {
-                null
-            }
+        view.isSelected = viewModel.isSelected
+        updateButtonColors(view, viewModel)
         view
             .animate()
             .scaleX(if (viewModel.isSelected) SCALE_SELECTED_BUTTON else 1f)
@@ -250,8 +233,34 @@ constructor(
             view.setOnClickListener(null)
             view.setOnTouchListener(null)
         }
+    }
 
-        view.isSelected = viewModel.isSelected
+    private fun updateButtonColors(
+        view: ImageView,
+        viewModel: KeyguardQuickAffordanceViewModel,
+    ) {
+        if (view is KeyguardQuickAffordanceButton) {
+            view.updateThemeColors()
+            return
+        }
+        view.drawable?.setTint(
+            view.context.getColor(
+                if (viewModel.isActivated) {
+                    AndroidR.color.materialColorOnPrimaryFixed
+                } else {
+                    AndroidR.color.materialColorOnSurface
+                }
+            )
+        )
+
+        view.backgroundTintList =
+            if (!viewModel.isSelected && viewModel.isActivated) {
+                ColorStateList.valueOf(
+                    view.context.getColor(AndroidR.color.materialColorPrimaryFixed)
+                )
+            } else {
+                null
+            }
     }
 
     private suspend fun updateButtonAlpha(

@@ -68,6 +68,7 @@ import com.android.systemui.volume.panel.component.mediaoutput.ui.viewmodel.Medi
 import com.android.systemui.volume.panel.dagger.scope.VolumePanelScope
 import com.android.systemui.volume.panel.ui.composable.ComposeVolumePanelUiComponent
 import com.android.systemui.volume.panel.ui.composable.VolumePanelComposeScope
+import com.android.axion.blur.AxBlurSurfaceDefaults
 import com.google.common.annotations.VisibleForTesting
 import java.util.Objects
 import javax.inject.Inject
@@ -96,12 +97,7 @@ class MediaOutputComponent @Inject constructor(private val viewModel: MediaOutpu
                         true
                     }
                 },
-            color =
-                if (enabled) {
-                    MaterialTheme.colorScheme.surface
-                } else {
-                    MaterialTheme.colorScheme.surfaceContainerHighest
-                },
+            color = AxBlurSurfaceDefaults.surfaceColor(),
             shape = RoundedCornerShape(28.dp),
             useModifierBasedImplementation = true,
             onClick =
