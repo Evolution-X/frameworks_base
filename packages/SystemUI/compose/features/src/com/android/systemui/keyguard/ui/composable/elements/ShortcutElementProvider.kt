@@ -33,8 +33,8 @@ import androidx.core.content.res.ResourcesCompat
 import com.android.compose.animation.scene.ElementContentScope
 import com.android.compose.animation.scene.ElementKey
 import com.android.compose.modifiers.padding
-import com.android.systemui.animation.view.LaunchableImageView
 import com.android.systemui.keyguard.ui.binder.KeyguardQuickAffordanceViewBinder
+import com.android.systemui.keyguard.ui.view.KeyguardQuickAffordanceButton
 import com.android.systemui.keyguard.ui.viewmodel.KeyguardQuickAffordanceViewModel
 import com.android.systemui.keyguard.ui.viewmodel.KeyguardQuickAffordancesCombinedViewModel
 import com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenElement
@@ -117,7 +117,7 @@ constructor(
                         R.dimen.keyguard_affordance_fixed_padding
                     )
                 val view =
-                    LaunchableImageView(context, null).apply {
+                    KeyguardQuickAffordanceButton(context, null).apply {
                         id = viewId
                         scaleType = ImageView.ScaleType.FIT_CENTER
                         background =
