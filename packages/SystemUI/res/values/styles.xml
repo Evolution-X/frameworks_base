@@ -652,12 +652,21 @@
         <!-- Settings windowFullscreen: true is necessary to be able to intercept touch events -->
         <!-- that would otherwise be intercepted by the Shade. -->
         <item name="android:windowFullscreen">true</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
 
         <!-- Empty enter/exit animation, we will animate in-window. Note that the implementation -->
         <!-- of ActionsDialogLite relies on this to be null (resource=0) to detect when to run -->
         <!-- the in-window animation. -->
         <item name="android:windowAnimationStyle">@null</item>
+    </style>
+
+    <style name="Theme.SystemUI.Dialog.GlobalActionsPowerMenu" parent="Theme.SystemUI.Dialog">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
     </style>
 
     <style name="QSBorderlessButton">
