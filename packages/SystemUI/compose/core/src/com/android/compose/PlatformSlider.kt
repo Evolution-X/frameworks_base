@@ -98,6 +98,7 @@ fun PlatformSlider(
     draggingCornersRadius: Dp = PlatformSliderDefaults.DefaultPlatformSliderDraggingCornerRadius,
     icon: (@Composable (isDragging: Boolean) -> Unit)? = null,
     label: (@Composable (isDragging: Boolean) -> Unit)? = null,
+    indicatorBackground: (@Composable (Modifier, Dp) -> Unit)? = null,
 ) {
     val sliderHeight: Dp = 64.dp
     val thumbSize: Dp = sliderHeight
@@ -136,6 +137,7 @@ fun PlatformSlider(
                     isDragging = isDragging,
                     label = label,
                     icon = icon,
+                    indicatorBackground = indicatorBackground,
                     modifier = Modifier.fillMaxSize(),
                 )
             },
@@ -170,6 +172,7 @@ private fun Track(
     isDragging: Boolean,
     icon: (@Composable (isDragging: Boolean) -> Unit)?,
     label: (@Composable (isDragging: Boolean) -> Unit)?,
+    indicatorBackground: (@Composable (Modifier, Dp) -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
@@ -185,6 +188,7 @@ private fun Track(
                 draggingCornersRadiusActive = draggingCornersRadius,
                 draggingCornersRadiusIdle = sliderHeight / 2,
                 isDragging = isDragging,
+                indicatorBackground = indicatorBackground,
             )
             if (icon != null) {
                 Box(
@@ -256,6 +260,7 @@ private fun TrackBackground(
     draggingCornersRadiusActive: Dp,
     draggingCornersRadiusIdle: Dp,
     isDragging: Boolean,
+    indicatorBackground: (@Composable (Modifier, Dp) -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val indicatorRadiusDp: Dp by
@@ -276,36 +281,70 @@ private fun TrackBackground(
             colors.getIndicatorColor(enabled),
             label = "PlatformSliderIndicatorColorAnimation",
         )
-    Canvas(modifier.fillMaxSize()) {
-        val trackCornerRadius = CornerRadius(size.height / 2, size.height / 2)
-        val trackPath = Path()
-        trackPath.addRoundRect(
-            RoundRect(
-                left = 0f,
-                top = 0f,
-                right = drawingState.totalWidth,
-                bottom = drawingState.totalHeight,
-                cornerRadius = trackCornerRadius,
-            )
-        )
-        drawPath(path = trackPath, color = trackColor)
-
-        val indicatorCornerRadius = CornerRadius(indicatorRadiusDp.toPx(), indicatorRadiusDp.toPx())
-        clipPath(trackPath) {
-            val indicatorPath = Path()
-            indicatorPath.addRoundRect(
+    Box(modifier = modifier) {
+        Canvas(Modifier.fillMaxSize()) {
+            val trackCornerRadius = CornerRadius(size.height / 2, size.height / 2)
+            val trackPath = Path()
+            trackPath.addRoundRect(
                 RoundRect(
-                    left = drawingState.indicatorLeft,
-                    top = drawingState.indicatorTop,
-                    right = drawingState.indicatorRight,
-                    bottom = drawingState.indicatorBottom,
-                    topLeftCornerRadius = trackCornerRadius,
-                    topRightCornerRadius = indicatorCornerRadius,
-                    bottomRightCornerRadius = indicatorCornerRadius,
-                    bottomLeftCornerRadius = trackCornerRadius,
+                    left = 0f,
+                    top = 0f,
+                    right = drawingState.totalWidth,
+                    bottom = drawingState.totalHeight,
+                    cornerRadius = trackCornerRadius,
                 )
             )
-            drawPath(path = indicatorPath, color = indicatorColor)
+            drawPath(path = trackPath, color = trackColor)
+
+            if (indicatorBackground == null) {
+                val indicatorCornerRadius =
+                    CornerRadius(indicatorRadiusDp.toPx(), indicatorRadiusDp.toPx())
+                clipPath(trackPath) {
+                    val indicatorPath = Path()
+                    indicatorPath.addRoundRect(
+                        RoundRect(
+                            left = drawingState.indicatorLeft,
+                            top = drawingState.indicatorTop,
+                            right = drawingState.indicatorRight,
+                            bottom = drawingState.indicatorBottom,
+                            topLeftCornerRadius = trackCornerRadius,
+                            topRightCornerRadius = indicatorCornerRadius,
+                            bottomRightCornerRadius = indicatorCornerRadius,
+                            bottomLeftCornerRadius = trackCornerRadius,
+                        )
+                    )
+                    drawPath(path = indicatorPath, color = indicatorColor)
+                }
+            }
+        }
+
+        if (
+            indicatorBackground != null &&
+                drawingState.indicatorRight > drawingState.indicatorLeft
+        ) {
+            val density = LocalDensity.current
+            indicatorBackground(
+                Modifier
+                    .offset {
+                        IntOffset(
+                            drawingState.indicatorLeft.toInt(),
+                            drawingState.indicatorTop.toInt(),
+                        )
+                    }
+                    .size(
+                        with(density) {
+                            (drawingState.indicatorRight - drawingState.indicatorLeft)
+                                .coerceAtLeast(0f)
+                                .toDp()
+                        },
+                        with(density) {
+                            (drawingState.indicatorBottom - drawingState.indicatorTop)
+                                .coerceAtLeast(0f)
+                                .toDp()
+                        },
+                    ),
+                indicatorRadiusDp,
+            )
         }
     }
 }
