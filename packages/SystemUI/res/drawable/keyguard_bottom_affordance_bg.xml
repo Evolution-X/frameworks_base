@@ -18,9 +18,8 @@
 -->
 <shape
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
     android:shape="rectangle">
-  <solid android:color="@androidprv:color/materialColorSurfaceContainerHigh"/>
+  <solid android:color="@color/ax_blur_surface_bright_expressive"/>
   <size
       android:width="@dimen/keyguard_affordance_fixed_width"
       android:height="@dimen/keyguard_affordance_fixed_height"/>

@@ -18,11 +18,11 @@ package com.android.systemui.volume.panel.component.button.ui.composable
 
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.android.axion.blur.AxBlurSurfaceDefaults
 
 /**
  * Container to create a rim around the button. Both `Expandable` and `OutlinedIconToggleButton`
@@ -35,7 +35,7 @@ fun BottomComponentButtonSurface(modifier: Modifier = Modifier, content: @Compos
     Surface(
         modifier = modifier.height(64.dp),
         shape = RoundedCornerShape(28.dp),
-        color = MaterialTheme.colorScheme.surface,
+        color = AxBlurSurfaceDefaults.surfaceColor(),
         content = content,
     )
 }
