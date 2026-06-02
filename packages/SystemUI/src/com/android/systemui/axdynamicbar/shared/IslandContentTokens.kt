@@ -490,9 +490,7 @@ internal fun Drawable.toScaledBitmap(sizeDp: Dp): ImageBitmap {
 
 internal fun chipProgressFor(event: IslandEvent): Float? =
     when (event) {
-        is IslandEvent.Media ->
-            if (event.duration > 0) (event.position.toFloat() / event.duration).coerceIn(0f, 1f)
-            else null
+        is IslandEvent.Media -> null
         is IslandEvent.PromotedOngoing ->
             if (event.progress >= 0f) event.progress.coerceIn(0f, 1f) else null
         is IslandEvent.Notification ->
