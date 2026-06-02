@@ -22,6 +22,16 @@
     android:clipChildren="false"
     android:gravity="center"
     android:layout_gravity="center">
+  <View
+      android:id="@+id/global_actions_background_scrim"
+      android:layout_width="0dp"
+      android:layout_height="0dp"
+      android:background="@color/global_actions_background_scrim"
+      android:importantForAccessibility="no"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintTop_toTopOf="parent"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintEnd_toEndOf="parent"/>
   <com.android.systemui.globalactions.GlobalActionsLayoutLite
       android:id="@id/global_actions_view"
       android:layout_width="wrap_content"
@@ -34,7 +44,7 @@
       app:layout_constraintStart_toStartOf="parent"
       app:layout_constraintEnd_toEndOf="parent"
       android:layout_weight="1">
-    <com.android.systemui.common.ui.view.LaunchableConstraintLayout
+    <com.android.systemui.globalactions.GlobalActionsBlurConstraintLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:id="@android:id/list"
@@ -56,6 +66,6 @@
           app:flow_horizontalGap="@dimen/global_actions_lite_padding"
           app:flow_verticalGap="@dimen/global_actions_lite_padding"
           app:flow_horizontalStyle="packed"/>
-    </com.android.systemui.common.ui.view.LaunchableConstraintLayout>
+    </com.android.systemui.globalactions.GlobalActionsBlurConstraintLayout>
   </com.android.systemui.globalactions.GlobalActionsLayoutLite>
 </androidx.constraintlayout.widget.ConstraintLayout>

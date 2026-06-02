@@ -4,9 +4,9 @@ import android.view.View
 import android.widget.ImageView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.res.ResourcesCompat
-import com.android.systemui.animation.view.LaunchableImageView
 import com.android.systemui.keyguard.shared.model.KeyguardSection
 import com.android.systemui.keyguard.ui.binder.KeyguardQuickAffordanceViewBinder
+import com.android.systemui.keyguard.ui.view.KeyguardQuickAffordanceButton
 import com.android.systemui.res.R
 
 abstract class BaseShortcutSection : KeyguardSection() {
@@ -28,7 +28,7 @@ abstract class BaseShortcutSection : KeyguardSection() {
                 R.dimen.keyguard_affordance_fixed_padding
             )
         val view =
-            LaunchableImageView(constraintLayout.context, null).apply {
+            KeyguardQuickAffordanceButton(constraintLayout.context, null).apply {
                 id = R.id.start_button
                 scaleType = ImageView.ScaleType.FIT_CENTER
                 background =
@@ -57,7 +57,7 @@ abstract class BaseShortcutSection : KeyguardSection() {
                 R.dimen.keyguard_affordance_fixed_padding
             )
         val view =
-            LaunchableImageView(constraintLayout.context, null).apply {
+            KeyguardQuickAffordanceButton(constraintLayout.context, null).apply {
                 id = R.id.end_button
                 scaleType = ImageView.ScaleType.FIT_CENTER
                 background =
