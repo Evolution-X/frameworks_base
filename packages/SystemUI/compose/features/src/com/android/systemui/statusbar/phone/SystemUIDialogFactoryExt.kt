@@ -50,6 +50,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.ComposeView
@@ -65,6 +66,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
+import com.android.axion.blur.AxBlurSurface
 import com.android.compose.theme.PlatformTheme
 import com.android.systemui.keyboard.shortcut.ui.composable.hasCompactWindowSize
 import com.android.systemui.res.R
@@ -126,6 +128,7 @@ fun SystemUIDialogFactory.createBottomSheet(
     isDraggable: Boolean = true,
     // TODO(b/337205027): remove maxWidth parameter when aligned to M3 spec
     maxWidth: Dp = Dp.Unspecified,
+    useAxBlur: Boolean = false,
 ): ComponentSystemUIDialog {
     return create(
         context = context,
@@ -178,37 +181,53 @@ fun SystemUIDialogFactory.createBottomSheet(
                 contentAlignment = Alignment.BottomCenter,
             ) {
                 val radius = dimensionResource(R.dimen.bottom_sheet_corner_radius)
-                Surface(
-                    modifier =
-                        Modifier.bottomSheetPaddings()
-                            // consume input so it doesn't get to the parent Composable
-                            .bottomSheetClickable {}
-                            .widthIn(
-                                max =
-                                    if (maxWidth.isSpecified) maxWidth
-                                    else DraggableBottomSheet.MaxWidth
-                            ),
-                    shape = RoundedCornerShape(topStart = radius, topEnd = radius),
-                    color = MaterialTheme.colorScheme.surfaceContainer,
-                ) {
-                    Box(
-                        Modifier.padding(
-                            bottom =
-                                with(LocalDensity.current) {
-                                    WindowInsets.safeDrawing.getBottom(this).toDp()
-                                }
+                val shape = RoundedCornerShape(topStart = radius, topEnd = radius)
+                val surfaceModifier =
+                    Modifier.bottomSheetPaddings()
+                        // consume input so it doesn't get to the parent Composable
+                        .bottomSheetClickable {}
+                        .widthIn(
+                            max =
+                                if (maxWidth.isSpecified) maxWidth
+                                else DraggableBottomSheet.MaxWidth
                         )
-                    ) {
-                        if (isDraggable) {
-                            Column(
-                                Modifier.wrapContentWidth(Alignment.CenterHorizontally),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                            ) {
-                                DragHandle(dialog)
+                Surface(
+                    modifier = surfaceModifier,
+                    shape = shape,
+                    color =
+                        if (useAxBlur) {
+                            Color.Transparent
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainer
+                        },
+                ) {
+                    Box {
+                        if (useAxBlur) {
+                            AxBlurSurface(
+                                modifier = Modifier.matchParentSize(),
+                                shape = shape,
+                                cornerRadius = radius,
+                            )
+                        }
+                        Box(
+                            Modifier.padding(
+                                bottom =
+                                    with(LocalDensity.current) {
+                                        WindowInsets.safeDrawing.getBottom(this).toDp()
+                                    }
+                            )
+                        ) {
+                            if (isDraggable) {
+                                Column(
+                                    Modifier.wrapContentWidth(Alignment.CenterHorizontally),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    DragHandle(dialog)
+                                    content(dialog)
+                                }
+                            } else {
                                 content(dialog)
                             }
-                        } else {
-                            content(dialog)
                         }
                     }
                 }
