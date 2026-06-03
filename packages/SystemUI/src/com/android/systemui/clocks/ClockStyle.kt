@@ -68,6 +68,8 @@ class ClockStyle @JvmOverloads constructor(
     private var currentShiftX = 0
     private var currentShiftY = 0
 
+    private var naturalClockHeight = 0
+
     private var pendingLayoutListener: View.OnLayoutChangeListener? = null
 
     private val screenReceiver = object : BroadcastReceiver() {
@@ -337,6 +339,8 @@ class ClockStyle @JvmOverloads constructor(
         currentClockView = null
         textClocks.clear()
         styledTextViews.clear()
+        naturalClockHeight = 0
+        clockContainer?.minimumHeight = 0
 
         if (clockStyle in 1 until CLOCK_LAYOUTS.size) {
             val stub = clockStub
@@ -491,6 +495,15 @@ class ClockStyle @JvmOverloads constructor(
         view.pivotX = view.width / 2f
         view.pivotY = 0f
         disableClippingOnParents(view)
+        if (naturalClockHeight == 0 && view.height > 0) {
+            naturalClockHeight = view.height
+        }
+
+        if (naturalClockHeight > 0) {
+            val reservedHeight = (naturalClockHeight * scale).toInt()
+            clockContainer?.minimumHeight = reservedHeight
+            clockContainer?.requestLayout()
+        }
     }
 
     private fun applyClockScaleAfterLayout(view: View) {
@@ -506,6 +519,9 @@ class ClockStyle @JvmOverloads constructor(
             ) {
                 v.removeOnLayoutChangeListener(this)
                 if (pendingLayoutListener === this) pendingLayoutListener = null
+                if (naturalClockHeight == 0) {
+                    naturalClockHeight = v.height
+                }
                 applyClockScale()
             }
         }
