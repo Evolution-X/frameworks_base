@@ -145,7 +145,7 @@ public class AmbientDisplayConfiguration {
     /** @hide */
     public boolean pickupGestureAmbient(int user) {
         return boolSettingDefaultOff(Settings.Secure.DOZE_PICK_UP_GESTURE_AMBIENT, user)
-                && pickupGestureEnabled(user) && pulseOnNotificationEnabled(user);
+                && pickupGestureEnabled(user);
     }
 
     /** @hide */
@@ -203,7 +203,7 @@ public class AmbientDisplayConfiguration {
     /** @hide */
     public boolean tapGestureAmbient(int user) {
         return boolSettingDefaultOff(Settings.Secure.DOZE_TAP_GESTURE_AMBIENT, user)
-                && tapGestureEnabled(user) && pulseOnNotificationEnabled(user);
+                && tapGestureEnabled(user);
     }
 
     /** @hide */
