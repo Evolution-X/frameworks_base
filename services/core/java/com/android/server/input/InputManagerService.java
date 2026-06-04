@@ -2512,6 +2512,9 @@ public class InputManagerService extends IInputManager.Stub
             if ((device.getSources() & InputDevice.SOURCE_MOUSE) != InputDevice.SOURCE_MOUSE) {
                 continue;
             }
+            if ((device.getSources() & InputDevice.SOURCE_KEYBOARD) == InputDevice.SOURCE_KEYBOARD) {
+                continue;
+            }
             final String btAddress = mNative.getBluetoothAddress(id);
             if (btAddress == null) {
                 continue;
