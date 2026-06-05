@@ -141,4 +141,8 @@ class AxDynamicBarSettings @Inject constructor(
         val typeId = EVENT_TYPE_IDS[event::class.java] ?: return true
         return typeId !in _disabledEventTypes.value
     }
+
+    fun isKeyguardBiometricUnlockEventsActive(): Boolean =
+        _isEnabled.value && _isKeyguardEnabled.value &&
+            "biometric_unlock" !in _disabledEventTypes.value
 }
