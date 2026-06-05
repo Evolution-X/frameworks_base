@@ -47,6 +47,7 @@ class ProgressImageView @JvmOverloads constructor(
     private var progressPercent = -1
     private var batteryLevel = -1
     private var isDozing = false
+    private var lastRenderedColor = Color.WHITE
     private val statusBarStateController: StatusBarStateController by lazy {
         Dependency.get(StatusBarStateController::class.java)
     }
@@ -230,7 +231,8 @@ class ProgressImageView @JvmOverloads constructor(
             ProgressType.VOLUME -> getVolumeLevel()
             ProgressType.UNKNOWN -> -1
         }
-        if (newProgressPercent != progressPercent) {
+        val newColor = resolveWidgetColor()
+        if (newProgressPercent != progressPercent || newColor != lastRenderedColor) {
             progressPercent = newProgressPercent
             updateImageView()
         }
@@ -252,6 +254,8 @@ class ProgressImageView @JvmOverloads constructor(
             if (progressPercent == -1) "..." else "$progressPercent%"
         }
         val icon: Drawable? = ContextCompat.getDrawable(context, progressType.iconRes)
+        val color = resolveWidgetColor()
+        lastRenderedColor = color
         val widgetBitmap: Bitmap = ArcProgressWidget.generateBitmap(
             context,
             if (progressPercent == -1) 0 else progressPercent,
@@ -260,7 +264,7 @@ class ProgressImageView @JvmOverloads constructor(
             icon,
             36,
             typeface,
-            resolveWidgetColor()
+            color
         )
         setImageBitmap(widgetBitmap)
         applyWidgetAlpha()
