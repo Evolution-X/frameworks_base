@@ -17,6 +17,7 @@ import android.graphics.Color
 import android.graphics.Color.colorToHSV
 import android.graphics.Color.HSVToColor
 import android.graphics.Typeface
+import android.media.session.PlaybackState
 import android.os.Handler
 import android.os.Looper
 import android.os.UserHandle
@@ -135,6 +136,10 @@ class ClockStyle @JvmOverloads constructor(
 
     private val mediaDataListener = object : MediaSessionManager.MediaDataListener {
         override fun onPlaybackStateChanged(state: Int) {
+            if (state != PlaybackState.STATE_PLAYING) {
+                currentAlbumColor = null
+                if (albumArtColorEnabled) applyClockColors()
+            }
         }
 
         override fun onMediaColorsChanged(color: Int) {
