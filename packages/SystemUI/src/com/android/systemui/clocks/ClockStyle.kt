@@ -500,9 +500,24 @@ class ClockStyle @JvmOverloads constructor(
         }
 
         if (naturalClockHeight > 0) {
-            val reservedHeight = (naturalClockHeight * scale).toInt()
-            clockContainer?.minimumHeight = reservedHeight
-            clockContainer?.requestLayout()
+            val scaledHeight = (naturalClockHeight * scale).toInt()
+            val container = clockContainer ?: return
+            if (scale >= 1.0f) {
+                container.minimumHeight = scaledHeight
+                val lp = container.layoutParams
+                if (lp != null) {
+                    lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
+                    container.layoutParams = lp
+                }
+            } else {
+                container.minimumHeight = 0
+                val lp = container.layoutParams
+                if (lp != null) {
+                    lp.height = scaledHeight
+                    container.layoutParams = lp
+                }
+            }
+            container.requestLayout()
         }
     }
 
