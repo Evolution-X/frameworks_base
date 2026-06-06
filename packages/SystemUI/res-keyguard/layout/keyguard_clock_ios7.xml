@@ -51,6 +51,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
         android:orientation="horizontal"
+        android:layout_marginBottom="-110dp"
         android:gravity="center">
 
         <TextClock
