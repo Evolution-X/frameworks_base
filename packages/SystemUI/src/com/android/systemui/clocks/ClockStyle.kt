@@ -14,6 +14,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
+import android.graphics.Color.colorToHSV
+import android.graphics.Color.HSVToColor
 import android.graphics.Typeface
 import android.os.Handler
 import android.os.Looper
@@ -454,7 +456,9 @@ class ClockStyle @JvmOverloads constructor(
 
     private fun resolveClockColor(): Int {
         if (albumArtColorEnabled) {
-            currentAlbumColor?.let { return it }
+            currentAlbumColor?.let {
+                return boostSaturation(it)
+            }
         }
         return when (colorMode) {
             COLOR_MODE_ACCENT -> context.getColor(
@@ -463,6 +467,13 @@ class ClockStyle @JvmOverloads constructor(
             COLOR_MODE_CUSTOM -> customColor
             else -> context.getColor(android.R.color.white)
         }
+    }
+
+    private fun boostSaturation(color: Int, amount: Float = 0.20f): Int {
+        val hsv = FloatArray(3)
+        colorToHSV(color, hsv)
+        hsv[1] = (hsv[1] + amount).coerceAtMost(1.0f)
+        return HSVToColor(hsv)
     }
 
     private fun applyClockColors() {
