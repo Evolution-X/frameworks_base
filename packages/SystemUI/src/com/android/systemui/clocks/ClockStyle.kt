@@ -4,6 +4,11 @@
  */
 package com.android.systemui.clocks
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.Keyframe
+import android.animation.ObjectAnimator
+import android.animation.PropertyValuesHolder
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -72,6 +77,10 @@ class ClockStyle @JvmOverloads constructor(
 
     private var pendingLayoutListener: View.OnLayoutChangeListener? = null
 
+    private var clockWobbleOnChargeEnabled = true
+    private var wobbleAnimator: ObjectAnimator? = null
+    private var wobbleGlowAnimator: android.animation.ValueAnimator? = null
+
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
@@ -79,6 +88,12 @@ class ClockStyle @JvmOverloads constructor(
                 Intent.ACTION_TIME_TICK,
                 Intent.ACTION_TIME_CHANGED,
                 DOZE_PULSE_ACTION -> onTimeChanged()
+                Intent.ACTION_POWER_CONNECTED -> {
+                    if (clockWobbleOnChargeEnabled && !isDozing) {
+                        startWobbleAnimation()
+                    }
+                }
+                Intent.ACTION_POWER_DISCONNECTED -> cancelWobbleAnimation()
             }
         }
     }
@@ -146,6 +161,7 @@ class ClockStyle @JvmOverloads constructor(
             CLOCK_SIZE_KEY,
             CLOCK_AOD_ANIM_KEY,
             CLOCK_ALBUM_ART_COLOR_KEY,
+            CLOCK_WOBBLE_ON_CHARGE_KEY,
         )
         statusBarStateController.addCallback(statusBarStateListener)
         if (albumArtColorEnabled) {
@@ -165,6 +181,8 @@ class ClockStyle @JvmOverloads constructor(
             addAction(Intent.ACTION_TIME_TICK)
             addAction(Intent.ACTION_TIME_CHANGED)
             addAction(DOZE_PULSE_ACTION)
+            addAction(Intent.ACTION_POWER_CONNECTED)
+            addAction(Intent.ACTION_POWER_DISCONNECTED)
         }
         context.registerReceiver(screenReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         callbacksRegistered = true
@@ -180,6 +198,7 @@ class ClockStyle @JvmOverloads constructor(
         handler.removeCallbacks(burnInProtectionRunnable)
         handler.removeCallbacks(aodTickRunnable)
         currentClockView?.animate()?.cancel()
+        cancelWobbleAnimation()
         removePendingLayoutListener()
         runCatching { context.unregisterReceiver(screenReceiver) }
         callbacksRegistered = false
@@ -237,6 +256,10 @@ class ClockStyle @JvmOverloads constructor(
                     }
                 }
                 applyClockColors()
+            }
+            CLOCK_WOBBLE_ON_CHARGE_KEY -> {
+                clockWobbleOnChargeEnabled = TunerService.parseInteger(newValue, 1) != 0
+                if (!clockWobbleOnChargeEnabled) cancelWobbleAnimation()
             }
         }
     }
@@ -493,7 +516,7 @@ class ClockStyle @JvmOverloads constructor(
         view.scaleX = scale
         view.scaleY = scale
         view.pivotX = view.width / 2f
-        view.pivotY = 0f
+        view.pivotY = view.height / 2f
         disableClippingOnParents(view)
         if (naturalClockHeight == 0 && view.height > 0) {
             naturalClockHeight = view.height
@@ -567,6 +590,140 @@ class ClockStyle @JvmOverloads constructor(
     private fun isCenterClock(style: Int): Boolean = CENTER_CLOCKS.contains(style)
 
     private fun isNoColorClock(style: Int): Boolean = NO_COLOR_CLOCKS.contains(style)
+
+    private fun startWobbleAnimation() {
+        val view = currentClockView ?: return
+        cancelWobbleAnimation()
+
+        val base = getScaleFactor()
+        view.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+
+        val density = resources.displayMetrics.density.takeIf { it > 0f } ?: 1f
+        val riseAmp = WOBBLE_RISE_DP * density * base
+        val ty0 = Keyframe.ofFloat(0.00f,  0f)
+        val ty1 = Keyframe.ofFloat(0.18f, -riseAmp)
+        val ty2 = Keyframe.ofFloat(0.36f, -riseAmp * 0.44f)
+        val ty3 = Keyframe.ofFloat(0.52f, -riseAmp * 0.21f)
+        val ty4 = Keyframe.ofFloat(0.66f, -riseAmp * 0.09f)
+        val ty5 = Keyframe.ofFloat(0.78f, -riseAmp * 0.04f)
+        val ty6 = Keyframe.ofFloat(1.00f,  0f)   
+        val pvhY = PropertyValuesHolder.ofKeyframe("translationY", ty0, ty1, ty2, ty3, ty4, ty5, ty6)
+
+        val sx0 = Keyframe.ofFloat(0.00f, base * 1.000f)
+        val sx1 = Keyframe.ofFloat(0.18f, base * 0.940f)
+        val sx2 = Keyframe.ofFloat(0.36f, base * 1.018f)
+        val sx3 = Keyframe.ofFloat(0.52f, base * 0.968f)
+        val sx4 = Keyframe.ofFloat(0.66f, base * 1.008f)
+        val sx5 = Keyframe.ofFloat(1.00f, base * 1.000f)
+        val pvhSX = PropertyValuesHolder.ofKeyframe("scaleX", sx0, sx1, sx2, sx3, sx4, sx5)
+
+        val sy0 = Keyframe.ofFloat(0.00f, base * 1.000f)
+        val sy1 = Keyframe.ofFloat(0.18f, base * 1.038f)
+        val sy2 = Keyframe.ofFloat(0.36f, base * 0.984f)
+        val sy3 = Keyframe.ofFloat(0.52f, base * 1.018f)
+        val sy4 = Keyframe.ofFloat(0.66f, base * 0.994f)
+        val sy5 = Keyframe.ofFloat(1.00f, base * 1.000f)
+        val pvhSY = PropertyValuesHolder.ofKeyframe("scaleY", sy0, sy1, sy2, sy3, sy4, sy5)
+
+        wobbleAnimator = ObjectAnimator.ofPropertyValuesHolder(view, pvhY, pvhSX, pvhSY).apply {
+            duration = WOBBLE_DURATION_MS
+            interpolator = null
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    view.translationY = 0f
+                    view.scaleX = getScaleFactor()
+                    view.scaleY = getScaleFactor()
+                    view.setLayerType(View.LAYER_TYPE_NONE, null)
+                    clearWobbleGlow()
+                    wobbleAnimator = null
+                }
+                override fun onAnimationCancel(animation: Animator) {
+                    view.translationY = 0f
+                    view.scaleX = getScaleFactor()
+                    view.scaleY = getScaleFactor()
+                    view.setLayerType(View.LAYER_TYPE_NONE, null)
+                    clearWobbleGlow()
+                    wobbleAnimator = null
+                }
+            })
+            start()
+        }
+
+        val baseGlowColor = resolveClockColor()
+        val baseHsv = FloatArray(3)
+        Color.colorToHSV(baseGlowColor, baseHsv)
+        val warmS = 1.0f
+        val warmV = 1.0f
+
+        val userAlphaNorm = (clockOpacity.coerceIn(0, 100) / 100f)
+
+        wobbleGlowAnimator = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = WOBBLE_DURATION_MS
+            interpolator = null
+            addUpdateListener { anim ->
+                val animFrac = anim.animatedFraction
+                val currentTY = view.translationY
+                val fraction = (-currentTY / riseAmp).coerceIn(0f, 1f)
+                val flashAlpha: Float = when {
+                    animFrac < 0.06f -> userAlphaNorm + (1f - userAlphaNorm) * (animFrac / 0.06f)
+                    animFrac < 0.12f -> 1f - (1f - userAlphaNorm) * ((animFrac - 0.06f) / 0.06f)
+                    else -> userAlphaNorm
+                }
+
+                val lerpedHsv = floatArrayOf(
+                    baseHsv[0],
+                    baseHsv[1] + (warmS - baseHsv[1]) * fraction,
+                    baseHsv[2] + (warmV - baseHsv[2]) * fraction,
+                )
+
+                val shiftedBaseColor = Color.HSVToColor(lerpedHsv)
+                val radius = WOBBLE_GLOW_MAX_RADIUS * fraction
+                val dy = WOBBLE_GLOW_MAX_DY * (1f - fraction)
+                val alpha = (WOBBLE_GLOW_MAX_ALPHA * fraction).toInt().coerceIn(0, 255)
+                val currentGlowColor = Color.argb(
+                    alpha,
+                    Color.red(shiftedBaseColor),
+                    Color.green(shiftedBaseColor),
+                    Color.blue(shiftedBaseColor),
+                )
+
+                for (i in textClocks.indices) {
+                    textClocks[i].alpha = flashAlpha
+                    textClocks[i].setShadowLayer(radius, 0f, dy, currentGlowColor)
+                }
+                for (i in styledTextViews.indices) {
+                    val tv = styledTextViews[i]
+                    if (tv !is android.widget.TextClock) {
+                        tv.alpha = flashAlpha
+                        tv.setShadowLayer(radius, 0f, dy, currentGlowColor)
+                    }
+                }
+            }
+            start()
+        }
+    }
+
+    private fun cancelWobbleAnimation() {
+        wobbleAnimator?.cancel()
+        wobbleAnimator = null
+        wobbleGlowAnimator?.cancel()
+        wobbleGlowAnimator = null
+        clearWobbleGlow()
+    }
+
+    private fun clearWobbleGlow() {
+        for (i in textClocks.indices) {
+            textClocks[i].alpha = clockOpacity / 100f
+            textClocks[i].setShadowLayer(0f, 0f, 0f, 0)
+        }
+        for (i in styledTextViews.indices) {
+            val tv = styledTextViews[i]
+            if (tv !is android.widget.TextClock) {
+                tv.alpha = clockOpacity / 100f
+                tv.setShadowLayer(0f, 0f, 0f, 0)
+            }
+        }
+    }
 
     companion object {
         private val CLOCK_LAYOUTS = intArrayOf(
@@ -673,6 +830,7 @@ class ClockStyle @JvmOverloads constructor(
         @JvmField val CLOCK_SIZE_KEY: String = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_SIZE
         @JvmField val CLOCK_AOD_ANIM_KEY: String = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_AOD_ANIM
         @JvmField val CLOCK_ALBUM_ART_COLOR_KEY: String = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_ALBUM_ART_COLOR
+        @JvmField val CLOCK_WOBBLE_ON_CHARGE_KEY: String = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_WOBBLE_ON_CHARGE
 
         const val COLOR_MODE_DEFAULT = "default"
         const val COLOR_MODE_ACCENT = "accent"
@@ -698,5 +856,11 @@ class ClockStyle @JvmOverloads constructor(
         private const val AOD_SCALE_DOWN = 0.85f
         private const val AOD_ANIM_OUT_MS = 300L
         private const val AOD_ANIM_IN_MS = 400L
+
+        private const val WOBBLE_RISE_DP = 26f
+        private const val WOBBLE_DURATION_MS = 1150L
+        private const val WOBBLE_GLOW_MAX_RADIUS = 28f
+        private const val WOBBLE_GLOW_MAX_DY = 6f
+        private const val WOBBLE_GLOW_MAX_ALPHA = 160
     }
 }
