@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024-2025 Lunaris AOSP
+ * Copyright (C) 2024-2026 Lunaris AOSP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,9 +52,29 @@ constructor(
     private var currentArtist: String = ""
     private var currentPackageName: String = ""
     private var isPlaying: Boolean = false
+    private var isScreenOff: Boolean = false
 
     private var isKeyguardShowing: Boolean = false
     private var isDozing: Boolean = false
+
+    private var showDelayJob: Job? = null
+    private var hideDelayJob: Job? = null
+
+    private companion object {
+        private const val TAG = "NowPlayingViewController"
+        private const val SHOW_DELAY_MS = 300L
+        private const val HIDE_DELAY_MS = 150L
+
+        @Volatile
+        private var INSTANCE: NowPlayingViewController? = null
+
+        @JvmStatic
+        fun get(context: Context): NowPlayingViewController {
+            return INSTANCE ?: throw IllegalStateException(
+                "NowPlayingViewController not initialized"
+            )
+        }
+    }
 
     private val expandedOverlay: NowPlayingExpandedOverlay by lazy {
         NowPlayingExpandedOverlay(
@@ -137,7 +157,7 @@ constructor(
             }
         }
         
-        updateVisibility()
+        updateState()
     }
 
     private fun startMediaMonitoring() {
@@ -193,7 +213,7 @@ constructor(
             )
         }
         
-        updateVisibility()
+        updateState()
     }
 
     private fun updatePlaybackState(state: PlaybackState?) {
@@ -213,11 +233,12 @@ constructor(
                 packageName = currentPackageName,
             )
         }
-        updateVisibility()
+        updateState()
     }
 
-    private fun updateVisibility() {
+    private fun updateState() {
         if (!currentSettings.isEnabled) {
+            cancelDebounceJobs()
             nowPlayingView.hide()
             return
         }
@@ -229,82 +250,135 @@ constructor(
             true
         }
 
-        val shouldShow = when {
-            !isPlaying || currentTrackTitle.isEmpty() -> false
-            bouncerShowingOrKeyguardDismissing -> false
-            !isPanelCollapsed -> false
-            isDozing -> currentSettings.showOnAod
-            isKeyguardShowing -> currentSettings.showOnLockscreen
-            else -> false
-        }
+        val shouldShow = isPlaying
+                && currentTrackTitle.isNotEmpty()
+                && !bouncerShowingOrKeyguardDismissing
+                && isPanelCollapsed
+                && !isScreenOff
+                && ((isKeyguardShowing && !isDozing && currentSettings.showOnLockscreen)
+                        || (isDozing && currentSettings.showOnAod))
 
         if (shouldShow) {
-            nowPlayingView.show()
+            hideDelayJob?.cancel()
+            hideDelayJob = null
+            if (nowPlayingView.visible) return
+            showDelayJob?.cancel()
+            showDelayJob = scope.launch {
+                delay(SHOW_DELAY_MS)
+                val stillCollapsed = try {
+                    ScrimUtils.get()?.isPanelFullyCollapsed() ?: true
+                } catch (e: Exception) { true }
+                if (isPlaying
+                        && currentTrackTitle.isNotEmpty()
+                        && !bouncerShowingOrKeyguardDismissing
+                        && stillCollapsed
+                        && !isScreenOff
+                        && ((isKeyguardShowing && !isDozing && currentSettings.showOnLockscreen)
+                                || (isDozing && currentSettings.showOnAod))) {
+                    nowPlayingView.show()
+                }
+                showDelayJob = null
+            }
         } else {
-            nowPlayingView.hide()
+            showDelayJob?.cancel()
+            showDelayJob = null
+            if (!nowPlayingView.visible) return
+            hideDelayJob?.cancel()
+            hideDelayJob = scope.launch {
+                delay(HIDE_DELAY_MS)
+                val stillCollapsed = try {
+                    ScrimUtils.get()?.isPanelFullyCollapsed() ?: true
+                } catch (e: Exception) { true }
+                if (!(isPlaying
+                            && currentTrackTitle.isNotEmpty()
+                            && !bouncerShowingOrKeyguardDismissing
+                            && stillCollapsed
+                            && !isScreenOff
+                            && ((isKeyguardShowing && !isDozing && currentSettings.showOnLockscreen)
+                                    || (isDozing && currentSettings.showOnAod)))) {
+                    nowPlayingView.hide()
+                }
+                hideDelayJob = null
+            }
         }
+    }
+
+    private fun forceHide() {
+        cancelDebounceJobs()
+        nowPlayingView.hide()
+        expandedOverlay.hide()
+    }
+
+    private fun cancelDebounceJobs() {
+        showDelayJob?.cancel()
+        showDelayJob = null
+        hideDelayJob?.cancel()
+        hideDelayJob = null
     }
 
     override fun onKeyguardShowingChanged(showing: Boolean) {
         isKeyguardShowing = showing
-        updateVisibility()
+        updateState()
     }
 
     override fun onPrimaryBouncerShowingChanged(showing: Boolean) {
         bouncerShowingOrKeyguardDismissing = showing
         if (showing) {
-            nowPlayingView.hide()
-            expandedOverlay.hide()
+            forceHide()
         } else {
-            updateVisibility()
+            updateState()
         }
     }
 
     override fun onKeyguardGoingAwayChanged(goingAway: Boolean) {
         bouncerShowingOrKeyguardDismissing = goingAway
         if (goingAway) {
-            nowPlayingView.hide()
-            expandedOverlay.hide()
+            forceHide()
         } else {
-            updateVisibility()
+            updateState()
         }
     }
 
     override fun onKeyguardFadingAwayChanged(fadingAway: Boolean) {
         bouncerShowingOrKeyguardDismissing = fadingAway
         if (fadingAway) {
-            nowPlayingView.hide()
-            expandedOverlay.hide()
+            forceHide()
         } else {
-            updateVisibility()
+            updateState()
         }
     }
 
     override fun onDozingChanged(dozing: Boolean) {
-        try {
-            isDozing = ScrimUtils.get()?.isDozing() ?: false
-        } catch (e: Exception) {
-            Log.e(TAG, "Error getting dozing state", e)
-        }
-        updateVisibility()
+        isDozing = dozing
+        updateState()
     }
 
     override fun setPulsing(pulsing: Boolean) {
         if (pulsing && currentSettings.showOnAod) {
-            updateVisibility()
+            updateState()
         }
     }
 
     override fun onExpandedFractionChanged(expandedFraction: Float) {
-        updateVisibility()
+        updateState()
     }
 
     override fun onQsVisibilityChanged(visible: Boolean) {
-        updateVisibility()
+        updateState()
     }
 
     override fun onBarStateChanged(state: Int) {
-        updateVisibility()
+        updateState()
+    }
+
+    override fun onScreenTurnedOff() {
+        isScreenOff = true
+        forceHide()
+    }
+
+    override fun onStartedWakingUp() {
+        isScreenOff = false
+        updateState()
     }
 
     fun cleanup() {
@@ -315,22 +389,10 @@ constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Error during cleanup", e)
         }
+        cancelDebounceJobs()
         expandedOverlay.hide()
         settingsJob?.cancel()
         scope.cancel()
     }
-
-    companion object {
-        private const val TAG = "NowPlayingViewController"
-
-        @Volatile
-        private var INSTANCE: NowPlayingViewController? = null
-        
-        @JvmStatic
-        fun get(context: Context): NowPlayingViewController {
-            return INSTANCE ?: throw IllegalStateException(
-                "NowPlayingViewController not initialized"
-            )
-        }
-    }
 }
+
