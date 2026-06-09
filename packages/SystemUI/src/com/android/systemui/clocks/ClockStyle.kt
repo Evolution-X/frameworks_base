@@ -401,9 +401,6 @@ class ClockStyle @JvmOverloads constructor(
                 view.findViewById<TextView?>(R.id.device_name)?.text =
                     UserProfileUtils.getDeviceName()
 
-                if (view is LinearLayout) {
-                    view.gravity = if (isCenterClock(clockStyle)) Gravity.CENTER else Gravity.START
-                }
                 updateClockAppearance()
                 updateClockFrameMargin()
             }
@@ -602,8 +599,6 @@ class ClockStyle @JvmOverloads constructor(
             current = parent
         }
     }
-
-    private fun isCenterClock(style: Int): Boolean = CENTER_CLOCKS.contains(style)
 
     private fun isNoColorClock(style: Int): Boolean = NO_COLOR_CLOCKS.contains(style)
 
@@ -829,11 +824,6 @@ class ClockStyle @JvmOverloads constructor(
             R.layout.keyguard_clock_galada,         // 83
             R.layout.keyguard_clock_cos1,           // 84
             R.layout.keyguard_clock_cos2,           // 85
-        )
-
-        private val CENTER_CLOCKS = hashSetOf(
-            3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-            20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33
         )
 
         private val NO_COLOR_CLOCKS = hashSetOf(1, 2, 25, 26)
