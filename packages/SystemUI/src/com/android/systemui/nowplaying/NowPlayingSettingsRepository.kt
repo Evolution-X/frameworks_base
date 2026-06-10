@@ -29,7 +29,7 @@ import kotlinx.coroutines.flow.*
 
 data class NowPlayingSettings(
     val isEnabled: Boolean,
-    val useAccentColor: Boolean,
+    val colorMode: Int,
     val iconStyle: Int,
     val iconSize: Int,
     val useCompactStyle: Boolean,
@@ -54,7 +54,7 @@ class NowPlayingSettingsRepository(context: Context) {
 
     val settingsFlow: Flow<NowPlayingSettings> = combine(
         observeSettingInt(SETTING_ENABLED, 0),
-        observeSettingInt(SETTING_USE_ACCENT_COLOR, 0),
+        observeSettingInt(SETTING_COLOR_MODE, 0),
         observeSettingInt(SETTING_ICON_STYLE, DEFAULT_ICON_STYLE),
         observeSettingInt(SETTING_ICON_SIZE, DEFAULT_ICON_SIZE),
         observeSettingInt(SETTING_USE_COMPACT_STYLE, 0),
@@ -67,7 +67,7 @@ class NowPlayingSettingsRepository(context: Context) {
         observeSettingInt(SETTING_WAVEFORM_SEEKBAR, 0),
     ) { flows: Array<Any?> ->
         val enabled = flows[0] as Int
-        val useAccent = flows[1] as Int
+        val colorMode = flows[1] as Int
         val iconStyle = flows[2] as Int
         val iconSize = flows[3] as Int
         val compactStyle = flows[4] as Int
@@ -86,7 +86,7 @@ class NowPlayingSettingsRepository(context: Context) {
         
         NowPlayingSettings(
             isEnabled = enabled == 1,
-            useAccentColor = useAccent == 1,
+            colorMode = colorMode.coerceIn(0, 2),
             iconStyle = iconStyleClamped,
             iconSize = iconSizeClamped,
             useCompactStyle = compactStyle == 1,
@@ -136,9 +136,9 @@ class NowPlayingSettingsRepository(context: Context) {
             isEnabled = Settings.System.getIntForUser(
                 resolver, SETTING_ENABLED, 0, UserHandle.USER_CURRENT
             ) == 1,
-            useAccentColor = Settings.System.getIntForUser(
-                resolver, SETTING_USE_ACCENT_COLOR, 0, UserHandle.USER_CURRENT
-            ) == 1,
+            colorMode = Settings.System.getIntForUser(
+                resolver, SETTING_COLOR_MODE, 0, UserHandle.USER_CURRENT
+            ).coerceIn(0, 2),
             iconStyle = iconStyle.coerceIn(0, 2),
             iconSize = iconSize.coerceIn(5, 40),
             useCompactStyle = Settings.System.getIntForUser(
@@ -192,7 +192,7 @@ class NowPlayingSettingsRepository(context: Context) {
     companion object {
         private const val TAG = "NowPlayingSettings"
         private const val SETTING_ENABLED = "nowplaying_enabled"
-        private const val SETTING_USE_ACCENT_COLOR = "nowplaying_use_accent_color"
+        private const val SETTING_COLOR_MODE = "nowplaying_color_mode"
         private const val SETTING_ICON_STYLE = "nowplaying_icon_style"
         private const val SETTING_ICON_SIZE = "nowplaying_icon_size"
         private const val SETTING_USE_COMPACT_STYLE = "nowplaying_use_compact_style"
@@ -203,5 +203,9 @@ class NowPlayingSettingsRepository(context: Context) {
         private const val SETTING_SHOW_ON_LOCKSCREEN = "nowplaying_show_on_lockscreen"
         private const val SETTING_TAP_TO_EXPAND = "nowplaying_tap_to_expand"
         private const val SETTING_WAVEFORM_SEEKBAR = "media_waveform_seekbar"
+
+        const val COLOR_MODE_WHITE = 0
+        const val COLOR_MODE_ACCENT = 1
+        const val COLOR_MODE_ALBUM = 2
     }
 }
