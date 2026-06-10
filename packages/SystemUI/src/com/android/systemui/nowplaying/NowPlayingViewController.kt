@@ -17,6 +17,7 @@ package com.android.systemui.nowplaying
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
@@ -24,6 +25,7 @@ import android.media.session.PlaybackState
 import android.util.Log
 import android.view.WindowManager
 import android.widget.FrameLayout
+import androidx.palette.graphics.Palette
 import com.android.settingslib.Utils
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.util.ScrimUtils
@@ -75,6 +77,8 @@ constructor(
             )
         }
     }
+
+    private var currentAlbumArtColor: Int? = null
 
     private val expandedOverlay: NowPlayingExpandedOverlay by lazy {
         NowPlayingExpandedOverlay(
@@ -139,11 +143,7 @@ constructor(
     }
 
     private fun updateViewWithSettings(settings: NowPlayingSettings) {
-        val textColor = if (settings.useAccentColor) {
-            Utils.getColorAccentDefaultColor(context)
-        } else {
-            0xFFFFFFFF.toInt()
-        }
+        val textColor = resolveTextColor(settings.colorMode)
         
         nowPlayingView.apply {
             this.textColor = textColor
@@ -203,6 +203,20 @@ constructor(
                 ?: meta.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
         }
 
+        if (albumArt != null) {
+            scope.launch(Dispatchers.IO) {
+                val extracted = extractAlbumArtColor(albumArt)
+                withContext(Dispatchers.Main) {
+                    currentAlbumArtColor = extracted
+                    NowPlayingOverlayState.update { copy(albumArtColor = extracted) }
+                    nowPlayingView.textColor = resolveTextColor(currentSettings.colorMode)
+                }
+            }
+        } else {
+            currentAlbumArtColor = null
+            NowPlayingOverlayState.update { copy(albumArtColor = null) }
+        }
+
         NowPlayingOverlayState.update {
             copy(
                 track = currentTrackTitle,
@@ -214,6 +228,32 @@ constructor(
         }
         
         updateState()
+    }
+
+    private fun resolveTextColor(colorMode: Int): Int =
+        when (colorMode) {
+            NowPlayingSettingsRepository.COLOR_MODE_ACCENT ->
+                Utils.getColorAccentDefaultColor(context)
+            NowPlayingSettingsRepository.COLOR_MODE_ALBUM ->
+                currentAlbumArtColor?.let { boostSaturation(it) }
+                    ?: 0xFFFFFFFF.toInt()
+            else -> 0xFFFFFFFF.toInt()
+        }
+
+    private fun extractAlbumArtColor(bitmap: Bitmap): Int? {
+        val palette = Palette.from(bitmap).generate()
+        val swatch = palette.vibrantSwatch
+            ?: palette.lightVibrantSwatch
+            ?: palette.dominantSwatch
+            ?: return null
+        return swatch.rgb
+    }
+
+    private fun boostSaturation(color: Int, amount: Float = 0.20f): Int {
+        val hsv = FloatArray(3)
+        Color.colorToHSV(color, hsv)
+        hsv[1] = (hsv[1] + amount).coerceAtMost(1.0f)
+        return Color.HSVToColor(hsv)
     }
 
     private fun updatePlaybackState(state: PlaybackState?) {
