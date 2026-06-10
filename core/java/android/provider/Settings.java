@@ -7320,11 +7320,10 @@ public final class Settings {
         public static final String NOWPLAYING_ENABLED = "nowplaying_enabled";
 
         /**
-         * Whether to use accent color (true) or white (false)
-         * 0 = White (default), 1 = Accent color
+         * 0 = White (default), 1 = Accent color 2 = Album art
          * @hide
          */
-        public static final String NOWPLAYING_USE_ACCENT_COLOR = "nowplaying_use_accent_color";
+        public static final String NOWPLAYING_COLOR_MODE = "nowplaying_color_mode";
 
         /**
          * Whether to show app icon above track title.
