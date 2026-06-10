@@ -25,6 +25,7 @@ import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.Gravity
 import android.view.WindowManager
 import android.widget.SeekBar
@@ -688,17 +689,30 @@ private fun NowPlayingSeekBar(
     val onSeekRef = rememberUpdatedState(onSeekTo)
 
     LaunchedEffect(
-        state.position, durationMs, state.isPlaying, state.positionUpdateTime
+        state.positionUpdateTime, durationMs, state.isPlaying
     ) {
         if (isScrubbing) return@LaunchedEffect
-        displayFraction = serverFraction
+        val correctedStartMs: Long = if (state.isPlaying && durationMs > 0L
+                && state.positionUpdateTime > 0L) {
+            val elapsedSinceUpdate =
+                SystemClock.elapsedRealtime() - state.positionUpdateTime
+            (state.position + elapsedSinceUpdate).coerceIn(0L, durationMs)
+        } else {
+            state.position.coerceIn(0L, durationMs)
+        }
+
+        displayFraction = if (durationMs > 0L)
+            (correctedStartMs.toFloat() / durationMs).coerceIn(0f, 1f)
+        else 0f
+
         if (!state.isPlaying || durationMs <= 0L) return@LaunchedEffect
-        val wallStart = System.currentTimeMillis()
-        val posStart = state.position
+
+        val tickerBase = SystemClock.elapsedRealtime()
+        val posStart = correctedStartMs
         while (true) {
             delay(16L)
             if (isScrubbing) break
-            val elapsed = System.currentTimeMillis() - wallStart
+            val elapsed = SystemClock.elapsedRealtime() - tickerBase
             val interp = ((posStart + elapsed).toFloat() / durationMs).coerceIn(0f, 1f)
             displayFraction = interp
             if (interp >= 1f) break
