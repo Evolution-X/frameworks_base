@@ -30,6 +30,7 @@ data class NowPlayingMediaState(
     val playbackSpeed: Float = 1f,
     val positionUpdateTime: Long = 0L,
     val packageName: String = "",
+    val albumArtColor: Int? = null,
     val outputDeviceName: String = "",
     val albumArt: Bitmap? = null,
     val useWaveformSeekBar: Boolean = false,
