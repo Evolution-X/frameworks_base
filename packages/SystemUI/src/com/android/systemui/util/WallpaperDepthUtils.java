@@ -30,6 +30,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.provider.Settings;
 import android.util.DisplayMetrics;
+import android.util.MathUtils;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
@@ -49,6 +50,13 @@ public class WallpaperDepthUtils {
     private static final String WALLPAPER_DEPTH_OPACITY_KEY = "system:depth_wallpaper_opacity";
     private static final String WALLPAPER_DEPTH_OFFSET_X_KEY = "system:depth_wallpaper_offset_x";
     private static final String WALLPAPER_DEPTH_OFFSET_Y_KEY = "system:depth_wallpaper_offset_y";
+    private static final String WALLPAPER_DEPTH_BOTTOM_FADE_KEY = "system:depth_wallpaper_bottom_fade";
+    private static final String WALLPAPER_DEPTH_FADE_CURVE_KEY = "system:depth_wallpaper_fade_curve";
+    private static final String WALLPAPER_DEPTH_BOTTOM_INSET_KEY = "system:depth_wallpaper_bottom_inset";
+
+    private static final int DEFAULT_FADE_CURVE_PERCENT = 50;
+    private static final int DEFAULT_BOTTOM_FADE_DP = 100;
+    private static final int DEFAULT_BOTTOM_INSET_DP = 180;
 
     private static WallpaperDepthUtils instance;
     private FrameLayout mLockScreenSubject;
@@ -71,13 +79,19 @@ public class WallpaperDepthUtils {
     private int mOffsetY;
     private boolean mUnlocking;
 
+    private int mBottomFadeDp = DEFAULT_BOTTOM_FADE_DP;
+    private int mFadeCurvePercent = DEFAULT_FADE_CURVE_PERCENT;
+    private int mBottomInsetDp = DEFAULT_BOTTOM_INSET_DP;
+
     private WallpaperDepthUtils(Context context, ScrimController scrimController) {
         mContext = context.getApplicationContext();
         mScrimController = scrimController;
         mTunerService = Dependency.get(TunerService.class);
         mTunerService.addTunable(mTunable, WALLPAPER_DEPTH_KEY, 
             WALLPAPER_DEPTH_ENABLED_KEY, WALLPAPER_DEPTH_OPACITY_KEY, 
-            WALLPAPER_DEPTH_OFFSET_X_KEY, WALLPAPER_DEPTH_OFFSET_Y_KEY);
+            WALLPAPER_DEPTH_OFFSET_X_KEY, WALLPAPER_DEPTH_OFFSET_Y_KEY,
+            WALLPAPER_DEPTH_BOTTOM_FADE_KEY, WALLPAPER_DEPTH_FADE_CURVE_KEY,
+            WALLPAPER_DEPTH_BOTTOM_INSET_KEY);
         mLockScreenSubject = new FrameLayout(mContext) {
             @Override
             protected void onDetachedFromWindow() {
@@ -176,6 +190,18 @@ public class WallpaperDepthUtils {
                     mOffsetY = TunerService.parseInteger(newValue, 0);
                     updateDepthWallpaper(true);
                     break;
+                case WALLPAPER_DEPTH_BOTTOM_FADE_KEY:
+                    mBottomFadeDp = TunerService.parseInteger(newValue, DEFAULT_BOTTOM_FADE_DP);
+                    applyBottomFade();
+                    break;
+                case WALLPAPER_DEPTH_FADE_CURVE_KEY:
+                    mFadeCurvePercent = TunerService.parseInteger(newValue, DEFAULT_FADE_CURVE_PERCENT);
+                    applyFadeCurve();
+                    break;
+                case WALLPAPER_DEPTH_BOTTOM_INSET_KEY:
+                    mBottomInsetDp = TunerService.parseInteger(newValue, DEFAULT_BOTTOM_INSET_DP);
+                    applyBottomInset();
+                    break;
                 default:
                     break;
             }
@@ -185,6 +211,40 @@ public class WallpaperDepthUtils {
     public void setSubjectAlpha(float subjectAlpha) {
         if (mLockScreenSubject == null) return;
         mLockScreenSubject.post(() -> mLockScreenSubject.setAlpha(subjectAlpha));
+    }
+
+    private void applyBottomFade() {
+        if (mLockScreenSubject == null) return;
+        Drawable background = mLockScreenSubject.getBackground();
+        if (background instanceof FadeBottomDrawable) {
+            ((FadeBottomDrawable) background).setFadeHeightPx(dpToPx(mBottomFadeDp));
+        }
+    }
+
+    private void applyBottomInset() {
+        if (mLockScreenSubject == null) return;
+        Drawable background = mLockScreenSubject.getBackground();
+        if (background instanceof FadeBottomDrawable) {
+            ((FadeBottomDrawable) background).setBottomInsetPx(dpToPx(mBottomInsetDp));
+        }
+    }
+
+    private void applyFadeCurve() {
+        if (mLockScreenSubject == null) return;
+        Drawable background = mLockScreenSubject.getBackground();
+        if (background instanceof FadeBottomDrawable) {
+            ((FadeBottomDrawable) background).setFadeCurveExponent(computeFadeCurveExponent());
+        }
+    }
+
+    private float computeFadeCurveExponent() {
+        float percent = MathUtils.constrain(mFadeCurvePercent, 0, 100) / 100f;
+        return 0.2f + percent * 0.8f;
+    }
+
+    private int dpToPx(int dp) {
+        DisplayMetrics displayMetrics = mContext.getResources().getDisplayMetrics();
+        return Math.round(dp * displayMetrics.density);
     }
     
     public void updateDepthWallpaper() {
@@ -299,7 +359,9 @@ public class WallpaperDepthUtils {
                     mWallpaperBitmap = null;
                 }
                 mWallpaperBitmap = resizedBitmap;
-                Drawable bitmapDrawable = new BitmapDrawable(mContext.getResources(), mWallpaperBitmap);
+                Drawable bitmapDrawable = new FadeBottomDrawable(mWallpaperBitmap, dpToPx(mBottomFadeDp));
+                ((FadeBottomDrawable) bitmapDrawable).setFadeCurveExponent(computeFadeCurveExponent());
+                ((FadeBottomDrawable) bitmapDrawable).setBottomInsetPx(dpToPx(mBottomInsetDp));
                 bitmapDrawable.setAlpha(255);
                 mDimmingOverlay = bitmapDrawable.getConstantState().newDrawable().mutate();
                 mDimmingOverlay.setTint(Color.BLACK);
