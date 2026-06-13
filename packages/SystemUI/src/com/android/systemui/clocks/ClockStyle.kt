@@ -240,7 +240,7 @@ class ClockStyle @JvmOverloads constructor(
             }
             CLOCK_FRAME_MARGIN_TOP_KEY -> {
                 clockFrameMarginTop = TunerService.parseInteger(newValue, DEFAULT_MARGIN_TOP)
-                    .coerceIn(0, 100)
+                    .coerceIn(0, 200)
                 updateClockFrameMargin()
             }
             CLOCK_SIZE_KEY -> {
