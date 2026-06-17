@@ -392,6 +392,7 @@ java_library {
         ":__subpackages__",
         "//frameworks/opt:__subpackages__",
         "//vendor:__subpackages__",
+        "//lineage-sdk:__subpackages__",
     ],
 
     lint: {
