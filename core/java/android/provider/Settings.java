@@ -14668,6 +14668,12 @@ public final class Settings {
         public static final String LOCK_SCREEN_CUSTOM_CLOCK_WOBBLE_ON_CHARGE = "lock_screen_custom_clock_wobble_on_charge";
 
         /**
+         * Custom start margin
+         * @hide
+         */
+        public static final String LOCK_SCREEN_CUSTOM_CLOCK_MARGIN_START = "lock_screen_custom_clock_margin_start";
+
+        /**
          * Keys we no longer back up under the current schema, but want to continue to
          * process when restoring historical backup datasets.
          *
