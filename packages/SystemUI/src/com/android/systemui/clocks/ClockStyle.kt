@@ -65,6 +65,8 @@ class ClockStyle @JvmOverloads constructor(
     private var clockOpacity = DEFAULT_OPACITY
     private var clockFrameMarginTop = DEFAULT_MARGIN_TOP
     private var clockSizeScale = DEFAULT_CLOCK_SIZE
+    private var clockFrameMarginStart = DEFAULT_MARGIN_START
+
     private var aodAnimEnabled = true
     private var albumArtColorEnabled = false
     private var currentAlbumColor: Int? = null
@@ -169,6 +171,7 @@ class ClockStyle @JvmOverloads constructor(
             CLOCK_AOD_ANIM_KEY,
             CLOCK_ALBUM_ART_COLOR_KEY,
             CLOCK_WOBBLE_ON_CHARGE_KEY,
+            CLOCK_FRAME_MARGIN_START_KEY,
         )
         statusBarStateController.addCallback(statusBarStateListener)
         if (albumArtColorEnabled) {
@@ -267,6 +270,11 @@ class ClockStyle @JvmOverloads constructor(
             CLOCK_WOBBLE_ON_CHARGE_KEY -> {
                 clockWobbleOnChargeEnabled = TunerService.parseInteger(newValue, 1) != 0
                 if (!clockWobbleOnChargeEnabled) cancelWobbleAnimation()
+            }
+            CLOCK_FRAME_MARGIN_START_KEY -> {
+                clockFrameMarginStart = TunerService.parseInteger(newValue, DEFAULT_MARGIN_START)
+                    .coerceIn(-200, 200)
+                updateClockFrameMargin()
             }
         }
     }
@@ -435,7 +443,13 @@ class ClockStyle @JvmOverloads constructor(
     private fun updateClockFrameMargin() {
         val clockFrame = findViewById<View?>(R.id.clock_frame) ?: return
         val params = clockFrame.layoutParams as? ViewGroup.MarginLayoutParams ?: return
-        params.topMargin = (clockFrameMarginTop * resources.displayMetrics.density).toInt()
+        val density = resources.displayMetrics.density
+        params.topMargin = (clockFrameMarginTop * density).toInt()
+        if (!isNoHorizontalMarginClock(clockStyle)) {
+            params.marginStart = (clockFrameMarginStart * density).toInt()
+        } else {
+            params.marginStart = 0
+        }
         clockFrame.layoutParams = params
     }
 
@@ -813,6 +827,7 @@ class ClockStyle @JvmOverloads constructor(
         )
 
         private val NO_COLOR_CLOCKS = hashSetOf(1, 2, 25, 26)
+        private val NO_HORIZONTAL_MARGIN_CLOCKS = hashSetOf(45, 73, 74)
 
         @JvmField val CLOCK_STYLE_KEY: String = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_STYLE
         @JvmField val CLOCK_COLOR_MODE_KEY: String = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_COLOR_MODE
@@ -823,6 +838,7 @@ class ClockStyle @JvmOverloads constructor(
         @JvmField val CLOCK_AOD_ANIM_KEY: String = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_AOD_ANIM
         @JvmField val CLOCK_ALBUM_ART_COLOR_KEY: String = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_ALBUM_ART_COLOR
         @JvmField val CLOCK_WOBBLE_ON_CHARGE_KEY: String = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_WOBBLE_ON_CHARGE
+        @JvmField val CLOCK_FRAME_MARGIN_START_KEY: String = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_MARGIN_START
 
         const val COLOR_MODE_DEFAULT = "default"
         const val COLOR_MODE_ACCENT = "accent"
@@ -838,6 +854,7 @@ class ClockStyle @JvmOverloads constructor(
         private const val DEFAULT_CLOCK_SIZE = 100
         private const val MIN_CLOCK_SIZE = 50
         private const val MAX_CLOCK_SIZE = 150
+        private const val DEFAULT_MARGIN_START = 0
 
         private const val AOD_UPDATE_INTERVAL_MILLIS = 60_000L
         private const val UPDATE_INTERVAL_MILLIS = 15_000L
