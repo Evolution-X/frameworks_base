@@ -414,18 +414,14 @@ class ClockStyle @JvmOverloads constructor(
     private fun cacheClockViews(root: View) {
         when (root) {
             is TextClock -> {
-                root.typeface?.let {
-                    root.setTag(R.id.original_typeface, it)
-                    root.typeface = it
-                }
+                root.setTag(R.id.original_typeface, root.typeface)
+                root.setTag(R.id.original_text_color, root.currentTextColor)
                 textClocks.add(root)
                 styledTextViews.add(root)
             }
             is TextView -> {
-                root.typeface?.let {
-                    root.setTag(R.id.original_typeface, it)
-                    root.typeface = it
-                }
+                root.setTag(R.id.original_typeface, root.typeface)
+                root.setTag(R.id.original_text_color, root.currentTextColor)
                 styledTextViews.add(root)
             }
         }
@@ -483,15 +479,8 @@ class ClockStyle @JvmOverloads constructor(
         val whiteColor = context.getColor(android.R.color.white)
         for (i in textClocks.indices) {
             val tc = textClocks[i]
-            if (tc.getTag(R.id.original_typeface) == null && tc.typeface != null) {
-                tc.setTag(R.id.original_typeface, tc.typeface)
-            }
-            if (tc.getTag(R.id.original_text_color) == null) {
-                tc.setTag(R.id.original_text_color, tc.currentTextColor)
-            }
             (tc.getTag(R.id.original_typeface) as? Typeface)?.let { tc.typeface = it }
-
-            val originalColor = tc.getTag(R.id.original_text_color) as Int
+            val originalColor = tc.getTag(R.id.original_text_color) as? Int ?: tc.currentTextColor
             val isWhiteOriginal = (originalColor and 0x00FFFFFF) == (whiteColor and 0x00FFFFFF)
             tc.setTextColor(
                 when {
@@ -505,10 +494,7 @@ class ClockStyle @JvmOverloads constructor(
         for (i in styledTextViews.indices) {
             val tv = styledTextViews[i]
             if (tv is TextClock) continue
-            if (tv.getTag(R.id.original_text_color) == null) {
-                tv.setTag(R.id.original_text_color, tv.currentTextColor)
-            }
-            val originalColor = tv.getTag(R.id.original_text_color) as Int
+            val originalColor = tv.getTag(R.id.original_text_color) as? Int ?: tv.currentTextColor
             val isWhiteOriginal = (originalColor and 0x00FFFFFF) == (whiteColor and 0x00FFFFFF)
             tv.setTextColor(
                 when {
