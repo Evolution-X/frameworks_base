@@ -55,7 +55,8 @@
         android:gravity="center"
         android:singleLine="true"
         android:textAlignment="center"
-        android:layout_marginTop="-40dp"
+        android:layout_marginTop="-30dp"
+        android:layout_marginBottom="-20dp"
         android:textColor="@android:color/white"
         android:textSize="120dp" />
 
