@@ -51,7 +51,7 @@
         android:layout_height="wrap_content"
         android:fontFamily="@font/Quartilla"
         android:layout_marginTop="5dp"
-        android:layout_marginBottom="-90dp"
+        android:layout_marginBottom="-100dp"
         android:format12Hour="hh:mm"
         android:format24Hour="HH:mm"
         android:gravity="center"
