@@ -52,7 +52,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:fontFamily="@font/Electroharmonix"
-        android:layout_marginTop="-10dp"
+        android:layout_marginTop="-15dp"
         android:layout_marginBottom="-10dp"
         android:format12Hour="hhmm"
         android:format24Hour="HHmm"
