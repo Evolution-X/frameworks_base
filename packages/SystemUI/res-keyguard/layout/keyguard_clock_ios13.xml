@@ -50,7 +50,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:fontFamily="@font/Expanse"
-        android:layout_marginTop="-10dp"
+        android:layout_marginTop="-20dp"
+        android:layout_marginBottom="-20dp"
         android:includeFontPadding="false"
         android:format12Hour="hh:mm"
         android:format24Hour="HH:mm"
@@ -58,7 +59,7 @@
         android:singleLine="true"
         android:textAlignment="center"
         android:textColor="@android:color/white"
-        android:textSize="140dp" />
+        android:textSize="160dp" />
 
 </LinearLayout>
 
