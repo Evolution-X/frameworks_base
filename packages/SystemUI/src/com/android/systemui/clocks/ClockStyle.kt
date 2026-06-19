@@ -601,6 +601,7 @@ class ClockStyle @JvmOverloads constructor(
     }
 
     private fun isNoColorClock(style: Int): Boolean = NO_COLOR_CLOCKS.contains(style)
+    private fun isNoHorizontalMarginClock(style: Int): Boolean = NO_HORIZONTAL_MARGIN_CLOCKS.contains(style)
 
     private fun startWobbleAnimation() {
         val view = currentClockView ?: return

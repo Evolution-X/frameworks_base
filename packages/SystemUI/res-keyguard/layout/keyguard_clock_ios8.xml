@@ -12,7 +12,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:fontFamily="@font/Kenyen"
-        android:layout_marginBottom="-10dp"
+        android:layout_marginBottom="-12dp"
         android:format12Hour="hhmm"
         android:format24Hour="HHmm"
         android:gravity="center"
@@ -37,7 +37,7 @@
             android:singleLine="true"
             android:textAlignment="center"
             android:textColor="@android:color/white"
-            android:textSize="20dp"
+            android:textSize="17dp"
             android:textStyle="bold" />
 
         <com.android.systemui.weather.WeatherImageView
@@ -53,7 +53,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="4dp"
             android:textColor="@android:color/white"
-            android:textSize="20dp"
+            android:textSize="17dp"
             android:textStyle="bold"
             android:visibility="gone" />
 
