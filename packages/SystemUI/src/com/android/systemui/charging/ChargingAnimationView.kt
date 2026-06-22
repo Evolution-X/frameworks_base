@@ -284,8 +284,8 @@ class ChargingAnimationView(context: Context) : FrameLayout(context) {
     private val matrixChars = mutableListOf<MatrixChar>()
     private val geoShapes = mutableListOf<GeoShape>()
     
-    private val usbPortY: Float by lazy { height.toFloat() }
-    private val usbPortX: Float by lazy { width / 2f }
+    private val usbPortY: Float get() = height.toFloat()
+    private val usbPortX: Float get() = width / 2f
 
     private val matrixCharSet = "01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン"
 
