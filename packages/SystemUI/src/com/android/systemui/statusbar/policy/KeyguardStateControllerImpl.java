@@ -79,9 +79,10 @@ public class KeyguardStateControllerImpl implements KeyguardStateController {
     private final Lazy<KeyguardInteractor> mKeyguardInteractorLazy;
 
     private boolean mCanDismissLockScreen;
-    private boolean mShowing;
+    // volatile: read off the main thread by SecureQSTile (on the QS background looper).
+    private volatile boolean mShowing;
     private boolean mPrimaryBouncerShowing;
-    private boolean mSecure;
+    private volatile boolean mSecure;
     private boolean mOccluded;
 
     private boolean mKeyguardFadingAway;
