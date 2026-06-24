@@ -41,7 +41,7 @@
     <available-protections>
         <protection id="DISALLOW_CELLULAR_2G" />
         <protection id="DISALLOW_INSECURE_WIFI_AUTOJOIN"
-                    featureFlag="android.security.aapm_feature_disable_insecure_wifi_autojoin" />
+                    featureFlag="android.security.aapm_feature_disable_insecure_wifi_autojoin_v2" />
         <protection id="DISALLOW_INSTALL_UNKNOWN_SOURCES" />
         <protection id="DISALLOW_USB" />
         <protection id="ENABLE_MTE" />
