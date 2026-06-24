@@ -131,7 +131,7 @@ public class AdvancedProtectionConfigLoader {
         }
         Boolean featureFlagValue = AconfigFlags.getInstance().getFlagValue(featureFlag);
         if (featureFlagValue == null) {
-            throw new IllegalArgumentException("Invalid feature flag: " + featureFlag);
+            return false;
         }
         return negated ? !featureFlagValue : featureFlagValue;
     }
