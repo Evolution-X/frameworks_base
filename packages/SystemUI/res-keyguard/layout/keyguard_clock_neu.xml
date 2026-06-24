@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/clock_frame"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="start"
+    android:paddingStart="24dp"
+    android:paddingTop="16dp">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <com.android.systemui.weather.WeatherImageView
+            android:id="@+id/weather_image"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:visibility="gone" />
+
+        <com.android.systemui.weather.WeatherTextView
+            android:id="@+id/weather_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:fontFamily="@font/Kenyen"
+            android:textColor="#f9f9f9"
+            android:textSize="18sp"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
+    <TextClock
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/Neu"
+        android:format12Hour="hh"
+        android:format24Hour="HH"
+        android:alpha="0.8"
+        android:singleLine="true"
+        android:layout_marginBottom="-18dp"
+        android:textColor="#f9f9f9"
+        android:textSize="130dp" />
+
+    <TextClock
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/Neu"
+        android:format12Hour="mm"
+        android:format24Hour="mm"
+        android:singleLine="true"
+        android:textColor="@android:color/white"
+        android:textSize="130dp" />
+
+    <TextClock
+        android:id="@+id/date"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="-15dp"
+        android:fontFamily="@font/Kenyen"
+        android:format12Hour="EEE, MMMM dd"
+        android:format24Hour="EEE, MMMM dd"
+        android:textAllCaps="true"
+        android:textColor="#f9f9f9"
+        android:textSize="18sp" />
+
+</LinearLayout>
