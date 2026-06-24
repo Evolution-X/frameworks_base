@@ -825,6 +825,10 @@ class ClockStyle @JvmOverloads constructor(
             R.layout.keyguard_clock_galada,         // 83
             R.layout.keyguard_clock_cos1,           // 84
             R.layout.keyguard_clock_cos2,           // 85
+            R.layout.keyguard_clock_neu,            // 86
+            R.layout.keyguard_clock_neu2,           // 87
+            R.layout.keyguard_clock_neu3,           // 88
+            R.layout.keyguard_clock_badeen,         // 89
         )
 
         private val NO_COLOR_CLOCKS = hashSetOf(1, 2, 25, 26)
