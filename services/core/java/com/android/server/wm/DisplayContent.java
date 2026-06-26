@@ -4532,6 +4532,10 @@ class DisplayContent extends RootDisplayArea implements WindowManagerPolicy.Disp
             if (newTask != null) newTask.onAppFocusChanged(true);
         }
 
+        if (mDisplayId == DEFAULT_DISPLAY && newFocus != null) {
+            IAxSandboxService.get().onAppFocusChanged(newFocus, newTask);
+        }
+
         if (newFocus != null && isDefaultDisplay) {
             final GameSpaceService gameSpaceService =
                     LocalServices.getService(GameSpaceService.class);
