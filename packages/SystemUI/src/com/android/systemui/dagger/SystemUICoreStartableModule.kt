@@ -60,6 +60,7 @@ import com.android.systemui.temporarydisplay.chipbar.ChipbarCoordinator
 import com.android.systemui.usb.StorageNotification
 import com.android.systemui.util.NotificationChannels
 import com.android.systemui.wmshell.WMShell
+import com.axion.applocker.AxAppLockerHelper
 import dagger.Binds
 import dagger.Module
 import dagger.multibindings.ClassKey
@@ -337,4 +338,9 @@ abstract class SystemUICoreStartableModule {
     abstract fun bindSmartPixelManager(
         impl: SmartPixelManager
     ): CoreStartable
+
+    @Binds
+    @IntoMap
+    @ClassKey(AxAppLockerHelper::class)
+    abstract fun bindAxAppLockerHelper(impl: AxAppLockerHelper): CoreStartable
 }
