@@ -17,6 +17,7 @@ package com.android.systemui.display.ui.viewmodel
 
 import android.app.Dialog
 import android.content.Context
+import android.os.UserHandle
 import android.provider.Settings.Secure.MIRROR_BUILT_IN_DISPLAY
 import android.util.Log
 import android.view.Display.DEFAULT_DISPLAY
@@ -271,10 +272,15 @@ constructor(
     private suspend fun setDisplayMirrorSetting(enable: Boolean): Boolean =
         withContext(bgDispatcher) {
             val newVal = if (enable) 1 else 0
-            val currentVal = secureSettings.getInt(MIRROR_BUILT_IN_DISPLAY, 0)
+            val currentVal =
+                secureSettings.getIntForUser(MIRROR_BUILT_IN_DISPLAY, 0, UserHandle.USER_CURRENT)
 
             if (currentVal == newVal) return@withContext true
-            return@withContext secureSettings.putInt(MIRROR_BUILT_IN_DISPLAY, newVal)
+            return@withContext secureSettings.putIntForUser(
+                MIRROR_BUILT_IN_DISPLAY,
+                newVal,
+                UserHandle.USER_CURRENT,
+            )
         }
 
     private fun dismissDialog() {
