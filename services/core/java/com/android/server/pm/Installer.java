@@ -759,6 +759,77 @@ public class Installer extends SystemService {
         }
     }
 
+    public void tarAppData(String packageName, int userId, int storageFlags,
+            ParcelFileDescriptor outFd, boolean excludeCache) throws InstallerException {
+        if (!checkBeforeRemote()) return;
+
+        try {
+            mInstalld.tarAppData(null, packageName, userId, storageFlags, outFd, excludeCache);
+        } catch (Exception e) {
+            throw InstallerException.from(e);
+        }
+    }
+
+    public void untarAppDataExternal(String packageName, int userId,
+            ParcelFileDescriptor inFd) throws InstallerException {
+        if (!checkBeforeRemote()) return;
+
+        try {
+            mInstalld.untarAppDataExternal(null, packageName, userId, inFd);
+        } catch (Exception e) {
+            throw InstallerException.from(e);
+        }
+    }
+
+    public void untarAppData(String packageName, int userId, int storageFlags,
+            int appId, String seInfo, ParcelFileDescriptor inFd) throws InstallerException {
+        if (!checkBeforeRemote()) return;
+
+        try {
+            mInstalld.untarAppData(null, packageName, userId, storageFlags, appId, seInfo, inFd);
+        } catch (Exception e) {
+            throw InstallerException.from(e);
+        }
+    }
+
+    public void publishBackupArchive(int userId, String archiveId,
+            ParcelFileDescriptor inFd) throws InstallerException {
+        if (!checkBeforeRemote()) return;
+        try {
+            mInstalld.publishBackupArchive(userId, archiveId, inFd);
+        } catch (Exception e) {
+            throw InstallerException.from(e);
+        }
+    }
+
+    public ParcelFileDescriptor openBackupArchive(int userId, String archiveId)
+            throws InstallerException {
+        if (!checkBeforeRemote()) return null;
+        try {
+            return mInstalld.openBackupArchive(userId, archiveId);
+        } catch (Exception e) {
+            throw InstallerException.from(e);
+        }
+    }
+
+    public String[] listBackupArchives(int userId) throws InstallerException {
+        if (!checkBeforeRemote()) return new String[0];
+        try {
+            return mInstalld.listBackupArchives(userId);
+        } catch (Exception e) {
+            throw InstallerException.from(e);
+        }
+    }
+
+    public void deleteBackupArchive(int userId, String archiveId) throws InstallerException {
+        if (!checkBeforeRemote()) return;
+        try {
+            mInstalld.deleteBackupArchive(userId, archiveId);
+        } catch (Exception e) {
+            throw InstallerException.from(e);
+        }
+    }
+
     /**
      * Deletes user data snapshot of the given package.
      *
