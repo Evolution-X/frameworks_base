@@ -19,4 +19,7 @@
     <!-- Udfps fingerprint animation -->
     <dimen name="udfps_animation_size">200dp</dimen>
     <dimen name="udfps_animation_offset">0dp</dimen>
+
+    <!-- Extra bottom offset for the Dynamic Bar keyguard chip -->
+    <dimen name="ax_dynamic_bar_keyguard_chip_extra_bottom_margin">0dp</dimen>
 </resources>

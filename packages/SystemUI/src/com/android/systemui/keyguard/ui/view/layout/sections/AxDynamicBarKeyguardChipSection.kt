@@ -31,6 +31,9 @@ private const val CHIP_ABOVE_LOCK_MARGIN_DP = 12f
 private const val EXPANDED_BOTTOM_PROTECTION_DP = 16f
 private const val UNSET = -1
 
+private fun extraBottomMarginPx(context: Context): Int =
+    context.resources.getDimensionPixelSize(R.dimen.ax_dynamic_bar_keyguard_chip_extra_bottom_margin)
+
 private val HIDDEN_VIEW_IDS = listOf(
     R.id.shared_notification_container,
     R.id.notificationShelf,
@@ -154,6 +157,7 @@ constructor(
         val lowUdfps = viewModel.isLowUdfps.value
         val bottomProtectionPx = EXPANDED_BOTTOM_PROTECTION_DP.dpToPx(context)
         val chipAboveLockPx = CHIP_ABOVE_LOCK_MARGIN_DP.dpToPx(context)
+        val extraBottomPx = extraBottomMarginPx(context)
         val wrap = ViewGroup.LayoutParams.WRAP_CONTENT
         constraintSet.apply {
             when {
@@ -168,14 +172,14 @@ constructor(
                 lowUdfps -> {
                     constrainWidth(chipViewId, wrap)
                     constrainHeight(chipViewId, wrap)
-                    connect(chipViewId, ConstraintSet.BOTTOM, R.id.device_entry_icon_view, ConstraintSet.TOP, chipAboveLockPx)
+                    connect(chipViewId, ConstraintSet.BOTTOM, R.id.device_entry_icon_view, ConstraintSet.TOP, chipAboveLockPx + extraBottomPx)
                     connect(chipViewId, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
                     connect(chipViewId, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
                 }
                 else -> {
                     constrainWidth(chipViewId, wrap)
                     constrainHeight(chipViewId, wrap)
-                    connect(chipViewId, ConstraintSet.BOTTOM, R.id.start_button, ConstraintSet.BOTTOM)
+                    connect(chipViewId, ConstraintSet.BOTTOM, R.id.start_button, ConstraintSet.BOTTOM, extraBottomPx)
                     connect(chipViewId, ConstraintSet.START, R.id.start_button, ConstraintSet.END)
                     connect(chipViewId, ConstraintSet.END, R.id.end_button, ConstraintSet.START)
                 }
@@ -203,6 +207,7 @@ constructor(
 
     private fun applyCollapsedLp(composeView: View, lowUdfps: Boolean) {
         val lp = composeView.layoutParams as ConstraintLayout.LayoutParams
+        val extraBottomPx = extraBottomMarginPx(context)
         lp.width = ViewGroup.LayoutParams.WRAP_CONTENT
         lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
         lp.topMargin = 0
@@ -211,7 +216,7 @@ constructor(
         if (lowUdfps) {
             lp.bottomToTop = R.id.device_entry_icon_view
             lp.bottomToBottom = UNSET
-            lp.bottomMargin = CHIP_ABOVE_LOCK_MARGIN_DP.dpToPx(context)
+            lp.bottomMargin = CHIP_ABOVE_LOCK_MARGIN_DP.dpToPx(context) + extraBottomPx
             lp.startToStart = ConstraintLayout.LayoutParams.PARENT_ID
             lp.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
             lp.startToEnd = UNSET
@@ -219,7 +224,7 @@ constructor(
         } else {
             lp.bottomToBottom = R.id.start_button
             lp.bottomToTop = UNSET
-            lp.bottomMargin = 0
+            lp.bottomMargin = extraBottomPx
             lp.startToEnd = R.id.start_button
             lp.endToStart = R.id.end_button
             lp.startToStart = UNSET
