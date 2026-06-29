@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 VoltageOS
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+-->
+<resources>
+    <string name="app_name">App Data Backup</string>
+    <string name="tab_apps">Apps</string>
+    <string name="tab_backups">Backups</string>
+    <string name="backup_selected">Back up selected</string>
+    <string name="restore">Restore</string>
+    <string name="verify">Verify</string>
+    <string name="delete">Delete</string>
+    <string name="backup_complete">Backup complete</string>
+    <string name="restore_complete">Restore complete - relaunch the app</string>
+    <string name="cancel">Cancel</string>
+    <string name="select_at_least_one">Select at least one app</string>
+    <string name="confirm_restore_title">Restore %1$s?</string>
+    <string name="confirm_restore_message">This will reinstall the APK and overwrite all app data.\nThe app will be force-stopped during restore.</string>
+    <string name="confirm_delete_title">Delete backup?</string>
+    <string name="confirm_delete_message">Delete backup of %1$s?\nThis cannot be undone.</string>
+
+    <string name="backup_headline">Back up your apps</string>
+    <string name="backup_subheadline">Snapshot apps and their data, then restore anytime.</string>
+    <string name="summary_empty_count">No apps selected</string>
+    <string name="summary_empty_size">Pick apps to back up</string>
+    <string name="summary_count">%1$d apps selected</string>
+    <string name="summary_count_one">1 app selected</string>
+    <string name="summary_size">About %1$s to archive</string>
+    <string name="chip_exclude_cache">Exclude cache</string>
+    <string name="action_select_all">Select all</string>
+    <string name="action_clear">Clear</string>
+    <string name="fab_backup_count">Back up (%1$d)</string>
+
+    <string name="backup_options_title">Backup options</string>
+    <string name="section_encryption">Encryption</string>
+    <string name="section_include">Include</string>
+    <string name="section_retention">Retention</string>
+    <string name="hint_passphrase">Passphrase (empty = no encryption)</string>
+    <string name="hint_keep">Keep last N backups (empty = keep all)</string>
+    <string name="comp_apk">APK</string>
+    <string name="comp_app_data">App data</string>
+    <string name="comp_de_data">Device-protected</string>
+    <string name="comp_external">External</string>
+    <string name="select_one_component">Select at least one component</string>
+    <string name="action_back_up">Back up</string>
+    <string name="content_includes">Includes %1$s</string>
+    <string name="content_apk">App (APK)</string>
+    <string name="content_app_data">App data</string>
+    <string name="content_device_data">Protected data</string>
+    <string name="content_external">External storage</string>
+    <string name="content_permissions">Permissions &amp; settings</string>
+    <string name="content_encrypted">Encrypted</string>
+</resources>
