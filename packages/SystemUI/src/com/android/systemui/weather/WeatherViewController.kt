@@ -129,7 +129,16 @@ class WeatherViewController(
     }
 
     private fun updateWeather() {
-        if (!weatherSettingsFlow.value.weatherEnabled) {
+        val settings = weatherSettingsFlow.value
+
+        if (!settings.weatherEnabled) {
+            hideAllViews()
+            return
+        }
+
+        val shouldShow = if (isCustomClock) settings.customClockWeather
+                         else !settings.customClockWeather
+        if (!shouldShow) {
             hideAllViews()
             return
         }
@@ -147,14 +156,12 @@ class WeatherViewController(
             }
         } catch (e: Exception) {}
 
-        applyElementVisibility(weatherSettingsFlow.value)
+        applyElementVisibility(settings)
     }
 
     private fun hideAllViews() {
-        scope.launch {
-            listOf(weatherInfoView, weatherIcon, weatherTemp).forEach {
-                updateViewVisibility(it, false)
-            }
+        listOf(weatherInfoView, weatherIcon, weatherTemp).forEach {
+            it.visibility = View.GONE
         }
     }
 
@@ -168,14 +175,13 @@ class WeatherViewController(
     }
 
     private fun applyElementVisibility(settings: WeatherSettings) {
-        scope.launch {
-            val show = settings.weatherEnabled && (
-                if (isCustomClock) settings.customClockWeather
-                else !settings.customClockWeather
-            )
-            updateViewVisibility(weatherIcon, show)
-            updateViewVisibility(weatherTemp, show)
-        }
+        val show = settings.weatherEnabled && (
+            if (isCustomClock) settings.customClockWeather
+            else !settings.customClockWeather
+        )
+        val visibility = if (show) View.VISIBLE else View.GONE
+        weatherIcon.visibility = visibility
+        weatherTemp.visibility = visibility
     }
 
     private fun buildWeatherText(info: OmniJawsClient.WeatherInfo): String {
@@ -203,12 +209,6 @@ class WeatherViewController(
         scope.cancel()
         OmniJawsClient.get().removeObserver(context, this)
         statusBarStateController.removeCallback(statusBarStateListener)
-    }
-
-    private suspend fun updateViewVisibility(view: View, visible: Boolean) {
-        withContext(Dispatchers.Main) {
-            view.visibility = if (visible) View.VISIBLE else View.GONE
-        }
     }
 
     data class WeatherSettings(
