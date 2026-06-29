@@ -129,6 +129,7 @@ import com.android.server.alarm.AlarmManagerService;
 import com.android.server.allowlist.AllowlistService;
 import com.android.server.am.ActivityManagerService;
 import com.android.server.ambientcontext.AmbientContextManagerService;
+import com.android.server.appbackup.AppDataBackupService;
 import com.android.server.app.GameManagerService;
 import com.android.server.appbinding.AppBindingService;
 import com.android.server.appfunctions.AppFunctionManagerService;
@@ -2907,6 +2908,10 @@ public final class SystemServer implements Dumpable {
 
             t.traceBegin("FreeformService");
             mSystemServiceManager.startService(FreeformService.class);
+            t.traceEnd();
+
+            t.traceBegin("AppDataBackupService");
+            mSystemServiceManager.startService(AppDataBackupService.class);
             t.traceEnd();
 
             if (!isWatch) {
