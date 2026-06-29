@@ -3,6 +3,13 @@
 package com.android.systemui.axdynamicbar.ui.compose
 
 import com.android.systemui.statusbar.chips.ui.model.OngoingActivityChipModel
+import android.graphics.Canvas
+import android.graphics.drawable.GradientDrawable
+import android.view.View
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.viewinterop.AndroidView
+import com.android.axion.blur.AxBlurBackgroundRenderer
+import com.android.axion.blur.AxBlurColors
 import com.android.compose.animation.Expandable
 import com.android.compose.animation.rememberExpandableController
 import com.android.systemui.animation.Expandable as SystemUiExpandable
@@ -42,6 +49,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -110,10 +118,53 @@ import java.util.Calendar
 private val ChipHeight = 36.dp
 private val ChipShape = ShapeChip
 private val ChipIconSize = ChipHeight - SpaceLg
+private val MusicChipHeight = 52.dp
+private val MusicChipMinWidth = 130.dp
+private val MusicActionSize = MusicChipHeight - 16.dp
+private val MusicActionIconSize = MusicChipHeight - 26.dp
 private val ActionSize = SpacePanel
 private val ActionIconSize = SizeBadge
 private val BatteryIconSize = ChipHeight - SpaceXxl
 private val CountBadgeHeight = ChipHeight / 2
+
+private class MusicPillBlurHost(context: Context) : View(context) {
+    private val blur = AxBlurBackgroundRenderer(this)
+    private val overlayColor = AxBlurColors.surfaceBrightTint(context)
+
+    private val bgDrawable: GradientDrawable = GradientDrawable().also { d ->
+        d.setColor(0x00000000)
+        d.cornerRadius = context.resources.displayMetrics.density * 50f
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        blur.onAttachedToWindow()
+    }
+
+    override fun onDetachedFromWindow() {
+        blur.onDetachedFromWindow()
+        super.onDetachedFromWindow()
+    }
+
+    override fun onVisibilityAggregated(isVisible: Boolean) {
+        super.onVisibilityAggregated(isVisible)
+        blur.onVisibilityAggregated(isVisible)
+    }
+
+    override fun verifyDrawable(who: Drawable): Boolean =
+        blur.verifyDrawable(who) || super.verifyDrawable(who)
+
+    override fun draw(canvas: Canvas) {
+        if (width > 0 && height > 0) {
+            bgDrawable.setBounds(0, 0, width, height)
+            if (!blur.drawBackgroundWithOverlayColor(canvas, bgDrawable, overlayColor)) {
+                bgDrawable.setColor(overlayColor and 0x00FFFFFF or (0xCC shl 24))
+                bgDrawable.draw(canvas)
+                bgDrawable.setColor(0x00000000)
+            }
+        }
+    }
+}
 
 @Composable
 private fun rememberChargingParts(batteryString: String): List<String> {
@@ -310,19 +361,38 @@ private fun KeyguardChipBody(
     val context = LocalContext.current
     val motionScheme = MaterialTheme.motionScheme
     var toggleCount by remember { mutableIntStateOf(0) }
+    val isMedia = event is IslandEvent.Media
 
     val parts = rememberChargingParts(batteryString)
     val isMultiLineCharging = event is IslandEvent.Charging && parts.size >= 2
-    val dynamicHeight = if (isMultiLineCharging) 48.dp else ChipHeight
+    val dynamicHeight = when {
+        isMedia -> MusicChipHeight
+        isMultiLineCharging -> 48.dp
+        else -> ChipHeight
+    }
+    val dynamicMinWidth = if (isMedia) MusicChipMinWidth else 48.dp
 
     Box(contentAlignment = Alignment.Center) {
+        if (isMedia) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize(),
+            ) {
+                AndroidView(
+                    factory = { ctx -> MusicPillBlurHost(ctx) },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(ChipShape),
+                )
+            }
+        }
         Row(
             modifier = Modifier
                 .height(dynamicHeight)
-                .widthIn(min = 48.dp, max = 260.dp)
+                .widthIn(min = dynamicMinWidth, max = 260.dp)
                 .clip(ChipShape)
                 .squishAnimation(toggleCount)
-                .background(accent)
+                .background(if (isMedia) Color.Transparent else accent)
                 .animateContentSize(motionScheme.defaultSpatialSpec())
                 .then(
                     if (progress != null) {
@@ -355,7 +425,7 @@ private fun KeyguardChipBody(
                         }
                     }
                 }
-                .padding(start = SpaceSm, end = SpaceMd),
+                .padding(start = if (isMedia) SpaceMd else SpaceSm, end = SpaceMd),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (event is IslandEvent.Media) {
@@ -373,11 +443,11 @@ private fun KeyguardChipBody(
                 ) { art ->
                     if (art != null) {
                         Image(
-                            bitmap = art.toScaledBitmap(ChipIconSize),
+                            bitmap = art.toScaledBitmap(MusicActionSize),
                             contentDescription = null,
                             modifier = Modifier
-                                .size(ChipIconSize)
-                                .clip(ShapeXs),
+                                .size(MusicActionSize)
+                                .clip(ShapeSm),
                             contentScale = ContentScale.Crop,
                         )
                     } else {
@@ -398,51 +468,37 @@ private fun KeyguardChipBody(
                     label = "kg_media_text",
                     modifier = Modifier.weight(1f, fill = false),
                 ) { ev ->
-                    if (ev.artist.isNotBlank()) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                ev.track.ifEmpty { stringResource(R.string.ax_dynamic_bar_music) },
-                                style = PillPrimary,
-                                color = contentColor,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.widthIn(max = 90.dp).basicMarquee(iterations = 1),
-                            )
-                            Text(
-                                " · ",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = contentColor.copy(alpha = AlphaHint),
-                            )
+                    Column(
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.widthIn(max = 110.dp),
+                    ) {
+                        Text(
+                            ev.track.ifEmpty { stringResource(R.string.ax_dynamic_bar_music) },
+                            style = PillPrimary,
+                            color = contentColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.basicMarquee(iterations = 1),
+                        )
+                        if (ev.artist.isNotBlank()) {
                             Text(
                                 ev.artist,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = contentColor.copy(alpha = AlphaSecondary),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.widthIn(max = 60.dp),
                             )
                         }
-                    } else {
-                        MarqueeText(ev.track.ifEmpty { stringResource(R.string.ax_dynamic_bar_music) }, contentColor, Modifier)
                     }
                 }
                 Spacer(Modifier.width(SpaceXs))
-                ActionButton(
-                    icon = ActionIcon.SKIP_PREV,
-                    color = contentColor,
-                    bgColor = lerp(accent, contentColor, AlphaSubtle),
-                    onClick = { viewModel.skipPrev() },
-                    size = ActionSize,
-                    iconSize = ActionIconSize,
-                )
-                Spacer(Modifier.width(SpaceXxs))
                 Surface(
                     onClick = { viewModel.togglePlayPause() },
-                    modifier = Modifier.size(ActionSize),
+                    modifier = Modifier.size(MusicActionSize),
                     shape = CircleShape,
                     color = lerp(accent, contentColor, AlphaSubtle),
                 ) {
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(ActionSize)) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(MusicActionSize)) {
                         Icon(
                             if (event.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                             contentDescription = stringResource(
@@ -450,19 +506,10 @@ private fun KeyguardChipBody(
                                 else R.string.ax_dynamic_bar_play,
                             ),
                             tint = contentColor,
-                            modifier = Modifier.size(ActionIconSize),
+                            modifier = Modifier.size(MusicActionIconSize),
                         )
                     }
                 }
-                Spacer(Modifier.width(SpaceXxs))
-                ActionButton(
-                    icon = ActionIcon.SKIP_NEXT,
-                    color = contentColor,
-                    bgColor = lerp(accent, contentColor, AlphaSubtle),
-                    onClick = { viewModel.skipNext() },
-                    size = ActionSize,
-                    iconSize = ActionIconSize,
-                )
             } else if (event is IslandEvent.Sports && event.team2Name.isNotEmpty()) {
                 SportsChipTeamBadge(event.team1Name, event.team1Icon, contentColor)
                 Spacer(Modifier.width(SpaceXs))
@@ -536,7 +583,7 @@ private fun KeyguardChipBody(
                         ActionButton(
                             icon = action.icon,
                             color = contentColor,
-                            bgColor = lerp(accent, contentColor, AlphaSubtle),
+                            bgColor = lerp(accent, contentColor, AlphaSubtle).copy(alpha = 0.5f),
                             onClick = { action.perform(viewModel, event, context) },
                             size = ActionSize,
                             iconSize = ActionIconSize,
