@@ -5,6 +5,9 @@ package com.android.systemui.axdynamicbar.ui.compose
 import android.view.MotionEvent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -58,10 +61,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -97,6 +103,10 @@ import com.android.systemui.axdynamicbar.model.RecordingState
 import com.android.systemui.axdynamicbar.shared.*
 import com.android.systemui.haptics.slider.compose.ui.SliderHapticsViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.drop
 
 @Composable
 internal fun KeyguardExpandedContent(
@@ -564,13 +574,21 @@ private fun KeyguardMediaPanel(event: IslandEvent.Media, interactor: IslandActio
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        var customAction1ToggleCount by remember { mutableIntStateOf(0) }
+                        var prevToggleCount by remember { mutableIntStateOf(0) }
+                        var playPauseToggleCount by remember { mutableIntStateOf(0) }
+                        var nextToggleCount by remember { mutableIntStateOf(0) }
+                        var customAction2ToggleCount by remember { mutableIntStateOf(0) }
                         IconButton(
                             onClick = {
                                 event.customActions.firstOrNull()?.let {
                                     interactor.sendCustomAction(it.action)
                                 }
+                                customAction1ToggleCount++
                             },
-                            modifier = Modifier.size(SizeButtonLg),
+                            modifier = Modifier
+                                .size(SizeButtonLg)
+                                .squishAnimation(customAction1ToggleCount),
                         ) {
                             val ca = event.customActions.firstOrNull()
                             if (ca != null) {
@@ -588,8 +606,13 @@ private fun KeyguardMediaPanel(event: IslandEvent.Media, interactor: IslandActio
                         Spacer(Modifier.width(SpaceSm))
 
                         IconButton(
-                            onClick = { interactor.skipPrev() },
-                            modifier = Modifier.size(SizeButtonLg),
+                            onClick = {
+                                interactor.skipPrev()
+                                prevToggleCount++
+                            },
+                            modifier = Modifier
+                                .size(SizeButtonLg)
+                                .squishAnimation(prevToggleCount),
                         ) {
                             Icon(
                                 Icons.Filled.SkipPrevious,
@@ -602,8 +625,13 @@ private fun KeyguardMediaPanel(event: IslandEvent.Media, interactor: IslandActio
                         Spacer(Modifier.width(SpaceSm))
 
                         Surface(
-                            onClick = { interactor.togglePlayPause() },
-                            modifier = Modifier.size(SizeButtonLg),
+                            onClick = {
+                                interactor.togglePlayPause()
+                                playPauseToggleCount++
+                            },
+                            modifier = Modifier
+                                .size(SizeButtonLg)
+                                .squishAnimation(playPauseToggleCount),
                             shape = CircleShape,
                             color = colors.accent,
                         ) {
@@ -633,8 +661,13 @@ private fun KeyguardMediaPanel(event: IslandEvent.Media, interactor: IslandActio
                         Spacer(Modifier.width(SpaceSm))
 
                         IconButton(
-                            onClick = { interactor.skipNext() },
-                            modifier = Modifier.size(SizeButtonLg),
+                            onClick = {
+                                interactor.skipNext()
+                                nextToggleCount++
+                            },
+                            modifier = Modifier
+                                .size(SizeButtonLg)
+                                .squishAnimation(nextToggleCount),
                         ) {
                             Icon(
                                 Icons.Filled.SkipNext,
@@ -651,8 +684,11 @@ private fun KeyguardMediaPanel(event: IslandEvent.Media, interactor: IslandActio
                                 event.customActions.getOrNull(1)?.let {
                                     interactor.sendCustomAction(it.action)
                                 }
+                                customAction2ToggleCount++
                             },
-                            modifier = Modifier.size(SizeButtonLg),
+                            modifier = Modifier
+                                .size(SizeButtonLg)
+                                .squishAnimation(customAction2ToggleCount),
                         ) {
                             val ca = event.customActions.getOrNull(1)
                             if (ca != null) {
@@ -983,5 +1019,48 @@ private fun KeyguardGenericPanel(
                 onClick = { interactor.dismissEvent(event) },
             )
         }
+    }
+}
+
+@Composable
+private fun Modifier.squishAnimation(toggleCount: Int): Modifier {
+    val scaleX = remember { Animatable(1f, visibilityThreshold = 0.01f) }
+    val scaleY = remember { Animatable(1f, visibilityThreshold = 0.01f) }
+    val currentToggleCount by rememberUpdatedState(toggleCount)
+    LaunchedEffect(Unit) {
+        snapshotFlow { currentToggleCount }
+            .drop(1)
+            .collectLatest {
+                scaleX.snapTo(1f)
+                scaleY.snapTo(1f)
+                coroutineScope {
+                    launch {
+                        scaleX.animateTo(
+                            targetValue = 1f,
+                            animationSpec = keyframes {
+                                durationMillis = 400
+                                1.066f at 120 using FastOutSlowInEasing
+                                0.967f at 260
+                                1f at 400
+                            },
+                        )
+                    }
+                    launch {
+                        scaleY.animateTo(
+                            targetValue = 1f,
+                            animationSpec = keyframes {
+                                durationMillis = 400
+                                0.945f at 120 using FastOutSlowInEasing
+                                1.033f at 260
+                                1f at 400
+                            },
+                        )
+                    }
+                }
+            }
+    }
+    return this.graphicsLayer {
+        this.scaleX = scaleX.value
+        this.scaleY = scaleY.value
     }
 }
