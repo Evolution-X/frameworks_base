@@ -2059,6 +2059,21 @@ public final class SystemServiceRegistry {
                     }
                 });
 
+        registerService(Context.APP_DATA_BACKUP_SERVICE,
+                android.app.appbackup.AppDataBackupRestoreManager.class,
+                new CachedServiceFetcher<android.app.appbackup.AppDataBackupRestoreManager>() {
+                    @Override
+                    public android.app.appbackup.AppDataBackupRestoreManager createService(
+                            ContextImpl ctx) throws ServiceNotFoundException {
+                        IBinder binder = ServiceManager.getServiceOrThrow(
+                                Context.APP_DATA_BACKUP_SERVICE);
+                        return new android.app.appbackup.AppDataBackupRestoreManager(
+                                ctx,
+                                android.app.appbackup.IAppDataBackupService.Stub
+                                        .asInterface(binder));
+                    }
+                });
+
         // DO NOT do a flag check like this unless the flag is read-only.
         // (because this code is executed during preload in zygote.)
         // If the flag is mutable, the check should be inside CachedServiceFetcher.
