@@ -10,6 +10,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.keyframes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
@@ -25,6 +28,13 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -34,6 +44,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -73,6 +84,10 @@ import com.android.systemui.axdynamicbar.shared.toScaledBitmap
 import com.android.systemui.axdynamicbar.ui.AxDynamicBarChipViewModel
 import com.android.systemui.res.R
 import kotlin.math.abs
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.drop
 
 private val ChipShape = ShapeXl
 private val ChipHeight = 24.dp
@@ -87,6 +102,8 @@ fun AxDynamicBarChip(
     val state by viewModel.chipState.collectAsStateWithLifecycle()
     val isOnKeyguard by viewModel.isOnKeyguard.collectAsStateWithLifecycle()
     val keyguardCarrier by viewModel.keyguardCarrierText.collectAsStateWithLifecycle()
+
+    var toggleCount by remember { mutableIntStateOf(0) }
     
     val carrierName = if (isOnKeyguard && ignoreKeyguard) keyguardCarrier.takeIf { it.isNotBlank() } else null
     val chipTextMaxWidth = dimensionResource(R.dimen.ongoing_activity_chip_max_text_width)
@@ -127,13 +144,16 @@ fun AxDynamicBarChip(
                             } else if (!decided) {
 
                                 change.consume()
+                                val wasExpanded = viewModel.statusBarExpansion.isExpanded.value
                                 val current = state?.event
                                 if (current is IslandEvent.AospChip) {
                                     if (!viewModel.handleAospChipTap(current, expandableController.expandable)) {
                                         viewModel.statusBarExpansion.toggle()
+                                        if (!wasExpanded) toggleCount++
                                     }
                                 } else {
                                     viewModel.statusBarExpansion.toggle()
+                                    if (!wasExpanded) toggleCount++
                                 }
                             }
                             
@@ -214,6 +234,7 @@ fun AxDynamicBarChip(
                             Modifier.height(ChipHeight)
                                 .widthIn(max = 100.dp)
                                 .clip(ChipShape)
+                                .squishAnimation(toggleCount)
                                 .background(accent)
                                 .then(
                                     if (progress != null) {
@@ -397,3 +418,48 @@ private fun chipIconKey(event: IslandEvent): Any =
         is IslandEvent.Notification -> event.sbn.key
         else -> event.id
     }
+
+@Composable
+private fun Modifier.squishAnimation(toggleCount: Int): Modifier {
+    val scaleX = remember { Animatable(1f, visibilityThreshold = 0.01f) }
+    val scaleY = remember { Animatable(1f, visibilityThreshold = 0.01f) }
+    val currentToggleCount by rememberUpdatedState(toggleCount)
+
+    LaunchedEffect(Unit) {
+        snapshotFlow { currentToggleCount }
+            .drop(1)
+            .collectLatest {
+                scaleX.snapTo(1f)
+                scaleY.snapTo(1f)
+                coroutineScope {
+                    launch {
+                        scaleX.animateTo(
+                            targetValue = 1f,
+                            animationSpec = keyframes {
+                                durationMillis = 400
+                                1.06f at 120 using FastOutSlowInEasing
+                                0.97f at 260
+                                1f at 400
+                            },
+                        )
+                    }
+                    launch {
+                        scaleY.animateTo(
+                            targetValue = 1f,
+                            animationSpec = keyframes {
+                                durationMillis = 400
+                                0.95f at 120 using FastOutSlowInEasing
+                                1.03f at 260
+                                1f at 400
+                            },
+                        )
+                    }
+                }
+            }
+    }
+
+    return this.graphicsLayer {
+        this.scaleX = scaleX.value
+        this.scaleY = scaleY.value
+    }
+}
