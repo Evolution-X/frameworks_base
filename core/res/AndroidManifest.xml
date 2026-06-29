@@ -10608,6 +10608,20 @@
         android:protectionLevel="signature"
         android:featureFlag="com.android.internal.telephony.flags.message_promotion" />
 
+    <!--
+         Only granted to privileged apps that share the platform certificate.
+         @hide
+    -->
+    <permission android:name="android.permission.APP_DATA_BACKUP"
+                android:protectionLevel="signature|privileged" />
+
+    <!--
+         android.permission.APP_DATA_BACKUP.
+         @hide
+    -->
+    <permission android:name="android.permission.APP_DATA_RESTORE"
+                android:protectionLevel="signature|privileged" />
+
     <!-- Attribution for Geofencing service. -->
     <attribution android:tag="GeofencingService" android:label="@string/geofencing_service"/>
     <!-- Attribution for Country Detector. -->
