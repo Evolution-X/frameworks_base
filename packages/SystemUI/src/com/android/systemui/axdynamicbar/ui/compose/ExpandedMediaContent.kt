@@ -5,6 +5,9 @@ import android.media.AudioManager
 import android.graphics.drawable.LayerDrawable
 import android.util.TypedValue
 import android.widget.SeekBar
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.keyframes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -40,10 +43,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -51,6 +56,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -66,6 +72,10 @@ import com.android.systemui.res.R
 import kotlinx.coroutines.delay
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.systemui.media.controls.ui.view.WaveformSeekBar
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.drop
 
 private val AlbumArtSize = 80.dp
 private val PlayPauseSize = 56.dp
@@ -287,6 +297,9 @@ private fun MediaControls(
 ) {
     val onAccent = chipContentColorOn(accent)
     val tonalBg = accent.copy(alpha = AlphaSubtle)
+    var prevToggleCount by remember { mutableIntStateOf(0) }
+    var playPauseToggleCount by remember { mutableIntStateOf(0) }
+    var nextToggleCount by remember { mutableIntStateOf(0) }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -296,10 +309,15 @@ private fun MediaControls(
         MediaCustomActionButton(event, interactor, accent, tonalBg)
 
         Surface(
-            onClick = { interactor.skipPrev() },
+            onClick = {
+                interactor.skipPrev()
+                prevToggleCount++
+            },
             shape = CircleShape,
             color = tonalBg,
-            modifier = Modifier.size(ControlButtonSize),
+            modifier = Modifier
+                .size(ControlButtonSize)
+                .squishAnimation(prevToggleCount),
         ) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                 Icon(
@@ -311,10 +329,15 @@ private fun MediaControls(
         }
 
         Surface(
-            onClick = { interactor.togglePlayPause() },
+            onClick = {
+                interactor.togglePlayPause()
+                playPauseToggleCount++
+            },
             shape = CircleShape,
             color = accent,
-            modifier = Modifier.size(PlayPauseSize),
+            modifier = Modifier
+                .size(PlayPauseSize)
+                .squishAnimation(playPauseToggleCount),
         ) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                 Icon(
@@ -330,10 +353,15 @@ private fun MediaControls(
         }
 
         Surface(
-            onClick = { interactor.skipNext() },
+            onClick = {
+                interactor.skipNext()
+                nextToggleCount++
+            },
             shape = CircleShape,
             color = tonalBg,
-            modifier = Modifier.size(ControlButtonSize),
+            modifier = Modifier
+                .size(ControlButtonSize)
+                .squishAnimation(nextToggleCount),
         ) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                 Icon(
@@ -702,5 +730,48 @@ internal fun RowScope.CompactMediaRow(
                 modifier = Modifier.size(18.dp),
             )
         }
+    }
+}
+
+@Composable
+private fun Modifier.squishAnimation(toggleCount: Int): Modifier {
+    val scaleX = remember { Animatable(1f, visibilityThreshold = 0.01f) }
+    val scaleY = remember { Animatable(1f, visibilityThreshold = 0.01f) }
+    val currentToggleCount by rememberUpdatedState(toggleCount)
+    LaunchedEffect(Unit) {
+        snapshotFlow { currentToggleCount }
+            .drop(1)
+            .collectLatest {
+                scaleX.snapTo(1f)
+                scaleY.snapTo(1f)
+                coroutineScope {
+                    launch {
+                        scaleX.animateTo(
+                            targetValue = 1f,
+                            animationSpec = keyframes {
+                                durationMillis = 400
+                                1.066f at 120 using FastOutSlowInEasing
+                                0.967f at 260
+                                1f at 400
+                            },
+                        )
+                    }
+                    launch {
+                        scaleY.animateTo(
+                            targetValue = 1f,
+                            animationSpec = keyframes {
+                                durationMillis = 400
+                                0.945f at 120 using FastOutSlowInEasing
+                                1.033f at 260
+                                1f at 400
+                            },
+                        )
+                    }
+                }
+            }
+    }
+    return this.graphicsLayer {
+        this.scaleX = scaleX.value
+        this.scaleY = scaleY.value
     }
 }
