@@ -213,6 +213,13 @@ prebuilt_etc {
 }
 
 prebuilt_etc {
+    name: "privapp_whitelist_com.android.appdatabackup",
+    sub_dir: "permissions",
+    src: "privapp-permissions-appbackup.xml",
+    filename_from_src: true,
+}
+
+prebuilt_etc {
     name: "privapp_whitelist_com.android.systemui",
     system_ext_specific: true,
     sub_dir: "permissions",
