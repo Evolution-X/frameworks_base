@@ -75,6 +75,12 @@ class MediaViewController @Inject constructor(
     private var pixelSize = 20
     private var aodDimLevel = 35
 
+    private var expandedMusicOpen = false
+
+    private val EXPANDED_MUSIC_BLUR_LEVEL = 120
+    private val EXPANDED_MUSIC_FADE_LEVEL = 50
+    private val EXPANDED_MUSIC_FILTER = 1
+
     private val settingsObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
         override fun onChange(selfChange: Boolean) {
             updateSettings()
@@ -194,15 +200,20 @@ class MediaViewController @Inject constructor(
             UserHandle.USER_CURRENT
         ).coerceIn(0, 100)
 
-        if (!featureEnabled) {
+        if (!featureEnabled && !expandedMusicOpen) {
             cleanupResources(false)
         }
 
-        if (featureEnabled && !listening) {
+        refreshListening()
+    }
+
+    private fun refreshListening() {
+        val shouldListen = featureEnabled || expandedMusicOpen
+        if (shouldListen && !listening) {
             MediaSessionManager.get().addListener(this)
             ScrimUtils.get().addListener(this)
             listening = true
-        } else if (!featureEnabled && listening) {
+        } else if (!shouldListen && listening) {
             MediaSessionManager.get().removeListener(this)
             ScrimUtils.get().removeListener(this)
             listening = false
@@ -211,6 +222,15 @@ class MediaViewController @Inject constructor(
 
     private fun isDozing(): Boolean = ScrimUtils.get().isDozing()
     private fun isPulsing(): Boolean = ScrimUtils.get().isPulsing()
+
+    private val effectiveMediaFilter: Int
+        get() = if (expandedMusicOpen) EXPANDED_MUSIC_FILTER else mediaFilter
+
+    private val effectiveMediaBlurLevel: Int
+        get() = if (expandedMusicOpen) EXPANDED_MUSIC_BLUR_LEVEL else mediaBlurLevel
+
+    private val effectiveMediaFadeLevel: Int
+        get() = if (expandedMusicOpen) EXPANDED_MUSIC_FADE_LEVEL else mediaFadeLevel
 
     private fun setupMediaFilter() {
         if ((isDozing() || isPulsing()) && aodEnabled) {
@@ -222,10 +242,10 @@ class MediaViewController @Inject constructor(
             return
         }
 
-        val effect = when (mediaFilter) {
+        val effect = when (effectiveMediaFilter) {
             1 -> RenderEffect.createBlurEffect(
-                mediaBlurLevel.toFloat(), 
-                mediaBlurLevel.toFloat(), 
+                effectiveMediaBlurLevel.toFloat(),
+                effectiveMediaBlurLevel.toFloat(),
                 Shader.TileMode.MIRROR
             )
             2 -> {
@@ -257,8 +277,8 @@ class MediaViewController @Inject constructor(
                 val grayMatrix = ColorMatrix().apply { setSaturation(0f) }
                 val grayscaleEffect = RenderEffect.createColorFilterEffect(ColorMatrixColorFilter(grayMatrix))
                 val blurEffect = RenderEffect.createBlurEffect(
-                    mediaBlurLevel.toFloat(),
-                    mediaBlurLevel.toFloat(),
+                    effectiveMediaBlurLevel.toFloat(),
+                    effectiveMediaBlurLevel.toFloat(),
                     Shader.TileMode.MIRROR
                 )
                 RenderEffect.createChainEffect(blurEffect, grayscaleEffect)
@@ -268,7 +288,7 @@ class MediaViewController @Inject constructor(
         }
 
         mediaScrim.setRenderEffect(effect)
-        if (mediaFilter == 4) {
+        if (effectiveMediaFilter == 4) {
             context.theme.resolveAttribute(android.R.attr.colorAccent, sharedTypedValue, true)
             val accent = sharedTypedValue.data
             mediaScrim.colorFilter = PorterDuffColorFilter(
@@ -281,12 +301,12 @@ class MediaViewController @Inject constructor(
     }
 
     private fun shouldShowMediaArt(): Boolean {
-        if (!featureEnabled) return false
+        if (!featureEnabled && !expandedMusicOpen) return false
         
         val dozing = isDozing()
         val pulsing = isPulsing()
 
-        if ((dozing || pulsing) && !aodEnabled) return false
+        if ((dozing || pulsing) && !aodEnabled && !expandedMusicOpen) return false
         
         if (artworkDrawable == null) return false
         val isPortrait = context.resources.configuration.orientation != Configuration.ORIENTATION_LANDSCAPE
@@ -372,13 +392,13 @@ class MediaViewController @Inject constructor(
     }
 
     private suspend fun processArtwork(): LayerDrawable = withContext(Dispatchers.Default) {
-        if (!featureEnabled) return@withContext LayerDrawable(arrayOf())
+        if (!featureEnabled && !expandedMusicOpen) return@withContext LayerDrawable(arrayOf())
         val drawable = artworkDrawable ?: return@withContext LayerDrawable(arrayOf())
 
         val bitmap = drawableToBitmap(drawable)
         val resizedBitmap = getResizedBitmap(bitmap)
 
-        val processedBitmap = if (mediaFilter == 7) {
+        val processedBitmap = if (effectiveMediaFilter == 7) {
             applyPixelation(resizedBitmap)
         } else {
             resizedBitmap
@@ -388,10 +408,10 @@ class MediaViewController @Inject constructor(
             alpha = 255
         }
 
-        val effectiveFadeLevel = if ((isDozing() || isPulsing()) && aodEnabled) {
-            min(mediaFadeLevel + 15, 100)
+        val effectiveFadeLevel = if ((isDozing() || isPulsing()) && aodEnabled && !expandedMusicOpen) {
+            min(effectiveMediaFadeLevel + 15, 100)
         } else {
-            mediaFadeLevel
+            effectiveMediaFadeLevel
         }
 
         val fadeColor = ColorUtils.blendARGB(
@@ -555,6 +575,9 @@ class MediaViewController @Inject constructor(
     override fun onAlbumArtChanged(drawable: Drawable) {
         coroutineScope.launch {
             artworkDrawable = drawable
+            if (scrimState == STATE_SCRIM_VISIBLE) {
+                updateMediaArt()
+            }
             updateMediaState()
         }
     }
@@ -709,6 +732,19 @@ class MediaViewController @Inject constructor(
         }
     }
 
+    fun setExpandedMusicOpen(open: Boolean) {
+        if (expandedMusicOpen == open) return
+        expandedMusicOpen = open
+        coroutineScope.launch {
+            refreshListening()
+            if (scrimState == STATE_SCRIM_VISIBLE) {
+                updateMediaArt()
+                setupMediaFilter()
+            }
+            updateMediaState()
+        }
+    }
+
     fun onDetachedFromWindow() {
         context.contentResolver.unregisterContentObserver(settingsObserver)
         if (listening) {
@@ -724,6 +760,7 @@ class MediaViewController @Inject constructor(
         mediaScrim.colorFilter = null
         artworkDrawable = null
         isAlbumArtVisible = false
+        expandedMusicOpen = false
         retryRunnable?.let { mediaScrim.removeCallbacks(it) }
         retryRunnable = null
         coalesceJob?.cancel()
@@ -742,5 +779,7 @@ class MediaViewController @Inject constructor(
                 "MediaViewController not initialized"
             )
         }
+        @JvmStatic
+        fun getOrNull(): MediaViewController? = INSTANCE
     }
 }
