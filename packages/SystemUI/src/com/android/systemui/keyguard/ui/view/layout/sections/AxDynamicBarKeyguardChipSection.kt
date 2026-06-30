@@ -10,6 +10,7 @@ import androidx.constraintlayout.widget.ConstraintSet
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.android.compose.theme.PlatformTheme
+import com.android.systemui.axdynamicbar.model.IslandEvent
 import com.android.systemui.axdynamicbar.ui.AxDynamicBarChipViewModel
 import com.android.systemui.axdynamicbar.ui.compose.AxDynamicBarKeyguardChip
 import com.android.systemui.keyguard.domain.interactor.KeyguardClockInteractor
@@ -18,6 +19,7 @@ import com.android.systemui.keyguard.shared.model.KeyguardSection
 import com.android.systemui.lifecycle.repeatWhenAttached
 import com.android.systemui.plugins.keyguard.ui.clocks.ClockViewIds
 import com.android.systemui.res.R
+import com.android.systemui.media.MediaViewController
 import com.android.systemui.shade.ShadeDisplayAware
 import com.android.systemui.statusbar.KeyguardIndicationController
 import com.android.systemui.util.ScrimUtils
@@ -26,6 +28,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.DisposableHandle
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 private const val CHIP_ABOVE_LOCK_MARGIN_DP = 12f
@@ -103,6 +106,14 @@ constructor(
                                 }
                             }
                         }
+                    }
+                }
+                scope.launch {
+                    combine(viewModel.isKeyguardExpanded, viewModel.chipState) { expanded, chipState ->
+                        expanded && chipState?.event is IslandEvent.Media
+                    }.distinctUntilChanged().collect { expandedMusicOpen ->
+                        com.android.systemui.media.MediaViewController.getOrNull()
+                            ?.setExpandedMusicOpen(expandedMusicOpen)
                     }
                 }
                 combine(viewModel.isKeyguardExpanded, viewModel.isLowUdfps) { expanded, lowUdfps ->
@@ -245,6 +256,7 @@ constructor(
         enforceAction?.let { ScrimUtils.get().removeKeyguardPreDrawAction(it) }
         enforceAction = null
         WallpaperDepthUtils.get()?.setDynamicBarExpanded(false)
+        MediaViewController.getOrNull()?.setExpandedMusicOpen(false)
         expansionHandle?.dispose()
         expansionHandle = null
         bindHandle?.dispose()
