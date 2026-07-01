@@ -592,7 +592,7 @@ private fun KeyguardChipBody(
                 }
             }
 
-            if (eventCount > 1) {
+            if (eventCount > 1 && event !is IslandEvent.Media) {
                 Spacer(Modifier.width(SpaceXs))
                 Box(
                     contentAlignment = Alignment.Center,
