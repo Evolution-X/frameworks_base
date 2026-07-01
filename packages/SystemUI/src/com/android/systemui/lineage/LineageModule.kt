@@ -23,6 +23,7 @@ import com.android.systemui.qs.tileimpl.QSTileImpl
 import com.android.systemui.qs.tiles.AmbientDisplayTile
 import com.android.systemui.qs.tiles.AODTile
 import com.android.systemui.qs.tiles.AutoBrightnessTile
+import com.android.systemui.qs.tiles.BlurTile
 import com.android.systemui.qs.tiles.CPUInfoTile
 import com.android.systemui.qs.tiles.CaffeineTile
 import com.android.systemui.qs.tiles.CompassTile
@@ -74,6 +75,12 @@ interface LineageModule {
     @IntoMap
     @StringKey(AutoBrightnessTile.TILE_SPEC)
     fun bindAutoBrightnessTile(autobrightnessTile: AutoBrightnessTile): QSTileImpl<*>
+
+    /** Inject BlurTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(BlurTile.TILE_SPEC)
+    fun bindBlurTile(blurTile: BlurTile): QSTileImpl<*>
 
     /** Inject CPUInfoTile into tileMap in QSModule */
     @Binds
@@ -257,6 +264,21 @@ interface LineageModule {
                     QSTileUIConfig.Resource(
                         iconRes = R.drawable.ic_qs_aod,
                         labelRes = R.string.quick_settings_aod_label
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.DISPLAY,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(BlurTile.TILE_SPEC)
+        fun provideBlurTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(BlurTile.TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.ic_qs_blur,
+                        labelRes = R.string.quick_settings_blur_label
                     ),
                 instanceId = uiEventLogger.getNewInstanceId(),
                 category = TileCategory.DISPLAY,
