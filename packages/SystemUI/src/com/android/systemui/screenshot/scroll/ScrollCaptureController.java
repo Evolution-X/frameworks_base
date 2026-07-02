@@ -304,10 +304,11 @@ public class ScrollCaptureController {
             Log.d(TAG, "requestNextTile: CANCELLED");
             return;
         }
-        mTileFuture = mSession.requestTile(topPx);
-        mTileFuture.addListener(() -> {
+        ListenableFuture<CaptureResult> tileFuture = mSession.requestTile(topPx);
+        mTileFuture = tileFuture;
+        tileFuture.addListener(() -> {
             try {
-                onCaptureResult(mTileFuture.get());
+                onCaptureResult(tileFuture.get());
             } catch (CancellationException e) {
                 Log.e(TAG, "requestTile cancelled");
             } catch (InterruptedException | ExecutionException e) {
@@ -316,7 +317,7 @@ public class ScrollCaptureController {
                     mCaptureCompleter.setException(e);
                 }
             }
-        }, mBgExecutor);
+        }, mContext.getMainExecutor());
     }
 
     private void onCaptureResult(CaptureResult result) {
