@@ -54,7 +54,7 @@
             android:fontFamily="@font/Neu"
             android:format12Hour="mm"
             android:format24Hour="mm"
-            android:textColor="#f9f9f9"
+            android:textColor="@android:color/white"
             android:textSize="150dp" />
 
     </LinearLayout>
