@@ -424,12 +424,14 @@ class ClockStyle @JvmOverloads constructor(
             is TextClock -> {
                 root.setTag(R.id.original_typeface, root.typeface)
                 root.setTag(R.id.original_text_color, root.currentTextColor)
+                root.setTag(R.id.original_alpha, root.alpha)
                 textClocks.add(root)
                 styledTextViews.add(root)
             }
             is TextView -> {
                 root.setTag(R.id.original_typeface, root.typeface)
                 root.setTag(R.id.original_text_color, root.currentTextColor)
+                root.setTag(R.id.original_alpha, root.alpha)
                 styledTextViews.add(root)
             }
         }
@@ -700,13 +702,16 @@ class ClockStyle @JvmOverloads constructor(
                 )
 
                 for (i in textClocks.indices) {
-                    textClocks[i].alpha = flashAlpha
-                    textClocks[i].setShadowLayer(radius, 0f, dy, currentGlowColor)
+                    val tc = textClocks[i]
+                    val origAlpha = tc.getTag(R.id.original_alpha) as? Float ?: 1f
+                    tc.alpha = flashAlpha * origAlpha
+                    tc.setShadowLayer(radius, 0f, dy, currentGlowColor)
                 }
                 for (i in styledTextViews.indices) {
                     val tv = styledTextViews[i]
                     if (tv !is android.widget.TextClock) {
-                        tv.alpha = flashAlpha
+                        val origAlpha = tv.getTag(R.id.original_alpha) as? Float ?: 1f
+                        tv.alpha = flashAlpha * origAlpha
                         tv.setShadowLayer(radius, 0f, dy, currentGlowColor)
                     }
                 }
@@ -725,13 +730,16 @@ class ClockStyle @JvmOverloads constructor(
 
     private fun clearWobbleGlow() {
         for (i in textClocks.indices) {
-            textClocks[i].alpha = clockOpacity / 100f
-            textClocks[i].setShadowLayer(0f, 0f, 0f, 0)
+            val tc = textClocks[i]
+            val origAlpha = tc.getTag(R.id.original_alpha) as? Float ?: 1f
+            tc.alpha = (clockOpacity / 100f) * origAlpha
+            tc.setShadowLayer(0f, 0f, 0f, 0)
         }
         for (i in styledTextViews.indices) {
             val tv = styledTextViews[i]
             if (tv !is android.widget.TextClock) {
-                tv.alpha = clockOpacity / 100f
+                val origAlpha = tv.getTag(R.id.original_alpha) as? Float ?: 1f
+                tv.alpha = (clockOpacity / 100f) * origAlpha
                 tv.setShadowLayer(0f, 0f, 0f, 0)
             }
         }
