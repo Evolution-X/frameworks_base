@@ -691,11 +691,14 @@ void BootAnimation::findBootAnimationFile() {
     char value[PROPERTY_VALUE_MAX];
     property_get("persist.sys.bootanimation_style", value, "0");
     const int bootAnimStyle = atoi(value);
+    const size_t numStyles = sizeof(BOOT_ANIMATION_FILES) / sizeof(BOOT_ANIMATION_FILES[0]);
     const char* selectedBootAnimation =
-        (bootAnimStyle >= 0 && bootAnimStyle < sizeof(BOOT_ANIMATION_FILES) / sizeof(BOOT_ANIMATION_FILES[0]))
+        (bootAnimStyle >= 0 && bootAnimStyle < (int)numStyles)
         ? BOOT_ANIMATION_FILES[bootAnimStyle]
         : BOOT_ANIMATION_FILES[0];
-    static const std::vector<std::string> bootFiles = {
+    ALOGD("Bootanimation style %d requested -> %s (exists=%d)",
+          bootAnimStyle, selectedBootAnimation, access(selectedBootAnimation, R_OK) == 0);
+    const std::vector<std::string> bootFiles = {
         std::string(selectedBootAnimation)
     };
     static const std::vector<std::string> shutdownFiles = {
