@@ -18,10 +18,12 @@
 
 package com.android.systemui.screencapture.record.smallscreen.ui
 
+import android.content.ContentProvider
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.DrawableRes
@@ -70,6 +72,7 @@ import androidx.media3.common.MimeTypes
 import com.android.compose.PlatformOutlinedButton
 import com.android.compose.theme.PlatformTheme
 import com.android.systemui.common.shared.model.ContentDescription
+import com.android.systemui.dagger.qualifiers.Main
 import com.android.systemui.lifecycle.rememberViewModel
 import com.android.systemui.res.R
 import com.android.systemui.screencapture.common.ui.compose.LoadingIcon
@@ -85,24 +88,61 @@ import com.android.systemui.screencapture.record.smallscreen.ui.viewmodel.PostRe
 import com.android.systemui.screencapture.record.smallscreen.ui.viewmodel.PostRecordingWaitingVideoViewModel
 import com.android.systemui.screencapture.ui.postRecordingConfirmDeletion
 import com.android.systemui.screenrecord.shared.model.ScreenRecording
+import com.android.systemui.settings.UserTracker
 import com.android.systemui.statusbar.phone.SystemUIDialogFactory
+import java.util.concurrent.Executor
 import javax.inject.Inject
 
 class SmallScreenPostRecordingActivity
 @Inject
 constructor(
+    @Main private val mainExecutor: Executor,
     private val videoPlayer: VideoPlayer,
     private val actionsViewModelFactory: PostRecordingActionsViewModel.Factory,
     private val waitingViewModelFactory: PostRecordingWaitingVideoViewModel.Factory,
     private val immediateViewModelFactory: PostRecordingImmediateVideoViewModel.Factory,
     private val postRecordSnackbarDialogs: PostRecordSnackbarDialogs,
     private val systemUIDialogFactory: SystemUIDialogFactory,
+    private val userTracker: UserTracker,
 ) : ComponentActivity() {
+
+    private val userTrackerCallback =
+        object : UserTracker.Callback {
+            override fun onUserChanging(newUser: Int, userContext: Context) {
+                finishIfUserDoesNotOwnRecording(newUser)
+            }
+
+            override fun onUserChanged(newUser: Int, userContext: Context) {
+                finishIfUserDoesNotOwnRecording(newUser)
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         intent.data ?: error("Data URI is missing")
+        userTracker.addCallback(userTrackerCallback, mainExecutor)
+        if (finishIfUserDoesNotOwnRecording(userTracker.userId)) return
         setContent { PlatformTheme { Content() } }
+    }
+
+    override fun onDestroy() {
+        userTracker.removeCallback(userTrackerCallback)
+        super.onDestroy()
+    }
+
+    private fun finishIfUserDoesNotOwnRecording(currentUserId: Int): Boolean {
+        val recordingUri = intent.data ?: return false
+        val recordingUserId = ContentProvider.getUserIdFromUri(recordingUri, currentUserId)
+        if (recordingUserId == currentUserId) {
+            return false
+        }
+
+        Log.d(
+            TAG,
+            "Finishing preview for currentUserId=$currentUserId intendedUserId=$recordingUserId",
+        )
+        finishAndRemoveTask()
+        return true
     }
 
     @Composable
@@ -291,6 +331,7 @@ constructor(
 
     companion object {
 
+        private const val TAG = "SmallScreenPostRecordingActivity"
         private const val SHOULD_WAIT_FOR_VIDEO = "should_show_video_saved"
         private const val NOTIFICATION_ID = "notification_id"
         private const val INVALID_NOTIFICATION_ID = 0

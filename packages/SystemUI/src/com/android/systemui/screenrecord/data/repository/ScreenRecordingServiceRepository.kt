@@ -269,19 +269,20 @@ constructor(
                     thumbnail = thumbnail,
                     notificationId = notificationId,
                 )
+            isServiceBound.value = false
         }
 
         override fun onRecordingSaveError(recordingUri: Uri?, notificationId: Int) {
             _screenRecording.value =
                 ScreenRecording.NotSaved(uri = recordingUri, notificationId = notificationId)
+            isServiceBound.value = false
         }
     }
 
     companion object {
 
         /**
-         * @return a cold flow that binds to the [IScreenRecordingService] on each collection. This
-         *   flow never cancels because it's [IScreenRecordingService] responsibility.
+         * @return a cold flow that binds to the [IScreenRecordingService] on each collection.
          */
         @VisibleForTesting
         fun bindServiceAsAFlow(
@@ -295,17 +296,17 @@ constructor(
             val userHandle = userRepository.selectedUser.value.userInfo.userHandle
             val userContext = context.createContextAsUser(userHandle, 0)
             val newIntent = Intent(userContext, ScreenRecordingService::class.java)
-            userContext.bindService(
-                newIntent,
-                ProducingConnection(mapServiceBinder),
-                Context.BIND_AUTO_CREATE,
-            )
+            val connection = ProducingConnection(mapServiceBinder)
+            val isBound =
+                userContext.bindService(
+                    newIntent,
+                    connection,
+                    Context.BIND_AUTO_CREATE,
+                )
             awaitClose {
-                /*
-                Don't unbind the service because it stops self when done with the
-                recording. In this case null service will be received in and
-                isServiceBound updated later in the chain.
-                */
+                if (isBound) {
+                    userContext.unbindService(connection)
+                }
             }
         }
     }
