@@ -160,17 +160,14 @@ open class ScreenRecordingService : ComponentService() {
             )
 
             val savedRecording: SavedRecording =
-                withContext(backgroundContext) {
-                    recorder.save(uri).apply {
-                        callback?.onRecordingSaved(uri, thumbnail, notificationId)
-                    }
-                }
+                withContext(backgroundContext) { recorder.save(uri) }
             onRecordingSaved(this, savedRecording)
+            callback?.onRecordingSaved(uri, savedRecording.thumbnail, notificationId)
         } catch (e: Exception) {
-            launchCallbackAction { onRecordingSaveError(uri, notificationId) }
             notificationInteractor.notifyErrorSaving(notificationId)
             Log.e(tag, "Error saving screen recording", e)
             showToast(R.string.screenrecord_save_error)
+            launchCallbackAction { onRecordingSaveError(uri, notificationId) }
         } finally {
             recorder.release()
             if (Flags.screenRecordingServiceFix()) {
@@ -190,10 +187,10 @@ open class ScreenRecordingService : ComponentService() {
             recorder.end(reason)
             coroutineScope.launch { saveRecording(recordingUri) }
         } catch (e: Exception) {
-            launchCallbackAction { onRecordingSaveError(recordingUri, notificationId) }
             notificationInteractor.notifyErrorSaving(notificationId)
             Log.e(tag, "Error stopping screen recording", e)
             showToast(R.string.screenrecord_save_error)
+            launchCallbackAction { onRecordingSaveError(recordingUri, notificationId) }
             recorder.release()
             if (Flags.screenRecordingServiceFix()) {
                 stopForeground(STOP_FOREGROUND_DETACH)
