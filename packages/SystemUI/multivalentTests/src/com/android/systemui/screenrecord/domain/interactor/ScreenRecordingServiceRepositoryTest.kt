@@ -33,6 +33,7 @@ import com.android.systemui.kosmos.advanceTimeBy
 import com.android.systemui.kosmos.applicationCoroutineScope
 import com.android.systemui.kosmos.collectLastValue
 import com.android.systemui.kosmos.collectValues
+import com.android.systemui.kosmos.runCurrent
 import com.android.systemui.kosmos.runTest
 import com.android.systemui.screencapture.record.shared.screenRecordingLogger
 import com.android.systemui.screenrecord.ScreenRecordingAudioSource
@@ -54,6 +55,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.ArgumentMatchers.anyInt
 import org.mockito.kotlin.any
+import org.mockito.kotlin.never
+import org.mockito.kotlin.same
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
 private val componentName = ComponentName("com.android.systemui", "test")
@@ -316,6 +320,42 @@ class ScreenRecordingServiceRepositoryTest : SysuiTestCase() {
                     ScreenRecording.Saving(uri, 1),
                     ScreenRecording.Saved(uri, thumbnail, 1),
                 )
+        }
+
+    @Test
+    fun testRecordingSaved_unbindsService() =
+        kosmos.runTest {
+            underTest.startRecording()
+            runCurrent()
+            underTest.stopRecording(StopReason.STOP_HOST_APP)
+            runCurrent()
+            val boundConnection = serviceConnection!!
+            verify(applicationContext, never()).unbindService(any())
+
+            val uri = "content://test".toUri()
+            val thumbnail = Icon.createWithBitmap(createBitmap(1, 1, Bitmap.Config.RGB_565))
+            fakeScreenRecordingService.currentCallback!!
+                .onRecordingSaved(uri, thumbnail, 1)
+            runCurrent()
+
+            verify(applicationContext).unbindService(same(boundConnection))
+        }
+
+    @Test
+    fun testRecordingSaveError_unbindsService() =
+        kosmos.runTest {
+            underTest.startRecording()
+            runCurrent()
+            underTest.stopRecording(StopReason.STOP_HOST_APP)
+            runCurrent()
+            val boundConnection = serviceConnection!!
+            verify(applicationContext, never()).unbindService(any())
+
+            fakeScreenRecordingService.currentCallback!!
+                .onRecordingSaveError("content://test".toUri(), 1)
+            runCurrent()
+
+            verify(applicationContext).unbindService(same(boundConnection))
         }
 
     @Test
