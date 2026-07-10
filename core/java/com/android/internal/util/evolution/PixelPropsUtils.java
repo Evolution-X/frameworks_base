@@ -90,6 +90,7 @@ public final class PixelPropsUtils {
     private static final Map<String, Object> propsToChangeGeneric;
     private static final Map<String, Object> propsToChangeRecentPixel;
     private static final Map<String, Object> propsToChangePixelTablet;
+    private static final Map<String, Object> propsToChangeMeizu;
     private static final Map<String, ArrayList<String>> propsToKeep;
 
     // Pixel device codename ("mustang" = Pixel 10 Pro XL) used as the GMS spoof target
