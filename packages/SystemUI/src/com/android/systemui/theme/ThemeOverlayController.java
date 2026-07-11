@@ -771,10 +771,17 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
         mColorScheme = isNightMode() ? mDarkColorScheme : mLightColorScheme;
 
         mAccentOverlay = newFabricatedOverlay("accent");
-        assignColorsToOverlay(mAccentOverlay, DynamicColors.getAllAccentPalette());
+        assignColorsToOverlay(mAccentOverlay,
+                DynamicColors.getAllAccentPalette(luminanceFactor, chromaFactor, wholePalette));
 
         mNeutralOverlay = newFabricatedOverlay("neutral");
-        assignColorsToOverlay(mNeutralOverlay, DynamicColors.getAllNeutralPalette());
+        if (tintBg) {
+            assignColorsToOverlay(mNeutralOverlay,
+                    DynamicColors.getAllNeutralPalette(luminanceFactor, chromaFactor, wholePalette),
+                    true);
+        } else {
+            assignColorsToOverlay(mNeutralOverlay, DynamicColors.getAllNeutralPalette(), true);
+        }
 
         mDynamicOverlay = newFabricatedOverlay("dynamic");
         // Themed Colors
@@ -787,13 +794,22 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
 
     private void assignColorsToOverlay(FabricatedOverlay overlay,
             List<Pair<String, DynamicColor>> colors) {
+        assignColorsToOverlay(overlay, colors, false);
+    }
+
+    private void assignColorsToOverlay(FabricatedOverlay overlay,
+            List<Pair<String, DynamicColor>> colors, boolean useBgScheme) {
         colors.forEach(p -> {
             String prefix = "android:color/system_" + p.first;
 
             overlay.setResourceValue(prefix + "_light", TYPE_INT_COLOR_ARGB8,
-                    p.second.getArgb(mLightColorScheme.getMaterialScheme()), null);
+                    p.second.getArgb(useBgScheme
+                            ? mLightColorScheme.getBgMaterialScheme()
+                            : mLightColorScheme.getMaterialScheme()), null);
             overlay.setResourceValue(prefix + "_dark", TYPE_INT_COLOR_ARGB8,
-                    p.second.getArgb(mDarkColorScheme.getMaterialScheme()), null);
+                    p.second.getArgb(useBgScheme
+                            ? mDarkColorScheme.getBgMaterialScheme()
+                            : mDarkColorScheme.getMaterialScheme()), null);
         });
     }
 
