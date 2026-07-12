@@ -1903,22 +1903,24 @@ class ActivityStarter {
 
         if (com.android.wm.shell.Flags.enableCreateAnyBubble()) {
             final Task activityTask = mLastStartActivityRecord.getTask();
-            // Sets the launch-next-to-bubble policy if requested
-            if (options != null && options.getLaunchNextToBubble()
-                    && !mStartActivity.isActivityTypeHomeOrRecents()) {
-                activityTask.mLaunchNextToBubble = true;
-            }
+            if (activityTask != null) {
+                // Sets the launch-next-to-bubble policy if requested
+                if (options != null && options.getLaunchNextToBubble()
+                        && !mStartActivity.isActivityTypeHomeOrRecents()) {
+                    activityTask.mLaunchNextToBubble = true;
+                }
 
-            // Propagate the launch-next-to-bubble policy from the source Task if any
-            if (mSourceRecord != null && mSourceRecord.getTask().mLaunchNextToBubble
-                    && !mStartActivity.isActivityTypeHomeOrRecents()) {
+                // Propagate the launch-next-to-bubble policy from the source Task if any
+                final Task sourceTask = mSourceRecord != null ? mSourceRecord.getTask() : null;
+                if (sourceTask != null && sourceTask.mLaunchNextToBubble
+                        && !mStartActivity.isActivityTypeHomeOrRecents()) {
 
-                // Also propagate the windowingMode and bounds if not set.
-                if (options == null || (options.getLaunchWindowingMode() == WINDOWING_MODE_UNDEFINED
-                        && options.getLaunchBounds() == null)) {
-                    final Task sourceTask = mSourceRecord.getTask();
-                    activityTask.setWindowingMode(sourceTask.getWindowingMode());
-                    activityTask.setBounds(sourceTask.getBounds());
+                    // Also propagate the windowingMode and bounds if not set.
+                    if (options == null || (options.getLaunchWindowingMode() == WINDOWING_MODE_UNDEFINED
+                            && options.getLaunchBounds() == null)) {
+                        activityTask.setWindowingMode(sourceTask.getWindowingMode());
+                        activityTask.setBounds(sourceTask.getBounds());
+                    }
                 }
             }
         }
