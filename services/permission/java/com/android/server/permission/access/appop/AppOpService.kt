@@ -18,7 +18,6 @@ package com.android.server.permission.access.appop
 
 import android.app.AppOpsManager
 import android.companion.virtual.VirtualDeviceManager
-import android.os.Binder
 import android.os.Handler
 import android.os.UserHandle
 import android.permission.PermissionManager
@@ -258,21 +257,6 @@ class AppOpService(private val service: AccessCheckingService) : AppOpsCheckingS
         val appOpName = AppOpsManager.opToPublicName(code)
 
         if (code in runtimeAppOpToPermissionNames) {
-            val oldMode =
-                service.getState { with(appIdPolicy) { getAppOpMode(appId, userId, appOpName) } }
-            val wouldHaveChanged = oldMode != mode
-            if (wouldHaveChanged) {
-                Slog.e(
-                    LOG_TAG,
-                    "Blocked setUidMode call for runtime permission app op:" +
-                        " uid = $uid," +
-                        " code = ${AppOpsManager.opToName(code)}," +
-                        " mode = ${AppOpsManager.modeToName(mode)}," +
-                        " callingUid = ${Binder.getCallingUid()}," +
-                        " oldMode = ${AppOpsManager.modeToName(oldMode)}",
-                    RuntimeException(),
-                )
-            }
             return false
         }
 
