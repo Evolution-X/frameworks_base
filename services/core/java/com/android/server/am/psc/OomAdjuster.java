@@ -2677,6 +2677,9 @@ public abstract class OomAdjuster {
      * {@link #getCpuCapabilitiesFromClient}).
      */
     public static boolean getFreezePolicy(ProcessRecordInternal proc) {
+        if (proc.isCachedAppFreezerExempt()) {
+            return false;
+        }
         if ((proc.getCurCapability() & ALL_CPU_TIME_CAPABILITIES) != 0) {
             return false;
         }
