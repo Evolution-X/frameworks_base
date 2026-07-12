@@ -174,6 +174,11 @@ public abstract class ProcessRecordInternal {
     /** Returns the package name of the application this process belongs to. */
     public abstract String getPackageName();
 
+    /** Returns whether this process should not be frozen by the cached app freezer. */
+    public boolean isCachedAppFreezerExempt() {
+        return false;
+    }
+
     /** Returns whether this process is for an instant app. */
     public abstract boolean isInstantApp();
 
