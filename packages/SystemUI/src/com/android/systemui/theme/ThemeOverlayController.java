@@ -97,6 +97,7 @@ import com.android.systemui.util.settings.SecureSettings;
 
 import com.google.ux.material.libmonet.dynamiccolor.DynamicColor;
 import com.google.ux.material.libmonet.dynamiccolor.MaterialDynamicColors;
+import com.google.ux.material.libmonet.hct.Hct;
 
 import kotlinx.coroutines.flow.Flow;
 import kotlinx.coroutines.flow.StateFlow;
@@ -785,7 +786,8 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
 
         mDynamicOverlay = newFabricatedOverlay("dynamic");
         // Themed Colors
-        assignColorsToOverlay(mDynamicOverlay, DynamicColors.getAllDynamicColorsMapped());
+        assignColorsToOverlay(mDynamicOverlay, DynamicColors.getAllDynamicColorsMapped(), false,
+                tintBg ? luminanceFactor : 1f, tintBg ? chromaFactor : 1f);
         // Fixed Colors
         assignColorsToOverlay(mDynamicOverlay, DynamicColors.getFixedColorsMapped());
         // Custom Colors
@@ -799,18 +801,48 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
 
     private void assignColorsToOverlay(FabricatedOverlay overlay,
             List<Pair<String, DynamicColor>> colors, boolean useBgScheme) {
+        assignColorsToOverlay(overlay, colors, useBgScheme, 1f, 1f);
+    }
+
+    private void assignColorsToOverlay(FabricatedOverlay overlay,
+            List<Pair<String, DynamicColor>> colors, boolean useBgScheme,
+            float luminanceFactor, float chromaFactor) {
+        final boolean hasFactors = luminanceFactor != 1f || chromaFactor != 1f;
         colors.forEach(p -> {
             String prefix = "android:color/system_" + p.first;
+            final boolean bg = useBgScheme || isBackgroundToken(p.first);
 
-            overlay.setResourceValue(prefix + "_light", TYPE_INT_COLOR_ARGB8,
-                    p.second.getArgb(useBgScheme
-                            ? mLightColorScheme.getBgMaterialScheme()
-                            : mLightColorScheme.getMaterialScheme()), null);
-            overlay.setResourceValue(prefix + "_dark", TYPE_INT_COLOR_ARGB8,
-                    p.second.getArgb(useBgScheme
-                            ? mDarkColorScheme.getBgMaterialScheme()
-                            : mDarkColorScheme.getMaterialScheme()), null);
+            int light = p.second.getArgb(bg
+                    ? mLightColorScheme.getBgMaterialScheme()
+                    : mLightColorScheme.getMaterialScheme());
+            int dark = p.second.getArgb(bg
+                    ? mDarkColorScheme.getBgMaterialScheme()
+                    : mDarkColorScheme.getMaterialScheme());
+            if (hasFactors && isBackgroundToken(p.first)) {
+                light = applyFactors(light, luminanceFactor, chromaFactor);
+                dark = applyFactors(dark, luminanceFactor, chromaFactor);
+            }
+
+            overlay.setResourceValue(prefix + "_light", TYPE_INT_COLOR_ARGB8, light, null);
+            overlay.setResourceValue(prefix + "_dark", TYPE_INT_COLOR_ARGB8, dark, null);
         });
+    }
+
+    private static int applyFactors(int argb, float luminanceFactor, float chromaFactor) {
+        final Hct hct = Hct.fromInt(argb);
+        hct.setChroma(hct.getChroma() * chromaFactor);
+        hct.setTone(Math.max(0d, Math.min(100d, hct.getTone() * luminanceFactor)));
+        return hct.toInt();
+    }
+
+    private static boolean isBackgroundToken(String token) {
+        if ("surface_tint".equals(token)) return false;
+        return token.startsWith("surface")
+                || token.startsWith("on_surface")
+                || token.startsWith("inverse_surface")
+                || token.startsWith("background")
+                || "inverse_on_surface".equals(token)
+                || "on_background".equals(token);
     }
 
     /**
