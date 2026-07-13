@@ -19,7 +19,6 @@ package com.android.systemui.keyguard.dagger;
 import android.app.IActivityTaskManager;
 import android.app.trust.TrustManager;
 import android.content.Context;
-import android.content.res.Resources;
 import android.os.PowerManager;
 import android.uilatencystats.UiLatencyStatsManager;
 
@@ -36,7 +35,6 @@ import com.android.keyguard.dagger.KeyguardStatusBarViewComponent;
 import com.android.keyguard.logging.KeyguardLoggerStartable;
 import com.android.keyguard.mediator.ScreenOnCoordinator;
 import com.android.systemui.CoreStartable;
-import com.android.systemui.Flags;
 import com.android.systemui.animation.ActivityTransitionAnimator;
 import com.android.systemui.bouncer.dagger.BouncerLoggerModule;
 import com.android.systemui.broadcast.BroadcastDispatcher;
@@ -48,7 +46,6 @@ import com.android.systemui.communal.domain.interactor.CommunalSettingsInteracto
 import com.android.systemui.communal.ui.viewmodel.CommunalTransitionViewModel;
 import com.android.systemui.dagger.SysUISingleton;
 import com.android.systemui.dagger.qualifiers.Application;
-import com.android.systemui.dagger.qualifiers.Main;
 import com.android.systemui.dagger.qualifiers.UiBackground;
 import com.android.systemui.dreams.DreamOverlayStateController;
 import com.android.systemui.dreams.ui.viewmodel.DreamViewModel;
@@ -76,7 +73,6 @@ import com.android.systemui.keyguard.ui.viewmodel.KeyguardQuickAffordancesCombin
 import com.android.systemui.log.SessionTracker;
 import com.android.systemui.navigationbar.NavigationModeController;
 import com.android.systemui.process.ProcessWrapper;
-import com.android.systemui.res.R;
 import com.android.systemui.scene.domain.interactor.SceneInteractor;
 import com.android.systemui.settings.UserTracker;
 import com.android.systemui.shade.ShadeController;
@@ -264,15 +260,8 @@ public interface KeyguardModule {
     /** */
     @Provides
     @SysUISingleton
-    static BlurConfig provideBlurConfig(
-            @Main Resources resources, SecureSettings secureSettings) {
-        int maxBlurRadius =
-                Flags.notificationShadeBlur() || Flags.bouncerUiRevamp()
-                        || Flags.glanceableHubBlurredBackground()
-                        ? resources.getDimensionPixelSize(R.dimen.max_shade_window_blur_radius)
-                        : resources.getDimensionPixelSize(R.dimen.max_window_blur_radius);
-
-        return new BlurConfig(0.0f, maxBlurRadius, secureSettings);
+    static BlurConfig provideBlurConfig(SecureSettings secureSettings) {
+        return new BlurConfig(0.0f, BlurConfig.MAX_BLUR_RADIUS_PX, secureSettings);
     }
 
     /** */

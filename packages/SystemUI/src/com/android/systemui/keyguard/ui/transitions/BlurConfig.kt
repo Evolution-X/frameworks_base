@@ -40,18 +40,30 @@ class BlurConfig(
         this(minBlurRadiusPx, maxBlurRadiusPx, null)
 
     val maxBlurRadiusPx: Float
-        get() = secureSettings?.getFloatForUser(
-            KEY_BLUR_RADIUS, defaultMaxBlurRadiusPx, UserHandle.USER_CURRENT
-        ) ?: defaultMaxBlurRadiusPx
+        get() {
+            val percent = secureSettings?.getFloatForUser(
+                KEY_BLUR_RADIUS_PCT,
+                DEFAULT_BLUR_RADIUS_PCT,
+                UserHandle.USER_CURRENT,
+            ) ?: return defaultMaxBlurRadiusPx
+            if (!percent.isFinite()) return defaultMaxBlurRadiusPx
+            return defaultMaxBlurRadiusPx *
+                percent.coerceIn(MIN_BLUR_RADIUS_PCT, MAX_BLUR_RADIUS_PCT) /
+                MAX_BLUR_RADIUS_PCT
+        }
 
     val maxBlurRadiusFlow: Flow<Float> = secureSettings?.let { settings ->
-        settings.observerFlow(KEY_BLUR_RADIUS)
+        settings.observerFlow(KEY_BLUR_RADIUS_PCT)
             .onStart { emit(Unit) }
             .map { maxBlurRadiusPx }
             .distinctUntilChanged()
     } ?: emptyFlow()
 
     companion object {
-        const val KEY_BLUR_RADIUS = "system_blur_radius"
+        const val MAX_BLUR_RADIUS_PX = 175f
+        const val KEY_BLUR_RADIUS_PCT = "system_blur_radius_pct"
+        private const val MIN_BLUR_RADIUS_PCT = 0f
+        private const val MAX_BLUR_RADIUS_PCT = 100f
+        private const val DEFAULT_BLUR_RADIUS_PCT = MAX_BLUR_RADIUS_PCT
     }
 }
