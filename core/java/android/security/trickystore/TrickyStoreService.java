@@ -309,13 +309,31 @@ public class TrickyStoreService {
         flushPatchSection(currentPackage, system, vendor, boot, all);
     }
 
+    private static String resolvePatchTemplate(String value) {
+        if (value == null) return null;
+        java.util.regex.Matcher m = java.util.regex.Pattern
+            .compile("^YYYY-MM-(\\d{2})$").matcher(value.trim());
+        if (!m.matches()) return value;
+        String day = m.group(1);
+        java.util.Calendar cal = java.util.Calendar.getInstance(
+            java.util.TimeZone.getTimeZone("UTC"));
+        return String.format(java.util.Locale.US, "%04d-%02d-%s",
+            cal.get(java.util.Calendar.YEAR),
+            cal.get(java.util.Calendar.MONTH) + 1,
+            day);
+    }
+
     private void flushPatchSection(String pkg, String system, String vendor, String boot, String all) {
         if (system == null && vendor == null && boot == null && all == null) return;
+        String resolvedAll    = resolvePatchTemplate(all);
+        String resolvedSystem = resolvePatchTemplate(system);
+        String resolvedVendor = resolvePatchTemplate(vendor);
+        String resolvedBoot   = resolvePatchTemplate(boot);
         CustomPatchLevel level = new CustomPatchLevel(
-            system != null ? system : all,
-            vendor != null ? vendor : all,
-            boot   != null ? boot   : all,
-            all
+            resolvedSystem != null ? resolvedSystem : resolvedAll,
+            resolvedVendor != null ? resolvedVendor : resolvedAll,
+            resolvedBoot   != null ? resolvedBoot   : resolvedAll,
+            resolvedAll
         );
         if (pkg == null) {
             mCustomPatchLevel = level;
