@@ -1,5 +1,6 @@
 package android.security.trickystore;
 
+import android.security.pif.PlayIntegritySpoofService;
 import android.util.Log;
 
 import com.android.internal.org.bouncycastle.asn1.ASN1Boolean;
@@ -62,6 +63,10 @@ public final class CertificateHacker {
     }
 
     public static Certificate[] hackCertificateChain(Certificate[] chain) {
+        return hackCertificateChain(chain, null);
+    }
+
+    public static Certificate[] hackCertificateChain(Certificate[] chain, String[] packages) {
         if (chain == null || chain.length == 0) {
             return chain;
         }
@@ -83,13 +88,24 @@ public final class CertificateHacker {
             ASN1Encodable[] encodables = sequence.toArray();
             ASN1Sequence teeEnforced = (ASN1Sequence) encodables[7];
 
+            Map<Integer, byte[]> attestationIdOverrides = getAttestationIdOverrides();
+
             ASN1EncodableVector vector = new ASN1EncodableVector();
             ASN1Encodable originalRootOfTrust = null;
 
             for (ASN1Encodable element : teeEnforced) {
                 ASN1TaggedObject taggedObject = (ASN1TaggedObject) element;
-                if (taggedObject.getTagNo() == 704) {
+                int tagNo = taggedObject.getTagNo();
+                if (tagNo == 704) {
                     originalRootOfTrust = taggedObject.getBaseObject().toASN1Primitive();
+                } else if (tagNo == 705 || tagNo == 706 || tagNo == 718 || tagNo == 719) {
+                    // Real KeyMint already reports these; hackAttestExtension() re-adds
+                    // them with the configured values, so keeping the originals would
+                    // emit each tag twice.
+                } else if (attestationIdOverrides.containsKey(tagNo)) {
+                    // Dropped here; the spoofed replacement is added back in
+                    // hackAttestExtension() so the certified identity and the
+                    // GMS-visible Build fields can't disagree.
                 } else {
                     vector.add(taggedObject);
                 }
@@ -119,12 +135,16 @@ public final class CertificateHacker {
 
             ContentSigner signer = createBCSigner(leaf.getSigAlgName(), keybox.keyPair.getPrivate());
 
-            Extension hackedExtension = hackAttestExtension(originalRootOfTrust, vector, encodables);
-            builder.addExtension(hackedExtension);
+            Extension hackedExtension = hackAttestExtension(
+                originalRootOfTrust, vector, encodables, attestationIdOverrides, packages);
 
+            // Keep the leaf's original extension order (KeyUsage, then attestation)
+            // instead of moving the attestation extension to the front.
             for (Object oid : leafHolder.getExtensions().getExtensionOIDs()) {
                 String oidString = oid.toString();
-                if (!oidString.equals(CertificateGenerator.ATTESTATION_OID.getId())) {
+                if (oidString.equals(CertificateGenerator.ATTESTATION_OID.getId())) {
+                    builder.addExtension(hackedExtension);
+                } else {
                     builder.addExtension(leafHolder.getExtension(
                         new ASN1ObjectIdentifier(oidString)));
                 }
@@ -251,10 +271,58 @@ public final class CertificateHacker {
         }
     }
 
+    // KeyMint attestation extension tag numbers for the hardware identity
+    // fields. Kept in one place so the drop-set built in
+    // getAttestationIdOverrides() and the re-add loop in
+    // hackAttestExtension() can't drift apart.
+    private static final int TAG_ATTESTATION_ID_BRAND = 710;
+    private static final int TAG_ATTESTATION_ID_DEVICE = 711;
+    private static final int TAG_ATTESTATION_ID_PRODUCT = 712;
+    private static final int TAG_ATTESTATION_ID_MANUFACTURER = 716;
+    private static final int TAG_ATTESTATION_ID_MODEL = 717;
+
+    /**
+     * Builds the set of attestation-ID tags that should be overridden from
+     * the active PlayIntegritySpoofService profile, so that a Play Integrity
+     * check cross-referencing GMS-visible Build fields against the KeyMint
+     * hardware attestation certificate can't catch a mismatch between the
+     * two. Returns an empty map (no-op) when build spoofing isn't currently
+     * enabled/configured for this process, so unspoofed callers keep getting
+     * their real, untouched hardware identity in the attestation cert.
+     */
+    private static Map<Integer, byte[]> getAttestationIdOverrides() {
+        Map<Integer, byte[]> overrides = new java.util.HashMap<>();
+        try {
+            PlayIntegritySpoofService pif = PlayIntegritySpoofService.getInstance();
+            if (!pif.isSpoofBuildEnabled()) {
+                return overrides;
+            }
+
+            Map<String, String> buildFields = pif.getBuildFields();
+            putIfPresent(overrides, TAG_ATTESTATION_ID_BRAND, buildFields.get("BRAND"));
+            putIfPresent(overrides, TAG_ATTESTATION_ID_DEVICE, buildFields.get("DEVICE"));
+            putIfPresent(overrides, TAG_ATTESTATION_ID_PRODUCT, buildFields.get("PRODUCT"));
+            putIfPresent(overrides, TAG_ATTESTATION_ID_MANUFACTURER,
+                buildFields.get("MANUFACTURER"));
+            putIfPresent(overrides, TAG_ATTESTATION_ID_MODEL, buildFields.get("MODEL"));
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to read PIF build fields for attestation IDs", e);
+        }
+        return overrides;
+    }
+
+    private static void putIfPresent(Map<Integer, byte[]> map, int tag, String value) {
+        if (value != null && !value.isEmpty()) {
+            map.put(tag, value.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+    }
+
     private static Extension hackAttestExtension(
             ASN1Encodable originalRootOfTrust,
             ASN1EncodableVector vector,
-            ASN1Encodable[] originalEncodables) throws Exception {
+            ASN1Encodable[] originalEncodables,
+            Map<Integer, byte[]> attestationIdOverrides,
+            String[] packages) throws Exception {
 
         byte[] bootKey = AttestationUtils.getBootKey();
         byte[] bootHash = AttestationUtils.getBootHash();
@@ -283,17 +351,38 @@ public final class CertificateHacker {
         };
         DERSequence hackedRootOfTrust = new DERSequence(rootOfTrustElements);
 
-        vector.add(new DERTaggedObject(true, 718, 
-            new ASN1Integer(AttestationUtils.getVendorPatchLevel(true))));
-        vector.add(new DERTaggedObject(true, 719, 
-            new ASN1Integer(AttestationUtils.getBootPatchLevel(true))));
-        vector.add(new DERTaggedObject(true, 706, 
-            new ASN1Integer(AttestationUtils.getPatchLevel(false))));
-        vector.add(new DERTaggedObject(true, 705, 
+        // Collect everything by tag so the list is emitted in ascending tag order,
+        // like real KeyMint output.
+        java.util.TreeMap<Integer, ASN1Encodable> ordered = new java.util.TreeMap<>();
+        for (int i = 0; i < vector.size(); i++) {
+            ASN1TaggedObject t = (ASN1TaggedObject) vector.get(i);
+            ordered.put(t.getTagNo(), t);
+        }
+        ordered.put(718, new DERTaggedObject(true, 718,
+            new ASN1Integer(AttestationUtils.getVendorPatchLevel(true, packages))));
+        ordered.put(719, new DERTaggedObject(true, 719,
+            new ASN1Integer(AttestationUtils.getBootPatchLevel(true, packages))));
+        ordered.put(706, new DERTaggedObject(true, 706,
+            new ASN1Integer(AttestationUtils.getPatchLevel(false, packages))));
+        ordered.put(705, new DERTaggedObject(true, 705,
             new ASN1Integer(AttestationUtils.getOsVersion())));
-        vector.add(new DERTaggedObject(704, hackedRootOfTrust));
+        ordered.put(704, new DERTaggedObject(704, hackedRootOfTrust));
 
-        DERSequence hackedEnforced = new DERSequence(vector);
+        // Re-add the hardware identity tags dropped in hackCertificateChain(),
+        // using the same certified profile PlayIntegritySpoofService serves
+        // to GMS/DroidGuard, so the attestation cert and the spoofed Build
+        // fields tell the same story.
+        for (Map.Entry<Integer, byte[]> entry : attestationIdOverrides.entrySet()) {
+            ordered.put(entry.getKey(), new DERTaggedObject(true, entry.getKey(),
+                new DEROctetString(entry.getValue())));
+        }
+
+        ASN1EncodableVector orderedVector = new ASN1EncodableVector();
+        for (ASN1Encodable e : ordered.values()) {
+            orderedVector.add(e);
+        }
+
+        DERSequence hackedEnforced = new DERSequence(orderedVector);
         originalEncodables[7] = hackedEnforced;
         DERSequence hackedSequence = new DERSequence(originalEncodables);
         DEROctetString hackedOctets = new DEROctetString(hackedSequence);
