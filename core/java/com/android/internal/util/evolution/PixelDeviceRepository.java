@@ -159,6 +159,44 @@ public final class PixelDeviceRepository {
                     "tangorpro"
             ));
 
+    // Codenames of 'a' series devices, newest-first. These are prioritized in
+    // device-picker sort order and used to compute a generation-relative
+    // default pick, since 'a' series Play Integrity prints have been observed
+    // to hold a working <A13 PI DEVICE verdict for meaningfully longer than
+    // flagship canary/beta prints, which per community tooling are now largely
+    // STRONG-integrity-only. This is a display/default-selection signal only;
+    // it never filters what fetchFromNetwork() returns.
+    public static final List<String> A_SERIES_ORDER = Collections.unmodifiableList(
+            Arrays.asList(
+                    "formosan", // Pixel 11a
+                    "stallion", // Pixel 10a
+                    "tegu",     // Pixel 9a
+                    "akita",    // Pixel 8a
+                    "lynx",     // Pixel 7a
+                    "bluejay"   // Pixel 6a
+            ));
+
+    /**
+     * Returns the 'a' series codename one generation behind the newest one
+     * present in [available], or the newest available if only one exists.
+     * Returns null if no 'a' series device is present at all.
+     */
+    public static String getPreferredASeriesCodename(List<PixelProfile> available) {
+        Set<String> present = new HashSet<>();
+        for (PixelProfile p : available) present.add(p.codename);
+        int newestIndex = -1;
+        for (int i = 0; i < A_SERIES_ORDER.size(); i++) {
+            if (present.contains(A_SERIES_ORDER.get(i))) { newestIndex = i; break; }
+        }
+        if (newestIndex < 0) return null;
+        int preferredIndex = newestIndex + 1;
+        if (preferredIndex < A_SERIES_ORDER.size()
+                && present.contains(A_SERIES_ORDER.get(preferredIndex))) {
+            return A_SERIES_ORDER.get(preferredIndex);
+        }
+        return A_SERIES_ORDER.get(newestIndex);
+    }
+
     // Shared default spoof target packages — single source of truth used by both
     // PixelPropsUtils (runtime) and PixelPropsSettings (UI), rather than three
     // separately-maintained copies.
@@ -170,12 +208,14 @@ public final class PixelDeviceRepository {
                     "com.disney.disneyplus",
                     "com.google.android.aicore",
                     "com.google.android.apps.accessibility.magnifier",
+                    "com.google.android.apps.ai.icons",
                     "com.google.android.apps.aiwallpapers",
                     "com.google.android.apps.bard",
                     "com.google.android.apps.customization.pixel",
                     "com.google.android.apps.emojiwallpaper",
                     "com.google.android.apps.pixel.agent",
                     "com.google.android.apps.pixel.creativeassistant",
+                    "com.google.android.apps.pixel.customizationbundle",
                     "com.google.android.apps.pixel.nowplaying",
                     "com.google.android.apps.pixel.psi",
                     "com.google.android.apps.pixel.subzero",
@@ -220,14 +260,14 @@ public final class PixelDeviceRepository {
     static {
         List<PixelProfile> f = new ArrayList<>();
         f.add(new PixelProfile("kodiak",    "Pixel 11 Pro XL",   "google", "kodiak",    "kodiak",
-                "google/kodiak/kodiak:17/CD1A.260714.001.A9/15938155:user/release-keys",
-                "CD1A.260714.001.A9", "2026-08-05", 0L, null, false));
+                "google/kodiak/kodiak:17/CD1A.261005.003/16262255:user/release-keys",
+                "CD1A.261005.003", "2026-10-05", 0L, null, false));
         f.add(new PixelProfile("mustang",   "Pixel 10 Pro XL",   "google", "mustang",   "mustang",
-                "google/mustang/mustang:17/CP2A.260805.005/15828068:user/release-keys",
-                "CP2A.260805.005", "2026-08-05", 0L, null, false));
+                "google/mustang/mustang:17/CP3A.261005.005/16271449:user/release-keys",
+                "CP3A.261005.005", "2026-10-05", 0L, null, false));
         f.add(new PixelProfile("tangorpro", "Pixel Tablet",      "google", "tangorpro", "tangorpro",
-                "google/tangorpro/tangorpro:17/CP2A.260705.006/15641320:user/release-keys",
-                "CP2A.260705.005", "2026-07-05", 0L, null, false));
+                "google/tangorpro/tangorpro:17/CP3A.261005.002.A1/16269273:user/release-keys",
+                "CP3A.261005.002.A1", "2026-10-05", 0L, null, false));
         FALLBACK_PROFILES = Collections.unmodifiableList(f);
     }
 
@@ -521,22 +561,38 @@ public final class PixelDeviceRepository {
 
                 // Step 3: extract device codenames from QPR table rows. No known-codename
                 // filter here — an unlisted device (e.g. an unconfirmed Pixel 11 tier) is
-                // still picked up the moment Flash Tool/Google publish it.
-                String qprHtml = readUrl(GOOGLE_URL + bestQprPath);
-                java.util.regex.Matcher rm = rowPattern.matcher(qprHtml);
+                // still picked up the moment Flash Tool/Google publish it. Union device
+                // codenames from both the OTA and Factory Image pages for this QPR rather
+                // than picking one source and discarding the other — Google doesn't always
+                // publish a device to both pages at the same time (e.g. a newer 'a' series
+                // device can lag on one page), so relying on a single source can silently
+                // drop a device for a cycle.
+                String otaHtml = readUrl(GOOGLE_URL + bestQprPath);
+                String fiPath = bestQprPath.replace("/download-ota", "/download");
+                String fiHtml;
+                try {
+                    fiHtml = readUrl(GOOGLE_URL + fiPath);
+                } catch (Exception e) {
+                    fiHtml = ""; // FI page missing/unreachable — fall back to OTA only
+                }
+
                 // codename -> friendly model name straight from the page table,
                 // e.g. "bluejay" -> "Pixel 6a". Preferred over DEVICE_MODEL_MAP
                 // since it's always current; the map is only a fallback for the
-                // rare case a row's name cell is empty.
+                // rare case a row's name cell is empty. OTA is scanned first so
+                // its naming wins on overlap, matching prior behavior.
                 Map<String, String> scrapedModelNames = new HashMap<>();
                 List<String> deviceCodenames = new ArrayList<>();
                 Set<String> seenDevices = new HashSet<>();
-                while (rm.find()) {
-                    String device = rm.group(1).trim();
-                    String modelName = rm.group(2).trim();
-                    if (seenDevices.add(device)) {
-                        deviceCodenames.add(device);
-                        if (!modelName.isEmpty()) {
+                for (String sourceHtml : new String[] { otaHtml, fiHtml }) {
+                    java.util.regex.Matcher rm = rowPattern.matcher(sourceHtml);
+                    while (rm.find()) {
+                        String device = rm.group(1).trim();
+                        String modelName = rm.group(2).trim();
+                        if (seenDevices.add(device)) {
+                            deviceCodenames.add(device);
+                        }
+                        if (!modelName.isEmpty() && !scrapedModelNames.containsKey(device)) {
                             scrapedModelNames.put(device, modelName);
                         }
                     }
@@ -570,6 +626,13 @@ public final class PixelDeviceRepository {
                         conn.setReadTimeout(15000);
                         String buildsJson = new String(
                                 conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                        if (!buildsJson.trim().startsWith("{")) {
+                            // An HTML bot-wall instead of JSON: every remaining device
+                            // would hit the same wall, so keep what we have.
+                            Log.w(TAG, "flashstation rate-limited at " + product
+                                    + ", stopping crawl");
+                            break;
+                        }
 
                         org.json.JSONObject root = new org.json.JSONObject(buildsJson);
                         org.json.JSONArray buildsArray = root.optJSONArray("flashstationBuild");
@@ -579,8 +642,11 @@ public final class PixelDeviceRepository {
                         String incremental = null;
                         String canaryId = null;
                         String factoryImageUrl = null;
+                        long bestBuildId = -1;
 
-                        for (int i = buildsArray.length() - 1; i >= 0; i--) {
+                        // Take the canary with the highest numeric buildId rather than
+                        // relying on the order the API returns them in.
+                        for (int i = 0; i < buildsArray.length(); i++) {
                             org.json.JSONObject b = buildsArray.optJSONObject(i);
                             if (b == null) continue;
                             org.json.JSONObject meta = b.optJSONObject("previewMetadata");
@@ -588,14 +654,21 @@ public final class PixelDeviceRepository {
                             String rc = b.optString("releaseCandidateName");
                             String bid = b.optString("buildId");
                             if (rc.isEmpty() || bid.isEmpty()) continue;
+                            long rank;
+                            try {
+                                rank = Long.parseLong(bid);
+                            } catch (NumberFormatException e) {
+                                rank = 0;
+                            }
+                            if (rank <= bestBuildId) continue;
+                            bestBuildId = rank;
                             id = rc;
                             incremental = bid;
                             String mid = meta.optString("id");
-                            if (mid.contains("canary-")) canaryId = mid;
+                            canaryId = mid.contains("canary-") ? mid : null;
                             String fiUrl = b.optString("factoryImageDownloadUrl");
                             if (fiUrl.isEmpty()) fiUrl = meta.optString("factoryImageDownloadUrl");
-                            if (!fiUrl.isEmpty()) factoryImageUrl = fiUrl;
-                            break;
+                            factoryImageUrl = fiUrl.isEmpty() ? null : fiUrl;
                         }
                         if (id == null || incremental == null) {
                             // No canary/beta build published for this device yet
@@ -623,7 +696,7 @@ public final class PixelDeviceRepository {
                         }
 
                         // Derive security patch from canary ID month (e.g. "canary-202605")
-                        String securityPatch = "2026-05-05"; // safe default
+                        String securityPatch = patchFromBuildId(id);
                         if (canaryId != null) {
                             java.util.regex.Matcher cm = java.util.regex.Pattern.compile(
                                     "canary-(\\d{4})(\\d{2})")
@@ -776,6 +849,17 @@ public final class PixelDeviceRepository {
 
         return new PixelProfile(device, model, "google", device, device, fingerprint,
                 buildId, securityPatch, now, null, false);
+    }
+
+    /**
+     * Derives YYYY-MM-05 from the YYMMDD segment of a build id, e.g.
+     * "ZP11.260618.005" -> "2026-06-05". Used when the canary metadata carries
+     * no month; falls back to a fixed date if the id has no such segment.
+     */
+    private static String patchFromBuildId(String id) {
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("\\.(\\d{2})(0[1-9]|1[0-2])\\d{2}\\.").matcher(id);
+        return m.find() ? "20" + m.group(1) + "-" + m.group(2) + "-05" : "2026-05-05";
     }
 
     private static String monthNumber(String month) {
