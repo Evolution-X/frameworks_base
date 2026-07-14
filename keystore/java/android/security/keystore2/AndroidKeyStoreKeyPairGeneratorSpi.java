@@ -824,10 +824,11 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
 
             KeyMetadata metadata = null;
             boolean needGenerate = false;
+            String[] packages = null;
             if (!"TrickyStoreTeeCheck".equals(mEntryAlias) && 
                 !"trickystore_attestation_key".equals(mEntryAlias)) {
                 try {
-                    String[] packages = ActivityThread.getPackageManager().getPackagesForUid(Process.myUid());
+                    packages = ActivityThread.getPackageManager().getPackagesForUid(Process.myUid());
                     if (TrickyStoreService.getInstance()
                             .needGenerate(Process.myUid(), packages)) {
                         needGenerate = true;
@@ -858,19 +859,33 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
                     for (int d : mKeymasterDigests) params.digest.add(d);
                 }
 
-                // Populate RSA OAEP MGF digest for KeyMint 3+ compatibility
-                if (mKeymasterAlgorithm == KeymasterDefs.KM_ALGORITHM_RSA &&
-                    mKeymasterEncryptionPaddings != null) {
+                if (mKeymasterAlgorithm == KeymasterDefs.KM_ALGORITHM_EC) {
+                    try {
+                        params.ecCurve = keySizeAndNameToEcCurve(mKeySizeBits, mEcCurveName);
+                    } catch (InvalidAlgorithmParameterException e) {
+                        throw new ProviderException("Unsupported EC curve", e);
+                    }
+                }
+                if (mKeymasterEncryptionPaddings != null) {
+                    for (int p : mKeymasterEncryptionPaddings) params.padding.add(p);
+                }
+                if (mKeymasterSignaturePaddings != null) {
+                    for (int p : mKeymasterSignaturePaddings) {
+                        if (!params.padding.contains(p)) params.padding.add(p);
+                    }
+                }
+                params.packages = packages;
+
+                // KeyMint 3+ reports the MGF1 digests, not the primary digests, under
+                // RSA_OAEP_MGF_DIGEST. mKeymasterMgf1Digests already holds the SHA-1
+                // default when the spec named none, same as the real generation path.
+                if (mKeymasterAlgorithm == KeymasterDefs.KM_ALGORITHM_RSA
+                        && mKeymasterEncryptionPaddings != null
+                        && mKeymasterMgf1Digests != null) {
                     for (int padding : mKeymasterEncryptionPaddings) {
                         if (padding == KeymasterDefs.KM_PAD_RSA_OAEP) {
-                            // Use digests as MGF1 digests per KeyMint spec
-                            if (mKeymasterDigests != null) {
-                                for (int d : mKeymasterDigests) {
-                                    params.rsaOaepMgfDigest.add(d);
-                                }
-                            } else {
-                                // Default to SHA-1 if no digests specified
-                                params.rsaOaepMgfDigest.add(KeymasterDefs.KM_DIGEST_SHA1);
+                            for (int d : mKeymasterMgf1Digests) {
+                                params.rsaOaepMgfDigest.add(d);
                             }
                             break;
                         }
