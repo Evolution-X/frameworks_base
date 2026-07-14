@@ -9,6 +9,10 @@ import android.util.Log;
 import com.android.internal.org.bouncycastle.asn1.*;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.security.*;
 import java.security.cert.*;
 
@@ -17,6 +21,10 @@ import java.security.cert.*;
  */
 public final class AttestationUtils {
     private static final String TAG = "AttestationUtils";
+
+    private static final File CONFIG_DIR = new File("/data/adb/tricky_store");
+    private static final File BOOT_KEY_FILE = new File(CONFIG_DIR, "boot_key");
+    private static final File HBK_FILE = new File(CONFIG_DIR, "hbk");
 
     private static byte[] sBootKey;
     private static byte[] sBootHash;
@@ -34,20 +42,80 @@ public final class AttestationUtils {
 
     public static byte[] getBootKey() {
         if (sBootKey == null) {
-            sBootKey = generateRandomBytes(32);
+            sBootKey = getBootKeyFromProp();
+            if (sBootKey == null) {
+                sBootKey = getBootKeyFromKeybox();
+            }
+            if (sBootKey == null) {
+                sBootKey = loadOrCreatePersisted(BOOT_KEY_FILE);
+            }
         }
         return sBootKey;
+    }
+
+    /**
+     * Derives a fallback verified-boot key from the active keybox's issuer certificate,
+     * so that when the real vbmeta property is unavailable the attested key is at least
+     * deterministic and tied to whatever keybox is actually signing the chain, rather than
+     * an arbitrary persisted random value with no relation to anything else we attest.
+     * Returns null if no keybox is currently loaded.
+     */
+    private static byte[] getBootKeyFromKeybox() {
+        try {
+            KeyBoxManager keyBoxManager = TrickyStoreService.getInstance().getKeyBoxManager();
+            if (keyBoxManager == null || !keyBoxManager.hasKeyboxes()) {
+                return null;
+            }
+            KeyBoxManager.KeyBox keybox = keyBoxManager.getKeybox("EC");
+            if (keybox == null) {
+                keybox = keyBoxManager.getKeybox("RSA");
+            }
+            if (keybox == null || keybox.certificates == null || keybox.certificates.isEmpty()) {
+                return null;
+            }
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return digest.digest(keybox.certificates.get(0).getEncoded());
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to derive boot key from keybox issuer", e);
+            return null;
+        }
+    }
+
+    /**
+     * Reads the real verified-boot public key digest from the bootloader property, so the
+     * RootOfTrust key we attest matches the device's actual verified-boot chain instead of a
+     * value with no relation to it. Falls back to the persisted random value only when the
+     * property is unavailable.
+     */
+    private static byte[] getBootKeyFromProp() {
+        String digest = SystemProperties.get("ro.boot.vbmeta.public_key_digest", null);
+        if (digest == null || digest.isEmpty() || digest.length() != 64) {
+            return null;
+        }
+        try {
+            return hexStringToByteArray(digest);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to parse vbmeta.public_key_digest", e);
+            return null;
+        }
     }
 
     public static byte[] getBootHash() {
         if (sBootHash == null) {
             sBootHash = getBootHashFromProp();
+            if (sBootHash == null) {
+                sBootHash = readPersisted(HBK_FILE);
+            }
             if (sBootHash == null && !sTeeBroken) {
                 sBootHash = extractBootHashFromTee();
+                if (sBootHash != null) {
+                    writePersisted(HBK_FILE, sBootHash);
+                }
             }
             if (sBootHash == null) {
-                Log.w(TAG, "Failed to get boot hash from prop and TEE, using random bytes");
+                Log.w(TAG, "Failed to get boot hash from prop, disk, and TEE, using random bytes");
                 sBootHash = generateRandomBytes(32);
+                writePersisted(HBK_FILE, sBootHash);
             }
         }
         return sBootHash;
@@ -61,10 +129,17 @@ public final class AttestationUtils {
             Log.i(TAG, "initBootHash: Boot hash already set from prop: " + bytesToHex(hash));
             return;
         }
-        Log.i(TAG, "initBootHash: No prop set, attempting TEE extraction");
+        hash = readPersisted(HBK_FILE);
+        if (hash != null) {
+            sBootHash = hash;
+            Log.i(TAG, "initBootHash: Boot hash loaded from disk: " + bytesToHex(hash));
+            return;
+        }
+        Log.i(TAG, "initBootHash: No prop or disk state, attempting TEE extraction");
         hash = extractBootHashFromTee();
         if (hash != null) {
             sBootHash = hash;
+            writePersisted(HBK_FILE, hash);
             Log.i(TAG, "initBootHash: TEE extraction successful, setting prop");
             setVbmetaDigestProp(bytesToHex(hash));
         } else {
@@ -168,7 +243,7 @@ public final class AttestationUtils {
             case Build.VERSION_CODES.TIRAMISU: return 130000;
             case Build.VERSION_CODES.UPSIDE_DOWN_CAKE: return 140000;
             case Build.VERSION_CODES.VANILLA_ICE_CREAM: return 150000;
-            default: return 160000;
+            default: return (Build.VERSION.SDK_INT - 20) * 10000;
         }
     }
 
@@ -290,6 +365,59 @@ public final class AttestationUtils {
         byte[] bytes = new byte[length];
         new SecureRandom().nextBytes(bytes);
         return bytes;
+    }
+
+    /**
+     * Loads a persisted value from {@code file}, generating and persisting
+     * a fresh 32-byte random value on first run so it stays stable across
+     * daemon restarts and reboots instead of being re-randomized every time.
+     */
+    private static byte[] loadOrCreatePersisted(File file) {
+        byte[] existing = readPersisted(file);
+        if (existing != null) {
+            return existing;
+        }
+        byte[] fresh = generateRandomBytes(32);
+        writePersisted(file, fresh);
+        return fresh;
+    }
+
+    private static byte[] readPersisted(File file) {
+        if (!file.isFile()) {
+            return null;
+        }
+        try {
+            byte[] data = Files.readAllBytes(file.toPath());
+            if (data.length == 32) {
+                return data;
+            }
+            Log.w(TAG, "Persisted value at " + file + " has unexpected length "
+                    + data.length + ", ignoring");
+        } catch (IOException e) {
+            Log.w(TAG, "Failed to read persisted value from " + file, e);
+        }
+        return null;
+    }
+
+    private static void writePersisted(File file, byte[] data) {
+        try {
+            if (!CONFIG_DIR.isDirectory() && !CONFIG_DIR.mkdirs()) {
+                Log.w(TAG, "Failed to create " + CONFIG_DIR);
+                return;
+            }
+            File tmp = new File(CONFIG_DIR, file.getName() + ".tmp");
+            try (FileOutputStream fos = new FileOutputStream(tmp)) {
+                fos.write(data);
+            }
+            if (!tmp.renameTo(file)) {
+                Log.w(TAG, "Failed to rename " + tmp + " to " + file);
+            } else {
+                file.setReadable(true, true);
+                file.setWritable(true, true);
+            }
+        } catch (IOException e) {
+            Log.w(TAG, "Failed to persist value to " + file, e);
+        }
     }
 
     private static byte[] hexStringToByteArray(String hex) {
