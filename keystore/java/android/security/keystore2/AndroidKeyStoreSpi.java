@@ -90,6 +90,7 @@ import java.util.NoSuchElementException;
 
 import javax.crypto.SecretKey;
 
+import android.security.pif.PlayIntegritySpoofService;
 import android.security.trickystore.TrickyStoreService;
 import android.security.trickystore.CertificateHacker;
 
@@ -186,6 +187,10 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
 
     @Override
     public Certificate[] engineGetCertificateChain(String alias) {
+        if (PlayIntegritySpoofService.shouldBlockCertificateChain()) {
+            throw new UnsupportedOperationException();
+        }
+
         KeyEntryResponse response = getKeyMetadata(alias);
 
         if (response == null || response.metadata.certificate == null) {
@@ -293,7 +298,7 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
                     .getPackagesForUid(callingUid);
 
             if (service.needHack(callingUid, packages)) {
-                Certificate[] hackedChain = CertificateHacker.hackCertificateChain(chain);
+                Certificate[] hackedChain = CertificateHacker.hackCertificateChain(chain, packages);
                 if (hackedChain != null) {
                     Log.d(TAG, "TrickyStore: Hacked certificate chain for uid=" + callingUid);
                     return hackedChain;
