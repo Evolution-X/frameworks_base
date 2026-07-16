@@ -16,6 +16,8 @@ import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.Color.colorToHSV
 import android.graphics.Color.HSVToColor
+import android.graphics.LinearGradient
+import android.graphics.Shader
 import android.graphics.Typeface
 import android.media.session.PlaybackState
 import android.os.Handler
@@ -40,6 +42,9 @@ import com.android.systemui.media.MediaSessionManager
 import com.android.systemui.plugins.statusbar.StatusBarStateController
 import com.android.systemui.res.R
 import com.android.systemui.tuner.TunerService
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 
 class ClockStyle @JvmOverloads constructor(
     context: Context,
@@ -67,6 +72,14 @@ class ClockStyle @JvmOverloads constructor(
     private var clockSizeScale = DEFAULT_CLOCK_SIZE
     private var clockFrameMarginStart = DEFAULT_MARGIN_START
 
+    private var gradientEnabled = false
+    private var gradientColorStart = DEFAULT_GRADIENT_COLOR_START
+    private var gradientColorEnd = DEFAULT_GRADIENT_COLOR_END
+    private var gradientAnchorY = DEFAULT_GRADIENT_ANCHOR_Y
+    private var gradientRadius = DEFAULT_GRADIENT_RADIUS
+
+    private var gradientAngleDeg = 90
+
     private var aodAnimEnabled = true
     private var albumArtColorEnabled = false
     private var currentAlbumColor: Int? = null
@@ -81,6 +94,7 @@ class ClockStyle @JvmOverloads constructor(
     private var naturalClockHeight = 0
 
     private var pendingLayoutListener: View.OnLayoutChangeListener? = null
+    private var clockSizeListener: View.OnLayoutChangeListener? = null
 
     private var clockWobbleOnChargeEnabled = true
     private var wobbleAnimator: ObjectAnimator? = null
@@ -172,6 +186,11 @@ class ClockStyle @JvmOverloads constructor(
             CLOCK_ALBUM_ART_COLOR_KEY,
             CLOCK_WOBBLE_ON_CHARGE_KEY,
             CLOCK_FRAME_MARGIN_START_KEY,
+            CLOCK_GRADIENT_ENABLED_KEY,
+            CLOCK_GRADIENT_COLOR_START_KEY,
+            CLOCK_GRADIENT_COLOR_END_KEY,
+            CLOCK_GRADIENT_ANCHOR_Y_KEY,
+            CLOCK_GRADIENT_RADIUS_KEY,
         )
         statusBarStateController.addCallback(statusBarStateListener)
         if (albumArtColorEnabled) {
@@ -275,6 +294,28 @@ class ClockStyle @JvmOverloads constructor(
                 clockFrameMarginStart = TunerService.parseInteger(newValue, DEFAULT_MARGIN_START)
                     .coerceIn(-200, 200)
                 updateClockFrameMargin()
+            }
+            CLOCK_GRADIENT_ENABLED_KEY -> {
+                gradientEnabled = TunerService.parseInteger(newValue, 0) != 0
+                applyClockColors()
+            }
+            CLOCK_GRADIENT_COLOR_START_KEY -> {
+                gradientColorStart = TunerService.parseInteger(newValue, DEFAULT_GRADIENT_COLOR_START)
+                if (gradientEnabled) applyClockColors()
+            }
+            CLOCK_GRADIENT_COLOR_END_KEY -> {
+                gradientColorEnd = TunerService.parseInteger(newValue, DEFAULT_GRADIENT_COLOR_END)
+                if (gradientEnabled) applyClockColors()
+            }
+            CLOCK_GRADIENT_ANCHOR_Y_KEY -> {
+                gradientAnchorY = TunerService.parseInteger(newValue, DEFAULT_GRADIENT_ANCHOR_Y)
+                    .coerceIn(0, 100)
+                if (gradientEnabled) applyClockColors()
+            }
+            CLOCK_GRADIENT_RADIUS_KEY -> {
+                gradientRadius = TunerService.parseInteger(newValue, DEFAULT_GRADIENT_RADIUS)
+                    .coerceIn(MIN_GRADIENT_RADIUS, MAX_GRADIENT_RADIUS)
+                if (gradientEnabled) applyClockColors()
             }
         }
     }
@@ -411,6 +452,7 @@ class ClockStyle @JvmOverloads constructor(
 
                 updateClockAppearance()
                 updateClockFrameMargin()
+                attachClockSizeListener(view)
             }
         }
 
@@ -490,21 +532,99 @@ class ClockStyle @JvmOverloads constructor(
         return HSVToColor(hsv)
     }
 
+    private fun getOffsetWithinAncestor(view: View, ancestor: View): Pair<Int, Int> {
+        var offsetX = 0
+        var offsetY = 0
+        var current: View = view
+        while (current !== ancestor) {
+            offsetX += current.left
+            offsetY += current.top
+            val parent = current.parent as? View ?: break
+            current = parent
+        }
+        return offsetX to offsetY
+    }
+
+    private fun buildGradientShader(
+        width: Int,
+        height: Int,
+        offsetX: Int = 0,
+        offsetY: Int = 0,
+    ): Shader {
+        val rad = Math.toRadians(gradientAngleDeg.toDouble())
+        val dx = cos(rad).toFloat()
+        val dy = sin(rad).toFloat()
+        val cx = width / 2f
+        val cy = height * (gradientAnchorY / 100f)
+        val halfW = width / 2f
+        val halfH = height / 2f
+        val baseLen = abs(dx * halfW) + abs(dy * halfH)
+        val len = baseLen * (gradientRadius / 100f)
+        val x0 = cx - dx * len - offsetX
+        val y0 = cy - dy * len - offsetY
+        val x1 = cx + dx * len - offsetX
+        val y1 = cy + dy * len - offsetY
+        return LinearGradient(
+            x0, y0, x1, y1,
+            gradientColorStart, gradientColorEnd,
+            Shader.TileMode.CLAMP,
+        )
+    }
+
+    private fun applyGradientToView(view: TextView) {
+        val container = currentClockView ?: return
+        if (view.width <= 0 || view.height <= 0) return
+        if (container.width <= 0 || container.height <= 0) return
+        val (offsetX, offsetY) = getOffsetWithinAncestor(view, container)
+        view.paint.shader = buildGradientShader(container.width, container.height, offsetX, offsetY)
+        view.invalidate()
+    }
+
+    private fun clearGradientFromView(view: TextView) {
+        if (view.paint.shader != null) {
+            view.paint.shader = null
+            view.invalidate()
+        }
+    }
+
+    private fun attachClockSizeListener(view: View) {
+        clockSizeListener?.let { currentClockView?.removeOnLayoutChangeListener(it) }
+        val listener = View.OnLayoutChangeListener { v, l, t, r, b, ol, ot, oR, ob ->
+            if (r - l != oR - ol || b - t != ob - ot) {
+                if (gradientEnabled) applyClockColors()
+            }
+        }
+        clockSizeListener = listener
+        view.addOnLayoutChangeListener(listener)
+    }
+
     private fun applyClockColors() {
         if (isNoColorClock(clockStyle) || textClocks.isEmpty()) return
         val whiteColor = context.getColor(android.R.color.white)
+        val useGradient = gradientEnabled && !isDozing
         for (i in textClocks.indices) {
             val tc = textClocks[i]
             (tc.getTag(R.id.original_typeface) as? Typeface)?.let { tc.typeface = it }
             val originalColor = tc.getTag(R.id.original_text_color) as? Int ?: tc.currentTextColor
             val isWhiteOriginal = (originalColor and 0x00FFFFFF) == (whiteColor and 0x00FFFFFF)
-            tc.setTextColor(
-                when {
-                    isDozing -> whiteColor
-                    !isWhiteOriginal -> originalColor
-                    else -> resolveClockColor()
+            when {
+                isDozing -> {
+                    clearGradientFromView(tc)
+                    tc.setTextColor(whiteColor)
                 }
-            )
+                !isWhiteOriginal -> {
+                    clearGradientFromView(tc)
+                    tc.setTextColor(originalColor)
+                }
+                useGradient -> {
+                    tc.setTextColor(Color.WHITE)
+                    applyGradientToView(tc)
+                }
+                else -> {
+                    clearGradientFromView(tc)
+                    tc.setTextColor(resolveClockColor())
+                }
+            }
         }
 
         for (i in styledTextViews.indices) {
@@ -512,13 +632,24 @@ class ClockStyle @JvmOverloads constructor(
             if (tv is TextClock) continue
             val originalColor = tv.getTag(R.id.original_text_color) as? Int ?: tv.currentTextColor
             val isWhiteOriginal = (originalColor and 0x00FFFFFF) == (whiteColor and 0x00FFFFFF)
-            tv.setTextColor(
-                when {
-                    isDozing -> whiteColor
-                    !isWhiteOriginal -> originalColor
-                    else -> resolveClockColor()
+            when {
+                isDozing -> {
+                    clearGradientFromView(tv)
+                    tv.setTextColor(whiteColor)
                 }
-            )
+                !isWhiteOriginal -> {
+                    clearGradientFromView(tv)
+                    tv.setTextColor(originalColor)
+                }
+                useGradient -> {
+                    tv.setTextColor(Color.WHITE)
+                    applyGradientToView(tv)
+                }
+                else -> {
+                    clearGradientFromView(tv)
+                    tv.setTextColor(resolveClockColor())
+                }
+            }
         }
     }
 
@@ -576,6 +707,7 @@ class ClockStyle @JvmOverloads constructor(
                     naturalClockHeight = v.height
                 }
                 applyClockScale()
+                if (gradientEnabled) applyClockColors()
             }
         }
         pendingLayoutListener = listener
@@ -855,6 +987,11 @@ class ClockStyle @JvmOverloads constructor(
         @JvmField val CLOCK_ALBUM_ART_COLOR_KEY: String = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_ALBUM_ART_COLOR
         @JvmField val CLOCK_WOBBLE_ON_CHARGE_KEY: String = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_WOBBLE_ON_CHARGE
         @JvmField val CLOCK_FRAME_MARGIN_START_KEY: String = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_MARGIN_START
+        @JvmField val CLOCK_GRADIENT_ENABLED_KEY: String = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_GRADIENT_ENABLED
+        @JvmField val CLOCK_GRADIENT_COLOR_START_KEY: String = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_GRADIENT_COLOR_START
+        @JvmField val CLOCK_GRADIENT_COLOR_END_KEY: String = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_GRADIENT_COLOR_END
+        @JvmField val CLOCK_GRADIENT_ANCHOR_Y_KEY: String = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_GRADIENT_ANCHOR_Y
+        @JvmField val CLOCK_GRADIENT_RADIUS_KEY: String = Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_GRADIENT_RADIUS
 
         const val COLOR_MODE_DEFAULT = "default"
         const val COLOR_MODE_ACCENT = "accent"
@@ -871,6 +1008,13 @@ class ClockStyle @JvmOverloads constructor(
         private const val MIN_CLOCK_SIZE = 50
         private const val MAX_CLOCK_SIZE = 150
         private const val DEFAULT_MARGIN_START = 0
+
+        private val DEFAULT_GRADIENT_COLOR_START = 0xFF00E5FF.toInt()
+        private val DEFAULT_GRADIENT_COLOR_END = 0xFFFF2DAA.toInt()
+        private const val DEFAULT_GRADIENT_ANCHOR_Y = 50
+        private const val DEFAULT_GRADIENT_RADIUS = 100
+        private const val MIN_GRADIENT_RADIUS = 25
+        private const val MAX_GRADIENT_RADIUS = 200
 
         private const val AOD_UPDATE_INTERVAL_MILLIS = 60_000L
         private const val UPDATE_INTERVAL_MILLIS = 15_000L
