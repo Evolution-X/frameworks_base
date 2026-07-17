@@ -86,6 +86,7 @@ constructor(
     val keyguardBatteryChipMode: StateFlow<Int> = interactor.settings.keyguardBatteryChipMode
     val isKeyguardMusicPillEnabled: StateFlow<Boolean> = interactor.settings.isKeyguardMusicPillEnabled
     val mediaUseWaveform: StateFlow<Boolean> = interactor.mediaUseWaveform
+    val chipStyle: StateFlow<Int> = interactor.settings.chipStyle
 
     val keyguardBatteryInfo: StateFlow<KeyguardBatteryInfo> =
         combine(
