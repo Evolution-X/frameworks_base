@@ -105,11 +105,11 @@ internal fun MediaCard(event: IslandEvent.Media, interactor: IslandActions) {
 
             event.albumArt?.let { art ->
                 Image(
-                    bitmap = art.toScaledBitmap(380.dp),
+                    bitmap = art.toScaledBitmap(350.dp),
                     contentDescription = null,
                     modifier = Modifier
                         .matchParentSize()
-                        .blur(32.dp),
+                        .blur(40.dp),
                     contentScale = ContentScale.Crop,
                 )
             } ?: Box(
@@ -123,9 +123,16 @@ internal fun MediaCard(event: IslandEvent.Media, interactor: IslandActions) {
                     .matchParentSize()
                     .background(
                         Brush.verticalGradient(
-                            0.0f to Color(0xFF000000).copy(alpha = 0.4f),
-                            0.45f to Color(0xFF000000).copy(alpha = 0.65f),
-                            1.0f to Color(0xFF000000).copy(alpha = 1.0f),
+                            colorStops = arrayOf(
+                                0.00f to Color.Black.copy(alpha = 0.40f),
+                                0.15f to Color.Black.copy(alpha = 0.44f),
+                                0.30f to Color.Black.copy(alpha = 0.50f),
+                                0.45f to Color.Black.copy(alpha = 0.58f),
+                                0.60f to Color.Black.copy(alpha = 0.68f),
+                                0.75f to Color.Black.copy(alpha = 0.80f),
+                                0.90f to Color.Black.copy(alpha = 0.92f),
+                                1.00f to Color.Black.copy(alpha = 1.00f),
+                            )
                         )
                     )
             )
