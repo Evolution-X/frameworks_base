@@ -56,6 +56,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -77,6 +78,71 @@ import kotlin.math.cos
 import kotlin.math.sin
 import java.lang.Math.toRadians
 import kotlinx.coroutines.delay
+
+private val CircleChipSize = 28.dp
+private val CircleChipStroke = 2.5.dp
+private val CircleChipIconSize = 16.dp
+
+@Composable
+internal fun CircleChip(
+    event: IslandEvent,
+    accent: Color,
+    contentColor: Color,
+    progress: Float?,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier.size(CircleChipSize),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(modifier = Modifier.matchParentSize()) {
+            val strokePx = CircleChipStroke.toPx()
+            val inset = strokePx / 2f
+            val ringSize = Size(size.width - strokePx, size.height - strokePx)
+            val topLeft = Offset(inset, inset)
+
+            drawCircle(
+                color = accent.copy(alpha = 0.4f),
+                radius = (size.minDimension - strokePx) / 2f,
+            )
+
+            if (progress != null) {
+                drawArc(
+                    color = lerp(accent, contentColor, 0.2f).copy(alpha = 0.7f),
+                    startAngle = -90f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    style = Stroke(strokePx, cap = StrokeCap.Round),
+                    topLeft = topLeft,
+                    size = ringSize,
+                )
+                drawArc(
+                    color = lerp(accent, contentColor, 0.6f).copy(alpha = 1f),
+                    startAngle = -90f,
+                    sweepAngle = 360f * progress.coerceIn(0f, 1f),
+                    useCenter = false,
+                    style = Stroke(strokePx, cap = StrokeCap.Round),
+                    topLeft = topLeft,
+                    size = ringSize,
+                )
+            } else {
+                drawArc(
+                    color = accent.copy(alpha = 0.5f),
+                    startAngle = -90f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    style = Stroke(strokePx, cap = StrokeCap.Round),
+                    topLeft = topLeft,
+                    size = ringSize,
+                )
+            }
+        }
+
+        Box(modifier = Modifier.size(CircleChipIconSize), contentAlignment = Alignment.Center) {
+            PillEventIcon(event, tint = contentColor, animated = false)
+        }
+    }
+}
 
 @Composable
 internal fun PillEventIcon(
