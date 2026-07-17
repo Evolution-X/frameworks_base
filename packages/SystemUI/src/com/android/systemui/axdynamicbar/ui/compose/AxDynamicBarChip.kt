@@ -102,6 +102,7 @@ fun AxDynamicBarChip(
     val state by viewModel.chipState.collectAsStateWithLifecycle()
     val isOnKeyguard by viewModel.isOnKeyguard.collectAsStateWithLifecycle()
     val keyguardCarrier by viewModel.keyguardCarrierText.collectAsStateWithLifecycle()
+    val chipStyle by viewModel.chipStyle.collectAsStateWithLifecycle()
 
     var toggleCount by remember { mutableIntStateOf(0) }
     
@@ -223,8 +224,21 @@ fun AxDynamicBarChip(
                     val contentColor by animateColorAsState(
                         chipContentColorOn(rawAccent), MaterialTheme.motionScheme.fastEffectsSpec(), label = "content",
                     )
-                    val progress = chipProgressFor(event)
+                val useCircleStyle = chipStyle == 1 &&
+                    !isAlert &&
+                    !(event is IslandEvent.Sports && event.team2Name.isNotEmpty())
 
+                val progress = chipProgressFor(event, includeMediaProgress = useCircleStyle)
+
+                if (useCircleStyle) {
+                    CircleChip(
+                        event = event,
+                        accent = accent,
+                        contentColor = contentColor,
+                        progress = progress,
+                        modifier = Modifier.squishAnimation(toggleCount),
+                    )
+                } else {
                 Box(
                     modifier = Modifier.fillMaxHeight(),
                     contentAlignment = Alignment.Center,
@@ -372,6 +386,7 @@ fun AxDynamicBarChip(
                             }
                         }
                     }
+                }
                 }
             }
             }
