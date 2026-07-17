@@ -488,9 +488,9 @@ internal fun Drawable.toScaledBitmap(sizeDp: Dp): ImageBitmap {
     return remember(this, px) { toBitmap(px, px).asImageBitmap() }
 }
 
-internal fun chipProgressFor(event: IslandEvent): Float? =
+internal fun chipProgressFor(event: IslandEvent, includeMediaProgress: Boolean = false): Float? =
     when (event) {
-        is IslandEvent.Media -> null
+        is IslandEvent.Media -> if (includeMediaProgress) event.progress.coerceIn(0f, 1f) else null
         is IslandEvent.PromotedOngoing ->
             if (event.progress >= 0f) event.progress.coerceIn(0f, 1f) else null
         is IslandEvent.Notification ->
