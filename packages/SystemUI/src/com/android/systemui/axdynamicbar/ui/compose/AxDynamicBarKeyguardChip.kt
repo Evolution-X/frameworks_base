@@ -583,7 +583,7 @@ private fun KeyguardChipBody(
                         ActionButton(
                             icon = action.icon,
                             color = contentColor,
-                            bgColor = lerp(accent, contentColor, AlphaSubtle).copy(alpha = 0.5f),
+                            bgColor = accent.copy(alpha = 0.5f),
                             onClick = { action.perform(viewModel, event, context) },
                             size = ActionSize,
                             iconSize = ActionIconSize,
