@@ -130,7 +130,7 @@ private val CountBadgeHeight = ChipHeight / 2
 
 private class MusicPillBlurHost(context: Context) : View(context) {
     private val blur = AxBlurBackgroundRenderer(this)
-    private val overlayColor = AxBlurColors.surfaceBrightTint(context)
+    private val overlayColor = AxBlurColors.surfaceLightTint(context)
 
     private val bgDrawable: GradientDrawable = GradientDrawable().also { d ->
         d.setColor(0x00000000)
