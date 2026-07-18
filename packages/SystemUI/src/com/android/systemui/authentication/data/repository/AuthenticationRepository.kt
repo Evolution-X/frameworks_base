@@ -19,6 +19,7 @@ package com.android.systemui.authentication.data.repository
 import android.annotation.UserIdInt
 import android.app.admin.DevicePolicyManager
 import android.content.Context
+import android.content.Intent.ACTION_MAIN_USER_LOCKSCREEN_KNOWLEDGE_FACTOR_CHANGED
 import android.content.IntentFilter
 import android.os.UserHandle
 import android.security.Flags.lockscreenIndicateDuplicateGuesses
@@ -65,6 +66,7 @@ import kotlin.time.toKotlinDuration
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -72,6 +74,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
@@ -260,10 +263,24 @@ constructor(
 
     override val hintedPinLength: Int = 6
 
+    /**
+     * Emits whenever the current user's lockscreen knowledge factor (credential) changes.
+     * Used to force-refresh cached pattern-related settings (size, dots, error path) that
+     * LockSettingsService doesn't otherwise notify observers about.
+     */
+    private val lockscreenKnowledgeFactorChanged: Flow<Unit> =
+        broadcastDispatcher
+            .broadcastFlow(
+                filter = IntentFilter(ACTION_MAIN_USER_LOCKSCREEN_KNOWLEDGE_FACTOR_CHANGED),
+                user = UserHandle.ALL,
+            )
+            .map {}
+
     override val patternSize: StateFlow<Byte> =
         refreshingFlow(
             initialValue = LockPatternUtils.PATTERN_SIZE_DEFAULT,
             getFreshValue = lockPatternUtils::getLockPatternSize,
+            extraTrigger = lockscreenKnowledgeFactorChanged,
         )
 
     override val isPatternVisible: StateFlow<Boolean> =
@@ -516,6 +533,7 @@ constructor(
     private fun <T> refreshingFlow(
         initialValue: T,
         getFreshValue: suspend (selectedUserId: Int) -> T,
+        extraTrigger: Flow<Unit> = emptyFlow(),
     ): StateFlow<T> {
         val flow = MutableStateFlow(initialValue)
         applicationScope.launch {
@@ -525,7 +543,10 @@ constructor(
                     // Emits a value only when the number of downstream subscribers of this flow
                     // increases.
                     flow.onSubscriberAdded(),
-                ) { selectedUserId, _ ->
+                    // Emits a value whenever the caller-supplied trigger fires (e.g. credential
+                    // changed), in addition to its own initial emission.
+                    extraTrigger.onStart { emit(Unit) },
+                ) { selectedUserId, _, _ ->
                     selectedUserId
                 }
                 .collect { selectedUserId ->
