@@ -182,9 +182,13 @@ constructor(
                     else listOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)
             }
             launch {
-                interactor.isAutoConfirmEnabled
-                    .map { if (it) ActionButtonAppearance.Hidden else ActionButtonAppearance.Shown }
-                    .collect { _confirmButtonAppearance.value = it }
+                if (isSimAreaVisible) {
+                    _confirmButtonAppearance.value = ActionButtonAppearance.Shown
+                } else {
+                    interactor.isAutoConfirmEnabled
+                        .map { if (it) ActionButtonAppearance.Hidden else ActionButtonAppearance.Shown }
+                        .collect { _confirmButtonAppearance.value = it }
+                }
             }
             launch {
                 interactor.isPinEnhancedPrivacyEnabled
@@ -226,7 +230,9 @@ constructor(
         val maxInputLength = hintedPinLength.value ?: Int.MAX_VALUE
         if (pinInput.getPin().size < maxInputLength) {
             mutablePinInput.value = pinInput.append(input)
-            tryAuthenticate(useAutoConfirm = true)
+            if (!isSimAreaVisible) {
+                tryAuthenticate(useAutoConfirm = true)
+            }
         }
     }
 
