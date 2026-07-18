@@ -105,6 +105,7 @@ fun PinPad(viewModel: PinBouncerViewModel, verticalSpacing: Dp, modifier: Modifi
     val animateFailure: Boolean by viewModel.animateFailure.collectAsStateWithLifecycle()
     val isDigitButtonAnimationEnabled: Boolean by
         viewModel.isDigitButtonAnimationEnabled.collectAsStateWithLifecycle()
+    val digitOrder: List<Int> by viewModel.digitOrder.collectAsStateWithLifecycle()
 
     val buttonScaleAnimatables = remember { List(12) { Animatable(1f) } }
     LaunchedEffect(animateFailure) {
@@ -138,7 +139,7 @@ fun PinPad(viewModel: PinBouncerViewModel, verticalSpacing: Dp, modifier: Modifi
     ) {
         repeat(9) { index ->
             DigitButton(
-                digit = index + 1,
+                digit = digitOrder[index],
                 isInputEnabled = isInputEnabled,
                 onClicked = { digit ->
                     sendAccessibilityEvent(
@@ -198,16 +199,16 @@ fun PinPad(viewModel: PinBouncerViewModel, verticalSpacing: Dp, modifier: Modifi
         )
 
         DigitButton(
-            digit = 0,
+            digit = digitOrder[9],
             isInputEnabled = isInputEnabled,
             onClicked = {
                 sendAccessibilityEvent(view = view, accessibilityManager = accessibilityManager) {
                     PinAccessibilityEvent.DigitAdded(
                         pinLengthBeforeChange = viewModel.enteredPinLength,
-                        digitAdded = 0,
+                        digitAdded = digitOrder[9],
                     )
                 }
-                viewModel.onPinButtonClicked(0)
+                viewModel.onPinButtonClicked(digitOrder[9])
             },
             scaling = buttonScaleAnimatables[10]::value,
             isAnimationEnabled = isDigitButtonAnimationEnabled,

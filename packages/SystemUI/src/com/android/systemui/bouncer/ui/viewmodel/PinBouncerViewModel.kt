@@ -49,12 +49,13 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
+import lineageos.providers.LineageSettings
 
 /** Holds UI state and handles user input for the PIN code bouncer UI. */
 class PinBouncerViewModel
 @AssistedInject
 constructor(
-    applicationContext: Context,
+    private val applicationContext: Context,
     interactor: BouncerInteractor,
     private val simBouncerInteractor: SimBouncerInteractor,
     keyguardKeyboardInteractor: KeyguardKeyboardInteractor,
@@ -86,6 +87,14 @@ constructor(
     val isSimUnlockingDialogVisible: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val pinShapes = PinShapeAdapter(applicationContext)
     private val mutablePinInput = MutableStateFlow(PinInputViewModel.empty())
+
+    private val mutableDigitOrder = MutableStateFlow((0..9).toList())
+    /**
+     * Order in which digits 0-9 should be laid out on the pin pad. Index 0-8 map to the
+     * pad's first nine buttons (nominally 1-9), index 9 maps to the last button (nominally 0).
+     * Randomized once per bouncer activation when scramble-PIN is enabled.
+     */
+    val digitOrder: StateFlow<List<Int>> = mutableDigitOrder.asStateFlow()
 
     /** Currently entered pin keys. */
     val pinInput: StateFlow<PinInputViewModel> = mutablePinInput
@@ -161,6 +170,17 @@ constructor(
                     .collect { _hintedPinLength.value = it }
             }
             launch { mutablePinInput.collect { _readyToTryAuthenticate.value = !it.isEmpty() } }
+            launch {
+                val scrambleEnabled =
+                    LineageSettings.System.getInt(
+                        applicationContext.contentResolver,
+                        LineageSettings.System.LOCKSCREEN_PIN_SCRAMBLE_LAYOUT,
+                        0,
+                    ) == 1
+                mutableDigitOrder.value =
+                    if (scrambleEnabled) (0..9).shuffled()
+                    else listOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)
+            }
             launch {
                 interactor.isAutoConfirmEnabled
                     .map { if (it) ActionButtonAppearance.Hidden else ActionButtonAppearance.Shown }
