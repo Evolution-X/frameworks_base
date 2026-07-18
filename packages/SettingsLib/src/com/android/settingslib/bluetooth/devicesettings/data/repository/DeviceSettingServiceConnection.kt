@@ -217,6 +217,12 @@ class DeviceSettingServiceConnection(
         } catch (e: RemoteException) {
             Log.i(TAG, "Fail to get config", e)
             continuation.resume(null)
+        } catch (e: RuntimeException) {
+            // GMS Fast Pair rejects unsanctioned callers with SecurityException across the binder —
+            // an unchecked RuntimeException, not RemoteException. Unhandled it escapes the coroutine
+            // and tears SystemUI down, so treat a rejecting provider as "no config".
+            Log.w(TAG, "Provider rejected config request, treating as no config", e)
+            continuation.resume(null)
         }
     }
 
@@ -436,7 +442,15 @@ class DeviceSettingServiceConnection(
                     Log.w(TAG, "Fail to bind service $intent")
                     launch { send(ServiceConnectionStatus.Failed) }
                 }
-                awaitClose { context.unbindService(serviceConnection) }
+                awaitClose {
+                    try {
+                        context.unbindService(serviceConnection)
+                    } catch (e: IllegalArgumentException) {
+                        // The binding may already be gone (racing provider teardown), so
+                        // unbindService reports it as never registered. Benign.
+                        Log.w(TAG, "Service already unbound for $intent", e)
+                    }
+                }
             }
             .flowOn(backgroundCoroutineContext)
     }
