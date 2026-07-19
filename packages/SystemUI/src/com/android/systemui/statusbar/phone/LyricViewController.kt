@@ -57,6 +57,9 @@ abstract class LyricViewController(
     private var currentNotificationPackage: String? = null
     private var currentNotificationId = 0
 
+    private val lyricsFetcher: LyricsFetcher
+    private var mediaLyricsActive = false
+
     private var tintColorStateList: ColorStateList? = null
 
     init {
@@ -76,8 +79,42 @@ abstract class LyricViewController(
             false
         }
 
+        lyricsFetcher = LyricsFetcher(
+            context,
+            object : LyricsFetcher.Callback {
+                override fun onSyncedLineChanged(line: String?) {
+                    if (!enabled) return
+                    if (line == null) {
+                        if (mediaLyricsActive) {
+                            mediaLyricsActive = false
+                            stopLyric()
+                        }
+                        return
+                    }
+                    mediaLyricsActive = true
+                    textSwitcher.setText(line)
+                    startLyric()
+                }
+
+                override fun onPlainLyricsAvailable(plainLyrics: String) {
+                    if (!enabled) return
+                    mediaLyricsActive = true
+                    textSwitcher.setText(plainLyrics)
+                    startLyric()
+                }
+
+                override fun onLyricsCleared() {
+                    if (mediaLyricsActive) {
+                        mediaLyricsActive = false
+                        stopLyric()
+                    }
+                }
+            },
+        )
+
         Dependency.get(DarkIconDispatcher::class.java).addDarkReceiver(this)
         Dependency.get(NotificationListener::class.java).addNotificationHandler(this)
+        lyricsFetcher.start()
     }
 
     fun setEnabled(enabled: Boolean) {
@@ -90,7 +127,7 @@ abstract class LyricViewController(
     fun isEnabled(): Boolean = enabled
 
     override fun onNotificationPosted(sbn: StatusBarNotification, rankingMap: RankingMap) {
-        if (!enabled) return
+        if (!enabled || mediaLyricsActive) return
 
         val notification = sbn.notification
         val isLyric = (notification.flags and Notification.FLAG_ALWAYS_SHOW_TICKER) != 0
@@ -160,6 +197,10 @@ abstract class LyricViewController(
     override fun onNotificationRankingUpdate(rankingMap: RankingMap) {}
 
     override fun onNotificationsInitialized() {}
+
+    fun destroy() {
+        lyricsFetcher.stop()
+    }
 
     fun startLyric() {
         if (!started) {
