@@ -89,6 +89,7 @@ class LyricControllerModern(
             context.contentResolver.unregisterContentObserver(it)
             settingsObserver = null
         }
+        destroy()
     }
 
     fun updateVisibility(
