@@ -42,6 +42,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -52,6 +54,15 @@ public class LyricsFetcher {
 
     private static final long POSITION_POLL_INTERVAL_MS = 1000L;
     private static final String LRCLIB_URL = "https://lrclib.net/api/search?q=";
+
+    private static volatile LyricsFetcher sInstance;
+
+    public static synchronized LyricsFetcher getInstance(Context context) {
+        if (sInstance == null) {
+            sInstance = new LyricsFetcher(context.getApplicationContext());
+        }
+        return sInstance;
+    }
 
     private static final Pattern LRC_LINE_PATTERN =
             Pattern.compile("\\[(\\d+):(\\d+)(?:[.:](\\d+))?\\](.*)");
@@ -76,17 +87,19 @@ public class LyricsFetcher {
     }
 
     public interface Callback {
-        void onSyncedLineChanged(String line);
+        void onSyncedLineChanged(String prevLine, String currentLine, String nextLine);
         void onPlainLyricsAvailable(String plainLyrics);
         void onLyricsCleared();
     }
 
     private final Context mContext;
-    private final Callback mCallback;
     private final MediaSessionManager mMediaSessionManager;
     private final Handler mMainHandler = new Handler(Looper.getMainLooper());
     private final HandlerThread mWorkerThread;
     private final Handler mWorkerHandler;
+
+    private final Set<Callback> mCallbacks = new CopyOnWriteArraySet<>();
+    private boolean mStarted;
 
     private MediaController mActiveController;
     private final MediaController.Callback mControllerCallback = new MediaController.Callback() {
@@ -112,6 +125,7 @@ public class LyricsFetcher {
     private List<LyricLine> mCurrentLines = Collections.emptyList();
     private String mLastFetchedSong;
     private String mLastFetchedArtist;
+    private String mLastPlainLyrics;
     private int mFetchGeneration = 0;
     private int mLastActiveIndex = -1;
     private boolean mPolling;
@@ -127,16 +141,53 @@ public class LyricsFetcher {
         }
     };
 
-    public LyricsFetcher(Context context, Callback callback) {
+    private LyricsFetcher(Context context) {
         mContext = context.getApplicationContext();
-        mCallback = callback;
         mMediaSessionManager = mContext.getSystemService(MediaSessionManager.class);
         mWorkerThread = new HandlerThread("LyricsFetcher-worker");
         mWorkerThread.start();
         mWorkerHandler = new Handler(mWorkerThread.getLooper());
     }
 
-    public void start() {
+    public void addCallback(Callback callback) {
+        mMainHandler.post(() -> {
+            mCallbacks.add(callback);
+            if (!mStarted) {
+                mStarted = true;
+                startInternal();
+            } else {
+                replayCurrentStateTo(callback);
+            }
+        });
+    }
+
+
+    public void removeCallback(Callback callback) {
+        mMainHandler.post(() -> {
+            mCallbacks.remove(callback);
+            if (mCallbacks.isEmpty() && mStarted) {
+                mStarted = false;
+                stopInternal();
+            }
+        });
+    }
+
+    private void replayCurrentStateTo(Callback callback) {
+        if (!mCurrentLines.isEmpty()) {
+            if (mLastActiveIndex >= 0) {
+                String prev = mLastActiveIndex > 0
+                        ? mCurrentLines.get(mLastActiveIndex - 1).text : null;
+                String current = mCurrentLines.get(mLastActiveIndex).text;
+                String next = mLastActiveIndex + 1 < mCurrentLines.size()
+                        ? mCurrentLines.get(mLastActiveIndex + 1).text : null;
+                callback.onSyncedLineChanged(prev, current, next);
+            }
+        } else if (mPlainLyricsDelivered && mLastPlainLyrics != null) {
+            callback.onPlainLyricsAvailable(mLastPlainLyrics);
+        }
+    }
+
+    private void startInternal() {
         if (mMediaSessionManager == null) return;
         ComponentName listenerComponent =
                 new ComponentName(mContext, com.android.systemui.statusbar.NotificationListener.class);
@@ -149,12 +200,11 @@ public class LyricsFetcher {
         }
     }
 
-    public void stop() {
+    private void stopInternal() {
         if (mMediaSessionManager != null) {
             mMediaSessionManager.removeOnActiveSessionsChangedListener(mSessionsChangedListener);
         }
         detachActiveController();
-        mWorkerThread.quitSafely();
     }
 
     private void attachBestController(List<MediaController> controllers) {
@@ -202,9 +252,12 @@ public class LyricsFetcher {
         mCurrentLines = Collections.emptyList();
         mLastFetchedSong = null;
         mLastFetchedArtist = null;
+        mLastPlainLyrics = null;
         mLastActiveIndex = -1;
         mPlainLyricsDelivered = false;
-        mMainHandler.post(mCallback::onLyricsCleared);
+        mMainHandler.post(() -> {
+            for (Callback cb : mCallbacks) cb.onLyricsCleared();
+        });
     }
 
     private boolean isSupportedPackage(String pkg) {
@@ -301,10 +354,11 @@ public class LyricsFetcher {
             } else if (!TextUtils.isEmpty(resultPlain)) {
                 stopPolling();
                 mPlainLyricsDelivered = true;
-                mCallback.onPlainLyricsAvailable(resultPlain);
+                mLastPlainLyrics = resultPlain;
+                for (Callback cb : mCallbacks) cb.onPlainLyricsAvailable(resultPlain);
             } else {
                 stopPolling();
-                mCallback.onLyricsCleared();
+                for (Callback cb : mCallbacks) cb.onLyricsCleared();
             }
         });
     }
@@ -334,7 +388,7 @@ public class LyricsFetcher {
         if (!isPlaying) {
             if (mLastActiveIndex != -1) {
                 mLastActiveIndex = -1;
-                mCallback.onSyncedLineChanged(null);
+                for (Callback cb : mCallbacks) cb.onSyncedLineChanged(null, null, null);
             }
             if (isStoppedOrIdle) {
                 stopPolling();
@@ -362,8 +416,18 @@ public class LyricsFetcher {
 
         if (activeIndex != mLastActiveIndex) {
             mLastActiveIndex = activeIndex;
-            String text = activeIndex >= 0 ? mCurrentLines.get(activeIndex).text : null;
-            mCallback.onSyncedLineChanged(TextUtils.isEmpty(text) ? null : text);
+            String prev = activeIndex > 0
+                    ? mCurrentLines.get(activeIndex - 1).text : null;
+            String current = activeIndex >= 0
+                    ? mCurrentLines.get(activeIndex).text : null;
+            String next = activeIndex >= 0 && activeIndex + 1 < mCurrentLines.size()
+                    ? mCurrentLines.get(activeIndex + 1).text : null;
+            String prevOut = TextUtils.isEmpty(prev) ? null : prev;
+            String currentOut = TextUtils.isEmpty(current) ? null : current;
+            String nextOut = TextUtils.isEmpty(next) ? null : next;
+            for (Callback cb : mCallbacks) {
+                cb.onSyncedLineChanged(prevOut, currentOut, nextOut);
+            }
         }
     }
 
