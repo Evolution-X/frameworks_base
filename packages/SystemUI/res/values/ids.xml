@@ -315,4 +315,7 @@
 
     <!-- Custom overlay on lockscreen/doze -->
     <item type="id" name="custom_overlay_container" />
+
+    <!-- Now Playing -->
+    <item type="id" name="now_playing_view" />
 </resources>
