@@ -28,6 +28,7 @@ import android.widget.FrameLayout
 import androidx.palette.graphics.Palette
 import com.android.settingslib.Utils
 import com.android.systemui.dagger.SysUISingleton
+import com.android.systemui.res.R
 import com.android.systemui.util.ScrimUtils
 import com.android.systemui.statusbar.phone.LyricsFetcher
 import kotlinx.coroutines.*
@@ -42,6 +43,7 @@ constructor(
 ) : ScrimUtils.ScrimEventListener {
 
     private val nowPlayingView = NowPlayingView(context)
+        .apply { id = R.id.now_playing_view }
     private val settingsRepo = NowPlayingSettingsRepository(context)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
