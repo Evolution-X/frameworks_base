@@ -39,7 +39,8 @@ data class NowPlayingSettings(
     val showOnAod: Boolean,
     val showOnLockscreen: Boolean,
     val tapToExpand: Boolean = true,
-    val useWaveformSeekBar: Boolean = false
+    val useWaveformSeekBar: Boolean = false,
+    val useLyricsMode: Boolean = false
 )
 
 class NowPlayingSettingsRepository(context: Context) {
@@ -65,6 +66,7 @@ class NowPlayingSettingsRepository(context: Context) {
         observeSettingInt(SETTING_SHOW_ON_LOCKSCREEN, 1),
         observeSettingInt(SETTING_TAP_TO_EXPAND, 1),
         observeSettingInt(SETTING_WAVEFORM_SEEKBAR, 0),
+        observeSettingInt(SETTING_LYRICS_MODE, 0),
     ) { flows: Array<Any?> ->
         val enabled = flows[0] as Int
         val colorMode = flows[1] as Int
@@ -78,6 +80,7 @@ class NowPlayingSettingsRepository(context: Context) {
         val showLock = flows[9] as Int
         val tapToExpand = flows[10] as Int
         val waveform = flows[11] as Int
+        val lyricsMode = flows[12] as Int
         val position = (positionInt / 100f).coerceIn(0.1f, 1.0f)
         val iconStyleClamped = iconStyle.coerceIn(0, 2)
         val iconSizeClamped = iconSize.coerceIn(5, 40)
@@ -97,6 +100,7 @@ class NowPlayingSettingsRepository(context: Context) {
             showOnLockscreen = showLock == 1,
             tapToExpand = tapToExpand == 1,
             useWaveformSeekBar = waveform == 1,
+            useLyricsMode = lyricsMode == 1,
         )
     }.distinctUntilChanged()
 
@@ -159,6 +163,9 @@ class NowPlayingSettingsRepository(context: Context) {
             useWaveformSeekBar = Settings.System.getIntForUser(
                 resolver, SETTING_WAVEFORM_SEEKBAR, 0, UserHandle.USER_CURRENT
             ) == 1,
+            useLyricsMode = Settings.System.getIntForUser(
+                resolver, SETTING_LYRICS_MODE, 0, UserHandle.USER_CURRENT
+            ) == 1,
         )
     }
 
@@ -203,6 +210,7 @@ class NowPlayingSettingsRepository(context: Context) {
         private const val SETTING_SHOW_ON_LOCKSCREEN = "nowplaying_show_on_lockscreen"
         private const val SETTING_TAP_TO_EXPAND = "nowplaying_tap_to_expand"
         private const val SETTING_WAVEFORM_SEEKBAR = "media_waveform_seekbar"
+        private const val SETTING_LYRICS_MODE = "nowplaying_lyrics_mode"
 
         const val COLOR_MODE_WHITE = 0
         const val COLOR_MODE_ACCENT = 1
