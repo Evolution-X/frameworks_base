@@ -120,7 +120,7 @@ constructor(
         nowPlayingView.setOnClickListener {
             if (NowPlayingOverlayState.isOverlayOpen.value) {
                 expandedOverlay.hide()
-            } else {
+            } else if (currentSettings.tapToExpand) {
                 expandedOverlay.show()
             }
         }
@@ -145,6 +145,10 @@ constructor(
     private fun updateViewWithSettings(settings: NowPlayingSettings) {
         val textColor = resolveTextColor(settings.colorMode)
         
+        if (!settings.tapToExpand && NowPlayingOverlayState.isOverlayOpen.value) {
+            expandedOverlay.hide()
+        }
+
         nowPlayingView.apply {
             this.textColor = textColor
             iconStyle = settings.iconStyle
