@@ -54,6 +54,8 @@ public class LyricsFetcher {
 
     private static final long POSITION_POLL_INTERVAL_MS = 1000L;
     private static final String LRCLIB_URL = "https://lrclib.net/api/search?q=";
+    private static final long RETRY_DELAY_MS = 4000L;
+    private static final int MAX_RETRIES = 2;
 
     private static volatile LyricsFetcher sInstance;
 
@@ -130,6 +132,7 @@ public class LyricsFetcher {
     private int mLastActiveIndex = -1;
     private boolean mPolling;
     private boolean mPlainLyricsDelivered;
+    private int mRetryCount = 0;
 
     private final Runnable mPollRunnable = new Runnable() {
         @Override
@@ -299,6 +302,7 @@ public class LyricsFetcher {
         mCurrentLines = Collections.emptyList();
         mLastActiveIndex = -1;
         mPlainLyricsDelivered = false;
+        mRetryCount = 0;
 
         final int generation = ++mFetchGeneration;
         final String cleanArtist = cleanArtistName(artist);
@@ -309,10 +313,12 @@ public class LyricsFetcher {
     private void fetchLyrics(String artist, String song, int generation) {
         List<LyricLine> parsedSynced = Collections.emptyList();
         String plainLyrics = null;
+        boolean failed = false;
+        HttpURLConnection conn = null;
         try {
             String query = URLEncoder.encode(artist + " " + song, "UTF-8");
             URL url = new URL(LRCLIB_URL + query);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setConnectTimeout(5000);
             conn.setReadTimeout(5000);
@@ -337,13 +343,21 @@ public class LyricsFetcher {
                         plainLyrics = plain;
                     }
                 }
+                } else {
+                failed = true;
             }
         } catch (Exception e) {
+            failed = true;
             if (DEBUG) Log.e(TAG, "Failed to fetch lyrics", e);
+            } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
         }
 
         final List<LyricLine> resultSynced = parsedSynced;
         final String resultPlain = plainLyrics;
+        final boolean didFail = failed && resultSynced.isEmpty() && TextUtils.isEmpty(resultPlain);
         mMainHandler.post(() -> {
             if (generation != mFetchGeneration) return;
             mCurrentLines = resultSynced;
@@ -356,6 +370,12 @@ public class LyricsFetcher {
                 mPlainLyricsDelivered = true;
                 mLastPlainLyrics = resultPlain;
                 for (Callback cb : mCallbacks) cb.onPlainLyricsAvailable(resultPlain);
+            } else if (didFail && mRetryCount < MAX_RETRIES) {
+                mRetryCount++;
+                mMainHandler.postDelayed(() -> {
+                    if (generation != mFetchGeneration) return;
+                    mWorkerHandler.post(() -> fetchLyrics(artist, song, generation));
+                }, RETRY_DELAY_MS);
             } else {
                 stopPolling();
                 for (Callback cb : mCallbacks) cb.onLyricsCleared();
