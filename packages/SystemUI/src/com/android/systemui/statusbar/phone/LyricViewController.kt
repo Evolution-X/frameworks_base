@@ -58,6 +58,7 @@ abstract class LyricViewController(
     private var currentNotificationId = 0
 
     private val lyricsFetcher: LyricsFetcher
+    private val lyricsCallback: LyricsFetcher.Callback
     private var mediaLyricsActive = false
 
     private var tintColorStateList: ColorStateList? = null
@@ -79,42 +80,40 @@ abstract class LyricViewController(
             false
         }
 
-        lyricsFetcher = LyricsFetcher(
-            context,
-            object : LyricsFetcher.Callback {
-                override fun onSyncedLineChanged(line: String?) {
-                    if (!enabled) return
-                    if (line == null) {
-                        if (mediaLyricsActive) {
-                            mediaLyricsActive = false
-                            stopLyric()
-                        }
-                        return
-                    }
-                    mediaLyricsActive = true
-                    textSwitcher.setText(line)
-                    startLyric()
-                }
-
-                override fun onPlainLyricsAvailable(plainLyrics: String) {
-                    if (!enabled) return
-                    mediaLyricsActive = true
-                    textSwitcher.setText(plainLyrics)
-                    startLyric()
-                }
-
-                override fun onLyricsCleared() {
+        lyricsFetcher = LyricsFetcher.getInstance(context)
+        lyricsCallback = object : LyricsFetcher.Callback {
+            override fun onSyncedLineChanged(prevLine: String?, line: String?, nextLine: String?) {
+                if (!enabled) return
+                if (line == null) {
                     if (mediaLyricsActive) {
                         mediaLyricsActive = false
                         stopLyric()
                     }
+                    return
                 }
-            },
-        )
+                mediaLyricsActive = true
+                textSwitcher.setText(line)
+                startLyric()
+            }
+
+            override fun onPlainLyricsAvailable(plainLyrics: String) {
+                if (!enabled) return
+                mediaLyricsActive = true
+                textSwitcher.setText(plainLyrics)
+                startLyric()
+            }
+
+            override fun onLyricsCleared() {
+                if (mediaLyricsActive) {
+                    mediaLyricsActive = false
+                    stopLyric()
+                }
+            }
+        }
 
         Dependency.get(DarkIconDispatcher::class.java).addDarkReceiver(this)
         Dependency.get(NotificationListener::class.java).addNotificationHandler(this)
-        lyricsFetcher.start()
+        lyricsFetcher.addCallback(lyricsCallback)
     }
 
     fun setEnabled(enabled: Boolean) {
@@ -199,7 +198,7 @@ abstract class LyricViewController(
     override fun onNotificationsInitialized() {}
 
     fun destroy() {
-        lyricsFetcher.stop()
+        lyricsFetcher.removeCallback(lyricsCallback)
     }
 
     fun startLyric() {
