@@ -100,6 +100,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
@@ -119,10 +120,12 @@ import java.util.Calendar
 private val ChipHeight = 36.dp
 private val ChipShape = ShapeChip
 private val ChipIconSize = ChipHeight - SpaceLg
-private val MusicChipHeight = 52.dp
+private val MusicChipHeight = 58.dp
 private val MusicChipMinWidth = 130.dp
 private val MusicActionSize = MusicChipHeight - 16.dp
 private val MusicActionIconSize = MusicChipHeight - 26.dp
+private val MusicPlayPauseSize = MusicChipHeight - 24.dp
+private val MusicPlayPauseIconSize = MusicChipHeight - 34.dp
 private val ActionSize = SpacePanel
 private val ActionIconSize = SizeBadge
 private val BatteryIconSize = ChipHeight - SpaceXxl
@@ -448,7 +451,7 @@ private fun KeyguardChipBody(
                             contentDescription = null,
                             modifier = Modifier
                                 .size(MusicActionSize)
-                                .clip(ShapeSm),
+                                .clip(CircleShape),
                             contentScale = ContentScale.Crop,
                         )
                     } else {
@@ -471,23 +474,27 @@ private fun KeyguardChipBody(
                 ) { ev ->
                     Column(
                         verticalArrangement = Arrangement.Center,
-                        modifier = Modifier.widthIn(max = 110.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.widthIn(max = 110.dp).fillMaxWidth(),
                     ) {
                         Text(
                             ev.track.ifEmpty { stringResource(R.string.ax_dynamic_bar_music) },
-                            style = PillPrimary,
+                            style = PillPrimary.copy(fontSize = 13.sp),
                             color = contentColor,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.basicMarquee(iterations = 1),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().basicMarquee(iterations = 1),
                         )
                         if (ev.artist.isNotBlank()) {
                             Text(
                                 ev.artist,
-                                style = MaterialTheme.typography.labelSmall,
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                                 color = contentColor.copy(alpha = AlphaSecondary),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
                     }
@@ -495,11 +502,11 @@ private fun KeyguardChipBody(
                 Spacer(Modifier.width(SpaceXs))
                 Surface(
                     onClick = { viewModel.togglePlayPause() },
-                    modifier = Modifier.size(MusicActionSize),
+                    modifier = Modifier.size(MusicPlayPauseSize),
                     shape = CircleShape,
-                    color = lerp(accent, contentColor, AlphaSubtle),
+                    color = lerp(accent, contentColor, AlphaSubtle).copy(alpha = 0.4f),
                 ) {
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(MusicActionSize)) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(MusicPlayPauseSize)) {
                         Icon(
                             if (event.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                             contentDescription = stringResource(
@@ -507,7 +514,7 @@ private fun KeyguardChipBody(
                                 else R.string.ax_dynamic_bar_play,
                             ),
                             tint = contentColor,
-                            modifier = Modifier.size(MusicActionIconSize),
+                            modifier = Modifier.size(MusicPlayPauseIconSize),
                         )
                     }
                 }
