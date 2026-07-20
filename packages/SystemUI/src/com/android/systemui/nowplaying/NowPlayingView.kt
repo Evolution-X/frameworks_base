@@ -18,6 +18,7 @@ package com.android.systemui.nowplaying
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
+import android.view.animation.DecelerateInterpolator
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -61,6 +62,10 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
         textAlign = Paint.Align.LEFT
     }
 
+    private val lyricSidePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+    }
+
     private val mainHandler = Handler(Looper.getMainLooper())
     private var marqueeStartRunnable: Runnable? = null
 
@@ -90,6 +95,7 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
             trackPaint.color = value
             artistPaint.color = value and 0x00FFFFFF or 0xB3000000.toInt()
             compactPaint.color = value
+            lyricSidePaint.color = value and 0x00FFFFFF or 0x66000000.toInt()
             updateIconTint()
             invalidate()
         }
@@ -119,6 +125,54 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
             resetMarquee()
             invalidate()
         }
+
+    var lyricsMode: Boolean = false
+        set(value) {
+            field = value
+            resetMarquee()
+            invalidate()
+        }
+
+    var currentLyric: String = ""
+        set(value) {
+            if (lyricsMode && field.isNotEmpty() && value.isNotEmpty() && field != value) {
+                startLyricLineAnimation(field)
+            }
+            field = value
+            invalidate()
+        }
+
+    var prevLyric: String = ""
+        set(value) { field = value; invalidate() }
+
+    var nextLyric: String = ""
+        set(value) { field = value; invalidate() }
+
+    private var lyricLineAnimator: ValueAnimator? = null
+    private var lyricAnimProgress: Float = 1f
+    private var outgoingCurrentLyric: String = ""
+
+    private fun startLyricLineAnimation(outgoingText: String) {
+        outgoingCurrentLyric = outgoingText
+        lyricLineAnimator?.cancel()
+        lyricAnimProgress = 0f
+        lyricLineAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 260
+            interpolator = DecelerateInterpolator()
+            addUpdateListener {
+                lyricAnimProgress = it.animatedValue as Float
+                invalidate()
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    lyricAnimProgress = 1f
+                    outgoingCurrentLyric = ""
+                    lyricLineAnimator = null
+                }
+            })
+            start()
+        }
+    }
 
     var appPackageName: String = ""
         set(value) {
@@ -176,6 +230,7 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
         trackPaint.textSize = 14f * density
         artistPaint.textSize = 12f * density
         compactPaint.textSize = 14f * density
+        lyricSidePaint.textSize = 14f * density * 0.72f
         textColor = 0xFFFFFFFF.toInt()
         updateFontFamily()
         updateIconSize()
@@ -191,12 +246,14 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
             trackPaint.typeface = typeface
             artistPaint.typeface = typeface
             compactPaint.typeface = typeface
+            lyricSidePaint.typeface = typeface
         } catch (e: Exception) {
             Log.e(TAG, "Error loading system font, using default", e)
             val typeface = Typeface.create("sans-serif", Typeface.NORMAL)
             trackPaint.typeface = typeface
             artistPaint.typeface = typeface
             compactPaint.typeface = typeface
+            lyricSidePaint.typeface = typeface
         }
     }
 
@@ -270,7 +327,7 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
     }
 
     fun show() {
-        if (trackTitle.isEmpty()) return
+        if (!hasDisplayContent()) return
         
         post {
             visible = true
@@ -403,6 +460,9 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
         fadeAnimator?.cancel()
         fadeAnimator = null
         stopMarquee()
+
+        lyricLineAnimator?.cancel()
+        lyricLineAnimator = null
         
         mainHandler.removeCallbacksAndMessages(null)
         
@@ -417,7 +477,7 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        if (trackTitle.isEmpty()) return
+        if (!hasDisplayContent()) return
 
         val centerX = width / 2f
         val yPosition = height * verticalPosition
@@ -427,11 +487,79 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
             cachedMaxWidth = width * MAX_WIDTH_RATIO
         }
 
-        if (useCompactStyle) {
+        if (lyricsMode && currentLyric.isNotEmpty()) {
+            drawLyricsStyle(canvas, centerX, yPosition, cachedMaxWidth)
+        } else if (useCompactStyle) {
             drawCompactStyleWithMarquee(canvas, centerX, yPosition, cachedMaxWidth)
         } else {
             drawNormalStyle(canvas, centerX, yPosition, cachedMaxWidth)
         }
+    }
+
+    private fun hasDisplayContent(): Boolean =
+        if (lyricsMode) currentLyric.isNotEmpty() || trackTitle.isNotEmpty() else trackTitle.isNotEmpty()
+
+    private fun drawLyricsStyle(canvas: Canvas, centerX: Float, yPosition: Float, maxWidth: Float) {
+        val mainSize = trackPaint.textSize
+        val sideSize = mainSize * 0.72f
+        if (lyricSidePaint.textSize != sideSize) lyricSidePaint.textSize = sideSize
+
+        val lineGap = mainSize * 1.07f
+        val extraTopGap = 1f * resources.displayMetrics.density
+
+        drawAnimatedCurrentLine(canvas, centerX, yPosition, maxWidth, lineGap)
+
+        if (prevLyric.isNotEmpty()) {
+            val prevText = TextUtils.ellipsize(
+                prevLyric, lyricSidePaint, maxWidth, TextUtils.TruncateAt.END
+            ).toString()
+            canvas.drawText(prevText, centerX, yPosition - lineGap - extraTopGap, lyricSidePaint)
+        }
+
+        if (nextLyric.isNotEmpty()) {
+            val nextText = TextUtils.ellipsize(
+                nextLyric, lyricSidePaint, maxWidth, TextUtils.TruncateAt.END
+            ).toString()
+            canvas.drawText(nextText, centerX, yPosition + lineGap, lyricSidePaint)
+        }
+
+        val halfW = maxWidth / 2f
+        contentLeft = centerX - halfW
+        contentRight = centerX + halfW
+        contentTop = yPosition - lineGap - extraTopGap - sideSize
+        contentBottom = yPosition + lineGap + (sideSize * 0.3f)
+    }
+
+    private fun drawAnimatedCurrentLine(
+        canvas: Canvas,
+        centerX: Float,
+        yPosition: Float,
+        maxWidth: Float,
+        lineGap: Float,
+    ) {
+        val progress = lyricAnimProgress
+        val incomingText = TextUtils.ellipsize(
+            currentLyric, trackPaint, maxWidth, TextUtils.TruncateAt.END
+        ).toString()
+
+        if (progress >= 1f || outgoingCurrentLyric.isEmpty()) {
+            canvas.drawText(incomingText, centerX, yPosition, trackPaint)
+            return
+        }
+
+        val outgoingText = TextUtils.ellipsize(
+            outgoingCurrentLyric, trackPaint, maxWidth, TextUtils.TruncateAt.END
+        ).toString()
+
+        val baseAlpha = trackPaint.alpha
+
+        trackPaint.alpha = (baseAlpha * (1f - progress)).toInt()
+        canvas.drawText(outgoingText, centerX, yPosition - (lineGap * progress), trackPaint)
+
+        trackPaint.alpha = (baseAlpha * progress).toInt()
+        canvas.drawText(incomingText, centerX, yPosition + (lineGap * (1f - progress)), trackPaint)
+
+        trackPaint.alpha = baseAlpha
     }
 
     private fun drawCompactStyleWithMarquee(canvas: Canvas, centerX: Float, yPosition: Float, maxWidth: Float) {
@@ -602,6 +730,7 @@ class NowPlayingView(context: Context) : FrameLayout(context) {
         trackPaint.textSize = trackSize * density
         artistPaint.textSize = artistSize * density
         compactPaint.textSize = trackSize * density
+        lyricSidePaint.textSize = trackSize * density * 0.72f
         resetMarquee()
         invalidate()
     }
