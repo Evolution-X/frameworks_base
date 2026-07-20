@@ -41,6 +41,7 @@ private fun extraBottomMarginPx(context: Context): Int =
 private val HIDDEN_VIEW_IDS = listOf(
     R.id.shared_notification_container,
     R.id.notificationShelf,
+    R.id.now_playing_view,
 )
 
 private fun Float.dpToPx(context: Context): Int =
