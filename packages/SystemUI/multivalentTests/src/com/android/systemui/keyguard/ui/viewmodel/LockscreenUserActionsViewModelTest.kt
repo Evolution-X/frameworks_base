@@ -251,7 +251,7 @@ class LockscreenUserActionsViewModelTest : SysuiTestCase() {
 
             val startScene by
                 collectLastValue(
-                    (userActions?.get(Swipe.Start) as? ChangeScene)?.toScene?.let { scene ->
+                    (userActions?.get(Swipe.End) as? ChangeScene)?.toScene?.let { scene ->
                         sceneInteractor.resolveSceneFamily(scene)
                     } ?: flowOf(null)
                 )
@@ -339,7 +339,7 @@ class LockscreenUserActionsViewModelTest : SysuiTestCase() {
 
             val startScene by
                 collectLastValue(
-                    (userActions?.get(Swipe.Start) as? ChangeScene)?.toScene?.let { scene ->
+                    (userActions?.get(Swipe.End) as? ChangeScene)?.toScene?.let { scene ->
                         sceneInteractor.resolveSceneFamily(scene)
                     } ?: flowOf(null)
                 )
