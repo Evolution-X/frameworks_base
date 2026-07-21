@@ -62,7 +62,7 @@ constructor(
                                     add(Swipe.Up to Overlays.Bouncer)
                                 }
 
-                                add(Swipe.End to Scenes.Lockscreen)
+                                add(Swipe.Start to Scenes.Lockscreen)
 
                                 addAll(
                                     when (shadeMode) {
