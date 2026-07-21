@@ -73,7 +73,7 @@ class CommunalUserActionsViewModelTest : SysuiTestCase() {
 
             setUpState(isShadeTouchable = true, isDeviceUnlocked = false)
             assertThat(actions).isNotEmpty()
-            assertThat(actions?.get(Swipe.End)).isEqualTo(UserActionResult(Scenes.Lockscreen))
+            assertThat(actions?.get(Swipe.Start)).isEqualTo(UserActionResult(Scenes.Lockscreen))
             assertThat(actions?.get(Swipe.Up))
                 .isEqualTo(UserActionResult.ShowOverlay(Overlays.Bouncer))
             assertThat(actions?.get(Swipe.Down)).isEqualTo(UserActionResult(Scenes.Shade))
@@ -83,7 +83,7 @@ class CommunalUserActionsViewModelTest : SysuiTestCase() {
 
             setUpState(isShadeTouchable = true, isDeviceUnlocked = true)
             assertThat(actions).isNotEmpty()
-            assertThat(actions?.get(Swipe.End)).isEqualTo(UserActionResult(Scenes.Lockscreen))
+            assertThat(actions?.get(Swipe.Start)).isEqualTo(UserActionResult(Scenes.Lockscreen))
             assertThat(actions?.get(Swipe.Up)).isEqualTo(UserActionResult(Scenes.Gone))
             assertThat(actions?.get(Swipe.Down)).isEqualTo(UserActionResult(Scenes.Shade))
         }
@@ -96,7 +96,7 @@ class CommunalUserActionsViewModelTest : SysuiTestCase() {
 
             setUpState(isShadeTouchable = true, isDeviceUnlocked = false)
             assertThat(actions).isNotEmpty()
-            assertThat(actions?.get(Swipe.End)).isEqualTo(UserActionResult(Scenes.Lockscreen))
+            assertThat(actions?.get(Swipe.Start)).isEqualTo(UserActionResult(Scenes.Lockscreen))
             assertThat(actions?.get(Swipe.Up))
                 .isEqualTo(UserActionResult.ShowOverlay(Overlays.Bouncer))
             assertThat(actions?.get(Swipe.Down))
@@ -107,7 +107,7 @@ class CommunalUserActionsViewModelTest : SysuiTestCase() {
 
             setUpState(isShadeTouchable = true, isDeviceUnlocked = true)
             assertThat(actions).isNotEmpty()
-            assertThat(actions?.get(Swipe.End)).isEqualTo(UserActionResult(Scenes.Lockscreen))
+            assertThat(actions?.get(Swipe.Start)).isEqualTo(UserActionResult(Scenes.Lockscreen))
             assertThat(actions?.get(Swipe.Up)).isEqualTo(UserActionResult(Scenes.Gone))
             assertThat(actions?.get(Swipe.Down))
                 .isEqualTo(UserActionResult(Scenes.Shade, ToSplitShade))
@@ -121,7 +121,7 @@ class CommunalUserActionsViewModelTest : SysuiTestCase() {
 
             setUpState(isShadeTouchable = true, isDeviceUnlocked = false)
             assertThat(actions).isNotEmpty()
-            assertThat(actions?.get(Swipe.End)).isEqualTo(UserActionResult(Scenes.Lockscreen))
+            assertThat(actions?.get(Swipe.Start)).isEqualTo(UserActionResult(Scenes.Lockscreen))
             assertThat(actions?.get(Swipe.Up))
                 .isEqualTo(UserActionResult.ShowOverlay(Overlays.Bouncer))
             assertThat(actions?.get(Swipe.Down))
@@ -132,7 +132,7 @@ class CommunalUserActionsViewModelTest : SysuiTestCase() {
 
             setUpState(isShadeTouchable = true, isDeviceUnlocked = true)
             assertThat(actions).isNotEmpty()
-            assertThat(actions?.get(Swipe.End)).isEqualTo(UserActionResult(Scenes.Lockscreen))
+            assertThat(actions?.get(Swipe.Start)).isEqualTo(UserActionResult(Scenes.Lockscreen))
             assertThat(actions?.get(Swipe.Up)).isEqualTo(UserActionResult(Scenes.Gone))
             assertThat(actions?.get(Swipe.Down))
                 .isEqualTo(UserActionResult.ShowOverlay(Overlays.NotificationsShade))
