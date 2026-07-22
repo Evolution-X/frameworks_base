@@ -28,6 +28,7 @@ import com.android.systemui.keyguard.data.repository.keyguardRepository
 import com.android.systemui.kosmos.Kosmos
 import com.android.systemui.kosmos.applicationCoroutineScope
 import com.android.systemui.power.domain.interactor.powerInteractor
+import com.android.systemui.scene.domain.interactor.sceneInteractor
 import com.android.systemui.securelockdevice.domain.interactor.secureLockDeviceInteractor
 import com.android.systemui.shade.pulsingGestureListener
 import com.android.systemui.statusbar.phone.statusBarKeyguardViewManager
@@ -56,5 +57,6 @@ val Kosmos.keyguardTouchHandlingInteractor by
             pointerDeviceRepository = pointerDeviceRepository,
             secureLockDeviceInteractor = { secureLockDeviceInteractor },
             wallpaperFocalAreaInteractor = wallpaperFocalAreaInteractor,
+            sceneInteractor = { sceneInteractor },
         )
     }
