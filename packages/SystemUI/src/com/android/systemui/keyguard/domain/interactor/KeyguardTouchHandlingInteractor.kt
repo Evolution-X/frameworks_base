@@ -28,6 +28,7 @@ import android.util.Log
 import android.view.accessibility.AccessibilityManager
 import androidx.annotation.VisibleForTesting
 import com.android.app.tracing.coroutines.launchTraced as launch
+import com.android.compose.animation.scene.ObservableTransitionState
 import com.android.internal.logging.UiEvent
 import com.android.internal.logging.UiEventLogger
 import com.android.systemui.Flags.doubleTapToSleep
@@ -41,7 +42,9 @@ import com.android.systemui.keyguard.data.repository.KeyguardRepository
 import com.android.systemui.keyguard.shared.model.KeyguardState
 import com.android.systemui.power.domain.interactor.PowerInteractor
 import com.android.systemui.res.R
+import com.android.systemui.scene.domain.interactor.SceneInteractor
 import com.android.systemui.scene.shared.flag.SceneContainerFlag
+import com.android.systemui.scene.shared.model.Overlays
 import com.android.systemui.securelockdevice.domain.interactor.SecureLockDeviceInteractor
 import com.android.systemui.shade.PulsingGestureListener
 import com.android.systemui.shade.ShadeDisplayAware
@@ -65,6 +68,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 
@@ -91,6 +95,7 @@ constructor(
     private val pointerDeviceRepository: PointerDeviceRepository,
     private val wallpaperFocalAreaInteractor: WallpaperFocalAreaInteractor,
     secureLockDeviceInteractor: Lazy<SecureLockDeviceInteractor>,
+    private val sceneInteractor: Lazy<SceneInteractor>,
 ) {
     private val _udfpsAccessibilityOverlayBounds: MutableStateFlow<Rect?> = MutableStateFlow(null)
 
@@ -126,6 +131,26 @@ constructor(
                 initialValue = false,
             )
 
+    /**
+     * True while a bouncer overlay show/hide transition is actively in flight.
+     *
+     * Double-tap-to-sleep must not fire while this is true: the double-tap gesture can land on
+     * the lockscreen surface at the same moment a bouncer overlay transition is settling (e.g.
+     * triggered by a near-simultaneous single tap or face-auth), and invoking
+     * PowerManager#goToSleep mid-transition causes the scene state machine to repeatedly
+     * re-enter ShowOrHideOverlay, flooding the main thread and ANRing input dispatch.
+     */
+    private fun isBouncerOverlayTransitioning(): Flow<Boolean> {
+        if (!SceneContainerFlag.isEnabled) {
+            return flowOf(false)
+        }
+        return sceneInteractor.get().transitionStateFlow.map { state ->
+            state is ObservableTransitionState.Transition &&
+                state is ObservableTransitionState.Transition.ShowOrHideOverlay &&
+                state.overlay == Overlays.Bouncer
+        }
+    }
+
     /** Whether the double tap handling handling feature should be enabled. */
     val isDoubleTapHandlingEnabled: StateFlow<Boolean> =
         if (isDoubleTapFeatureEnabled()) {
@@ -134,15 +159,18 @@ constructor(
                     repository.isQuickSettingsVisible,
                     isDoubleTapSettingEnabled(),
                     secureLockDeviceInteractor.get().isSecureLockDeviceEnabled,
+                    isBouncerOverlayTransitioning(),
                 ) {
                     isFullyTransitionedToLockScreen,
                     isQuickSettingsVisible,
                     isDoubleTapSettingEnabled,
-                    isSecureLockDeviceEnabled ->
+                    isSecureLockDeviceEnabled,
+                    isBouncerOverlayTransitioning ->
                     isFullyTransitionedToLockScreen == 1f &&
                         !isQuickSettingsVisible &&
                         isDoubleTapSettingEnabled &&
-                        !isSecureLockDeviceEnabled
+                        !isSecureLockDeviceEnabled &&
+                        !isBouncerOverlayTransitioning
                 }
             } else {
                 flowOf(false)
