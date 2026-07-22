@@ -26,6 +26,8 @@ import android.provider.Settings
 import android.view.accessibility.accessibilityManagerWrapper
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
+import com.android.compose.animation.scene.ObservableTransitionState
+import com.android.compose.animation.scene.ObservableTransitionState.Transition.ShowOrHideOverlay
 import com.android.internal.logging.UiEventLogger
 import com.android.internal.logging.testing.UiEventLoggerFake
 import com.android.internal.logging.uiEventLogger
@@ -48,6 +50,8 @@ import com.android.systemui.power.domain.interactor.powerInteractor
 import com.android.systemui.res.R
 import com.android.systemui.scene.domain.interactor.SceneInteractor
 import com.android.systemui.scene.domain.interactor.sceneInteractor
+import com.android.systemui.scene.shared.model.Overlays
+import com.android.systemui.scene.shared.model.Scenes
 import com.android.systemui.securelockdevice.domain.interactor.secureLockDeviceInteractor
 import com.android.systemui.shade.PulsingGestureListener
 import com.android.systemui.shared.settings.data.repository.SecureSettingsRepository
@@ -62,6 +66,8 @@ import com.android.systemui.util.time.fakeSystemClock
 import com.android.systemui.wallpapers.domain.interactor.wallpaperFocalAreaInteractor
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -423,6 +429,57 @@ class KeyguardTouchHandlingInteractorTest : SysuiTestCase() {
     }
 
     @Test
+    @EnableFlags(FLAG_DOUBLE_TAP_TO_SLEEP)
+    @EnableSceneContainer
+    fun isDoubleTapEnabled_bouncerOverlayTransitioning_false() {
+        testScope.runTest {
+            secureSettingsRepository.setBoolean(Settings.Secure.DOUBLE_TAP_TO_SLEEP, true)
+            setUpState()
+
+            val isEnabled by collectLastValue(underTest.isDoubleTapHandlingEnabled)
+            runCurrent()
+            assertThat(isEnabled).isTrue()
+
+            val transitionState =
+                MutableStateFlow<ObservableTransitionState>(
+                    ObservableTransitionState.Idle(Scenes.Lockscreen)
+                )
+            sceneInteractor.setTransitionState(transitionState)
+            runCurrent()
+
+            val progress = MutableStateFlow(0.4f)
+            transitionState.value =
+                ShowOrHideOverlay(
+                    overlay = Overlays.Bouncer,
+                    fromContent = Scenes.Lockscreen,
+                    toContent = Overlays.Bouncer,
+                    currentScene = Scenes.Lockscreen,
+                    currentOverlays = flowOf(emptySet()),
+                    progress = progress,
+                    isInitiatedByUserInput = false,
+                    isUserInputOngoing = flowOf(false),
+                    previewProgress = flowOf(0f),
+                    isInPreviewStage = flowOf(false),
+                )
+            runCurrent()
+
+            assertThat(isEnabled).isFalse()
+
+            underTest.onDoubleClick()
+            verify(powerManager, never()).goToSleep(anyLong())
+
+            transitionState.value =
+                ObservableTransitionState.Idle(Scenes.Lockscreen, setOf(Overlays.Bouncer))
+            runCurrent()
+            assertThat(isEnabled).isFalse()
+
+            transitionState.value = ObservableTransitionState.Idle(Scenes.Lockscreen)
+            runCurrent()
+            assertThat(isEnabled).isTrue()
+        }
+    }
+
+    @Test
     @EnableSceneContainer
     fun onClick_setsLastRootViewTapPosition() =
         kosmos.runTest {
@@ -460,6 +517,7 @@ class KeyguardTouchHandlingInteractorTest : SysuiTestCase() {
                 pointerDeviceRepository = kosmos.pointerDeviceRepository,
                 secureLockDeviceInteractor = { kosmos.secureLockDeviceInteractor },
                 wallpaperFocalAreaInteractor = kosmos.wallpaperFocalAreaInteractor,
+                sceneInteractor = { sceneInteractor },
             )
         setUpState()
     }
