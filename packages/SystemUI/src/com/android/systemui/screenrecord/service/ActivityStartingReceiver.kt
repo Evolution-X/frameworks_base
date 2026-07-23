@@ -39,10 +39,14 @@ class ActivityStartingReceiver : BroadcastReceiver() {
         if (Log.isLoggable(TAG, Log.DEBUG)) {
             Log.d(TAG, "Received event in user=${context.userId}, action=${intent.action}")
         }
-        context.startActivity(
-            intent.getParcelableExtra(EXTRA_INTENT, Intent::class.java),
-            optionsBundle,
-        )
+        val targetIntent = intent.getParcelableExtra(EXTRA_INTENT, Intent::class.java)
+        if (targetIntent != null) {
+            try {
+                context.startActivity(targetIntent, optionsBundle)
+            } catch (e: Exception) {
+                Log.e(TAG, "No activity found to handle intent $targetIntent", e)
+            }
+        }
     }
 
     companion object {
