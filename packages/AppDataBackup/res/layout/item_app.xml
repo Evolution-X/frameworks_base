@@ -92,6 +92,16 @@
                 android:layout_marginTop="6dp"
                 style="@style/Widget.AppDataBackup.MetaPill" />
 
+            <TextView
+                android:id="@+id/tv_last_backup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textAppearance="?attr/textAppearanceBodySmall"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
         </LinearLayout>
 
         <com.google.android.material.checkbox.MaterialCheckBox
