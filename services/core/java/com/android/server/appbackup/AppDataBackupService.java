@@ -46,8 +46,10 @@ import com.android.server.pm.Installer.InstallerException;
 
 import java.io.File;
 import java.io.FileDescriptor;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -72,10 +74,12 @@ public class AppDataBackupService extends SystemService {
     private final Installer mInstaller;
 
     private final Map<String, Object> mActiveEngines = new ConcurrentHashMap<>();
+    private final BackupNotificationHelper mNotifications;
 
     public AppDataBackupService(@NonNull Context context) {
         super(context);
         mInstaller = new Installer(context);
+        mNotifications = new BackupNotificationHelper(context, this::cancelToken);
     }
 
     @Override
@@ -150,6 +154,7 @@ public class AppDataBackupService extends SystemService {
                 runBackup(engine, packageNames, destDir, excludeCache, comps, keepVersions,
                         userId, token, callback, pass);
                 mActiveEngines.remove(token);
+                wipe(pass);
             });
 
             return token;
@@ -157,18 +162,22 @@ public class AppDataBackupService extends SystemService {
 
         @Override
         public String restorePackages(List<String> backupIds, String backupDir,
-                int userId, IRestoreProgressCallback callback, String passphrase) {
+                int userId, IRestoreProgressCallback callback, String passphrase,
+                int components) {
             enforceRestorePermission();
 
             final String token = UUID.randomUUID().toString();
             final File srcDir = resolveBackupDirectory(backupDir, userId);
             final char[] pass = toPassphrase(passphrase);
+            final int comps = (components == 0)
+                    ? AppDataBackupRestoreManager.COMPONENT_ALL : components;
 
             mExecutor.submit(() -> {
                 final RestoreEngine engine = new RestoreEngine(getContext(), mInstaller);
                 mActiveEngines.put(token, engine);
-                runRestore(engine, backupIds, srcDir, userId, token, callback, pass);
+                runRestore(engine, backupIds, srcDir, comps, userId, token, callback, pass);
                 mActiveEngines.remove(token);
+                wipe(pass);
             });
 
             return token;
@@ -177,12 +186,7 @@ public class AppDataBackupService extends SystemService {
         @Override
         public void cancelOperation(String operationToken) {
             enforceAnyBackupPermission();
-            final Object engine = mActiveEngines.get(operationToken);
-            if (engine instanceof BackupEngine) {
-                ((BackupEngine) engine).cancel();
-            } else if (engine instanceof RestoreEngine) {
-                ((RestoreEngine) engine).cancel();
-            }
+            cancelToken(operationToken);
         }
 
         @Override
@@ -228,8 +232,9 @@ public class AppDataBackupService extends SystemService {
                 String passphrase) {
             enforceBackupPermission();
             final long ident = Binder.clearCallingIdentity();
+            final char[] pass = toPassphrase(passphrase);
             try (InputStream in = openArchiveStream(userId, backupId)) {
-                BackupArchive.verify(in, toPassphrase(passphrase));
+                BackupArchive.verify(in, pass);
                 return null;
             } catch (BackupArchive.BadPassphraseException e) {
                 return "Wrong passphrase or corrupt header";
@@ -237,6 +242,30 @@ public class AppDataBackupService extends SystemService {
                 return e.getMessage();
             } catch (IOException e) {
                 return "Verification failed: " + e.getMessage();
+            } finally {
+                wipe(pass);
+                Binder.restoreCallingIdentity(ident);
+            }
+        }
+
+        @Override
+        public String exportBackup(String backupId, int userId) {
+            enforceBackupPermission();
+            final long ident = Binder.clearCallingIdentity();
+            try (InputStream in = openArchiveStream(userId, backupId)) {
+                final File exportDir = new File(RAW_MEDIA_ROOT + "/" + userId + "/Download");
+                exportDir.mkdirs();
+                final File dest = new File(exportDir, backupId + BackupArchive.EXTENSION);
+                try (OutputStream out = new FileOutputStream(dest)) {
+                    final byte[] buf = new byte[64 * 1024];
+                    int n;
+                    while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
+                }
+                dest.setReadable(true, false);
+                return "Download/" + dest.getName();
+            } catch (IOException e) {
+                Slog.w(TAG, "exportBackup failed for " + backupId, e);
+                return null;
             } finally {
                 Binder.restoreCallingIdentity(ident);
             }
@@ -257,13 +286,17 @@ public class AppDataBackupService extends SystemService {
         final int total = packageNames.size();
         Slog.i(TAG, "Starting backup of " + total + " package(s) into " + destDir);
         notifyBackupStarted(callback, token, total);
+        mNotifications.onOperationStarted(token, userId, true, total);
 
         int successCount = 0;
+        boolean cancelled = false;
         final PackageManager pm = getContext().getPackageManager();
 
         for (int i = 0; i < total; i++) {
             final String pkg = packageNames.get(i);
             notifyPackageBackupStarted(callback, token, pkg, i + 1, total);
+            mNotifications.onPackageProgress(token, userId, true,
+                    appLabel(pm, pkg, userId), i + 1, total);
 
             BackupResult result;
             try {
@@ -291,7 +324,10 @@ public class AppDataBackupService extends SystemService {
 
             notifyPackageBackupFinished(callback, token, pkg, result);
 
-            if (result.getErrorCode() == BackupResult.ERROR_CANCELLED) break;
+            if (result.getErrorCode() == BackupResult.ERROR_CANCELLED) {
+                cancelled = true;
+                break;
+            }
         }
 
         final BackupResult aggregate;
@@ -304,12 +340,18 @@ public class AppDataBackupService extends SystemService {
         }
 
         Slog.i(TAG, "Backup finished for token=" + token + " result=" + aggregate);
+        if (cancelled) {
+            mNotifications.onOperationCancelled(token, userId, true);
+        } else {
+            mNotifications.onOperationFinished(token, userId, true, aggregate);
+        }
         notifyBackupFinished(callback, token, aggregate);
     }
 
     private void runRestore(@NonNull RestoreEngine engine,
             @NonNull List<String> backupIds,
             @NonNull File backupDir,
+            int components,
             int userId,
             @NonNull String token,
             IRestoreProgressCallback callback,
@@ -318,8 +360,10 @@ public class AppDataBackupService extends SystemService {
         final int total = backupIds.size();
     Slog.i(TAG, "Starting restore of " + total + " backup(s) from " + backupDir);
         notifyRestoreStarted(callback, token, total);
+        mNotifications.onOperationStarted(token, userId, false, total);
 
         int successCount = 0;
+        boolean cancelled = false;
 
         for (int i = 0; i < total; i++) {
             final String backupId = backupIds.get(i);
@@ -337,15 +381,21 @@ public class AppDataBackupService extends SystemService {
             }
 
             notifyPackageRestoreStarted(callback, token, record.getPackageName(), i + 1, total);
+            mNotifications.onPackageProgress(token, userId, false,
+                    record.getLabel(), i + 1, total);
             notifyPackageDataRestoring(callback, token, record.getPackageName());
 
-            final BackupResult result = engine.restorePackage(record, userId, passphrase);
+            final BackupResult result = engine.restorePackage(record, userId, passphrase,
+                    components);
             notifyPackageRestoreFinished(callback, token, record.getPackageName(), result);
 
             if (result.isSuccess() || result.getStatus() == BackupResult.STATUS_PARTIAL) {
                 successCount++;
             }
-            if (result.getErrorCode() == BackupResult.ERROR_CANCELLED) break;
+            if (result.getErrorCode() == BackupResult.ERROR_CANCELLED) {
+                cancelled = true;
+                break;
+            }
         }
 
         final BackupResult aggregate;
@@ -358,7 +408,32 @@ public class AppDataBackupService extends SystemService {
         }
 
         Slog.i(TAG, "Restore finished for token=" + token + " result=" + aggregate);
+        if (cancelled) {
+            mNotifications.onOperationCancelled(token, userId, false);
+        } else {
+            mNotifications.onOperationFinished(token, userId, false, aggregate);
+        }
         notifyRestoreFinished(callback, token, aggregate);
+    }
+
+    private void cancelToken(String token) {
+        final Object engine = mActiveEngines.get(token);
+        if (engine instanceof BackupEngine) {
+            ((BackupEngine) engine).cancel();
+        } else if (engine instanceof RestoreEngine) {
+            ((RestoreEngine) engine).cancel();
+        }
+    }
+
+    private static String appLabel(PackageManager pm, String pkg, int userId) {
+        try {
+            final ApplicationInfo ai = pm.getApplicationInfoAsUser(pkg,
+                    PackageManager.MATCH_UNINSTALLED_PACKAGES, userId);
+            final CharSequence label = pm.getApplicationLabel(ai);
+            return label != null ? label.toString() : pkg;
+        } catch (PackageManager.NameNotFoundException e) {
+            return pkg;
+        }
     }
 
     private List<AppBackupInfo> buildInstalledAppList(int userId) {
@@ -550,6 +625,10 @@ public class AppDataBackupService extends SystemService {
 
     private static char[] toPassphrase(String passphrase) {
         return (passphrase == null || passphrase.isEmpty()) ? null : passphrase.toCharArray();
+    }
+
+    private static void wipe(char[] passphrase) {
+        if (passphrase != null) Arrays.fill(passphrase, '\0');
     }
 
     private static void deleteRecursive(File f) {

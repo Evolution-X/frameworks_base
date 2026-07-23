@@ -19,6 +19,7 @@ package com.android.server.appbackup;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.app.ActivityManager;
+import android.app.appbackup.AppDataBackupRestoreManager;
 import android.app.appbackup.BackupRecord;
 import android.app.appbackup.BackupResult;
 import android.content.IIntentReceiver;
@@ -31,6 +32,7 @@ import android.content.pm.PackageInstaller.Session;
 import android.content.pm.PackageInstaller.SessionParams;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.Signature;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
@@ -47,6 +49,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 public class RestoreEngine {
 
@@ -81,8 +86,10 @@ public class RestoreEngine {
 
     @NonNull
     public BackupResult restorePackage(@NonNull BackupRecord record, int userId,
-            @Nullable char[] passphrase) {
+            @Nullable char[] passphrase, int components) {
         mCancelled = false;
+        final int comps = (components == 0)
+                ? AppDataBackupRestoreManager.COMPONENT_ALL : components;
         final String packageName = record.getPackageName();
         final String archiveId = record.getId();
 
@@ -150,7 +157,7 @@ public class RestoreEngine {
                     return BackupResult.failure(BackupResult.ERROR_IO,
                             "Failed to unpack backup: " + e.getMessage());
                 }
-                return doRestore(record, userId, extractDir, trustedBackup);
+                return doRestore(record, userId, extractDir, trustedBackup, comps);
             } finally {
                 deleteRecursive(extractDir);
             }
@@ -161,7 +168,7 @@ public class RestoreEngine {
 
     @NonNull
     private BackupResult doRestore(@NonNull BackupRecord record, int userId,
-            @NonNull File archiveDir, boolean trustedBackup) {
+            @NonNull File archiveDir, boolean trustedBackup, int components) {
         final String packageName = record.getPackageName();
 
         try { checkCancelled(); } catch (CancelledException e) {
@@ -169,7 +176,9 @@ public class RestoreEngine {
         }
 
         final BackupResult installResult =
-                installApks(archiveDir, packageName, userId, trustedBackup);
+                (components & AppDataBackupRestoreManager.COMPONENT_APK) != 0
+                        ? installApks(archiveDir, packageName, userId, trustedBackup)
+                        : BackupResult.ok();
         if (!installResult.isSuccess()) {
             return installResult;
         }
@@ -200,7 +209,8 @@ public class RestoreEngine {
         }
 
         final File ceArchive = new File(archiveDir, "data_ce.tar");
-        if (ceArchive.exists()) {
+        if (ceArchive.exists()
+                && (components & AppDataBackupRestoreManager.COMPONENT_CE_DATA) != 0) {
             try (ParcelFileDescriptor pfd = ParcelFileDescriptor.open(ceArchive,
                     ParcelFileDescriptor.MODE_READ_ONLY)) {
                 assertTarEntriesSafe(ceArchive, "CE", packageName);
@@ -217,7 +227,8 @@ public class RestoreEngine {
         }
 
         final File deArchive = new File(archiveDir, "data_de.tar");
-        if (deArchive.exists()) {
+        if (deArchive.exists()
+                && (components & AppDataBackupRestoreManager.COMPONENT_DE_DATA) != 0) {
             try (ParcelFileDescriptor pfd = ParcelFileDescriptor.open(deArchive,
                     ParcelFileDescriptor.MODE_READ_ONLY)) {
                 assertTarEntriesSafe(deArchive, "DE", packageName);
@@ -230,7 +241,8 @@ public class RestoreEngine {
         }
 
         final File extArchive = new File(archiveDir, "data_ext.tar");
-        if (extArchive.exists()) {
+        if (extArchive.exists()
+                && (components & AppDataBackupRestoreManager.COMPONENT_EXTERNAL) != 0) {
             try (ParcelFileDescriptor pfd = ParcelFileDescriptor.open(extArchive,
                     ParcelFileDescriptor.MODE_READ_ONLY)) {
                 assertTarEntriesSafe(extArchive, "external", packageName);
@@ -280,6 +292,11 @@ public class RestoreEngine {
                     installer.abandonSession(sessionId);
                     return BackupResult.ok();
                 }
+                final String sigError = checkSigningCertificate(baseApk, packageName, userId);
+                if (sigError != null) {
+                    installer.abandonSession(sessionId);
+                    return BackupResult.failure(BackupResult.ERROR_INSTALL_FAILED, sigError);
+                }
                 writeApkToSession(session, baseApk, "base.apk");
 
                 final File[] splits = archiveDir.listFiles(
@@ -312,6 +329,42 @@ public class RestoreEngine {
             return BackupResult.failure(BackupResult.ERROR_IO,
                     "APK install IO error: " + e.getMessage());
         }
+    }
+
+    @Nullable
+    private String checkSigningCertificate(@NonNull File baseApk,
+            @NonNull String packageName, int userId) {
+        final PackageInfo archived = mPm.getPackageArchiveInfo(baseApk.getAbsolutePath(),
+                PackageManager.GET_SIGNING_CERTIFICATES);
+        if (archived == null) {
+            return "Cannot parse backup APK for " + packageName;
+        }
+        if (!packageName.equals(archived.packageName)) {
+            return "Backup APK package " + archived.packageName
+                    + " does not match manifest package " + packageName;
+        }
+        final PackageInfo installed;
+        try {
+            installed = mPm.getPackageInfoAsUser(packageName,
+                    PackageManager.GET_SIGNING_CERTIFICATES, userId);
+        } catch (PackageManager.NameNotFoundException e) {
+            return null;
+        }
+        if (installed.signingInfo == null || archived.signingInfo == null) {
+            return null;
+        }
+        final Signature[] installedSigs = installed.signingInfo.getApkContentsSigners();
+        final Signature[] archivedSigs = archived.signingInfo.getApkContentsSigners();
+        if (installedSigs == null || archivedSigs == null
+                || installedSigs.length == 0 || archivedSigs.length == 0) {
+            return null;
+        }
+        final Set<Signature> expected = new HashSet<>(Arrays.asList(installedSigs));
+        if (installedSigs.length != archivedSigs.length
+                || !expected.containsAll(Arrays.asList(archivedSigs))) {
+            return "Signing certificate mismatch for " + packageName;
+        }
+        return null;
     }
 
     private void writeApkToSession(@NonNull Session session,
