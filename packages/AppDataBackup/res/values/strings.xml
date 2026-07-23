@@ -42,6 +42,16 @@
     <string name="action_select_all">Select all</string>
     <string name="action_clear">Clear</string>
     <string name="fab_backup_count">Back up (%1$d)</string>
+    <string name="fab_restore_count">Restore (%1$d)</string>
+    <string name="action_delete_selected">Delete selected</string>
+    <string name="select_at_least_one_backup">Select at least one backup</string>
+    <string name="confirm_restore_selected_title">Restore %1$d backups?</string>
+    <string name="confirm_delete_selected_title">Delete %1$d backups?</string>
+    <string name="confirm_delete_selected_message">Selected backups will be permanently deleted.\nThis cannot be undone.</string>
+    <string name="progress_restoring">Preparing restore\u2026</string>
+    <string name="batch_passphrase_title">Encrypted backups selected</string>
+    <string name="batch_passphrase_message">One or more selected backups are encrypted. Enter the passphrase used when they were created. All encrypted backups in this batch must share the same passphrase.</string>
+    <string name="passphrase_required">Passphrase required</string>
 
     <string name="backup_options_title">Backup options</string>
     <string name="section_encryption">Encryption</string>
@@ -62,4 +72,30 @@
     <string name="content_external">External storage</string>
     <string name="content_permissions">Permissions &amp; settings</string>
     <string name="content_encrypted">Encrypted</string>
+
+    <string name="hint_passphrase_confirm">Confirm passphrase</string>
+    <string name="passphrase_mismatch">Passphrases do not match</string>
+    <string name="hint_search">Search apps</string>
+    <string name="action_sort">Sort</string>
+    <string name="sort_by_name">Sorted by name</string>
+    <string name="sort_by_size">Sorted by size</string>
+    <string name="last_backup">Last backup: %1$s</string>
+    <string name="last_backup_never">Never backed up</string>
+    <string name="backup_opt_out">Opts out of backup</string>
+    <string name="not_enough_space_title">Not enough space</string>
+    <string name="not_enough_space_message">Selected apps need about %1$s but only %2$s is free.</string>
+    <string name="backup_anyway">Back up anyway</string>
+    <string name="restore_downgrade_warning">Older than installed version: %1$s</string>
+    <string name="verify_all">Verify all</string>
+    <string name="verify_failed_badge">Failed verification</string>
+    <string name="verify_all_message">Verifies checksums of every backup. Enter the passphrase to include encrypted backups, or leave empty to skip them.</string>
+    <string name="verify_all_result">%1$d valid \u00b7 %2$d failed \u00b7 %3$d skipped</string>
+    <string name="results_title_backup">Backup results</string>
+    <string name="results_title_restore">Restore results</string>
+    <string name="deleted_backup">Deleted %1$s</string>
+    <string name="undo">Undo</string>
+    <string name="export">Export</string>
+    <string name="export_message">Copy the backup of %1$s to your Download folder?</string>
+    <string name="export_done">Saved to %1$s</string>
+    <string name="export_failed">Export failed</string>
 </resources>

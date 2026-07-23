@@ -44,7 +44,8 @@ interface IAppDataBackupService {
                            String backupDir,
                            int userId,
                            IRestoreProgressCallback callback,
-                           String passphrase);
+                           String passphrase,
+                           int components);
 
     void cancelOperation(String operationToken);
 
@@ -55,4 +56,6 @@ interface IAppDataBackupService {
     boolean isEncryptionAvailable(int userId);
 
     String verifyBackup(String backupId, String backupDir, int userId, String passphrase);
+
+    String exportBackup(String backupId, int userId);
 }
