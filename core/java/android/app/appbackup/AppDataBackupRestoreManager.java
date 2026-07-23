@@ -105,9 +105,11 @@ public class AppDataBackupRestoreManager {
     public String restorePackages(@NonNull List<String> backupIds,
             @NonNull String backupDir,
             @Nullable IRestoreProgressCallback callback,
-            @Nullable String passphrase) {
+            @Nullable String passphrase,
+            int components) {
         try {
-            return mService.restorePackages(backupIds, backupDir, mUserId, callback, passphrase);
+            return mService.restorePackages(backupIds, backupDir, mUserId, callback, passphrase,
+                    components);
         } catch (RemoteException e) {
             Log.e(TAG, "restorePackages failed", e);
             return "";
@@ -166,6 +168,17 @@ public class AppDataBackupRestoreManager {
         } catch (RemoteException e) {
             Log.e(TAG, "verifyBackup failed", e);
             return "Verification failed: " + e.getMessage();
+        }
+    }
+
+    @RequiresPermission(android.Manifest.permission.APP_DATA_BACKUP)
+    @Nullable
+    public String exportBackup(@NonNull String backupId) {
+        try {
+            return mService.exportBackup(backupId, mUserId);
+        } catch (RemoteException e) {
+            Log.e(TAG, "exportBackup failed", e);
+            return null;
         }
     }
 }

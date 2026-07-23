@@ -74,7 +74,7 @@ class AppDataBackupShellCommand extends ShellCommand {
         pw.println("             --no-* flags exclude a component (apk/ce/de/external data)");
         pw.println("             --keep <n> keeps only the n most recent backups per package");
         pw.println("  restore --id <id>[,<id>...] --dir <path> [--user <userId>]");
-        pw.println("         [--passphrase <pass>]");
+        pw.println("         [--passphrase <pass>] [--no-apk] [--no-ce] [--no-de] [--no-ext]");
         pw.println("             Restore backup(s) from <path>");
         pw.println("  delete  --id <id> --dir <path>");
         pw.println("             Permanently delete a backup");
@@ -229,6 +229,7 @@ class AppDataBackupShellCommand extends ShellCommand {
     private int cmdRestore() {
         String ids = null, dir = null, passphrase = null;
         int userId = 0;
+        int components = AppDataBackupRestoreManager.COMPONENT_ALL;
         String opt;
         while ((opt = getNextOption()) != null) {
             switch (opt) {
@@ -237,6 +238,10 @@ class AppDataBackupShellCommand extends ShellCommand {
                 case "--user": userId = Integer.parseInt(getNextArgRequired()); break;
                 case "--passphrase":
                 case "-p":     passphrase = getNextArgRequired(); break;
+                case "--no-apk": components &= ~AppDataBackupRestoreManager.COMPONENT_APK; break;
+                case "--no-ce":  components &= ~AppDataBackupRestoreManager.COMPONENT_CE_DATA; break;
+                case "--no-de":  components &= ~AppDataBackupRestoreManager.COMPONENT_DE_DATA; break;
+                case "--no-ext": components &= ~AppDataBackupRestoreManager.COMPONENT_EXTERNAL; break;
             }
         }
         if (ids == null || dir == null) {
@@ -279,7 +284,7 @@ class AppDataBackupShellCommand extends ShellCommand {
                         exitCode[0] = 1;
                         latch.countDown();
                     }
-                }, passphrase);
+                }, passphrase, components);
 
         try {
             latch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS);
