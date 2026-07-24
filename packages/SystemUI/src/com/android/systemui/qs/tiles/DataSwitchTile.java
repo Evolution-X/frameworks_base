@@ -172,7 +172,7 @@ public class DataSwitchTile extends QSTileImpl<BooleanState> {
             Log.d(TAG, "handleClick:only one sim card");
         } else {
             AsyncTask.execute(() -> {
-                switchDefaultDataSub();
+                toggleMobileDataEnabled();
                 refreshState();
             });
             mPanelInteractor.collapsePanels();
@@ -246,36 +246,45 @@ public class DataSwitchTile extends QSTileImpl<BooleanState> {
     }
 
     /**
-     * Switch the default data subscription without enabling/disabling mobile data
+     * Set whether to enable data for {@code subId}, also whether to disable data for other
+     * subscription
      */
-    private void switchDefaultDataSub() {
+    private void toggleMobileDataEnabled() {
+        TelephonyManager telephonyManager;
+        boolean dataEnabled = false;
+        boolean foundActive = false;
+        int subId;
         List<SubscriptionInfo> subInfoList =
                 mSubscriptionManager.getActiveSubscriptionInfoList(true);
-        if (subInfoList == null || subInfoList.size() < 2) {
-            Log.d(TAG, "Not enough subscriptions to switch");
-            return;
-        }
-
-        int currentDefaultSubId = mSubscriptionManager.getDefaultDataSubscriptionId();
-        Log.d(TAG, "Current default data subId: " + currentDefaultSubId);
-
-        for (SubscriptionInfo subInfo : subInfoList) {
-            int subId = subInfo.getSubscriptionId();
-            if (subId != currentDefaultSubId && !subInfo.isOpportunistic()) {
-                mSubscriptionManager.setDefaultDataSubId(subId);
-                Log.d(TAG, "Switched default data to subId: " + subId);
-                return;
+        if (subInfoList != null) {
+            for (SubscriptionInfo subInfo : subInfoList) {
+                subId = subInfo.getSubscriptionId();
+                telephonyManager = mTelephonyManager.createForSubscriptionId(subId);
+                dataEnabled = telephonyManager.getDataEnabled();
+                if (subInfo.isOpportunistic() && dataEnabled) {
+                    // We never disable mobile data for opportunistic subscriptions.
+                    continue;
+                } else {
+                    dataEnabled = !dataEnabled && !foundActive;
+                    telephonyManager.setDataEnabled(dataEnabled);
+                    if (dataEnabled) mSubscriptionManager.setDefaultDataSubId(subId);
+                    // Indicate we found sim with active data, disable data on remaining sim.
+                    if (!foundActive) foundActive = dataEnabled;
+                }
+                Log.d(TAG, "Changed subID " + subId + " to " + dataEnabled);
             }
         }
     }
 
     private String getActiveSlotName() {
-        int defaultDataSubId = mSubscriptionManager.getDefaultDataSubscriptionId();
+        TelephonyManager telephonyManager;
         List<SubscriptionInfo> subInfoList =
                 mSubscriptionManager.getActiveSubscriptionInfoList(true);
         if (subInfoList != null) {
             for (SubscriptionInfo subInfo : subInfoList) {
-                if (subInfo.getSubscriptionId() == defaultDataSubId) {
+                telephonyManager =
+                        mTelephonyManager.createForSubscriptionId(subInfo.getSubscriptionId());
+                if (telephonyManager.getDataEnabled()) {
                     return subInfo.getDisplayName().toString();
                 }
             }
