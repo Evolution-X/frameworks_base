@@ -155,7 +155,12 @@ public class BatterySaverTile extends SecureQSTile<BooleanState> implements
         state.icon = maybeLoadResourceIcon(mPowerSave
                 ? R.drawable.qs_battery_saver_icon_on : R.drawable.qs_battery_saver_icon_off);
         state.label = mContext.getString(R.string.battery_detail_switch_title);
-        state.secondaryLabel = "";
+        state.secondaryLabel = mPowerSave
+                ? mContext.getString(mBatteryController.isExtremeSaverOn()
+                        ? R.string.extreme_battery_saver_text
+                        : R.string.standard_battery_saver_text)
+                : "";
+        state.stateDescription = state.secondaryLabel;
         state.contentDescription = state.label;
         state.value = mPowerSave;
         state.expandedAccessibilityClassName = Switch.class.getName();
@@ -172,6 +177,11 @@ public class BatterySaverTile extends SecureQSTile<BooleanState> implements
     @Override
     public void onPowerSaveChanged(boolean isPowerSave) {
         mPowerSave = isPowerSave;
+        refreshState(null);
+    }
+
+    @Override
+    public void onExtremeBatterySaverChanged(boolean isExtreme) {
         refreshState(null);
     }
 }
