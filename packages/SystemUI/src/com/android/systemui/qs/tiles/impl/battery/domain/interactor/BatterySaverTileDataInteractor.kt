@@ -26,7 +26,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 
-/** Observes BatterySaver mode state changes providing the [BatterySaverTileModel.Standard]. */
+/** Observes BatterySaver mode state changes. */
 open class BatterySaverTileDataInteractor
 @Inject
 constructor(private val batteryRepository: BatteryRepository) :
@@ -39,13 +39,19 @@ constructor(private val batteryRepository: BatteryRepository) :
         combine(
             batteryRepository.isPluggedIn,
             batteryRepository.isPowerSaveEnabled,
+            batteryRepository.isExtremePowerSaveEnabled,
             batteryRepository.level,
         ) {
             isPluggedIn: Boolean,
             isPowerSaverEnabled: Boolean,
+            isExtremePowerSaverEnabled: Boolean,
             _ // we are only interested in battery level change, not the actual level
              ->
-            BatterySaverTileModel.Standard(isPluggedIn, isPowerSaverEnabled)
+            BatterySaverTileModel.Extreme(
+                isPluggedIn,
+                isPowerSaverEnabled,
+                isExtremePowerSaverEnabled,
+            )
         }
 
     override fun availability(user: UserHandle): Flow<Boolean> = flowOf(true)
