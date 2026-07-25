@@ -1790,6 +1790,23 @@
          but the display is fully on. -->
     <integer name="config_autoBrightnessShortTermModelTimeout">300000</integer>
 
+    <!-- When true, fully clear the auto-brightness short-term model (user slider bias) whenever
+         auto-brightness becomes active again. That covers display power-on (OFF_DUE_TO_DISPLAY_STATE
+         → ENABLED) and toggling auto-brightness off then on (DISABLED → ENABLED).
+
+         Stock AOSP keeps the short-term model across those transitions so a user preference
+         survives lock-screen cycles; set this true to treat each re-enable as a clean curve. -->
+    <bool name="config_autoBrightnessShortTermModelForceReset">false</bool>
+
+    <!-- When true, the short-term-model timeout above fully resets the model (clears the user's
+         manual brightness adjustment) instead of only invalidating it. Stock (false) keeps a
+         manual set at a similar ambient lux and only forgets it once the light changes enough,
+         which reads as brightness "sticking" (e.g. at minimum) across lock/unlock. Set this true
+         together with a short config_autoBrightnessShortTermModelTimeout so any real screen-off
+         forgets the manual set and unlocking returns to the automatic curve. -->
+    <bool name="config_autoBrightnessResetShortTermModelOnScreenOff">false</bool>
+
+
     <!-- Timeout (in milliseconds) after which we start the animation "Android
          is starting" -->
     <integer name="config_progressTimeoutFallbackHome">2000</integer>
