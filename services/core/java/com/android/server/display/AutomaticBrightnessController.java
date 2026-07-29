@@ -44,6 +44,8 @@ import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.os.Trace;
+import android.os.UserHandle;
+import android.provider.Settings;
 import android.util.EventLog;
 import android.util.IndentingPrintWriter;
 import android.util.MathUtils;
@@ -1447,6 +1449,17 @@ public class AutomaticBrightnessController {
                     // real screen-off forgets the manual adjustment and unlock returns to the curve.
                     if (mResetShortTermModelOnScreenOff) {
                         resetShortTermModel();
+                        // resetShortTermModel() only clears the short-term (per-lux) points. The
+                        // persistent slider offset, screen_auto_brightness_adj, is separate and
+                        // otherwise survives lock/unlock -- so dragging the slider to the rails
+                        // pins the whole curve high (or low) and it never recovers on unlock,
+                        // which reads as "auto-brightness stuck / won't dim". Drop it too, so the
+                        // opt-in "forget on screen-off" forgets EVERYTHING manual: clear the live
+                        // gamma and zero the stored setting (next configure re-reads 0.0).
+                        setAutoBrightnessAdjustment(0.0f);
+                        Settings.System.putFloatForUser(mContext.getContentResolver(),
+                                Settings.System.SCREEN_AUTO_BRIGHTNESS_ADJ, 0.0f,
+                                UserHandle.USER_CURRENT);
                     } else {
                         mShortTermModel.invalidate();
                     }
