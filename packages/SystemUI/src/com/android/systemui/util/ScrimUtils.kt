@@ -23,6 +23,7 @@ import android.service.notification.StatusBarNotification
 import android.view.View
 import android.view.ViewTreeObserver
 import com.android.systemui.Dependency
+import com.android.systemui.keyguard.KeyguardUnlockAnimationController
 import com.android.systemui.statusbar.StatusBarState.KEYGUARD
 import com.android.systemui.statusbar.StatusBarState.SHADE_LOCKED
 import com.android.systemui.statusbar.phone.ScrimController
@@ -75,6 +76,32 @@ class ScrimUtils private constructor(context: Context?) {
         mWallpaperDepthUtils = utils
     }
 
+    private var mUnlockAnimationController: KeyguardUnlockAnimationController? = null
+
+    private val mUnlockAnimationListener =
+        object : KeyguardUnlockAnimationController.KeyguardUnlockAnimationListener {
+            override fun onUnlockAnimationStarted(
+                playingCannedAnimation: Boolean,
+                isWakeAndUnlockNotFromDream: Boolean,
+                unlockAnimationStartDelay: Long,
+                unlockAnimationDuration: Long,
+            ) {
+                keyguardRetryRunnable?.let { mainHandler.removeCallbacks(it) }
+                mainHandler.postDelayed({
+                    mWallpaperDepthUtils?.hideDepthWallpaperImmediate()
+                }, unlockAnimationStartDelay)
+            }
+
+            override fun onUnlockAnimationFinished() {
+            }
+        }
+
+    fun setKeyguardUnlockAnimationController(controller: KeyguardUnlockAnimationController) {
+        mUnlockAnimationController?.removeKeyguardUnlockAnimationListener(mUnlockAnimationListener)
+        mUnlockAnimationController = controller
+        controller.addKeyguardUnlockAnimationListener(mUnlockAnimationListener)
+    }
+
     @Volatile private var mIsDozing: Boolean? = null
     @Volatile private var mKeyguardShowing: Boolean? = null
     @Volatile private var mExpandedFraction: Float? = null
@@ -111,31 +138,29 @@ class ScrimUtils private constructor(context: Context?) {
             mKeyguardShowing = showing
             listeners.notifyOnMain { it.onKeyguardShowingChanged(showing) }
             if (showing) {
-                mainHandler.postDelayed({
+                if (mKeyguardFadingAway != true && mKeyguardGoingAway != true) {
                     mWallpaperDepthUtils?.updateDepthWallpaperVisibility()
                     mWallpaperDepthUtils?.updateDepthWallpaper()
-                }, 120)
+                }
             } else {
                 mWallpaperDepthUtils?.hideDepthWallpaperImmediate()
             }
         }
     }
 
+    @Volatile private var mKeyguardFadingAway: Boolean? = null
+    @Volatile private var mKeyguardGoingAway: Boolean? = null
+
     fun onKeyguardFadingAwayChanged(fadingAway: Boolean) {
+        mKeyguardFadingAway = fadingAway
         listeners.notifyOnMain { it.onKeyguardFadingAwayChanged(fadingAway) }
         postKeyguardRetry()
-        if (fadingAway) {
-            mWallpaperDepthUtils?.hideDepthWallpaper()
-            mWallpaperDepthUtils?.hideDepthWallpaperImmediate()
-        }
     }
 
     fun onKeyguardGoingAwayChanged(goingAway: Boolean) {
+        mKeyguardGoingAway = goingAway
         listeners.notifyOnMain { it.onKeyguardGoingAwayChanged(goingAway) }
         postKeyguardRetry()
-        if (goingAway) {
-            mWallpaperDepthUtils?.hideDepthWallpaper()
-        }
     }
 
     fun onPrimaryBouncerShowingChanged(showing: Boolean) {
