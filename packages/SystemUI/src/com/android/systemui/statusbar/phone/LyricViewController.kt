@@ -19,37 +19,27 @@ package com.android.systemui.statusbar.phone
 
 import android.app.Notification
 import android.content.Context
-import android.content.res.ColorStateList
 import android.graphics.Rect
-import android.graphics.drawable.Drawable
 import android.service.notification.NotificationListenerService.RankingMap
 import android.service.notification.StatusBarNotification
 import android.text.TextUtils
 import android.view.MotionEvent
 import android.view.View
 import android.view.animation.AnimationUtils
-import android.widget.ImageSwitcher
-import android.widget.ImageView
 import android.widget.TextSwitcher
 import android.widget.TextView
-import com.android.internal.statusbar.StatusBarIcon
-import com.android.internal.util.ContrastColorUtil
 import com.android.systemui.Dependency
 import com.android.systemui.plugins.DarkIconDispatcher
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.NotificationListener
-import com.android.systemui.statusbar.StatusBarIconView
 
 abstract class LyricViewController(
     private val context: Context,
     statusBar: View,
 ) : DarkIconDispatcher.DarkReceiver, NotificationListener.NotificationHandler {
 
-    private val iconSwitcher: ImageSwitcher = statusBar.findViewById(R.id.lyric_icon)
     private val textSwitcher: TextSwitcher = statusBar.findViewById(R.id.lyric_text)
     private val lyricContainer: View = statusBar.findViewById(R.id.lyric_container)
-
-    private val notificationColorUtil: ContrastColorUtil = ContrastColorUtil.getInstance(context)
 
     private var enabled = false
     private var started = false
@@ -61,16 +51,12 @@ abstract class LyricViewController(
     private val lyricsCallback: LyricsFetcher.Callback
     private var mediaLyricsActive = false
 
-    private var tintColorStateList: ColorStateList? = null
-
     init {
         val animationIn = AnimationUtils.loadAnimation(context, com.android.internal.R.anim.push_up_in)
         val animationOut = AnimationUtils.loadAnimation(context, com.android.internal.R.anim.push_up_out)
 
         textSwitcher.inAnimation = animationIn
         textSwitcher.outAnimation = animationOut
-        iconSwitcher.inAnimation = animationIn
-        iconSwitcher.outAnimation = animationOut
 
         lyricContainer.setOnTouchListener { v, event ->
             if (event.action == MotionEvent.ACTION_DOWN) {
@@ -146,32 +132,6 @@ abstract class LyricViewController(
                 stopLyric()
                 return
             }
-            if (!isCurrentNotification || !started ||
-                notification.extras.getBoolean(EXTRA_TICKER_ICON_SWITCH, false)
-            ) {
-                val iconId = notification.extras.getInt(EXTRA_TICKER_ICON, -1)
-                val slot = "${sbn.packageName}/0x${Integer.toHexString(sbn.id)}"
-                val statusBarIconView = StatusBarIconView(context, slot, sbn)
-                val icon: Drawable? = if (iconId == -1) {
-                    notification.getSmallIcon().loadDrawable(context)
-                } else {
-                    statusBarIconView.getIcon(
-                        context,
-                        sbn.getPackageContext(context),
-                        StatusBarIcon(
-                            sbn.packageName,
-                            sbn.user,
-                            iconId,
-                            notification.iconLevel,
-                            0,
-                            null,
-                            StatusBarIcon.Type.NotifSmallIcon,
-                        ),
-                    )
-                }
-                iconSwitcher.setImageDrawable(icon)
-                updateIconTint()
-            }
             startLyric()
             textSwitcher.setText(notification.tickerText)
         }
@@ -226,32 +186,14 @@ abstract class LyricViewController(
     val view: View
         get() = lyricContainer
 
-    private fun updateIconTint() {
-        val drawable = (iconSwitcher.currentView as ImageView).drawable
-        val isGrayscale = notificationColorUtil.isGrayscaleIcon(drawable)
-        if (isGrayscale) {
-            (iconSwitcher.currentView as ImageView).imageTintList = tintColorStateList
-            (iconSwitcher.nextView as ImageView).imageTintList = tintColorStateList
-        } else {
-            (iconSwitcher.currentView as ImageView).imageTintList = null
-            (iconSwitcher.nextView as ImageView).imageTintList = null
-        }
-    }
-
     override fun onDarkChanged(area: ArrayList<Rect>?, darkIntensity: Float, tint: Int) {
         val tintColor = DarkIconDispatcher.getTint(area ?: ArrayList(), lyricContainer, tint)
 
         (textSwitcher.currentView as TextView).setTextColor(tintColor)
         (textSwitcher.nextView as TextView).setTextColor(tintColor)
-
-        tintColorStateList = ColorStateList.valueOf(tintColor)
-        updateIconTint()
     }
 
     companion object {
-        private const val EXTRA_TICKER_ICON = "ticker_icon"
-        private const val EXTRA_TICKER_ICON_SWITCH = "ticker_icon_switch"
-
         private const val HIDE_LYRIC_DELAY = 1200
     }
 }
