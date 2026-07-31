@@ -25,19 +25,6 @@
     android:orientation="horizontal"
     android:paddingEnd="@dimen/lyric_padding_end">
 
-    <ImageSwitcher android:id="@+id/lyric_icon"
-        android:layout_width="@dimen/status_bar_icon_size"
-        android:layout_height="@dimen/status_bar_icon_size"
-        android:layout_marginEnd="@dimen/lyric_icon_margin_end">
-        <ImageView
-            android:layout_width="@dimen/status_bar_icon_size"
-            android:layout_height="@dimen/status_bar_icon_size"
-            android:scaleType="centerInside" />
-        <ImageView
-            android:layout_width="@dimen/status_bar_icon_size"
-            android:layout_height="@dimen/status_bar_icon_size"
-            android:scaleType="centerInside" />
-    </ImageSwitcher>
     <TextSwitcher android:id="@+id/lyric_text"
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
