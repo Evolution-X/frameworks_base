@@ -28,6 +28,7 @@ import com.android.systemui.clipboardoverlay.ClipboardListener
 import com.android.systemui.complication.ComplicationTypesUpdater
 import com.android.systemui.complication.DreamClockTimeComplication
 import com.android.systemui.dagger.qualifiers.PerUser
+import com.android.systemui.display.VehicleMotionCuesService
 import com.android.systemui.dreams.AssistantAttentionMonitor
 import com.android.systemui.dreams.DreamMonitor
 import com.android.systemui.dreams.DreamOverlayRegistrant
@@ -356,4 +357,9 @@ abstract class SystemUICoreStartableModule {
     @IntoMap
     @ClassKey(UsbModePickerDialogDelegate::class)
     abstract fun bindUsbModePickerDialogDelegate(impl: UsbModePickerDialogDelegate): CoreStartable
+
+    @Binds
+    @IntoMap
+    @ClassKey(VehicleMotionCuesService::class)
+    abstract fun bindVehicleMotionCuesService(impl: VehicleMotionCuesService): CoreStartable
 }
