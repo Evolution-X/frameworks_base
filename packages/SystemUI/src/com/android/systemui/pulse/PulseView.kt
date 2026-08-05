@@ -20,6 +20,7 @@ import android.graphics.Canvas
 import android.util.AttributeSet
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewPropertyAnimator
 
 class PulseView @JvmOverloads constructor(
     context: Context,
@@ -31,7 +32,9 @@ class PulseView @JvmOverloads constructor(
     private var engine: PulseEngine? = null
     private var isAttached = false
     private var isVisible = false
+    private var isRenderingAllowed = false 
     private var settingsRepo: PulseSettingsRepository? = null
+    private var visibilityAnimator: ViewPropertyAnimator? = null
 
     init {
         layoutParams = ViewGroup.LayoutParams(
@@ -58,13 +61,14 @@ class PulseView @JvmOverloads constructor(
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         isAttached = false
+        visibilityAnimator?.cancel()
         engine?.stop()
         renderer?.cleanup()
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        if (isAttached && isVisible) {
+        if (isAttached && isRenderingAllowed) {
             renderer?.onDraw(canvas, width, height)
             postInvalidateOnAnimation()
         }
@@ -80,8 +84,39 @@ class PulseView @JvmOverloads constructor(
         post { renderer?.onMediaColorsChanged(color) }
     }
 
-    fun setVisibility(visible: Boolean) {
+    fun setVisibility(visible: Boolean, animate: Boolean = true, durationMs: Long = 300L) {
+        if (isVisible == visible) return
         isVisible = visible
-        visibility = if (visible) VISIBLE else GONE
+
+        visibilityAnimator?.cancel()
+
+        if (!animate) {
+            alpha = if (visible) 1f else 0f
+            visibility = if (visible) VISIBLE else GONE
+            isRenderingAllowed = visible
+            return
+        }
+
+        if (visible) {
+            isRenderingAllowed = true
+            visibility = VISIBLE
+            alpha = 0f
+            visibilityAnimator = animate()
+                .alpha(1f)
+                .setDuration(durationMs)
+                .withEndAction { visibilityAnimator = null }
+            visibilityAnimator?.start()
+        } else {
+            visibilityAnimator = animate()
+                .alpha(0f)
+                .setDuration(durationMs)
+                .withEndAction {
+                    isRenderingAllowed = false
+                    visibility = GONE
+                    visibilityAnimator = null
+                }
+            visibilityAnimator?.start()
+        }
     }
+
 }
