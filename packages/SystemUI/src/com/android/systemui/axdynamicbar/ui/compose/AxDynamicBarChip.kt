@@ -59,6 +59,8 @@ import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.res.dimensionResource
 import com.android.compose.animation.Expandable
 import com.android.compose.animation.rememberExpandableController
+import com.android.systemui.animation.Expandable as SystemUiExpandable
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import android.graphics.drawable.Drawable
@@ -114,6 +116,7 @@ fun AxDynamicBarChip(
 
     val touchSlop = LocalViewConfiguration.current.touchSlop
     val expandableController = rememberExpandableController(color = Color.Transparent, shape = ChipShape)
+    var currentExpandable by remember { mutableStateOf<SystemUiExpandable?>(null) }
 
     val motionScheme = MaterialTheme.motionScheme
 
@@ -148,7 +151,9 @@ fun AxDynamicBarChip(
                                 val wasExpanded = viewModel.statusBarExpansion.isExpanded.value
                                 val current = state?.event
                                 if (current is IslandEvent.AospChip) {
-                                    if (!viewModel.handleAospChipTap(current, expandableController.expandable)) {
+                                    val expandable = currentExpandable
+                                    if (expandable == null ||
+                                        !viewModel.handleAospChipTap(current, expandable)) {
                                         viewModel.statusBarExpansion.toggle()
                                         if (!wasExpanded) toggleCount++
                                     }
@@ -197,7 +202,8 @@ fun AxDynamicBarChip(
                 controller = expandableController,
                 onClick = null,
                 defaultMinSize = false,
-            ) { _ ->
+            ) { expandable ->
+                currentExpandable = expandable
                 AnimatedContent(
                     targetState = chipDisplayKey(displayEvent, isAlert),
                     transitionSpec = {
