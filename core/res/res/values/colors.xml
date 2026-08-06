@@ -976,6 +976,10 @@
     <color name="shade_panel_fg">@color/shade_panel_fg_color</color>
     <color name="shade_panel_bg">@color/shade_panel_bg_color</color>
     <color name="shade_panel_scrim">@color/shade_panel_scrim_color</color>
+    <color name="surface_effect_0">@color/surface_effect_0_color</color>
+    <color name="surface_effect_1">@color/surface_effect_1_color</color>
+    <color name="surface_effect_2">@color/surface_effect_2_color</color>
+    <color name="surface_effect_3">@color/surface_effect_3_color</color>
 
     <!-- Color for system bars -->
     <color name="navigation_bar_compatible">@android:color/black</color>
