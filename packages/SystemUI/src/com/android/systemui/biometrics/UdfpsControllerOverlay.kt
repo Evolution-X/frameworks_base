@@ -512,7 +512,11 @@ constructor(
                 if (Build.IS_DEBUGGABLE) {
                     Log.d(TAG, "removing view=$this")
                 }
-                windowManager.removeView(this)
+                try {
+                    windowManager.removeView(this)
+                } catch (e: IllegalArgumentException) {
+                    Log.w(TAG, "removeView | view was already detached", e)
+                }
             }
 
             if (useMtkGhbmDimming && isAddDimView) {
