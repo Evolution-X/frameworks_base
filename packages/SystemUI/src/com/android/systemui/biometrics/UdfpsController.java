@@ -1035,7 +1035,12 @@ public class UdfpsController implements DozeReceiver, Dumpable {
                 }
             }
 
-            final boolean removed = mOverlay.hide();
+            boolean removed = false;
+            try {
+                removed = mOverlay.hide();
+            } catch (IllegalArgumentException e) {
+                Log.w(TAG, "hideUdfpsOverlay | view already detached", e);
+            }
             mKeyguardViewManager.hideAlternateBouncer(
                     /* updateScrim */ true,
                     /* clearDismissAction */ false
