@@ -4,5 +4,8 @@
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources>
-
+    <color name="surface_effect_0_legacy">@color/surface_effect_0_color</color>
+    <color name="surface_effect_1_legacy">@color/surface_effect_1_color</color>
+    <color name="surface_effect_2_legacy">@color/surface_effect_2_color</color>
+    <color name="surface_effect_3_legacy">@color/surface_effect_3_color</color>
 </resources>
