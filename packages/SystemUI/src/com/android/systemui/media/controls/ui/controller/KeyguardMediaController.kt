@@ -69,6 +69,7 @@ import java.io.PrintWriter
 import javax.inject.Inject
 import javax.inject.Named
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
@@ -138,6 +139,7 @@ constructor(
 
             // Let's now initialize this view, which also creates the host view for us.
             mediaHost.init(MediaHierarchyManager.LOCATION_LOCKSCREEN)
+            listenForLockscreenMediaAllowedChanges(applicationScope)
         } else {
             applicationScope.launch {
                 combine(
@@ -173,6 +175,15 @@ constructor(
             }
         )
         updateResources()
+    }
+
+    @VisibleForTesting
+    internal fun listenForLockscreenMediaAllowedChanges(scope: CoroutineScope): Job {
+        return scope.launch {
+            mediaCarouselInteractor.allowMediaOnLockscreen.collect {
+                refreshMediaPosition(reason = "lockscreen media allowed changed")
+            }
+        }
     }
 
     private fun setComposeContent(composeView: ComposeView) {
@@ -330,7 +341,8 @@ constructor(
             if (MediaControlsInComposeFlag.isEnabled) {
                 isMediaVisibleOnLockscreen
             } else {
-                mediaHost.visible
+                val allowedOnLockscreen = mediaCarouselInteractor.allowMediaOnLockscreen.value
+                mediaHost.visible && allowedOnLockscreen
             }
         val isBypassNotEnabled = !bypassController.bypassEnabled
         val useSplitShade = useSplitShade
