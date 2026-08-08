@@ -2,6 +2,7 @@
  * Copyright (C) 2018-2025 crDroid Android Project
  * Copyright (C) 2018-2019 AICP
  * Copyright (C) 2024-2026 Lunaris AOSP
+ * Copyright (C) 2025-2026 RisingOS (revived) Android Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,6 +41,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
 
+import com.android.internal.util.android.OmniJawsClient;
 import com.android.settingslib.Utils;
 import com.android.settingslib.drawable.CircleFramedDrawable;
 
@@ -50,13 +52,18 @@ import com.android.systemui.res.R;
 
 import java.util.ArrayList;
 
-public abstract class LogoImage extends ImageView implements DarkReceiver {
+public abstract class LogoImage extends ImageView implements DarkReceiver,
+        OmniJawsClient.OmniJawsObserver {
 
     private static final String TAG = "LogoImage";
 
     public static final int LOGO_STYLE_CUSTOM = 34;
+    public static final int LOGO_STYLE_WEATHER = 35;
+
+    private static final long WEATHER_RETRY_DELAY_MS = 2000;
 
     private Context mContext;
+    private Handler mHandler;
 
     private boolean mAttached;
 
@@ -71,6 +78,17 @@ public abstract class LogoImage extends ImageView implements DarkReceiver {
     private String mCurrentCustomImagePath;
     private boolean mCustomImageLoaded = false;
     private Drawable mCustomImageDrawable = null;
+
+    private OmniJawsClient mWeatherClient;
+    private OmniJawsClient.WeatherInfo mWeatherInfo;
+    private boolean mWeatherClientInitialized = false;
+    private int mLogoSize;
+    private boolean mLogoSizeInitialized = false;
+    private final Runnable mWeatherRetryRunnable = () -> {
+        if (mShowLogo && isLogoVisible() && mLogoStyle == LOGO_STYLE_WEATHER) {
+            updateLogo();
+        }
+    };
 
     private ContentObserver mSettingsObserver;
 
@@ -89,6 +107,8 @@ public abstract class LogoImage extends ImageView implements DarkReceiver {
     public LogoImage(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
         mContext = context;
+        mHandler = new Handler();
+        mWeatherClient = OmniJawsClient.get();
     }
 
     protected abstract boolean isLogoVisible();
@@ -144,8 +164,10 @@ public abstract class LogoImage extends ImageView implements DarkReceiver {
                 false, mSettingsObserver, UserHandle.USER_ALL);
 
         Dependency.get(DarkIconDispatcher.class).addDarkReceiver(this);
+        initializeLogoSize();
 
         if (mUserUnlocked) {
+            initializeWeatherClient();
             updateSettings();
         } else {
             Log.w(TAG, "CE storage locked on attach, deferring settings load until unlock");
@@ -165,8 +187,37 @@ public abstract class LogoImage extends ImageView implements DarkReceiver {
         Dependency.get(DarkIconDispatcher.class).removeDarkReceiver(this);
 
         unregisterUserUnlockedReceiver();
+        cleanupWeatherClient();
+        mHandler.removeCallbacks(mWeatherRetryRunnable);
 
         mCustomImageDrawable = null;
+    }
+
+    private void initializeLogoSize() {
+        if (!mLogoSizeInitialized) {
+            mLogoSize = (int) mContext.getResources()
+                    .getDimension(R.dimen.status_bar_system_icons_height);
+            mLogoSizeInitialized = true;
+        }
+    }
+
+    private void initializeWeatherClient() {
+        if (!mWeatherClientInitialized && mWeatherClient != null) {
+            mWeatherClient.addObserver(mContext, this);
+            mWeatherClientInitialized = true;
+
+            if (mWeatherClient.isOmniJawsEnabled(mContext)) {
+                mWeatherClient.queryWeather(mContext);
+                mWeatherInfo = mWeatherClient.getWeatherInfo();
+            }
+        }
+    }
+
+    private void cleanupWeatherClient() {
+        if (mWeatherClientInitialized && mWeatherClient != null) {
+            mWeatherClient.removeObserver(mContext, this);
+            mWeatherClientInitialized = false;
+        }
     }
 
     private void registerUserUnlockedReceiver() {
@@ -182,7 +233,10 @@ public abstract class LogoImage extends ImageView implements DarkReceiver {
 
                 unregisterUserUnlockedReceiver();
 
-                post(LogoImage.this::updateSettings);
+                post(() -> {
+                    initializeWeatherClient();
+                    updateSettings();
+                });
             }
         };
 
@@ -216,9 +270,30 @@ public abstract class LogoImage extends ImageView implements DarkReceiver {
         }
     }
 
+    @Override
+    public void weatherUpdated() {
+        if (mWeatherClient == null) return;
+        mWeatherInfo = mWeatherClient.getWeatherInfo();
+        if (mShowLogo && isLogoVisible() && mLogoStyle == LOGO_STYLE_WEATHER) {
+            updateLogo();
+        }
+    }
+
+    @Override
+    public void weatherError(int errorReason) {
+        mWeatherInfo = null;
+        if (mShowLogo && isLogoVisible() && mLogoStyle == LOGO_STYLE_WEATHER) {
+            updateLogo();
+        }
+    }
+
     public void updateLogo() {
         if (mLogoStyle == LOGO_STYLE_CUSTOM) {
             updateCustomLogo();
+            return;
+        }
+        if (mLogoStyle == LOGO_STYLE_WEATHER) {
+            updateWeatherLogo();
             return;
         }
         Drawable drawable = null;
@@ -404,6 +479,40 @@ public abstract class LogoImage extends ImageView implements DarkReceiver {
         }
     }
 
+    private void updateWeatherLogo() {
+        mHandler.removeCallbacks(mWeatherRetryRunnable);
+
+        if (mWeatherClient == null || !mWeatherClient.isOmniJawsEnabled(mContext)) {
+            setImageDrawable(null);
+            setVisibility(View.GONE);
+            return;
+        }
+
+        if (mWeatherInfo == null) {
+            mWeatherClient.queryWeather(mContext);
+            mWeatherInfo = mWeatherClient.getWeatherInfo();
+        }
+
+        Drawable drawable = mWeatherInfo != null
+                ? mWeatherClient.getWeatherConditionImage(mContext, mWeatherInfo.conditionCode)
+                : null;
+
+        if (drawable == null) {
+            // Weather data isn't available yet (e.g. still fetching); retry shortly
+            // rather than leaving a stale or blank icon indefinitely.
+            setImageDrawable(null);
+            setVisibility(View.GONE);
+            mHandler.postDelayed(mWeatherRetryRunnable, WEATHER_RETRY_DELAY_MS);
+            return;
+        }
+
+        initializeLogoSize();
+        clearColorFilter();
+        setImageTintList(null);
+        setImageDrawable(drawable);
+        setVisibility(View.VISIBLE);
+    }
+
     public void updateSettings() {
         if (!mUserUnlocked) {
             Log.d(TAG, "updateSettings() skipped - CE storage locked");
@@ -417,9 +526,22 @@ public abstract class LogoImage extends ImageView implements DarkReceiver {
             mLogoPosition = Settings.System.getIntForUser(mContext.getContentResolver(),
                     Settings.System.STATUS_BAR_LOGO_POSITION, 0,
                     UserHandle.USER_CURRENT);
-            mLogoStyle = Settings.System.getIntForUser(mContext.getContentResolver(),
+            int newLogoStyle = Settings.System.getIntForUser(mContext.getContentResolver(),
                     Settings.System.STATUS_BAR_LOGO_STYLE, 0,
                     UserHandle.USER_CURRENT);
+            boolean enteringWeatherStyle = newLogoStyle == LOGO_STYLE_WEATHER
+                    && mLogoStyle != LOGO_STYLE_WEATHER;
+            mLogoStyle = newLogoStyle;
+
+            if (enteringWeatherStyle) {
+                if (!mWeatherClientInitialized) {
+                    initializeWeatherClient();
+                }
+                if (mWeatherClient.isOmniJawsEnabled(mContext)) {
+                    mWeatherClient.queryWeather(mContext);
+                    mWeatherInfo = mWeatherClient.getWeatherInfo();
+                }
+            }
             mLogoColor = Settings.System.getIntForUser(mContext.getContentResolver(),
                     Settings.System.STATUS_BAR_LOGO_COLOR, 0,
                     UserHandle.USER_CURRENT);
