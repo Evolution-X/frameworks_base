@@ -17,26 +17,38 @@ package com.android.systemui.pulse
 
 interface PulseData {
     val fftBytes: ByteArray?
+    val waveformBytes: ByteArray?
     val isDataValid: Boolean
 
     fun updateFFTData(bytes: ByteArray)
+    fun updateWaveformData(bytes: ByteArray)
     fun reset()
 }
 
 class PulseFFTData : PulseData {
     private var _fftBytes: ByteArray? = null
+    private var _waveformBytes: ByteArray? = null
 
     override val fftBytes: ByteArray?
         get() = _fftBytes
 
+    override val waveformBytes: ByteArray?
+        get() = _waveformBytes
+
     override val isDataValid: Boolean
-        get() = _fftBytes != null && _fftBytes!!.isNotEmpty()
+        get() = (_fftBytes != null && _fftBytes!!.isNotEmpty()) ||
+                (_waveformBytes != null && _waveformBytes!!.isNotEmpty())
 
     override fun updateFFTData(bytes: ByteArray) {
         _fftBytes = bytes.copyOf()
     }
 
+    override fun updateWaveformData(bytes: ByteArray) {
+        _waveformBytes = bytes.copyOf()
+    }
+
     override fun reset() {
         _fftBytes = null
+        _waveformBytes = null
     }
 }
