@@ -69,6 +69,9 @@ class PulseViewController @Inject constructor(
     private val hapticsMode: Int
         get() = settingsRepository.getPulseHapticsMode()
 
+    private val captureMode: PulseAudioDataProcessor.CaptureMode
+        get() = settingsRepository.getCaptureMode()
+
     var pulseRunning: Boolean = false
         set(value) {
             if (value == field) return
@@ -140,6 +143,8 @@ class PulseViewController @Inject constructor(
 
     private fun onSettingsChanged() {
         val enabled = pulseEnabled
+        audioProcessor.captureMode = captureMode
+        view.onCaptureModeChanged(audioProcessor.captureMode)
         if (enabled && !listenersRegistered) {
             ScrimUtils.get().addListener(this)
             MediaSessionManager.get().addListener(this)
@@ -184,7 +189,7 @@ class PulseViewController @Inject constructor(
     }
 
     override fun onDataUpdate(data: PulseData) {
-        if (hapticsMode > 0) {
+        if (hapticsMode > 0 && captureMode == PulseAudioDataProcessor.CaptureMode.FFT) {
             bassHaptics.process(data.fftBytes)
         }
         if (pulseRunning) {
