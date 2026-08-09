@@ -14605,6 +14605,11 @@ public final class Settings {
         /**
          * @hide
          */
+        public static final String PULSE_CAPTURE_MODE = "pulse_capture_mode";
+
+        /**
+         * @hide
+         */
         public static final String PULSE_CUSTOM_COLOR = "pulse_custom_color";
 
         /**

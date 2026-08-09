@@ -40,6 +40,8 @@ class PulseView @JvmOverloads constructor(
     private var isRenderingAllowed = false 
     private var settingsRepo: PulseSettingsRepository? = null
     private var visibilityAnimator: ViewPropertyAnimator? = null
+    private var captureMode: PulseAudioDataProcessor.CaptureMode =
+        PulseAudioDataProcessor.CaptureMode.FFT
     
     private var fadeAnimator: ValueAnimator? = null
     private val fadeInterpolator = DecelerateInterpolator()
@@ -55,12 +57,17 @@ class PulseView @JvmOverloads constructor(
 
     fun initialize(settingsRepo: PulseSettingsRepository) {
         this.settingsRepo = settingsRepo
+        captureMode = settingsRepo.getCaptureMode()
 
         renderer = PulseRenderer(context, settingsRepo)
         engine = PulseEngine(context, settingsRepo) { processedHeights ->
             renderer?.updateHeights(processedHeights)
             postInvalidate()
         }
+    }
+
+    fun onCaptureModeChanged(mode: PulseAudioDataProcessor.CaptureMode) {
+        captureMode = mode
     }
 
     override fun onAttachedToWindow() {
@@ -88,7 +95,12 @@ class PulseView @JvmOverloads constructor(
 
     fun updateVisualizerData(data: PulseData) {
         if (isAttached && isVisible && data.isDataValid) {
-            engine?.processFFT(data.fftBytes!!)
+            when (captureMode) {
+                PulseAudioDataProcessor.CaptureMode.FFT ->
+                    data.fftBytes?.let { engine?.processFFT(it) }
+                PulseAudioDataProcessor.CaptureMode.WAVEFORM ->
+                    data.waveformBytes?.let { engine?.processWaveform(it) }
+            }
         }
     }
 
