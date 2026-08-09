@@ -14195,6 +14195,11 @@ public final class Settings {
         public static final String PULSE_HEIGHT_MULTIPLIER = "pulse_height_multiplier";
 
         /**
+         * @hide
+         */
+        public static final String PULSE_CAPTURE_MODE = "pulse_capture_mode";
+
+        /**
          * Whether to enable Smart Pixels
          * @hide
          */
