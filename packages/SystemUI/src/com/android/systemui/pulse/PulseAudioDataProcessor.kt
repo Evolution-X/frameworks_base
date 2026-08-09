@@ -35,6 +35,31 @@ class PulseAudioDataProcessor(private val context: Context) {
         private const val INVALID_SESSION = Int.MIN_VALUE
     }
 
+   enum class CaptureMode(val value: Int) {
+        FFT(0),
+        WAVEFORM(1);
+
+        companion object {
+            fun fromInt(value: Int): CaptureMode =
+                entries.firstOrNull { it.value == value } ?: FFT
+        }
+    }
+
+    @Volatile
+    var captureMode: CaptureMode = CaptureMode.FFT
+        set(value) {
+            if (field == value) return
+            field = value
+            if (isProcessing) {
+                val session = attachedSessionId
+                releaseVisualizer()
+                attachedSessionId = INVALID_SESSION
+                if (!attachVisualizer(session) && session != 0) {
+                    attachVisualizer(0)
+                }
+            }
+        }
+
     private var visualizer: Visualizer? = null
     private var dataListener: WeakReference<DataListener>? = null
     private val handler = Handler(Looper.getMainLooper())
@@ -256,6 +281,9 @@ class PulseAudioDataProcessor(private val context: Context) {
 
     private fun attachVisualizer(sessionId: Int): Boolean {
         return try {
+            val wantWaveform = captureMode == CaptureMode.WAVEFORM
+            val wantFft = captureMode == CaptureMode.FFT
+
             val v = Visualizer(sessionId).apply {
                 captureSize = Visualizer.getCaptureSizeRange()[1]
                 setDataCaptureListener(
@@ -265,6 +293,10 @@ class PulseAudioDataProcessor(private val context: Context) {
                             waveform: ByteArray?,
                             samplingRate: Int
                         ) {
+                            if (waveform != null && waveform.isNotEmpty()) {
+                                updateThrottle()
+                                processWaveformData(waveform)
+                            }
                         }
 
                         override fun onFftDataCapture(
@@ -279,8 +311,8 @@ class PulseAudioDataProcessor(private val context: Context) {
                         }
                     },
                     Visualizer.getMaxCaptureRate() / 2,
-                    false,
-                    true
+                    wantWaveform,
+                    wantFft
                 )
                 enabled = true
             }
@@ -300,6 +332,18 @@ class PulseAudioDataProcessor(private val context: Context) {
         }
         lastUpdateTime = currentTime
         pulseData.updateFFTData(fftBytes)
+        handler.post {
+            dataListener?.get()?.onDataUpdate(pulseData)
+        }
+    }
+
+    private fun processWaveformData(waveformBytes: ByteArray) {
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastUpdateTime < updateThrottle) {
+            return
+        }
+        lastUpdateTime = currentTime
+        pulseData.updateWaveformData(waveformBytes)
         handler.post {
             dataListener?.get()?.onDataUpdate(pulseData)
         }
