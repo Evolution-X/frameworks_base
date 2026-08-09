@@ -14155,6 +14155,11 @@ public final class Settings {
 	public static final String PULSE_BASS_HAPTICS = "pulse_bass_haptics";
 
         /**
+         * @hide
+         */
+        public static final String PULSE_CAPTURE_MODE = "pulse_capture_mode";
+
+        /**
          * Keys we no longer back up under the current schema, but want to continue to
          * process when restoring historical backup datasets.
          *
