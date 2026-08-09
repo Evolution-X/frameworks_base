@@ -218,7 +218,12 @@ public class HidlToAidlSessionAdapter implements ISession {
     }
 
     public void setActiveGroup(int userId, String absolutePath) throws RemoteException {
-        mSession.get().setActiveGroup(userId, absolutePath);
+        final IBiometricsFingerprint session = mSession.get();
+        if (session == null) {
+            Slog.e(TAG, "Unable to set active group. HIDL daemon is null.");
+            throw new RemoteException("Fingerprint HIDL daemon is null");
+        }
+        session.setActiveGroup(userId, absolutePath);
     }
 
     private void setCallback(AidlResponseHandler aidlResponseHandler) {
