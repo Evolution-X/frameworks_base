@@ -29,6 +29,7 @@ class PulseEngine(
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     private var fftAverage: Array<FFTAverage>? = null
+    private var waveformAverage: Array<FFTAverage>? = null
     private val fudgeFactor = 20
 
     fun processFFT(data: ByteArray) {
@@ -49,6 +50,37 @@ class PulseEngine(
                 var dbValue = if (magnitude > 0) (10 * log10(magnitude.toDouble())).toInt() else 0
                 dbValue = fftAverage!![i].average(dbValue)
                 output[i] = dbValue * fudgeFactor.toFloat() * heightMultiplier
+            }
+            withContext(Dispatchers.Main) {
+                onDataProcessed(output)
+            }
+        }
+    }
+
+    fun processWaveform(data: ByteArray) {
+        scope.launch {
+            val barCount = settingsRepo.getBarCount()
+            if (waveformAverage == null || waveformAverage!!.size != barCount) {
+                waveformAverage = Array(barCount) { FFTAverage() }
+            }
+            val output = FloatArray(barCount)
+            val samplesPerBar = (data.size / barCount).coerceAtLeast(1)
+            val heightMultiplier = settingsRepo.getHeightMultiplier()
+
+            for (i in 0 until barCount) {
+                val start = i * samplesPerBar
+                val end = (start + samplesPerBar).coerceAtMost(data.size)
+                if (start >= data.size) continue
+
+                var sum = 0
+                for (j in start until end) {
+                    val centered = (data[j].toInt() and 0xFF) - 128
+                    sum += kotlin.math.abs(centered)
+                }
+                val avgAmplitude = if (end > start) sum / (end - start) else 0
+
+                val smoothed = waveformAverage!![i].average(avgAmplitude)
+                output[i] = smoothed * fudgeFactor.toFloat() * heightMultiplier
             }
             withContext(Dispatchers.Main) {
                 onDataProcessed(output)
