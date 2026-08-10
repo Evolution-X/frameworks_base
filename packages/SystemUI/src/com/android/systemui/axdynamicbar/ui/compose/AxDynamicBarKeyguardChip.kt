@@ -265,7 +265,7 @@ fun AxDynamicBarKeyguardChip(
         ) {
             val chipState = state
             if (chipState != null) {
-                val rawEvent = chipState.notificationAlert ?: chipState.event
+                val rawEvent = chipState.event
                 val displayEvent: com.android.systemui.axdynamicbar.model.IslandEvent? =
                     when {
                         isKeyguardMusicPillEnabled -> rawEvent
@@ -898,10 +898,6 @@ private fun KeyguardPrimaryText(event: IslandEvent, color: Color, modifier: Modi
             )
         }
         is IslandEvent.Alarm -> MarqueeText(event.label.ifEmpty { stringResource(R.string.ax_dynamic_bar_alarm) }, color, modifier)
-        is IslandEvent.Call -> {
-                if (event.callStartTimeMs > 0) CallTimerText(event, modifier, color)
-                else MarqueeText(event.callType ?: stringResource(R.string.ax_dynamic_bar_call), color, modifier)
-        }
         is IslandEvent.Torch -> MarqueeText(
             if (event.supportsLevel) "${(event.level.toFloat() / event.maxLevel * 100).toInt()}%"
             else stringResource(R.string.ax_dynamic_bar_flashlight),
@@ -1042,7 +1038,6 @@ private fun secondaryTextFor(event: IslandEvent): String? = when (event) {
             triggerTime.takeIfDistinctFrom(event.label)
         } else null
     }
-    is IslandEvent.Call -> event.callerName
     is IslandEvent.BiometricUnlock -> event.sourceName
     is IslandEvent.Notification ->
         event.text
@@ -1069,26 +1064,6 @@ private fun String.takeIfDistinctFrom(vararg others: String?): String? {
     if (value.isEmpty()) return null
     return value.takeIf { candidate ->
         others.none { other -> candidate.equals(other?.trim(), ignoreCase = true) }
-    }
-}
-
-@Composable
-private fun CallTimerText(event: IslandEvent.Call, modifier: Modifier, overrideColor: Color? = null) {
-    val isActive = event.callType == "Phone:active"
-    if (isActive) {
-        var elapsedMs by remember(event.callStartTimeMs) {
-            mutableLongStateOf((System.currentTimeMillis() - event.callStartTimeMs).coerceAtLeast(0L))
-        }
-        LaunchedEffect(event.callStartTimeMs) {
-            while (true) {
-                delay(1000)
-                elapsedMs = (System.currentTimeMillis() - event.callStartTimeMs).coerceAtLeast(0L)
-            }
-        }
-        val color = overrideColor ?: GreenAccent
-        Text(formatElapsedTime(elapsedMs), color = color, style = PillMono, modifier = modifier)
-    } else {
-        MarqueeText(stringResource(R.string.ax_dynamic_bar_incoming_call), overrideColor ?: BlueAccent, modifier)
     }
 }
 
