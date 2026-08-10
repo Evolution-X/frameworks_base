@@ -60,23 +60,15 @@ internal class WaveformStyleRenderer(
             targetHeights = FloatArray(barCount) { 2f }
         }
 
-        val gap = settings.getBarGapPx()
-        val totalGap = max(0, barCount - 1).toFloat() * gap
-        val barWidth: Float = if (barCount > 0) {
-            max(1f, (viewWidth.toFloat() - totalGap) / barCount.toFloat())
-        } else {
-            0f
-        }
-        val step = gap + barWidth
-
         waveformPaint.strokeCap =
             if (settings.isRoundedBarsEnabled()) Paint.Cap.ROUND else Paint.Cap.BUTT
 
         val density = settings.displayDensity()
         waveformPaint.strokeWidth = max(density * 3f, viewHeight.toFloat() * 0.003f)
 
+        val spacing = if (barCount > 1) viewWidth.toFloat() / (barCount - 1) else viewWidth.toFloat()
         for (i in 0 until barCount) {
-            barCenters[i] = i.toFloat() * step + 0.5f * barWidth
+            barCenters[i] = i.toFloat() * spacing
         }
 
         waveformPaint.color = lastColor
@@ -149,7 +141,7 @@ internal class WaveformStyleRenderer(
             canvas.drawLine(barCenters[0], viewH, barCenters[0], top0, waveformPaint)
         }
     }
-    
+
     override fun cleanup() {
         barCenters = FloatArray(0)
         currentHeights = FloatArray(0)
