@@ -112,16 +112,29 @@ internal class WaveformStyleRenderer(
         val top0 = viewH - lift0
 
         waveformPath.moveTo(barCenters[0], top0)
-
         fillPath.moveTo(barCenters[0], viewH)
         fillPath.lineTo(barCenters[0], top0)
 
+        var prevX = barCenters[0]
+        var prevY = top0
+
         for (i in 1 until n) {
             val lift = smoothedLift(viewH, i)
-            val top = viewH - lift
-            waveformPath.lineTo(barCenters[i], top)
-            fillPath.lineTo(barCenters[i], top)
+            val x = barCenters[i]
+            val y = viewH - lift
+
+            val cx = (prevX + x) / 2f
+            val cy = (prevY + y) / 2f
+
+            waveformPath.quadTo(prevX, prevY, cx, cy)
+            fillPath.quadTo(prevX, prevY, cx, cy)
+
+            prevX = x
+            prevY = y
         }
+        
+        waveformPath.lineTo(prevX, prevY)
+        fillPath.lineTo(prevX, prevY)
 
         fillPath.lineTo(barCenters[n - 1], viewH)
         fillPath.close()
@@ -133,14 +146,10 @@ internal class WaveformStyleRenderer(
         if (showOutline && n >= 2) {
             canvas.drawPath(waveformPath, waveformPaint)
         } else if (showOutline && n == 1) {
-            canvas.drawLine(
-                barCenters[0], viewH,
-                barCenters[0], top0,
-                waveformPaint
-            )
+            canvas.drawLine(barCenters[0], viewH, barCenters[0], top0, waveformPaint)
         }
     }
-
+    
     override fun cleanup() {
         barCenters = FloatArray(0)
         currentHeights = FloatArray(0)
