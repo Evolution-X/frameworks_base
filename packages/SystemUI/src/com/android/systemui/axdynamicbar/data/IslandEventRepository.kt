@@ -152,12 +152,8 @@ constructor(
         ) { promoted, sports ->
             (if (isTypeEnabled("promoted_ongoing")) promoted else emptyList()) + sports
         }
-        val highGroup = combine(
-            notification.callEvents,
-            torch.torchEvent,
-            biometric.biometricEvent
-        ) { call, t, bio ->
-                (if (isTypeEnabled("call")) call else emptyList()) +
+        val highGroup =
+            combine(torch.torchEvent, biometric.biometricEvent) { t, bio ->
                 listOfNotNull(
                     t?.takeIf { isTypeEnabled("torch") },
                     bio?.takeIf { isTypeEnabled("biometric_unlock") },
