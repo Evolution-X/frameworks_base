@@ -109,8 +109,7 @@ class PulseViewController @Inject constructor(
         val shouldShow = isMediaPlaying 
                 && !bouncerShowingOrKeyguardDismissing
                 && isCollapsed
-                && !isScreenOff
-                && ((keyguardShowing && !isDozing && !isPulsing)
+                && ((keyguardShowing && !isDozing && !isPulsing && !isScreenOff)
                 || ((isDozing || isPulsing) && settingsRepository.isPulseShowOnAmbient()))
         
         showDelayJob?.cancel()
@@ -122,7 +121,7 @@ class PulseViewController @Inject constructor(
                 if (isMediaPlaying 
                     && !bouncerShowingOrKeyguardDismissing
                     && isCollapsed
-                    && ((keyguardShowing && !isDozing && !isPulsing)
+                    && ((keyguardShowing && !isDozing && !isPulsing && !isScreenOff)
                     || ((isDozing || isPulsing) && settingsRepository.isPulseShowOnAmbient()))) {
                     pulseRunning = true
                 }
@@ -133,7 +132,7 @@ class PulseViewController @Inject constructor(
                 if (!(isMediaPlaying 
                     && !bouncerShowingOrKeyguardDismissing
                     && isCollapsed
-                    && ((keyguardShowing && !isDozing && !isPulsing)
+                    && ((keyguardShowing && !isDozing && !isPulsing && !isScreenOff)
                     || ((isDozing || isPulsing) && settingsRepository.isPulseShowOnAmbient())))) {
                     pulseRunning = false
                 }
