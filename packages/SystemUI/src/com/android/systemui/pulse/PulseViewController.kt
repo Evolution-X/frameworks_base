@@ -300,6 +300,9 @@ class PulseViewController @Inject constructor(
         audioProcessor.cleanup()
         bassHaptics.reset()
         mainScope.cancel()
+        if (INSTANCE === this) {
+            INSTANCE = null
+        }
     }
 
     companion object {
