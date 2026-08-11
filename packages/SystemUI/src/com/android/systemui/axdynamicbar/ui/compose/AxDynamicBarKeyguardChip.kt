@@ -99,6 +99,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.res.stringResource
@@ -393,7 +396,7 @@ private fun KeyguardChipBody(
         Row(
             modifier = Modifier
                 .height(dynamicHeight)
-                .widthIn(min = dynamicMinWidth, max = 260.dp)
+                .widthIn(min = dynamicMinWidth, max = 180.dp)
                 .clip(ChipShape)
                 .squishAnimation(toggleCount)
                 .background(if (isMedia) Color.Transparent else accent)
@@ -560,7 +563,7 @@ private fun KeyguardChipBody(
                     modifier = Modifier.weight(1f, fill = false),
                 ) { ev ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        KeyguardPrimaryText(ev, contentColor, Modifier.weight(1f, fill = false), batteryString)
+                        KeyguardPrimaryText(ev, contentColor, Modifier.weight(1f, fill = false).widthIn(max = 110.dp), batteryString)
                         val secondary = secondaryTextFor(ev)
                         if (secondary != null) {
                             Text(
@@ -574,7 +577,7 @@ private fun KeyguardChipBody(
                                 color = contentColor.copy(alpha = AlphaSecondary),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.widthIn(max = 80.dp),
+                                modifier = Modifier.widthIn(max = 60.dp).basicMarquee(iterations = 1),
                             )
                         }
                     }
@@ -650,7 +653,7 @@ private fun KeyguardBatteryChip(
                 .height(dynamicHeight)
                 .clip(ChipShape)
                 .background(accent)
-                .widthIn(min = 48.dp, max = 260.dp)
+                .widthIn(min = 48.dp, max = 180.dp)
                 .padding(horizontal = SpaceMd)
                 .animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec()),
             verticalAlignment = Alignment.CenterVertically,
@@ -695,47 +698,46 @@ private fun KeyguardBatteryChip(
                 }
                 return
             }
-            Text(
-                "${info.level}%",
-                style = PillPrimary,
-                color = contentColor,
-                maxLines = 1,
-            )
-
             val secondaryLabel = when {
                 info.isCharging && info.isWireless -> stringResource(R.string.ax_dynamic_bar_wireless)
                 info.isCharging -> stringResource(R.string.ax_dynamic_bar_charging)
                 info.isPowerSave -> stringResource(R.string.ax_dynamic_bar_saver)
                 else -> null
             }
-            if (secondaryLabel != null) {
-                Text(
-                    " · ",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = contentColor.copy(alpha = AlphaTertiary),
-                )
-                Text(
-                    secondaryLabel,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = contentColor.copy(alpha = AlphaSecondary),
-                    maxLines = 1,
-                )
-            }
-
             val timeRemaining = info.timeRemaining
-            if (timeRemaining != null) {
-                Text(
-                    " · ",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = contentColor.copy(alpha = AlphaTertiary),
-                )
-                Text(
-                    timeRemaining,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = contentColor.copy(alpha = AlphaSecondary),
-                    maxLines = 1,
-                )
+            val tertiaryColor = contentColor.copy(alpha = AlphaTertiary)
+            val secondaryColor = contentColor.copy(alpha = AlphaSecondary)
+            val labelSmallFontSize = MaterialTheme.typography.labelSmall.fontSize
+            val pillPrimaryFontSize = PillPrimary.fontSize
+            val infoLine = remember(info.level, secondaryLabel, timeRemaining, contentColor, labelSmallFontSize, pillPrimaryFontSize) {
+                buildAnnotatedString {
+                    withStyle(SpanStyle(color = contentColor, fontSize = pillPrimaryFontSize)) {
+                        append("${info.level}%")
+                    }
+                    if (secondaryLabel != null) {
+                        withStyle(SpanStyle(color = tertiaryColor, fontSize = labelSmallFontSize)) {
+                            append(" · ")
+                        }
+                        withStyle(SpanStyle(color = secondaryColor, fontSize = labelSmallFontSize)) {
+                            append(secondaryLabel)
+                        }
+                    }
+                    if (timeRemaining != null) {
+                        withStyle(SpanStyle(color = tertiaryColor, fontSize = labelSmallFontSize)) {
+                            append(" · ")
+                        }
+                        withStyle(SpanStyle(color = secondaryColor, fontSize = labelSmallFontSize)) {
+                            append(timeRemaining)
+                        }
+                    }
+                }
             }
+            Text(
+                infoLine,
+                maxLines = 1,
+                overflow = TextOverflow.Clip,
+                modifier = Modifier.widthIn(max = 130.dp).basicMarquee(iterations = 1),
+            )
         }
     }
 }
