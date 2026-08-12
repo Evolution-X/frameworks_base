@@ -23,6 +23,7 @@ import android.content.res.Resources;
 import android.database.ContentObserver;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.ImageDecoder;
 import android.graphics.drawable.AnimatedImageDrawable;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
@@ -158,32 +159,26 @@ public class FileHeaderProvider implements
         }
 
         mLastLoadedPath = path;
-        
-        File imageFile = new File(path);
-        if (!imageFile.exists()) {
-            Log.w(TAG, "Image file does not exist: " + path);
-            return;
-        }
 
-        String lowerPath = path.toLowerCase();
-        boolean isGif = lowerPath.endsWith(".gif");
-        boolean isWebp = lowerPath.endsWith(".webp");
+        Uri imageUri = Uri.parse(path);
+        String mime = mContext.getContentResolver().getType(imageUri);
+        boolean isAnimated = "image/gif".equals(mime) || "image/webp".equals(mime);
 
-        if (isGif || isWebp) {
-            if (loadAnimatedImage(imageFile, path)) {
+        if (isAnimated) {
+            if (loadAnimatedImage(imageUri, path)) {
                 return;
             }
             if (DEBUG) Log.d(TAG, "Falling back to static image loading");
         }
-        
-        loadStaticImage(path);
+
+        loadStaticImage(imageUri, path);
     }
 
-    private boolean loadAnimatedImage(File imageFile, String path) {
+    private boolean loadAnimatedImage(Uri imageUri, String path) {
         try {
-            android.graphics.ImageDecoder.Source source = 
-                    android.graphics.ImageDecoder.createSource(imageFile);
-            Drawable drawable = android.graphics.ImageDecoder.decodeDrawable(source);
+            ImageDecoder.Source source =
+                    ImageDecoder.createSource(mContext.getContentResolver(), imageUri);
+            Drawable drawable = ImageDecoder.decodeDrawable(source);
             
             if (drawable == null) {
                 Log.w(TAG, "ImageDecoder returned null drawable");
@@ -213,30 +208,29 @@ public class FileHeaderProvider implements
         }
     }
 
-    private void loadStaticImage(String path) {
-        try {
+    private void loadStaticImage(Uri imageUri, String path) {
+        try (InputStream in = mContext.getContentResolver().openInputStream(imageUri)) {
+            if (in == null) {
+                Log.w(TAG, "Failed to open input stream for: " + path);
+                return;
+            }
+
             BitmapFactory.Options options = new BitmapFactory.Options();
-            options.inJustDecodeBounds = true;
-            BitmapFactory.decodeFile(path, options);
-            
-            if (options.outWidth <= 0 || options.outHeight <= 0) {
-                Log.w(TAG, "Invalid image dimensions");
-                return;
-            }
-            options.inJustDecodeBounds = false;
             options.inPreferredConfig = Bitmap.Config.ARGB_8888;
-            
-            Bitmap bitmap = BitmapFactory.decodeFile(path, options);
+
+            Bitmap bitmap = BitmapFactory.decodeStream(in, null, options);
             if (bitmap == null) {
-                Log.w(TAG, "Failed to decode bitmap from file: " + path);
+                Log.w(TAG, "Failed to decode bitmap from: " + path);
                 return;
             }
-            
+
             mImage = new BitmapDrawable(mContext.getResources(), bitmap);
             if (DEBUG) Log.d(TAG, "Static image loaded successfully: " + path);
-            
+
         } catch (OutOfMemoryError e) {
             Log.e(TAG, "OutOfMemoryError loading static image: " + e.getMessage());
+        } catch (IOException e) {
+            Log.e(TAG, "IOException loading static header image: " + e.getMessage());
         } catch (Exception e) {
             Log.e(TAG, "Failed to load static header image: " + e.getMessage());
         }
