@@ -139,11 +139,12 @@ public class StatusBarHeaderMachine {
                     Settings.System.STATUS_BAR_CUSTOM_HEADER_SHADOW))) {
                 doRefreshStatusHeaderObservers();
             } else {
-                IStatusBarHeaderProvider provider = getCurrentProvider();
-                // forward to current active provider
-                if (provider != null) {
+                // forward to all providers, not just the active one, so a provider
+                // can react to its own settings changing even while inactive
+                // (e.g. file header image picked before the provider switch commits)
+                for (IStatusBarHeaderProvider p : mProviders.values()) {
                     try {
-                        provider.settingsChanged(uri);
+                        p.settingsChanged(uri);
                     } catch (Exception e) {
                         // just in case
                     }
