@@ -3,26 +3,26 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:layoutDirection="ltr"
+    android:gravity="center_vertical"
     android:orientation="horizontal">
 
     <TextClock
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="4dp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="start|center"
+        android:layout_gravity="center_vertical"
         android:format12Hour="hh.mm."
         android:format24Hour="HH.mm."
         android:singleLine="true"
         android:includeFontPadding="false"
         android:textColor="?android:attr/textColorPrimary"
-        android:textSize="32dp" />
+        android:textSize="30dp" />
 
     <TextClock
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="4dp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="start|bottom"
-        android:layout_marginBottom="1.5dp"
+        android:layout_gravity="center_vertical"
         android:alpha="0.4"
         android:format12Hour="ss"
         android:format24Hour="ss"
@@ -32,5 +32,5 @@
         android:textAlignment="viewStart"
         android:textAllCaps="true"
         android:textColor="?android:attr/textColorPrimary"
-        android:textSize="20dp" />
+        android:textSize="18dp" />
 </LinearLayout>
