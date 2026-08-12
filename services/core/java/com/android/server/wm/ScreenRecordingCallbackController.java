@@ -24,6 +24,7 @@ import android.media.projection.IMediaProjectionManager;
 import android.media.projection.IMediaProjectionWatcherCallback;
 import android.media.projection.MediaProjectionEvent;
 import android.media.projection.MediaProjectionInfo;
+import android.provider.Settings;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.RemoteException;
@@ -154,6 +155,11 @@ public class ScreenRecordingCallbackController {
             }
 
             boolean uidInRecording = uidHasRecordedActivity(callbackInfo.mUid);
+
+            if (isScreenRecordDetectionBlocked()) {
+                uidInRecording = false;
+            }
+
             mLastInvokedStateByUid.put(callbackInfo.mUid, uidInRecording);
             mCallbacks.put(binder, callbackInfo);
             return uidInRecording;
@@ -265,8 +271,12 @@ public class ScreenRecordingCallbackController {
             return;
         }
 
+        final boolean callbackState = isScreenRecordDetectionBlocked()
+            ? false
+            : visibleInScreenRecording;
+
         for (int i = 0; i < uids.size(); i++) {
-            mLastInvokedStateByUid.put(uids.valueAt(i), visibleInScreenRecording);
+            mLastInvokedStateByUid.put(uids.valueAt(i), callbackState);
         }
 
         ArrayList<IScreenRecordingCallback> callbacks = new ArrayList<>();
@@ -279,12 +289,18 @@ public class ScreenRecordingCallbackController {
         mWms.mH.post(() -> {
             for (int i = 0; i < callbacks.size(); i++) {
                 try {
-                    callbacks.get(i).onScreenRecordingStateChanged(visibleInScreenRecording);
+                    callbacks.get(i).onScreenRecordingStateChanged(callbackState);
                 } catch (RemoteException e) {
                     // Client has died. Cleanup is handled via DeathRecipient.
                 }
             }
         });
+    }
+
+    private boolean isScreenRecordDetectionBlocked() {
+        return Settings.Global.getInt(mWms.mContext.getContentResolver(),
+                Settings.Global.EVOLUTION_WINDOW_BLOCK_SCREENRECORD_DETECTION, 0)
+            != 0;
     }
 
     void dump(PrintWriter pw) {
