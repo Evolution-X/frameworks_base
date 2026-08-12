@@ -61,6 +61,7 @@ import static android.provider.Settings.Global.DEVELOPMENT_ENABLE_NON_RESIZABLE_
 import static android.provider.Settings.Global.DEVELOPMENT_FORCE_DESKTOP_MODE_ON_EXTERNAL_DISPLAYS;
 import static android.provider.Settings.Global.DEVELOPMENT_FORCE_RESIZABLE_ACTIVITIES;
 import static android.provider.Settings.Global.DEVELOPMENT_WM_DISPLAY_SETTINGS_PATH;
+import static android.provider.Settings.Global.EVOLUTION_WINDOW_BLOCK_SCREENSHOT_DETECTION;
 import static android.service.dreams.Flags.dreamHandlesConfirmKeys;
 import static android.view.ContentRecordingSession.RECORD_CONTENT_TASK;
 import static android.view.Display.DEFAULT_DISPLAY;
@@ -793,6 +794,9 @@ public class WindowManagerService extends IWindowManager.Stub
     boolean mIsTouchDevice;
     boolean mIsFakeTouchDevice;
 
+    // Cache Screenshot detection block preference
+    private boolean mEvolutionWindowBlockScreenshotDetection = false;
+
     final H mH = new H();
 
     /**
@@ -865,6 +869,8 @@ public class WindowManagerService extends IWindowManager.Stub
                 Settings.Global.MAXIMUM_OBSCURING_OPACITY_FOR_TOUCH);
         private final Uri mDevelopmentOverrideDesktopExperienceUri = Settings.Global.getUriFor(
                 Settings.Global.DEVELOPMENT_OVERRIDE_DESKTOP_EXPERIENCE_FEATURES);
+        private final Uri mEvolutionBlockScreenshotDetectionUri = Settings.Global.getUriFor(
+                Settings.Global.EVOLUTION_WINDOW_BLOCK_SCREENSHOT_DETECTION);
 
         public SettingsObserver() {
             super(new Handler());
@@ -906,6 +912,8 @@ public class WindowManagerService extends IWindowManager.Stub
             resolver.registerContentObserver(mMaximumObscuringOpacityForTouchUri, false, this,
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(mDevelopmentOverrideDesktopExperienceUri, false, this,
+                    UserHandle.USER_ALL);
+            resolver.registerContentObserver(mEvolutionBlockScreenshotDetectionUri, false, this,
                     UserHandle.USER_ALL);
         }
 
@@ -959,6 +967,11 @@ public class WindowManagerService extends IWindowManager.Stub
                 return;
             }
 
+            if (mEvolutionBlockScreenshotDetectionUri.equals(uri)) {
+                updateEvolutionBlockScreenshotDetection();
+                return;
+            }
+
             @UpdateAnimationScaleMode
             final int mode;
             if (mWindowAnimationScaleUri.equals(uri)) {
@@ -979,6 +992,7 @@ public class WindowManagerService extends IWindowManager.Stub
             updateMaximumObscuringOpacityForTouch();
             updateDisableSecureWindows();
             updateMagnifyIme();
+            updateEvolutionBlockScreenshotDetection();
         }
 
         void updateMaximumObscuringOpacityForTouch() {
@@ -1101,6 +1115,14 @@ public class WindowManagerService extends IWindowManager.Stub
             synchronized (mGlobalLock) {
                 mMagnifyIme = enabledMagnifyIme;
             }
+        }
+
+        void updateEvolutionBlockScreenshotDetection() {
+            final ContentResolver resolver = mContext.getContentResolver();
+            mEvolutionWindowBlockScreenshotDetection = Settings.Global.getInt(
+                    resolver,
+                    EVOLUTION_WINDOW_BLOCK_SCREENSHOT_DETECTION,
+                    0) != 0;
         }
     }
 
@@ -11207,6 +11229,11 @@ public class WindowManagerService extends IWindowManager.Stub
                 "notifyScreenshotListeners()")) {
             throw new SecurityException("Requires STATUS_BAR_SERVICE permission");
         }
+
+        if (mEvolutionWindowBlockScreenshotDetection) {
+            return new ArrayList<>();
+        }
+
         synchronized (mGlobalLock) {
             final DisplayContent displayContent = mRoot.getDisplayContent(displayId);
             if (displayContent == null) {
