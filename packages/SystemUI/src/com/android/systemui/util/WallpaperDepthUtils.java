@@ -276,6 +276,8 @@ public class WallpaperDepthUtils {
 
     private boolean canShowDepthWallpaper() {
         ScrimState currentState = mScrimController.getState();
+        MediaViewController mediaViewController = MediaViewController.getOrNull();
+        boolean albumArtVisible = mediaViewController != null && mediaViewController.albumArtVisible();
         // Only show on KEYGUARD state when bouncer is NOT showing
         return mLockScreenSubject != null
                 && isDWallpaperEnabled()
@@ -286,7 +288,7 @@ public class WallpaperDepthUtils {
                 && !mUnlocking
                 && currentState == ScrimState.KEYGUARD
                 && mContext.getResources().getConfiguration().orientation != Configuration.ORIENTATION_LANDSCAPE
-                && !MediaViewController.get(mContext).albumArtVisible();
+                && !albumArtVisible;
     }
 
     public void updateDepthWallpaperVisibility() {
