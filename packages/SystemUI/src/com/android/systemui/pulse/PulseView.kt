@@ -145,7 +145,9 @@ class PulseView @JvmOverloads constructor(
 
     fun fadeIn(durationMs: Long) {
         fadeAnimator?.cancel()
-        setVisibility(true)
+        visibilityAnimator?.cancel()
+        visibilityAnimator = null
+        setVisibility(true, animate = false)
         fadeAnimator = ValueAnimator.ofFloat(alpha, 1f).apply {
             duration = durationMs
             interpolator = fadeInterpolator
@@ -158,7 +160,6 @@ class PulseView @JvmOverloads constructor(
                     alpha = 1f
                     fadeAnimator = null
                 }
-                
                 override fun onAnimationCancel(animation: Animator) {
                     fadeAnimator = null
                 }
@@ -169,7 +170,9 @@ class PulseView @JvmOverloads constructor(
 
     fun fadeOut(durationMs: Long, onComplete: (() -> Unit)? = null) {
         fadeAnimator?.cancel()
-        
+        visibilityAnimator?.cancel()
+        visibilityAnimator = null
+
         fadeAnimator = ValueAnimator.ofFloat(alpha, 0f).apply {
             duration = durationMs
             interpolator = fadeInterpolator
@@ -180,13 +183,12 @@ class PulseView @JvmOverloads constructor(
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
                     alpha = 0f
-                    setVisibility(false)
+                    setVisibility(false, animate = false)
                     fadeAnimator = null
                     onComplete?.invoke()
                 }
-                
                 override fun onAnimationCancel(animation: Animator) {
-                    setVisibility(false)
+                    setVisibility(false, animate = false)
                     fadeAnimator = null
                     onComplete?.invoke()
                 }
