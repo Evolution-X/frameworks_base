@@ -80,7 +80,7 @@ class PulseEngine(
                 val avgAmplitude = if (end > start) sum / (end - start) else 0
 
                 val smoothed = waveformAverage!![i].average(avgAmplitude)
-                output[i] = smoothed * fudgeFactor.toFloat() * heightMultiplier
+                output[i] = smoothed * fudgeFactor.toFloat() * (heightMultiplier * 0.6).toFloat()
             }
             withContext(Dispatchers.Main) {
                 onDataProcessed(output)
