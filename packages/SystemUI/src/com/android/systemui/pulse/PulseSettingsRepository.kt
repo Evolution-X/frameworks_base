@@ -152,7 +152,7 @@ class PulseSettingsRepository(private val context: Context) {
             val raw = getSecureStringSetting(PULSE_RENDERER, DEFAULT_RENDERER)
             cachedRenderer = when (raw) {
                 "solid", "fading", "neon", "retro", "minimal",
-                "sparkle", "matrix", "particle", "waveform" -> raw
+                "sparkle", "matrix", "particle", "waveform", "dotwave" -> raw
                 else -> DEFAULT_RENDERER
             }
         }
