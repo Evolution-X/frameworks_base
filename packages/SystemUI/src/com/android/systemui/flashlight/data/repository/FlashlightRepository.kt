@@ -120,6 +120,8 @@ constructor(
 
     private val defaultEnabledLevelForUser = ConcurrentHashMap<Int, Int>()
 
+    private var activeFadeJob: kotlinx.coroutines.Job? = null
+
     override fun start() {
         if (FlashlightStrength.isUnexpectedlyInLegacyMode()) {
             return
@@ -393,13 +395,40 @@ constructor(
 
             try {
                 if (enabled != currentState.enabled) {
-                    if (currentFlashlightInfo.hasAdjustableLevels && enabled) {
-                        cameraManager.turnOnTorchWithStrengthLevel(
-                            currentFlashlightInfo.cameraId,
-                            defaultEnabledLevelForUser.getOrPut(currentUserId) {
-                                initialDefaultLevel
-                            },
-                        )
+                    activeFadeJob?.cancel()
+
+                    if (currentFlashlightInfo.hasAdjustableLevels) {
+                        val targetLevel = defaultEnabledLevelForUser.getOrPut(currentUserId) {
+                            initialDefaultLevel
+                        }
+
+                        activeFadeJob = bgScope.launch {
+                            val totalSteps = 12
+                            val totalDurationMs = 250L
+                            val stepDelayMs = totalDurationMs / totalSteps
+
+                            if (enabled) {
+                                cameraManager.turnOnTorchWithStrengthLevel(currentFlashlightInfo.cameraId, 1)
+                                for (i in 1..totalSteps) {
+                                    delay(stepDelayMs)
+                                    val progress = i.toFloat() / totalSteps
+                                    val easedProgress = 1f - (1f - progress) * (1f - progress)
+                                    val currentStepLevel = 1 + (easedProgress * (targetLevel - 1))
+                                    val clampedLevel = currentStepLevel.toInt().coerceIn(1, targetLevel)
+                                    cameraManager.turnOnTorchWithStrengthLevel(currentFlashlightInfo.cameraId, clampedLevel)
+                                }
+                            } else {
+                                for (i in totalSteps downTo 1) {
+                                    val progress = i.toFloat() / totalSteps
+                                    val easedProgress = progress * progress
+                                    val currentStepLevel = 1 + (easedProgress * (targetLevel - 1))
+                                    val clampedLevel = currentStepLevel.toInt().coerceIn(1, targetLevel)
+                                    cameraManager.turnOnTorchWithStrengthLevel(currentFlashlightInfo.cameraId, clampedLevel)
+                                    delay(stepDelayMs)
+                                }
+                                cameraManager.setTorchMode(currentFlashlightInfo.cameraId, false)
+                            }
+                        }
                     } else {
                         cameraManager.setTorchMode(currentFlashlightInfo.cameraId, enabled)
                     }
@@ -434,6 +463,7 @@ constructor(
             if (currentInfo !is FlashlightInfo.Supported.LoadedSuccessfully) return@launch
 
             try {
+                activeFadeJob?.cancel()
                 if (level != currentState.level) {
                     cameraManager.turnOnTorchWithStrengthLevel(currentInfo.cameraId, level)
                 }
