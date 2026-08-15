@@ -284,30 +284,13 @@ constructor(
 
             if (dateWeatherBelowSmallClock || !dateWeatherBelowLargeClock) {
                 createBarrier(
-                    R.id.smart_space_barrier_bottom,
-                    Barrier.BOTTOM,
-                    0,
-                    *intArrayOf(sharedR.id.bc_smartspace_view, sharedR.id.date_smartspace_view),
-                )
-                createBarrier(
                     R.id.smart_space_barrier_top,
                     Barrier.TOP,
                     0,
                     *intArrayOf(sharedR.id.bc_smartspace_view, sharedR.id.date_smartspace_view),
                 )
             } else {
-                createBarrier(
-                    R.id.smart_space_barrier_bottom,
-                    Barrier.BOTTOM,
-                    0,
-                    sharedR.id.bc_smartspace_view,
-                )
-                createBarrier(
-                    R.id.smart_space_barrier_top,
-                    Barrier.TOP,
-                    0,
-                    sharedR.id.bc_smartspace_view,
-                )
+                createBarrier(R.id.smart_space_barrier_top, Barrier.TOP, 0, sharedR.id.bc_smartspace_view)
             }
         }
         updateVisibility(constraintSet, isLargeClockVisible)
