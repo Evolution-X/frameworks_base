@@ -16,6 +16,8 @@
 package com.android.systemui.keyguard.ui.view.layout.sections
 
 import android.content.Context
+import android.os.UserHandle
+import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -23,7 +25,9 @@ import androidx.constraintlayout.widget.Barrier
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
 import com.android.systemui.keyguard.shared.model.KeyguardSection
+import com.android.systemui.plugins.keyguard.ui.clocks.ClockViewIds
 import com.android.systemui.res.R
+import com.android.systemui.shared.R as sharedR
 import javax.inject.Inject
 
 class InfoWidgetsSection
@@ -60,73 +64,37 @@ constructor(
     }
     
     override fun applyConstraints(constraintSet: ConstraintSet) {
-        
+
         constraintSet.apply {
             // Info widgets positioning - below WEATHER (3rd in hierarchy)
             connect(R.id.keyguard_info_widgets, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
             connect(R.id.keyguard_info_widgets, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
-            
-            // Chain to weather (primary) or fallback hierarchy
-            when {
-                constraintSet.getConstraint(R.id.keyguard_weather) != null -> {
-                    connect(R.id.keyguard_info_widgets, ConstraintSet.TOP, R.id.keyguard_weather, ConstraintSet.BOTTOM, 12)
-                }
-                constraintSet.getConstraint(R.id.default_weather_image) != null -> {
-                    connect(R.id.keyguard_info_widgets, ConstraintSet.TOP, R.id.default_weather_image, ConstraintSet.BOTTOM, 12)
-                }
-                constraintSet.getConstraint(R.id.clock_ls) != null -> {
-                    connect(R.id.keyguard_info_widgets, ConstraintSet.TOP, R.id.clock_ls, ConstraintSet.BOTTOM, 12)
-                }
-                constraintSet.getConstraint(R.id.keyguard_slice_view) != null -> {
-                    connect(R.id.keyguard_info_widgets, ConstraintSet.TOP, R.id.keyguard_slice_view, ConstraintSet.BOTTOM, 12)
-                }
-                else -> {
-                    connect(R.id.keyguard_info_widgets, ConstraintSet.TOP, R.id.lockscreen_clock_view, ConstraintSet.BOTTOM, 12)
-                }
+
+            val isCustomClockEnabled = Settings.Secure.getIntForUser(
+                context.contentResolver,
+                Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_STYLE,
+                0,
+                UserHandle.USER_CURRENT
+            ) != 0
+
+            val topAnchor = when {
+                constraintSet.getConstraint(R.id.keyguard_weather) != null &&
+                    constraintSet.getVisibility(R.id.keyguard_weather) != ConstraintSet.GONE -> R.id.keyguard_weather
+                constraintSet.getConstraint(R.id.default_weather_image) != null &&
+                    constraintSet.getVisibility(R.id.default_weather_image) != ConstraintSet.GONE -> R.id.default_weather_image
+                constraintSet.getConstraint(sharedR.id.bc_smartspace_view) != null -> sharedR.id.bc_smartspace_view
+                isCustomClockEnabled && constraintSet.getConstraint(R.id.clock_ls) != null -> R.id.clock_ls
+                else -> ClockViewIds.LOCKSCREEN_CLOCK_VIEW_SMALL
             }
-            
+
+            connect(R.id.keyguard_info_widgets, ConstraintSet.TOP, topAnchor, ConstraintSet.BOTTOM, 12)
+
             constrainHeight(R.id.keyguard_info_widgets, ConstraintSet.WRAP_CONTENT)
             constrainWidth(R.id.keyguard_info_widgets, ConstraintSet.MATCH_CONSTRAINT)
             setMargin(R.id.keyguard_info_widgets, ConstraintSet.START, 0)
             setMargin(R.id.keyguard_info_widgets, ConstraintSet.END, 0)
-            // Add small bottom margin for AOD to prevent notification overlap
-            setMargin(R.id.keyguard_info_widgets, ConstraintSet.BOTTOM, 6) // 6dp bottom margin for AOD
+            setMargin(R.id.keyguard_info_widgets, ConstraintSet.BOTTOM, 6)
             setElevation(R.id.keyguard_info_widgets, 1f)
-            
-            // UNIFIED BARRIER - Create barrier in every section that could be last
-            createUnifiedBarrierAndNotificationConstraints(constraintSet)
-        }
-    }
-    
-    private fun createUnifiedBarrierAndNotificationConstraints(constraintSet: ConstraintSet) {
-        constraintSet.apply {
-            // UNIFIED BARRIER - Include ALL status area elements
-            createBarrier(
-                R.id.smart_space_barrier_bottom,
-                Barrier.BOTTOM,
-                0,
-                *intArrayOf(
-                    R.id.keyguard_slice_view,
-                    R.id.keyguard_weather,
-                    R.id.default_weather_image,
-                    R.id.default_weather_text,
-                    R.id.clock_ls,
-                    R.id.keyguard_info_widgets,
-                    R.id.keyguard_widgets,
-                    R.id.lockscreen_clock_view // Include fallback clock
-                )
-            )
-            
-            // Position notifications below ALL status area content
-            if (constraintSet.getConstraint(R.id.left_aligned_notification_icon_container) != null) {
-                connect(
-                    R.id.left_aligned_notification_icon_container,
-                    ConstraintSet.TOP,
-                    R.id.smart_space_barrier_bottom,
-                    ConstraintSet.BOTTOM,
-                    context.resources.getDimensionPixelSize(R.dimen.below_clock_padding_start_icons)
-                )
-            }
         }
     }
     
