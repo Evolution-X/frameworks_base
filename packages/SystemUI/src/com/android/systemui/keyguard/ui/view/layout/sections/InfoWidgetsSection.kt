@@ -16,6 +16,8 @@
 package com.android.systemui.keyguard.ui.view.layout.sections
 
 import android.content.Context
+import android.os.UserHandle
+import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -23,6 +25,7 @@ import androidx.constraintlayout.widget.Barrier
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
 import com.android.systemui.keyguard.shared.model.KeyguardSection
+import com.android.systemui.plugins.keyguard.ui.clocks.ClockViewIds
 import com.android.systemui.res.R
 import javax.inject.Inject
 
@@ -60,13 +63,20 @@ constructor(
     }
     
     override fun applyConstraints(constraintSet: ConstraintSet) {
-        
+
         constraintSet.apply {
             // Info widgets positioning - below WEATHER (3rd in hierarchy)
             connect(R.id.keyguard_info_widgets, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
             connect(R.id.keyguard_info_widgets, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
-            
-            // Chain to weather (primary) or fallback hierarchy
+
+            val isCustomClockEnabled = Settings.Secure.getIntForUser(
+                context.contentResolver,
+                Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_STYLE,
+                0,
+                UserHandle.USER_CURRENT
+            ) != 0
+
+            // Chain to weather (primary) or fallback to whichever clock is active
             when {
                 constraintSet.getConstraint(R.id.keyguard_weather) != null -> {
                     connect(R.id.keyguard_info_widgets, ConstraintSet.TOP, R.id.keyguard_weather, ConstraintSet.BOTTOM, 12)
@@ -74,25 +84,21 @@ constructor(
                 constraintSet.getConstraint(R.id.default_weather_image) != null -> {
                     connect(R.id.keyguard_info_widgets, ConstraintSet.TOP, R.id.default_weather_image, ConstraintSet.BOTTOM, 12)
                 }
-                constraintSet.getConstraint(R.id.clock_ls) != null -> {
+                isCustomClockEnabled && constraintSet.getConstraint(R.id.clock_ls) != null -> {
                     connect(R.id.keyguard_info_widgets, ConstraintSet.TOP, R.id.clock_ls, ConstraintSet.BOTTOM, 12)
                 }
-                constraintSet.getConstraint(R.id.keyguard_slice_view) != null -> {
-                    connect(R.id.keyguard_info_widgets, ConstraintSet.TOP, R.id.keyguard_slice_view, ConstraintSet.BOTTOM, 12)
-                }
                 else -> {
-                    connect(R.id.keyguard_info_widgets, ConstraintSet.TOP, R.id.lockscreen_clock_view, ConstraintSet.BOTTOM, 12)
+                    connect(R.id.keyguard_info_widgets, ConstraintSet.TOP, ClockViewIds.LOCKSCREEN_CLOCK_VIEW_SMALL, ConstraintSet.BOTTOM, 12)
                 }
             }
-            
+
             constrainHeight(R.id.keyguard_info_widgets, ConstraintSet.WRAP_CONTENT)
             constrainWidth(R.id.keyguard_info_widgets, ConstraintSet.MATCH_CONSTRAINT)
             setMargin(R.id.keyguard_info_widgets, ConstraintSet.START, 0)
             setMargin(R.id.keyguard_info_widgets, ConstraintSet.END, 0)
-            // Add small bottom margin for AOD to prevent notification overlap
-            setMargin(R.id.keyguard_info_widgets, ConstraintSet.BOTTOM, 6) // 6dp bottom margin for AOD
+            setMargin(R.id.keyguard_info_widgets, ConstraintSet.BOTTOM, 6)
             setElevation(R.id.keyguard_info_widgets, 1f)
-            
+
             // UNIFIED BARRIER - Create barrier in every section that could be last
             createUnifiedBarrierAndNotificationConstraints(constraintSet)
         }
