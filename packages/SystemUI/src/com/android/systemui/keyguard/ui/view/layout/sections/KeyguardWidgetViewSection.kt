@@ -27,6 +27,8 @@ import com.android.systemui.keyguard.shared.model.KeyguardSection
 import com.android.systemui.res.R
 import javax.inject.Inject
 import com.android.systemui.lockscreen.LockScreenWidgets
+import com.android.systemui.shared.R as sharedR
+import com.android.systemui.plugins.keyguard.ui.clocks.ClockViewIds
 
 class KeyguardWidgetViewSection
 @Inject
@@ -125,118 +127,37 @@ constructor(
     }
 
     override fun applyConstraints(constraintSet: ConstraintSet) {
-        Log.d(TAG, "applyConstraints called")
-        
-        // Only apply constraints if the widget view exists
         widgetView ?: run {
             Log.w(TAG, "Widget view is null, skipping constraints")
             return
         }
-        
+
         try {
             constraintSet.apply {
-                // Position widgets within the keyguard layout
-                connect(
-                    R.id.keyguard_widgets,
-                    ConstraintSet.START,
-                    ConstraintSet.PARENT_ID,
-                    ConstraintSet.START
-                )
-                connect(
-                    R.id.keyguard_widgets,
-                    ConstraintSet.END,
-                    ConstraintSet.PARENT_ID,
-                    ConstraintSet.END
-                )
-                
-                // Try to position below other status content with priority order
-                val anchorViews = listOf(
-                    R.id.keyguard_info_widgets,
-                    R.id.clock_ls,  
-                    R.id.keyguard_weather,
-                    R.id.keyguard_slice_view,
-                    R.id.lockscreen_clock_view
-                )
-                
-                var positioned = false
-                for (anchorId in anchorViews) {
-                    if (constraintSet.getConstraint(anchorId) != null) {
-                        connect(
-                            R.id.keyguard_widgets,
-                            ConstraintSet.TOP,
-                            anchorId,
-                            ConstraintSet.BOTTOM,
-                            8 // 8dp margin
-                        )
-                        positioned = true
-                        Log.d(TAG, "Positioned widgets below anchor: ${context.resources.getResourceEntryName(anchorId)}")
-                        break
-                    }
+                connect(R.id.keyguard_widgets, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
+                connect(R.id.keyguard_widgets, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
+
+                // Always chain below keyguard_info_widgets, to keep a fixed order:
+                // clock -> smartspace -> keyguard_info_widgets -> keyguard_widgets
+                val topAnchor = if (constraintSet.getConstraint(R.id.keyguard_info_widgets) != null) {
+                    R.id.keyguard_info_widgets
+                } else {
+                    // Fallback chain if info widgets aren't present for some reason
+                    sequenceOf(
+                        sharedR.id.bc_smartspace_view,
+                        R.id.clock_ls,
+                        ClockViewIds.LOCKSCREEN_CLOCK_VIEW_SMALL,
+                    ).firstOrNull { constraintSet.getConstraint(it) != null }
+                        ?: ClockViewIds.LOCKSCREEN_CLOCK_VIEW_SMALL
                 }
-                
-                // If no anchor found, position at top with margin
-                if (!positioned) {
-                    connect(
-                        R.id.keyguard_widgets,
-                        ConstraintSet.TOP,
-                        ConstraintSet.PARENT_ID,
-                        ConstraintSet.TOP,
-                        16 // 16dp margin from top
-                    )
-                    Log.d(TAG, "No anchor found, positioned at top")
-                }
-                
-                // Set dimensions
+
+                connect(R.id.keyguard_widgets, ConstraintSet.TOP, topAnchor, ConstraintSet.BOTTOM, 8)
+
                 constrainHeight(R.id.keyguard_widgets, ConstraintSet.WRAP_CONTENT)
                 constrainWidth(R.id.keyguard_widgets, ConstraintSet.MATCH_CONSTRAINT)
-                
-                // Set margins
                 setMargin(R.id.keyguard_widgets, ConstraintSet.START, 0)
                 setMargin(R.id.keyguard_widgets, ConstraintSet.END, 0)
-                
-                // Set elevation for proper layering
                 setElevation(R.id.keyguard_widgets, 2f)
-                
-                // Update barrier to include widgets
-                try {
-                    val potentialBarrierViews = listOf(
-                        R.id.keyguard_slice_view,
-                        R.id.keyguard_weather,
-                        R.id.clock_ls,
-                        R.id.keyguard_info_widgets,
-                        R.id.keyguard_widgets
-                    )
-                    val barrierViews = potentialBarrierViews
-                        .filter { constraintSet.getConstraint(it) != null }
-                        .toIntArray()
-                    
-                    if (barrierViews.isNotEmpty()) {
-                        createBarrier(
-                            R.id.smart_space_barrier_bottom,
-                            Barrier.BOTTOM,
-                            0,
-                            *barrierViews
-                        )
-                        Log.d(TAG, "Created barrier with ${barrierViews.size} views")
-                    }
-                    
-                    // Position notification icons below barrier
-                    if (constraintSet.getConstraint(R.id.left_aligned_notification_icon_container) != null) {
-                        connect(
-                            R.id.left_aligned_notification_icon_container,
-                            ConstraintSet.TOP,
-                            R.id.smart_space_barrier_bottom,
-                            ConstraintSet.BOTTOM,
-                            try {
-                                context.resources.getDimensionPixelSize(R.dimen.below_clock_padding_start_icons)
-                            } catch (e: Exception) {
-                                8 // fallback margin
-                            }
-                        )
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to create barrier", e)
-                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to apply constraints", e)
