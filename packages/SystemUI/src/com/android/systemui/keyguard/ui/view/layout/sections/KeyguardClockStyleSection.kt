@@ -79,55 +79,49 @@ constructor(
     }
     
     override fun applyConstraints(constraintSet: ConstraintSet) {
-        val currentlyEnabled = try {
-            secureSettings.getIntForUser(
-                ClockStyle.CLOCK_STYLE_KEY, 0, UserHandle.USER_CURRENT
-            ) != 0
-        } catch (e: Exception) {
-            isCustomClockEnabled
-        }
-
-        if (!currentlyEnabled) return
-        
         constraintSet.apply {
-            // Clock positioning - TOP of hierarchy
-            connect(R.id.clock_ls, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
-            connect(R.id.clock_ls, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
-            
-            val topMargin = (context.resources.getDimensionPixelSize(R.dimen.status_bar_height) * 1.25f).toInt()
-            connect(R.id.clock_ls, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP, topMargin)
-            
-            constrainHeight(R.id.clock_ls, ConstraintSet.WRAP_CONTENT)
-            constrainWidth(R.id.clock_ls, ConstraintSet.MATCH_CONSTRAINT)
-            setMargin(R.id.clock_ls, ConstraintSet.START, 0)
-            setMargin(R.id.clock_ls, ConstraintSet.END, 0)
-            setElevation(R.id.clock_ls, 1f)
-            
-            // UNIFIED BARRIER - Create barrier in every section that could be last
+            if (isCustomClockEnabled) {
+                // Clock positioning - TOP of hierarchy
+                connect(R.id.clock_ls, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
+                connect(R.id.clock_ls, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
+
+                val topMargin = (context.resources.getDimensionPixelSize(R.dimen.status_bar_height) * 1.25f).toInt()
+                connect(R.id.clock_ls, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP, topMargin)
+
+                constrainHeight(R.id.clock_ls, ConstraintSet.WRAP_CONTENT)
+                constrainWidth(R.id.clock_ls, ConstraintSet.MATCH_CONSTRAINT)
+                setMargin(R.id.clock_ls, ConstraintSet.START, 0)
+                setMargin(R.id.clock_ls, ConstraintSet.END, 0)
+                setElevation(R.id.clock_ls, 1f)
+            }
+
+            // UNIFIED BARRIER - always run, so stock clock layouts get it too
             createUnifiedBarrierAndNotificationConstraints(constraintSet)
         }
     }
     
     private fun createUnifiedBarrierAndNotificationConstraints(constraintSet: ConstraintSet) {
         constraintSet.apply {
-            // UNIFIED BARRIER - Include ALL status area elements
+            val barrierIds = mutableListOf(
+                R.id.keyguard_slice_view,
+                R.id.keyguard_weather,
+                R.id.default_weather_image,
+                R.id.default_weather_text,
+                R.id.keyguard_info_widgets,
+                R.id.keyguard_widgets,
+                R.id.lockscreen_clock_view
+            )
+            if (isCustomClockEnabled) {
+                barrierIds.add(R.id.clock_ls)
+            }
+
             createBarrier(
                 R.id.smart_space_barrier_bottom,
                 Barrier.BOTTOM,
                 0,
-                *intArrayOf(
-                    R.id.keyguard_slice_view,
-                    R.id.keyguard_weather,
-                    R.id.default_weather_image,
-                    R.id.default_weather_text,
-                    R.id.clock_ls,
-                    R.id.keyguard_info_widgets,
-                    R.id.keyguard_widgets,
-                    R.id.lockscreen_clock_view // Include fallback clock
-                )
+                *barrierIds.toIntArray()
             )
-            
-            // Position notifications below ALL status area content
+
             if (constraintSet.getConstraint(R.id.left_aligned_notification_icon_container) != null) {
                 connect(
                     R.id.left_aligned_notification_icon_container,
