@@ -16,6 +16,8 @@
 package com.android.systemui.keyguard.ui.view.layout.sections
 
 import android.content.Context
+import android.os.UserHandle
+import android.provider.Settings
 import android.view.View
 import android.view.ViewGroup
 import androidx.constraintlayout.widget.Barrier
@@ -23,6 +25,7 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
 import com.android.systemui.customization.clocks.R as custR
 import com.android.systemui.keyguard.shared.model.KeyguardSection
+import com.android.systemui.plugins.keyguard.ui.clocks.ClockViewIds
 import com.android.systemui.res.R
 import com.android.systemui.weather.WeatherImageView
 import com.android.systemui.weather.WeatherTextView
@@ -93,45 +96,52 @@ class KeyguardWeatherViewSection @Inject constructor(
             val startMargin = context.resources.getDimensionPixelSize(custR.dimen.clock_padding_start) +
                 context.resources.getDimensionPixelSize(custR.dimen.status_view_margin_horizontal)
 
+            val isCustomClockEnabled = Settings.Secure.getIntForUser(
+                context.contentResolver,
+                Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_STYLE,
+                0,
+                UserHandle.USER_CURRENT
+            ) != 0
+
             // Weather positioning - below CLOCK (2nd in hierarchy)
             if (constraintSet.getConstraint(R.id.keyguard_weather) != null) {
                 connect(R.id.keyguard_weather, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, startMargin)
                 connect(R.id.keyguard_weather, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
-                
-                // Chain to clock (primary) or fallback to slice_view
-                if (constraintSet.getConstraint(R.id.clock_ls) != null) {
+
+                // Chain to whichever clock is actually active
+                if (isCustomClockEnabled && constraintSet.getConstraint(R.id.clock_ls) != null) {
                     connect(R.id.keyguard_weather, ConstraintSet.TOP, R.id.clock_ls, ConstraintSet.BOTTOM, 8)
-                } else if (constraintSet.getConstraint(R.id.keyguard_slice_view) != null) {
-                    connect(R.id.keyguard_weather, ConstraintSet.TOP, R.id.keyguard_slice_view, ConstraintSet.BOTTOM, 8)
                 } else {
-                    connect(R.id.keyguard_weather, ConstraintSet.TOP, R.id.lockscreen_clock_view, ConstraintSet.BOTTOM, 8)
+                    connect(R.id.keyguard_weather, ConstraintSet.TOP, ClockViewIds.LOCKSCREEN_CLOCK_VIEW_SMALL, ConstraintSet.BOTTOM, 8)
                 }
-                
+
                 constrainHeight(R.id.keyguard_weather, ConstraintSet.WRAP_CONTENT)
                 constrainWidth(R.id.keyguard_weather, ConstraintSet.MATCH_CONSTRAINT)
             } else {
-                applyWeatherImageConstraints(constraintSet, startMargin)
+                applyWeatherImageConstraints(constraintSet, startMargin, isCustomClockEnabled)
                 applyWeatherTextConstraints(constraintSet)
             }
-            
+
             // UNIFIED BARRIER - Create barrier in every section that could be last
             createUnifiedBarrierAndNotificationConstraints(constraintSet)
         }
     }
 
-    private fun applyWeatherImageConstraints(constraintSet: ConstraintSet, startMargin: Int) {
+    private fun applyWeatherImageConstraints(
+        constraintSet: ConstraintSet,
+        startMargin: Int,
+        isCustomClockEnabled: Boolean,
+    ) {
         if (constraintSet.getConstraint(R.id.default_weather_image) != null) {
             constraintSet.apply {
                 connect(R.id.default_weather_image, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, startMargin)
-                
-                if (constraintSet.getConstraint(R.id.clock_ls) != null) {
+
+                if (isCustomClockEnabled && constraintSet.getConstraint(R.id.clock_ls) != null) {
                     connect(R.id.default_weather_image, ConstraintSet.TOP, R.id.clock_ls, ConstraintSet.BOTTOM, 8)
-                } else if (constraintSet.getConstraint(R.id.keyguard_slice_view) != null) {
-                    connect(R.id.default_weather_image, ConstraintSet.TOP, R.id.keyguard_slice_view, ConstraintSet.BOTTOM, 8)
                 } else {
-                    connect(R.id.default_weather_image, ConstraintSet.TOP, R.id.lockscreen_clock_view, ConstraintSet.BOTTOM, 8)
+                    connect(R.id.default_weather_image, ConstraintSet.TOP, ClockViewIds.LOCKSCREEN_CLOCK_VIEW_SMALL, ConstraintSet.BOTTOM, 8)
                 }
-                
+
                 constrainHeight(R.id.default_weather_image, ConstraintSet.WRAP_CONTENT)
                 constrainWidth(R.id.default_weather_image, ConstraintSet.WRAP_CONTENT)
             }
