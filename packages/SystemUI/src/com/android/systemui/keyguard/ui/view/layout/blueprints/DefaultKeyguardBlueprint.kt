@@ -102,17 +102,16 @@ constructor(
             aodPromotedNotificationSection,
             smartspaceSection,
             aodBurnInSection,
-            clockSection,
             keyguardWeatherViewSection,
             keyguardSliceViewSection,
             keyguardWidgetViewSection,
             infoWidgetsSection,
             keyguardClockStyleSection,
-	        aodStyleSection,
-            keyguardWeatherViewSection,
+            aodStyleSection,
+            clockSection,
             defaultDeviceEntrySection,
             udfpsAccessibilityOverlaySection, // Add LAST: Intentionally has z-order above others
-        )
+    )
 
     companion object {
         const val DEFAULT = "default"
