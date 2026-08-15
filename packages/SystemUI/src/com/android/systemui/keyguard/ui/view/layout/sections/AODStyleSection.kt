@@ -120,32 +120,6 @@ constructor(
                     8
                 )
             }
-            
-            // Update the barrier to include AOD style for proper notification positioning
-            // This ensures notifications appear below all status area content including AOD
-            createBarrier(
-                R.id.smart_space_barrier_bottom,
-                Barrier.BOTTOM,
-                0,
-                *intArrayOf(
-                    R.id.aod_ls,
-                    R.id.keyguard_slice_view,
-                    R.id.keyguard_weather,
-                    R.id.clock_ls,
-                    R.id.keyguard_info_widgets
-                )
-            )
-            
-            // Ensure notification icons are positioned below the barrier
-            if (constraintSet.getConstraint(R.id.left_aligned_notification_icon_container) != null) {
-                connect(
-                    R.id.left_aligned_notification_icon_container,
-                    ConstraintSet.TOP,
-                    R.id.smart_space_barrier_bottom,
-                    ConstraintSet.BOTTOM,
-                    context.resources.getDimensionPixelSize(R.dimen.below_clock_padding_start_icons)
-                )
-            }
         }
     }
     
