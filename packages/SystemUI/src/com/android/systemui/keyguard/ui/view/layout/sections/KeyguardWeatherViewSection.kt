@@ -27,6 +27,7 @@ import com.android.systemui.customization.clocks.R as custR
 import com.android.systemui.keyguard.shared.model.KeyguardSection
 import com.android.systemui.plugins.keyguard.ui.clocks.ClockViewIds
 import com.android.systemui.res.R
+import com.android.systemui.shared.R as sharedR
 import com.android.systemui.weather.WeatherImageView
 import com.android.systemui.weather.WeatherTextView
 import javax.inject.Inject
@@ -111,6 +112,8 @@ class KeyguardWeatherViewSection @Inject constructor(
                 // Chain to whichever clock is actually active
                 if (isCustomClockEnabled && constraintSet.getConstraint(R.id.clock_ls) != null) {
                     connect(R.id.keyguard_weather, ConstraintSet.TOP, R.id.clock_ls, ConstraintSet.BOTTOM, 8)
+                } else if (constraintSet.getConstraint(sharedR.id.bc_smartspace_view) != null) {
+                    connect(R.id.keyguard_weather, ConstraintSet.TOP, sharedR.id.bc_smartspace_view, ConstraintSet.BOTTOM, 8)
                 } else {
                     connect(R.id.keyguard_weather, ConstraintSet.TOP, ClockViewIds.LOCKSCREEN_CLOCK_VIEW_SMALL, ConstraintSet.BOTTOM, 8)
                 }

@@ -27,6 +27,7 @@ import androidx.constraintlayout.widget.ConstraintSet
 import com.android.systemui.keyguard.shared.model.KeyguardSection
 import com.android.systemui.plugins.keyguard.ui.clocks.ClockViewIds
 import com.android.systemui.res.R
+import com.android.systemui.shared.R as sharedR
 import javax.inject.Inject
 
 class InfoWidgetsSection
@@ -83,6 +84,9 @@ constructor(
                 }
                 constraintSet.getConstraint(R.id.default_weather_image) != null -> {
                     connect(R.id.keyguard_info_widgets, ConstraintSet.TOP, R.id.default_weather_image, ConstraintSet.BOTTOM, 12)
+                }
+                constraintSet.getConstraint(sharedR.id.bc_smartspace_view) != null -> {
+                    connect(R.id.keyguard_info_widgets, ConstraintSet.TOP, sharedR.id.bc_smartspace_view, ConstraintSet.BOTTOM, 12)
                 }
                 isCustomClockEnabled && constraintSet.getConstraint(R.id.clock_ls) != null -> {
                     connect(R.id.keyguard_info_widgets, ConstraintSet.TOP, R.id.clock_ls, ConstraintSet.BOTTOM, 12)
