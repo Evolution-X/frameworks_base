@@ -89,17 +89,6 @@ class ProgressImageView @JvmOverloads constructor(
         }
     }
 
-    private val opacityObserver = object : ContentObserver(null) {
-        override fun onChange(selfChange: Boolean) {
-            widgetOpacity = Settings.System.getInt(
-                context.contentResolver,
-                "lockscreen_widgets_transparency",
-                DEFAULT_OPACITY
-            ).coerceIn(0, 100)
-            applyWidgetAlpha()
-        }
-    }
-
     private val colorSettingsObserver = object : ContentObserver(null) {
         override fun onChange(selfChange: Boolean) {
             colorMode = Settings.System.getString(
@@ -143,16 +132,7 @@ class ProgressImageView @JvmOverloads constructor(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        widgetOpacity = Settings.System.getInt(
-            context.contentResolver,
-            "lockscreen_widgets_transparency",
-            DEFAULT_OPACITY
-        ).coerceIn(0, 100)
-        context.contentResolver.registerContentObserver(
-            Settings.System.getUriFor("lockscreen_widgets_transparency"),
-            false,
-            opacityObserver
-        )
+        widgetOpacity = DEFAULT_OPACITY
         isDozing = statusBarStateController.isDozing
         statusBarStateController.addCallback(statusBarStateListener)
         val screenFilter = IntentFilter(Intent.ACTION_SCREEN_ON)
@@ -199,7 +179,6 @@ class ProgressImageView @JvmOverloads constructor(
         runCatching {
             context.unregisterReceiver(screenOnReceiver)
         }
-        context.contentResolver.unregisterContentObserver(opacityObserver)
         context.contentResolver.unregisterContentObserver(settingsObserver)
         context.contentResolver.unregisterContentObserver(colorSettingsObserver)
         if (receiverRegistered) {
