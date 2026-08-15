@@ -17,6 +17,11 @@
 package com.android.systemui.keyguard.ui.composable.elements
 
 import android.content.Context
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
+import android.view.LayoutInflater
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
@@ -34,8 +39,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContent
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -52,6 +62,7 @@ import com.android.compose.animation.scene.PropertyTransformationBuilder
 import com.android.compose.animation.scene.TransitionBuilder
 import com.android.compose.windowsizeclass.LocalWindowSizeClass
 import com.android.systemui.dagger.SysUISingleton
+import com.android.systemui.clocks.ClockStyle
 import com.android.systemui.keyguard.shared.model.ClockSize
 import com.android.systemui.keyguard.ui.viewmodel.LockscreenUpperRegionViewModel
 import com.android.systemui.keyguard.ui.viewmodel.LockscreenUpperRegionViewModel.Decision
@@ -205,6 +216,9 @@ constructor(
     inner class NarrowLayout(viewModel: LockscreenUpperRegionViewModel) : RegionLayout(viewModel) {
         @Composable
         override fun LockscreenScope<ContentScope>.Layout(modifier: Modifier) {
+            val clockHidden = rememberClockHiddenState()
+            val customStyle = rememberCustomClockStyle()
+
             val clockSize =
                 logDecision("NarrowLayout: ClockSize") {
                     viewModel.evaluateClockSize {
@@ -244,10 +258,20 @@ constructor(
                 modifier = Modifier.padding(horizontal = narrowPadding).then(modifier),
                 debugName = "NarrowLayout - Clocks",
             ) {
-                scene(NarrowScenes.LargeClock) { LockscreenElement(Region.Clock.Large) }
+                scene(NarrowScenes.LargeClock) {
+                    when {
+                        !clockHidden -> LockscreenElement(Region.Clock.Large)
+                        customStyle != 0 -> CustomClockView()
+                        else -> { /* no clock */ }
+                    }
+                }
                 scene(NarrowScenes.SmallClock) {
                     Column {
-                        LockscreenElement(Region.Clock.Small)
+                        when {
+                            !clockHidden -> LockscreenElement(Region.Clock.Small)
+                            customStyle != 0 -> CustomClockView()
+                            else -> { /* no clock */ }
+                        }
                         MediaCarousel(Modifier.align(Alignment.Start))
                         Notifications(aodAlignment = Alignment.TopStart)
                     }
@@ -260,6 +284,9 @@ constructor(
     inner class WideLayout(viewModel: LockscreenUpperRegionViewModel) : RegionLayout(viewModel) {
         @Composable
         override fun LockscreenScope<ContentScope>.Layout(modifier: Modifier) {
+            val clockHidden = rememberClockHiddenState()
+            val customStyle = rememberCustomClockStyle()
+
             val clockSize =
                 logDecision("WideLayout: ClockSize") {
                     viewModel.evaluateClockSize {
@@ -353,6 +380,8 @@ constructor(
                 scene(WideScenes.CenteredClock) {
                     // Media is unsupported with centered large clock
                     LargeClockCenter_NotifsAlign(
+                        clockHidden = clockHidden,
+                        customStyle = customStyle,
                         notifAlignment =
                             when (viewModel.shadeMode) {
                                 ShadeMode.Dual -> {
@@ -370,21 +399,21 @@ constructor(
                 scene(WideScenes.TwoColumn.LargeClock) {
                     when (viewModel.shadeMode) {
                         ShadeMode.Dual -> {
-                            if (viewModel.useDesktopStatusBar) LargeClockStart_NotifsEnd_MediaEnd()
-                            else LargeClockEnd_NotifsStart_MediaStart()
+                            if (viewModel.useDesktopStatusBar) LargeClockStart_NotifsEnd_MediaEnd(clockHidden, customStyle)
+                            else LargeClockEnd_NotifsStart_MediaStart(clockHidden, customStyle)
                         }
                         // Media is unsupported with large clock in split shade mode
-                        ShadeMode.Split -> LargeClockStart_NotifsEnd()
+                        ShadeMode.Split -> LargeClockStart_NotifsEnd(clockHidden, customStyle)
                         else -> logger.wtf("WideLayout state is invalid")
                     }
                 }
                 scene(WideScenes.TwoColumn.SmallClock) {
                     when (viewModel.shadeMode) {
                         ShadeMode.Dual -> {
-                            if (viewModel.useDesktopStatusBar) SmallClockStart_NotifsEnd_MediaEnd()
-                            else SmallClockStart_NotifsStart_MediaStart()
+                            if (viewModel.useDesktopStatusBar) SmallClockStart_NotifsEnd_MediaEnd(clockHidden, customStyle)
+                            else SmallClockStart_NotifsStart_MediaStart(clockHidden, customStyle)
                         }
-                        ShadeMode.Split -> SmallClockStart_NotifsEnd_MediaStart()
+                        ShadeMode.Split -> SmallClockStart_NotifsEnd_MediaStart(clockHidden, customStyle)
                         else -> logger.wtf("WideLayout state is invalid")
                     }
                 }
@@ -393,6 +422,8 @@ constructor(
 
         @Composable
         private fun LockscreenScope<ContentScope>.LargeClockCenter_NotifsAlign(
+            clockHidden: Boolean,
+            customStyle: Int,
             notifAlignment: Alignment,
             modifier: Modifier = Modifier,
         ) {
@@ -404,13 +435,19 @@ constructor(
                 modifier = Modifier.fillMaxSize().then(modifier),
                 contentAlignment = Alignment.Center,
             ) {
-                LockscreenElement(Region.Clock.Large)
+                when {
+                    !clockHidden -> LockscreenElement(Region.Clock.Large)
+                    customStyle != 0 -> CustomClockView()
+                    else -> { /* no clock */ }
+                }
                 AODNotifications(Modifier.align(notifAlignment))
             }
         }
 
         @Composable
         private fun LockscreenScope<ContentScope>.LargeClockEnd_NotifsStart_MediaStart(
+            clockHidden: Boolean,
+            customStyle: Int,
             modifier: Modifier = Modifier
         ) {
             TwoColumn(modifier) {
@@ -418,17 +455,21 @@ constructor(
                     MediaCarousel(Modifier.align(Alignment.Start))
                     Notifications(aodAlignment = Alignment.TopStart)
                 }
-                EndColumn(useLargeClockPadding = true) { LockscreenElement(Region.Clock.Large) }
+                EndColumn(useLargeClockPadding = true) {
+                    ClockAtPosition(clockHidden, customStyle, isLarge = true)
+                }
             }
         }
 
         @Composable
         private fun LockscreenScope<ContentScope>.SmallClockStart_NotifsStart_MediaStart(
+            clockHidden: Boolean,
+            customStyle: Int,
             modifier: Modifier = Modifier
         ) {
             TwoColumn(modifier) {
                 StartColumn {
-                    LockscreenElement(Region.Clock.Small)
+                    ClockAtPosition(clockHidden, customStyle, isLarge = false)
                     MediaCarousel(Modifier.align(Alignment.Start))
                     Notifications(aodAlignment = Alignment.TopStart)
                 }
@@ -437,20 +478,28 @@ constructor(
 
         @Composable
         private fun LockscreenScope<ContentScope>.LargeClockStart_NotifsEnd(
+            clockHidden: Boolean,
+            customStyle: Int,
             modifier: Modifier = Modifier
         ) {
             TwoColumn(modifier) {
-                StartColumn(useLargeClockPadding = true) { LockscreenElement(Region.Clock.Large) }
+                StartColumn(useLargeClockPadding = true) {
+                    ClockAtPosition(clockHidden, customStyle, isLarge = true)
+                }
                 EndColumn { Notifications(aodAlignment = Alignment.TopEnd) }
             }
         }
 
         @Composable
         private fun LockscreenScope<ContentScope>.LargeClockStart_NotifsEnd_MediaEnd(
+            clockHidden: Boolean,
+            customStyle: Int,
             modifier: Modifier = Modifier
         ) {
             TwoColumn(modifier) {
-                StartColumn(useLargeClockPadding = true) { LockscreenElement(Region.Clock.Large) }
+                StartColumn(useLargeClockPadding = true) {
+                    ClockAtPosition(clockHidden, customStyle, isLarge = true)
+                }
                 EndColumn {
                     MediaCarousel(Modifier.align(Alignment.End))
                     Notifications(aodAlignment = Alignment.TopEnd)
@@ -460,11 +509,13 @@ constructor(
 
         @Composable
         private fun LockscreenScope<ContentScope>.SmallClockStart_NotifsEnd_MediaStart(
+            clockHidden: Boolean,
+            customStyle: Int,
             modifier: Modifier = Modifier
         ) {
             TwoColumn(modifier) {
                 StartColumn {
-                    LockscreenElement(Region.Clock.Small)
+                    ClockAtPosition(clockHidden, customStyle, isLarge = false)
                     MediaCarousel(Modifier.align(Alignment.Start))
                 }
                 EndColumn { Notifications(aodAlignment = Alignment.TopEnd) }
@@ -473,14 +524,33 @@ constructor(
 
         @Composable
         private fun LockscreenScope<ContentScope>.SmallClockStart_NotifsEnd_MediaEnd(
+            clockHidden: Boolean,
+            customStyle: Int,
             modifier: Modifier = Modifier
         ) {
             TwoColumn(modifier) {
-                StartColumn { LockscreenElement(Region.Clock.Small) }
+                StartColumn {
+                    ClockAtPosition(clockHidden, customStyle, isLarge = false)
+                }
                 EndColumn {
                     MediaCarousel(Modifier.align(Alignment.End))
                     Notifications(aodAlignment = Alignment.TopEnd)
                 }
+            }
+        }
+
+        @Composable
+        private fun LockscreenScope<ContentScope>.ClockAtPosition(
+            clockHidden: Boolean,
+            customStyle: Int,
+            isLarge: Boolean
+        ) {
+            when {
+                !clockHidden -> LockscreenElement(
+                    if (isLarge) Region.Clock.Large else Region.Clock.Small
+                )
+                customStyle != 0 -> CustomClockView()
+                else -> { /* no clock */ }
             }
         }
 
@@ -550,6 +620,65 @@ constructor(
             str2 = decision.reason
         }
         return decision.choice
+    }
+
+    @Composable
+    private fun rememberClockHiddenState(): Boolean {
+        var hidden by remember { mutableStateOf(false) }
+        val contentResolver = context.contentResolver
+        DisposableEffect(Unit) {
+            fun update() {
+                hidden = Settings.System.getInt(
+                    contentResolver, Settings.System.LS_CLOCK_HIDE, 0
+                ) != 0
+            }
+            val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+                override fun onChange(selfChange: Boolean) { update() }
+            }
+            update()
+            contentResolver.registerContentObserver(
+                Settings.System.getUriFor(Settings.System.LS_CLOCK_HIDE),
+                false, observer,
+            )
+            onDispose { contentResolver.unregisterContentObserver(observer) }
+        }
+        return hidden
+    }
+
+    @Composable
+    private fun rememberCustomClockStyle(): Int {
+        var style by remember { mutableStateOf(0) }
+        val contentResolver = context.contentResolver
+        DisposableEffect(Unit) {
+            fun update() {
+                style = Settings.Secure.getInt(
+                    contentResolver, ClockStyle.CLOCK_STYLE_KEY, 0
+                )
+            }
+            val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+                override fun onChange(selfChange: Boolean) { update() }
+            }
+            update()
+            contentResolver.registerContentObserver(
+                Settings.Secure.getUriFor(ClockStyle.CLOCK_STYLE_KEY),
+                false, observer,
+            )
+            onDispose { contentResolver.unregisterContentObserver(observer) }
+        }
+        return style
+    }
+
+    @Composable
+    private fun CustomClockView() {
+        AndroidView(
+            factory = { ctx ->
+                LayoutInflater.from(ctx).inflate(R.layout.keyguard_clock_style, null) as ClockStyle
+            },
+            update = { view ->
+                view.onTimeChanged()
+                view.requestLayout()
+            },
+        )
     }
 
     companion object {

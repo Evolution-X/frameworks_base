@@ -7170,6 +7170,12 @@ public final class Settings {
         public static final String LS_MEDIA_ART_AOD_DIM_LEVEL = "ls_media_art_aod_dim_level";
 
         /**
+         * Whether to hide the lockscreen clock completely
+         * @hide
+         */
+        public static final String LS_CLOCK_HIDE = "ls_clock_hide";
+
+        /**
          * Whether to control brightness from status bar
          * 0 = 0ff, 1 = on
          * @hide
