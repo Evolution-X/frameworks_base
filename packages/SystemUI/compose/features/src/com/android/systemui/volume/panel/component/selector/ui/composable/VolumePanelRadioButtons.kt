@@ -59,7 +59,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastFirst
-import com.android.axion.blur.AxBlurSurfaceDefaults
+import com.android.compose.theme.LocalAndroidColorScheme
 import kotlinx.coroutines.launch
 
 /**
@@ -306,7 +306,7 @@ object VolumePanelRadioButtonBarDefaults {
     @Composable
     fun defaultColors(
         indicatorColor: Color = MaterialTheme.colorScheme.tertiary,
-        indicatorBackgroundColor: Color = AxBlurSurfaceDefaults.surfaceColor(),
+        indicatorBackgroundColor: Color = LocalAndroidColorScheme.current.surfaceEffect1,
         iconColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
         selectedIconColor: Color = MaterialTheme.colorScheme.onTertiary,
         labelColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
