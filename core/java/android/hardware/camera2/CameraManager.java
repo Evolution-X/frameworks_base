@@ -2529,7 +2529,7 @@ public final class CameraManager {
             try {
                 List<String> cameraIds = new ArrayList<>();
                 boolean exposeAuxCamera = Camera.shouldExposeAuxCamera();
-                int size = exposeAuxCamera ? mDeviceStatus.size() : 2;
+                int size = exposeAuxCamera ? mDeviceStatus.size() : Math.min(mDeviceStatus.size(), 2);
                 if (mDeviceStatus.size() < size) {
                     size = mDeviceStatus.size();
                 }
