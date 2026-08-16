@@ -88,8 +88,6 @@ public final class PixelPropsUtils {
     );
 
     private static final Map<String, Object> propsToChangeGeneric;
-    private static final Map<String, Object> propsToChangeRecentPixel;
-    private static final Map<String, Object> propsToChangePixelTablet;
     private static final Map<String, ArrayList<String>> propsToKeep;
 
     // Pixel device codename ("mustang" = Pixel 10 Pro XL) used as the GMS spoof target
@@ -111,8 +109,10 @@ public final class PixelPropsUtils {
     private static final Pattern SUPPORTED_PIXEL_PATTERN =
             Pattern.compile("^Pixel ([3-9]|[1-9][0-9])([a-zA-Z ].*)?$");
 
-    // Default target packages — used as fallback when pi_pp_targets not yet written
-    private static final Set<String> DEFAULT_PP_TARGETS = new HashSet<>(Arrays.asList(
+    // Default target packages — used as fallback when pi_pp_targets not yet written.
+    // Single source of truth: PixelPropsSettings.kt reads this directly instead of
+    // keeping its own copy of the same list.
+    public static final Set<String> DEFAULT_PP_TARGETS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
             "com.amazon.avod.thirdpartyclient",
             "com.android.chrome",
             "com.breel.wallpapers20",
@@ -144,7 +144,7 @@ public final class PixelPropsUtils {
             "com.realme.link",
             "in.startv.hotstar",
             "jp.id_credit_sp2.android"
-    ));
+    )));
 
     private static final Set<String> customGoogleCameraPackages = new HashSet<>(Arrays.asList(
             "com.google.android.MTCL83",
@@ -170,26 +170,6 @@ public final class PixelPropsUtils {
         propsToChangeGeneric = new HashMap<>();
         propsToChangeGeneric.put("TYPE", "user");
         propsToChangeGeneric.put("TAGS", "release-keys");
-        propsToChangeRecentPixel = new HashMap<>();
-        propsToChangeRecentPixel.put("BRAND", "google");
-        propsToChangeRecentPixel.put("BOARD", "mustang");
-        propsToChangeRecentPixel.put("MANUFACTURER", "Google");
-        propsToChangeRecentPixel.put("DEVICE", "mustang");
-        propsToChangeRecentPixel.put("PRODUCT", "mustang");
-        propsToChangeRecentPixel.put("HARDWARE", "mustang");
-        propsToChangeRecentPixel.put("MODEL", "Pixel 10 Pro XL");
-        propsToChangeRecentPixel.put("ID", "CP2A.260805.005");
-        propsToChangeRecentPixel.put("FINGERPRINT", "google/mustang/mustang:17/CP2A.260805.005/15828068:user/release-keys");
-        propsToChangePixelTablet = new HashMap<>();
-        propsToChangePixelTablet.put("BRAND", "google");
-        propsToChangePixelTablet.put("BOARD", "tangorpro");
-        propsToChangePixelTablet.put("MANUFACTURER", "Google");
-        propsToChangePixelTablet.put("DEVICE", "tangorpro");
-        propsToChangePixelTablet.put("PRODUCT", "tangorpro");
-        propsToChangePixelTablet.put("HARDWARE", "tangorpro");
-        propsToChangePixelTablet.put("MODEL", "Pixel Tablet");
-        propsToChangePixelTablet.put("ID", "CP2A.260705.006");
-        propsToChangePixelTablet.put("FINGERPRINT", "google/tangorpro/tangorpro:17/CP2A.260705.006/15641320:user/release-keys");
     }
 
     public static String getBuildID(String fingerprint) {
@@ -334,7 +314,8 @@ public final class PixelPropsUtils {
                         ? MOSEY_PIXEL_CODENAME
                         : (sPpModel != null && !sPpModel.isEmpty()
                                 ? sPpModel
-                                : (isTablet ? "tangorpro" : "mustang"));
+                                : PixelDeviceRepository.getPreferredDefaultCodename(
+                                        PixelDeviceRepository.readCache(context), isTablet));
                 final PixelDeviceRepository.PixelProfile profile =
                         PixelDeviceRepository.getProfileByCodename(
                                 context, codename, isTablet);
@@ -356,23 +337,23 @@ public final class PixelPropsUtils {
                 dlog("Profile resolve failed, using hardcoded fallback: " + t.getMessage());
             }
 
-            if (resolvedProps == null) {
-                // Full fallback to hardcoded map
-                resolvedProps = isTablet ? propsToChangePixelTablet : propsToChangeRecentPixel;
-            }
+            // getProfileByCodename() returns null when neither the requested nor
+            // default codename is in cache yet — nothing hardcoded to fall back to,
+            // so just skip spoofing this call.
+            if (resolvedProps != null) {
+                propsToChange.putAll(resolvedProps);
 
-            propsToChange.putAll(resolvedProps);
-
-            dlog("Defining props for: " + packageName);
-            for (Map.Entry<String, Object> prop : propsToChange.entrySet()) {
-                String key = prop.getKey();
-                Object value = prop.getValue();
-                if (propsToKeep.containsKey(packageName) && propsToKeep.get(packageName).contains(key)) {
-                    dlog("Not defining " + key + " prop for: " + packageName);
-                    continue;
+                dlog("Defining props for: " + packageName);
+                for (Map.Entry<String, Object> prop : propsToChange.entrySet()) {
+                    String key = prop.getKey();
+                    Object value = prop.getValue();
+                    if (propsToKeep.containsKey(packageName) && propsToKeep.get(packageName).contains(key)) {
+                        dlog("Not defining " + key + " prop for: " + packageName);
+                        continue;
+                    }
+                    dlog("Defining " + key + " prop for: " + packageName);
+                    setPropValue(key, value);
                 }
-                dlog("Defining " + key + " prop for: " + packageName);
-                setPropValue(key, value);
             }
         }
 

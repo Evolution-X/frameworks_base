@@ -30,8 +30,17 @@ public final class PixelDeviceRepository {
     private static final String TAG = "PixelDeviceRepository";
     public static final String CACHE_KEY = "pi_pixel_device_cache";
     private static final long CACHE_TTL = 30L * 24 * 60 * 60 * 1000; // 30 days
-    private static final int CACHE_VERSION = 2;
+    private static final int CACHE_VERSION = 3;
     private static final String GOOGLE_URL = "https://developer.android.com";
+
+    // Default codenames used when no explicit user selection or generation-based
+    // preference is available. Single source of truth — PixelPropsUtils and
+    // PixelPropsSettings.kt read these instead of hardcoding their own copies.
+    public static final String DEFAULT_PHONE_CODENAME  = "mustang";
+    public static final String DEFAULT_TABLET_CODENAME = "tangorpro";
+
+    private static final java.util.regex.Pattern MODEL_GEN_PATTERN =
+            java.util.regex.Pattern.compile("Pixel (\\d+)");
 
     private static volatile List<PixelProfile> sMemoryCache = null;
     private static final Object sFetchLock = new Object();
@@ -45,110 +54,42 @@ public final class PixelDeviceRepository {
         public final String fingerprint;
         public final String buildId;
         public final String securityPatch;
+        public final String canaryMonth;
+        public final String releaseDate;
+        public final String factoryImageUrl;
         public final long fetchedAt;
 
         public PixelProfile(String codename, String model, String brand, String device,
                 String product, String fingerprint, String buildId,
-                String securityPatch, long fetchedAt) {
-            this.codename     = codename;
-            this.model        = model;
-            this.brand        = brand;
-            this.device       = device;
-            this.product      = product;
-            this.fingerprint  = fingerprint;
-            this.buildId      = buildId;
-            this.securityPatch = securityPatch;
-            this.fetchedAt    = fetchedAt;
+                String securityPatch, String canaryMonth, String releaseDate,
+                String factoryImageUrl, long fetchedAt) {
+            this.codename        = codename;
+            this.model           = model;
+            this.brand           = brand;
+            this.device          = device;
+            this.product         = product;
+            this.fingerprint     = fingerprint;
+            this.buildId         = buildId;
+            this.securityPatch   = securityPatch;
+            this.canaryMonth     = canaryMonth;
+            this.releaseDate     = releaseDate;
+            this.factoryImageUrl = factoryImageUrl;
+            this.fetchedAt       = fetchedAt;
         }
 
         // Kotlin-style getters for compatibility with existing call sites
-        public String getCodename()      { return codename; }
-        public String getModel()         { return model; }
-        public String getBrand()         { return brand; }
-        public String getDevice()        { return device; }
-        public String getProduct()       { return product; }
-        public String getFingerprint()   { return fingerprint; }
-        public String getBuildId()       { return buildId; }
-        public String getSecurityPatch() { return securityPatch; }
-        public long   getFetchedAt()     { return fetchedAt; }
-    }
-
-    // Must be updated when new Pixel codenames are released — devices not listed here
-    // will be silently skipped during network profile fetch in fetchFromNetwork()
-    public static final Set<String> KNOWN_CODENAMES = Collections.unmodifiableSet(
-            new HashSet<>(Arrays.asList(
-                    // Pixel 9 series
-                    "tokay", "caiman", "komodo", "comet", "tegu",
-                    // Pixel 10 series
-                    "frankel", "blazer", "mustang", "rango", "stallion",
-                    // Tablet
-                    "tangorpro"
-            )));
-
-    public static final Map<String, String> DEVICE_MODEL_MAP;
-    static {
-        Map<String, String> m = new HashMap<>();
-        m.put("tangorpro", "Pixel Tablet");
-        m.put("tokay",     "Pixel 9");
-        m.put("caiman",    "Pixel 9 Pro");
-        m.put("komodo",    "Pixel 9 Pro XL");
-        m.put("comet",     "Pixel 9 Pro Fold");
-        m.put("tegu",      "Pixel 9a");
-        m.put("frankel",   "Pixel 10");
-        m.put("blazer",    "Pixel 10 Pro");
-        m.put("mustang",   "Pixel 10 Pro XL");
-        m.put("rango",     "Pixel 10 Pro Fold");
-        m.put("stallion",  "Pixel 10a");
-        m.put("cubs",      "Pixel 11");
-        m.put("grizzly",   "Pixel 11 Pro");
-        m.put("kodiak",    "Pixel 11 Pro XL");
-        m.put("yogi",      "Pixel 11 Pro Fold");
-        m.put("formosan",  "Pixel 11a");
-        m.put("galago",    "Pixel 12");
-        m.put("sasquatch", "Pixel 12 Pro");
-        m.put("silverback","Pixel 12 Pro XL");
-        m.put("capuchin",  "Pixel 12 Pro Fold");
-        DEVICE_MODEL_MAP = Collections.unmodifiableMap(m);
-    }
-
-    // Hardcoded fallback profiles — only used when network fails AND cache is empty
-    public static final List<PixelProfile> FALLBACK_PROFILES;
-    static {
-        List<PixelProfile> f = new ArrayList<>();
-        f.add(new PixelProfile("mustang",   "Pixel 10 Pro XL",   "google", "mustang",   "mustang",
-                "google/mustang/mustang:16/CP1A.260505.005/15081906:user/release-keys",
-                "CP1A.260505.005", "2026-05-05", 0L));
-        f.add(new PixelProfile("rango",     "Pixel 10 Pro Fold", "google", "rango",     "rango",
-                "google/rango/rango:16/CP1A.260505.005/15081906:user/release-keys",
-                "CP1A.260505.005", "2026-05-05", 0L));
-        f.add(new PixelProfile("blazer",    "Pixel 10 Pro",      "google", "blazer",    "blazer",
-                "google/blazer/blazer:16/CP1A.260505.005/15081906:user/release-keys",
-                "CP1A.260505.005", "2026-05-05", 0L));
-        f.add(new PixelProfile("frankel",   "Pixel 10",          "google", "frankel",   "frankel",
-                "google/frankel/frankel:16/CP1A.260505.005/15081906:user/release-keys",
-                "CP1A.260505.005", "2026-05-05", 0L));
-        f.add(new PixelProfile("stallion",  "Pixel 10a",         "google", "stallion",  "stallion",
-                "google/stallion/stallion:16/CP1A.260505.005/15081906:user/release-keys",
-                "CP1A.260505.005", "2026-05-05", 0L));
-        f.add(new PixelProfile("komodo",    "Pixel 9 Pro XL",    "google", "komodo",    "komodo",
-                "google/komodo/komodo:16/CP1A.260505.005/15081906:user/release-keys",
-                "CP1A.260505.005", "2026-05-05", 0L));
-        f.add(new PixelProfile("caiman",    "Pixel 9 Pro",       "google", "caiman",    "caiman",
-                "google/caiman/caiman:16/CP1A.260505.005/15081906:user/release-keys",
-                "CP1A.260505.005", "2026-05-05", 0L));
-        f.add(new PixelProfile("comet",     "Pixel 9 Pro Fold",  "google", "comet",     "comet",
-                "google/comet/comet:16/CP1A.260505.005/15081906:user/release-keys",
-                "CP1A.260505.005", "2026-05-05", 0L));
-        f.add(new PixelProfile("tokay",     "Pixel 9",           "google", "tokay",     "tokay",
-                "google/tokay/tokay:16/CP1A.260505.005/15081906:user/release-keys",
-                "CP1A.260505.005", "2026-05-05", 0L));
-        f.add(new PixelProfile("tegu",      "Pixel 9a",          "google", "tegu",      "tegu",
-                "google/tegu/tegu:16/CP1A.260505.005/15081906:user/release-keys",
-                "CP1A.260505.005", "2026-05-05", 0L));
-        f.add(new PixelProfile("tangorpro", "Pixel Tablet",      "google", "tangorpro", "tangorpro",
-                "google/tangorpro/tangorpro:16/CP1A.260505.005/15081906:user/release-keys",
-                "CP1A.260505.005", "2026-05-05", 0L));
-        FALLBACK_PROFILES = Collections.unmodifiableList(f);
+        public String getCodename()        { return codename; }
+        public String getModel()           { return model; }
+        public String getBrand()           { return brand; }
+        public String getDevice()          { return device; }
+        public String getProduct()         { return product; }
+        public String getFingerprint()     { return fingerprint; }
+        public String getBuildId()         { return buildId; }
+        public String getSecurityPatch()   { return securityPatch; }
+        public String getCanaryMonth()     { return canaryMonth; }
+        public String getReleaseDate()     { return releaseDate; }
+        public String getFactoryImageUrl() { return factoryImageUrl; }
+        public long   getFetchedAt()       { return fetchedAt; }
     }
 
     private PixelDeviceRepository() {}
@@ -178,7 +119,11 @@ public final class PixelDeviceRepository {
                 writeCache(context, fresh);
                 return fresh;
             } else {
-                return cached.isEmpty() ? FALLBACK_PROFILES : cached;
+                // No stale hardcoded fallback: an empty cache plus a failed fetch just
+                // means no profiles are available yet. Callers (setProps(), the settings
+                // UI) already treat "no profile" as "skip spoofing" rather than apply a
+                // guessed/stale device, so returning what little we have is safe.
+                return cached;
             }
         }
     }
@@ -200,15 +145,16 @@ public final class PixelDeviceRepository {
                 cached = readCache(context);
                 sMemoryCache = cached;
             }
-            String defaultCodename = isTablet ? "tangorpro" : "mustang";
+            String defaultCodename = isTablet ? DEFAULT_TABLET_CODENAME : DEFAULT_PHONE_CODENAME;
             PixelProfile result = findByCodename(cached, codename);
             if (result == null) result = findByCodename(cached, defaultCodename);
-            if (result == null) result = findByCodename(FALLBACK_PROFILES, codename);
-            if (result == null) result = findByCodename(FALLBACK_PROFILES, defaultCodename);
+            // No hardcoded fallback: if the cache has nothing for either codename yet,
+            // setProps() treats a null profile as "skip spoofing this call" instead of
+            // applying a guessed fingerprint.
             return result;
         } catch (Exception e) {
-            Log.w(TAG, "getProfileByCodename failed, using fallback: " + e.getMessage());
-            return findByCodename(FALLBACK_PROFILES, isTablet ? "tangorpro" : "mustang");
+            Log.w(TAG, "getProfileByCodename failed: " + e.getMessage());
+            return null;
         }
     }
 
@@ -240,6 +186,9 @@ public final class PixelDeviceRepository {
                             o.getString("fingerprint"),
                             o.getString("buildId"),
                             o.getString("securityPatch"),
+                            o.optString("canaryMonth", ""),
+                            o.optString("releaseDate", ""),
+                            o.optString("factoryImageUrl", ""),
                             o.getLong("fetchedAt")
                     ));
                 } catch (Exception ignored) {}
@@ -266,6 +215,9 @@ public final class PixelDeviceRepository {
                 o.put("fingerprint",   p.fingerprint);
                 o.put("buildId",       p.buildId);
                 o.put("securityPatch", p.securityPatch);
+                o.put("canaryMonth",   p.canaryMonth);
+                o.put("releaseDate",   p.releaseDate);
+                o.put("factoryImageUrl", p.factoryImageUrl);
                 o.put("fetchedAt",     p.fetchedAt);
                 arr.put(o);
             }
@@ -333,22 +285,20 @@ public final class PixelDeviceRepository {
                 String qprHtml = readUrl(GOOGLE_URL + bestQprPath);
                 java.util.regex.Matcher rm = rowPattern.matcher(qprHtml);
                 List<String> deviceCodenames = new ArrayList<>();
+                Map<String, String> deviceModels = new HashMap<>();
                 Set<String> seenDevices = new HashSet<>();
                 while (rm.find()) {
                     String device = rm.group(1).trim();
-                    if (KNOWN_CODENAMES.contains(device) && seenDevices.add(device)) {
+                    if (seenDevices.add(device)) {
                         deviceCodenames.add(device);
+                        deviceModels.put(device, rm.group(2).trim());
                     }
                 }
                 if (deviceCodenames.isEmpty()) continue;
 
-                // Step 4: get Flash Tool API key (same method as PIF canary fetch)
-                String flashHtml = readUrl("https://flash.android.com");
-                java.util.regex.Matcher km = java.util.regex.Pattern.compile(
-                        "AIza[0-9A-Za-z_-]{35}")
-                        .matcher(flashHtml);
-                if (!km.find()) continue;
-                String apiKey = km.group(0);
+                // Step 4: get Flash Tool API key
+                String apiKey = fetchFlashToolApiKey();
+                if (apiKey == null || apiKey.isEmpty()) continue;
 
                 // Step 5: for each device, hit the Flash Tool API and extract canary fingerprint
                 long now = System.currentTimeMillis();
@@ -375,6 +325,7 @@ public final class PixelDeviceRepository {
                         String id = null;
                         String incremental = null;
                         String canaryId = null;
+                        String factoryImageUrl = null;
 
                         for (int i = buildsArray.length() - 1; i >= 0; i--) {
                             org.json.JSONObject b = buildsArray.optJSONObject(i);
@@ -388,29 +339,44 @@ public final class PixelDeviceRepository {
                             incremental = bid;
                             String mid = meta.optString("id");
                             if (mid.contains("canary-")) canaryId = mid;
+                            String fiu = b.optString("factoryImageDownloadUrl");
+                            if (fiu.isEmpty()) fiu = meta.optString("factoryImageDownloadUrl");
+                            if (!fiu.isEmpty()) factoryImageUrl = fiu;
                             break;
                         }
                         if (id == null || incremental == null) continue;
 
                         // Derive security patch from canary ID month (e.g. "canary-202605")
-                        String securityPatch = "2026-05-05"; // safe default
+                        String canaryMonth = "";
                         if (canaryId != null) {
                             java.util.regex.Matcher cm = java.util.regex.Pattern.compile(
                                     "canary-(\\d{4})(\\d{2})")
                                     .matcher(canaryId);
                             if (cm.find()) {
-                                securityPatch = cm.group(1) + "-" + cm.group(2) + "-05";
+                                canaryMonth = cm.group(1) + "-" + cm.group(2);
                             }
                         }
+                        String securityPatch = canaryMonth.isEmpty()
+                                ? "2026-05-05" : canaryMonth + "-05"; // safe default
+
+                        String releaseDate = factoryImageUrl != null
+                                ? fetchLastModifiedDate(factoryImageUrl) : null;
 
                         String fingerprint = "google/" + product + "/" + device
                                 + ":CANARY/" + id + "/" + incremental + ":user/release-keys";
-                        String model = DEVICE_MODEL_MAP.containsKey(device)
-                                ? DEVICE_MODEL_MAP.get(device) : device;
+                        if (!isValidFingerprint(fingerprint)) continue;
+
+                        // Model name comes straight from Google's own QPR table row —
+                        // no hardcoded codename→model map to keep updated per release.
+                        String scrapedModel = deviceModels.get(device);
+                        String model = (scrapedModel != null && !scrapedModel.isEmpty())
+                                ? scrapedModel : device;
 
                         profiles.add(new PixelProfile(
                                 device, model, "google", device, product,
-                                fingerprint, id, securityPatch, now));
+                                fingerprint, id, securityPatch, canaryMonth,
+                                releaseDate == null ? "" : releaseDate,
+                                factoryImageUrl == null ? "" : factoryImageUrl, now));
                     } catch (Exception e) {
                         Log.w(TAG, "Failed to fetch canary build for " + device + ": " + e.getMessage());
                     }
@@ -424,27 +390,6 @@ public final class PixelDeviceRepository {
         return Collections.emptyList();
     }
 
-    private static String fetchPartialUrl(String url, int maxBytes) throws Exception {
-        URLConnection conn = new URL(url).openConnection();
-        conn.setConnectTimeout(15000);
-        conn.setReadTimeout(15000);
-        InputStream input = conn.getInputStream();
-        try {
-            byte[] buf = new byte[512];
-            StringBuilder sb = new StringBuilder();
-            int total = 0;
-            while (total < maxBytes) {
-                int read = input.read(buf);
-                if (read == -1) break;
-                sb.append(new String(buf, 0, read, StandardCharsets.ISO_8859_1));
-                total += read;
-            }
-            return sb.toString();
-        } finally {
-            input.close();
-        }
-    }
-
     private static String readUrl(String url) throws Exception {
         URLConnection conn = new URL(url).openConnection();
         conn.setConnectTimeout(15000);
@@ -456,5 +401,131 @@ public final class PixelDeviceRepository {
         } finally {
             input.close();
         }
+    }
+
+    /**
+     * Extracts the Flash Tool API key from flash.android.com. Shared by both the
+     * canary profile scrape above and PlayIntegrityFix's device picker so the two
+     * never fetch or parse it differently.
+     */
+    public static String fetchFlashToolApiKey() {
+        try {
+            String flashHtml = readUrl("https://flash.android.com");
+            java.util.regex.Matcher km = java.util.regex.Pattern.compile(
+                    "AIza[0-9A-Za-z_-]{35}")
+                    .matcher(flashHtml);
+            return km.find() ? km.group(0) : null;
+        } catch (Exception e) {
+            Log.w(TAG, "Flash Tool API key fetch failed: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * HEAD-requests a factory image to read its Last-Modified header, giving a
+     * precise canary release date instead of assuming the 1st of the canary month.
+     * Returns a yyyy-MM-dd string, or null if it can't be determined.
+     */
+    public static String fetchLastModifiedDate(String url) {
+        try {
+            java.net.HttpURLConnection conn =
+                    (java.net.HttpURLConnection) new URL(url).openConnection();
+            conn.setRequestMethod("HEAD");
+            conn.setConnectTimeout(10000);
+            conn.setReadTimeout(10000);
+            String lastModified = conn.getHeaderField("Last-Modified");
+            conn.disconnect();
+            if (lastModified == null) return null;
+            java.text.SimpleDateFormat in = new java.text.SimpleDateFormat(
+                    "EEE, dd MMM yyyy HH:mm:ss zzz", java.util.Locale.US);
+            java.util.Date parsed = in.parse(lastModified);
+            if (parsed == null) return null;
+            return new java.text.SimpleDateFormat(
+                    "yyyy-MM-dd", java.util.Locale.US).format(parsed);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Validates that a fingerprint string matches the expected Android format:
+     * brand/product/device:VERSION/ID/INCREMENTAL:TYPE/KEYS
+     */
+    public static boolean isValidFingerprint(String fp) {
+        return fp != null && java.util.regex.Pattern.compile(
+                "^[^/]+/[^/]+/[^:]+:[^/]+/[^/]+/[^:]+:[^/]+/[^:]+$")
+                .matcher(fp).matches();
+    }
+
+    public static java.util.Date parsePatchDate(String patch) {
+        try {
+            return new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                    .parse(patch);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Returns the number of days elapsed since the given YYYY-MM-DD security patch
+     * date, or null if the date cannot be parsed.
+     */
+    public static Long getPatchAgeDays(String patch) {
+        java.util.Date parsed = parsePatchDate(patch);
+        if (parsed == null) return null;
+        return (System.currentTimeMillis() - parsed.getTime()) / (1000L * 60 * 60 * 24);
+    }
+
+    /**
+     * Given a canary month string (YYYY-MM), estimates the expiry date as ~6 weeks
+     * from the 1st of that month (or from [releaseDate] when known) and returns a
+     * human-readable string: "expires YYYY-MM-DD" or "expired YYYY-MM-DD" if past.
+     */
+    public static String getCanaryExpiryString(String canaryMonth, String releaseDate) {
+        try {
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat(
+                    "yyyy-MM-dd", java.util.Locale.US);
+            java.util.Date base = sdf.parse(
+                    releaseDate != null && !releaseDate.isEmpty()
+                            ? releaseDate : canaryMonth + "-01");
+            if (base == null) return null;
+            java.util.Date expiry = new java.util.Date(base.getTime() + 42L * 24 * 60 * 60 * 1000);
+            String expiryStr = sdf.format(expiry);
+            return expiry.before(new java.util.Date())
+                    ? "expired " + expiryStr : "expires " + expiryStr;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Picks the best default profile: highest-generation flagship ("Pro XL" for
+     * phones, or the tablet) available in [profiles], falling back to lower-tier
+     * variants of that same generation, then to DEFAULT_PHONE_CODENAME /
+     * DEFAULT_TABLET_CODENAME if nothing from the network is usable yet.
+     */
+    public static PixelProfile getPreferredDefaultProfile(List<PixelProfile> profiles, boolean isTablet) {
+        if (isTablet) {
+            return findByCodename(profiles, DEFAULT_TABLET_CODENAME);
+        }
+        int bestGen = -1;
+        PixelProfile best = null;
+        for (PixelProfile p : profiles) {
+            java.util.regex.Matcher m = MODEL_GEN_PATTERN.matcher(p.model);
+            if (!m.find()) continue;
+            int gen = Integer.parseInt(m.group(1));
+            boolean isFlagship = p.model.contains("Pro XL");
+            if (gen > bestGen || (gen == bestGen && isFlagship)) {
+                bestGen = gen;
+                best = p;
+            }
+        }
+        if (best != null) return best;
+        return findByCodename(profiles, DEFAULT_PHONE_CODENAME);
+    }
+
+    public static String getPreferredDefaultCodename(List<PixelProfile> profiles, boolean isTablet) {
+        PixelProfile p = getPreferredDefaultProfile(profiles, isTablet);
+        return p != null ? p.codename : (isTablet ? DEFAULT_TABLET_CODENAME : DEFAULT_PHONE_CODENAME);
     }
 }
