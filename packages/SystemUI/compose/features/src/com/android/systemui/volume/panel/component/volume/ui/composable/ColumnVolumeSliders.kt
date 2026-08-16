@@ -57,10 +57,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.compose.PlatformIconButton
 import com.android.compose.PlatformSliderColors
+import com.android.compose.theme.LocalAndroidColorScheme
 import com.android.systemui.compose.modifiers.sysuiResTag
 import com.android.systemui.res.R
 import com.android.systemui.volume.panel.component.volume.slider.ui.viewmodel.SliderViewModel
-import com.android.axion.blur.AxBlurSurfaceDefaults
 import com.google.common.annotations.VisibleForTesting
 import platform.test.motion.compose.values.MotionTestValueKey
 import platform.test.motion.compose.values.motionTestValues
@@ -253,7 +253,7 @@ private fun RowScope.ExpandButton(
             onClick = { onExpandedChanged(!isExpanded) },
             colors =
                 IconButtonDefaults.iconButtonColors(
-                    containerColor = AxBlurSurfaceDefaults.surfaceColor(),
+                    containerColor = LocalAndroidColorScheme.current.surfaceEffect1,
                     contentColor = MaterialTheme.colorScheme.onSurface,
                 ),
             shape = RoundedCornerShape(12.dp),
