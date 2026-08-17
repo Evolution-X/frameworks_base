@@ -350,12 +350,15 @@ public final class AppLockLocalService implements AppLockInternal,
     private boolean isLastAuthWithinGracePeriod(String packageName, int userId) {
         final long lastSuccessfulAuth = getLastSuccessfulAuthTimeForLockedPackage(packageName,
                 userId);
+        if (lastSuccessfulAuth == AppLockLockedState.INVALID_AUTH_TIME_MS) {
+            return false;
+        }
         long timeoutMs = getAppLockTimeoutMs(userId);
         if (timeoutMs == -1) {
-            return lastSuccessfulAuth != AppLockLockedState.INVALID_AUTH_TIME_MS;
+            return true;
         }
-        return lastSuccessfulAuth + timeoutMs > System.currentTimeMillis()
-                && lastSuccessfulAuth != AppLockLockedState.INVALID_AUTH_TIME_MS;
+        long effectiveTimeout = Math.max(timeoutMs, 1000L);
+        return (lastSuccessfulAuth + effectiveTimeout) >= System.currentTimeMillis();
     }
 
     @GuardedBy("mAmService")
@@ -532,9 +535,10 @@ public final class AppLockLocalService implements AppLockInternal,
         state.mLastSentLockedState = locked;
 
         // If we are sending an update that the package is locked, any pending delayed job is now
-        // obsolete.
+        // obsolete and authentication time is reset.
         if (locked) {
             cancelPackageAppLockedJobLocked(packageName, userId);
+            state.mLastAuthTimeSinceDeviceUnlock = AppLockLockedState.INVALID_AUTH_TIME_MS;
         }
 
         return true;
