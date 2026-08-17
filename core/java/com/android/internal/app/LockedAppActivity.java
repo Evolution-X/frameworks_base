@@ -373,9 +373,7 @@ public final class LockedAppActivity extends Activity {
      * </ul>
      */
     private void applyTheme() {
-        mInjector.setTheme(this, (isInterceptMode() || mIsUninstall)
-                ? android.R.style.Theme_DeviceDefault_Panel
-                : android.R.style.Theme_DeviceDefault_NoActionBar);
+        mInjector.setTheme(this, android.R.style.Theme_DeviceDefault_NoActionBar);
     }
 
     @Override
@@ -394,11 +392,6 @@ public final class LockedAppActivity extends Activity {
      * @return {@code true} if the UI was successfully configured, {@code false} otherwise.
      */
     private boolean setupUi() {
-        if (isInterceptMode() || mIsUninstall) {
-            // In intercept and uninstall mode, ensure the activity is translucent.
-            mInjector.setTranslucent(this, true);
-            return true;
-        }
         return setupLockedTaskModeUi();
     }
 
@@ -571,12 +564,72 @@ public final class LockedAppActivity extends Activity {
     }
 
     /**
-     * Builds and displays the {@link BiometricPrompt} to the user.
-     *
-     * <p>The {@link BiometricPrompt} is configured with the application's label and icon.
+     * Builds and displays the {@link BiometricPrompt} or custom credential UI to the user.
      */
     private void showBiometricPrompt() {
-        // TODO(b/459376236): Handle coexistence with Identity Check.
+        int credentialType = AppLockCredentialUtils.getCredentialType(this, mUserId);
+        if (credentialType != AppLockCredentialUtils.CREDENTIAL_TYPE_DEVICE) {
+            boolean biometricsAllowed = AppLockCredentialUtils.isBiometricsAllowed(this, mUserId);
+            android.hardware.biometrics.BiometricManager bm = getSystemService(android.hardware.biometrics.BiometricManager.class);
+            boolean canBiometric = bm != null && bm.canAuthenticate(Authenticators.BIOMETRIC_STRONG) == android.hardware.biometrics.BiometricManager.BIOMETRIC_SUCCESS;
+
+            if (biometricsAllowed && canBiometric) {
+                final BiometricPrompt.Builder biometricPromptBuilder = mInjector.getBiometricPromptBuilder(this)
+                        .setTitle(getString(R.string.biometric_dialog_default_title))
+                        .setDescription(getString(R.string.locked_app_biometric_prompt_description))
+                        .setLogoDescription(mPackageLabel != null ? mPackageLabel.toString() : "")
+                        .setAllowedAuthenticators(Authenticators.BIOMETRIC_STRONG)
+                        .setNegativeButton(getString(R.string.cancel), getMainExecutor(), (dialog, which) -> {
+                            mIsBiometricPromptShowing = false;
+                            showCustomCredentialUi();
+                        });
+                if (mPackageLogo != null) {
+                    biometricPromptBuilder.setLogoBitmap(mPackageLogo);
+                }
+                final BiometricPrompt biometricPrompt = biometricPromptBuilder.build();
+                mCancellationSignal = new CancellationSignal();
+
+                biometricPrompt.authenticate(mCancellationSignal, getMainExecutor(),
+                        new BiometricPrompt.AuthenticationCallback() {
+                            @Override
+                            public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result) {
+                                super.onAuthenticationSucceeded(result);
+                                mIsBiometricPromptShowing = false;
+                                if (mIsUninstall) {
+                                    mInjector.getPackageManager(LockedAppActivity.this).getPackageInstaller()
+                                            .uninstall(mUninstallVersionedPackage, mUninstallFlags, mUninstallStatusReceiver);
+                                    finish();
+                                    return;
+                                }
+                                mAppLockInternal.setAppLockEnabledPackageSuccessfullyAuthenticated(mPackageName, mUserId);
+                                completeUnlockAndFinish();
+                            }
+
+                            @Override
+                            public void onAuthenticationError(int errorCode, CharSequence errString) {
+                                super.onAuthenticationError(errorCode, errString);
+                                mIsBiometricPromptShowing = false;
+                                if (errorCode != BiometricPrompt.BIOMETRIC_ERROR_USER_CANCELED
+                                        && errorCode != BiometricPrompt.BIOMETRIC_ERROR_CANCELED) {
+                                    showCustomCredentialUi();
+                                } else {
+                                    if (mIsUninstall) {
+                                        sendUninstallFailure(PackageInstaller.STATUS_FAILURE_ABORTED, "App lock user authentication failed");
+                                        finish();
+                                    } else if (isInterceptMode()) {
+                                        finish();
+                                    }
+                                }
+                            }
+                        });
+                mIsBiometricPromptShowing = true;
+                return;
+            } else {
+                showCustomCredentialUi();
+                return;
+            }
+        }
+
         final BiometricPrompt.Builder biometricPromptBuilder = mInjector.getBiometricPromptBuilder(
                         this)
                 .setTitle(getString(R.string.biometric_dialog_default_title))
@@ -593,6 +646,44 @@ public final class LockedAppActivity extends Activity {
         biometricPrompt.authenticate(mCancellationSignal, getMainExecutor(),
                 mAuthenticationCallback);
         mIsBiometricPromptShowing = true;
+    }
+
+    private void showCustomCredentialUi() {
+        getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
+        try {
+            getWindow().getAttributes().setBlurBehindRadius(80);
+        } catch (Throwable ignored) {}
+        getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        getWindow().setLayout(android.view.WindowManager.LayoutParams.MATCH_PARENT,
+                android.view.WindowManager.LayoutParams.MATCH_PARENT);
+
+        AppLockCustomCredentialView customView = new AppLockCustomCredentialView(this);
+        customView.setUserId(mUserId);
+        customView.setAppDetails(mPackageLabel, mPackageLogo);
+        customView.setOnUnlockListener(new AppLockCustomCredentialView.OnUnlockListener() {
+            @Override
+            public void onUnlocked() {
+                if (mIsUninstall) {
+                    mInjector.getPackageManager(LockedAppActivity.this).getPackageInstaller()
+                            .uninstall(mUninstallVersionedPackage, mUninstallFlags, mUninstallStatusReceiver);
+                    finish();
+                    return;
+                }
+                mAppLockInternal.setAppLockEnabledPackageSuccessfullyAuthenticated(mPackageName, mUserId);
+                completeUnlockAndFinish();
+            }
+
+            @Override
+            public void onCancelled() {
+                if (mIsUninstall) {
+                    sendUninstallFailure(PackageInstaller.STATUS_FAILURE_ABORTED, "App lock user authentication failed");
+                    finish();
+                } else if (isInterceptMode()) {
+                    finish();
+                }
+            }
+        });
+        setContentView(customView);
     }
 
     /**
