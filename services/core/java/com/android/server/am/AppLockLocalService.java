@@ -339,11 +339,22 @@ public final class AppLockLocalService implements AppLockInternal,
         }
     }
 
+    private long getAppLockTimeoutMs(int userId) {
+        return android.provider.Settings.Secure.getLongForUser(
+                mAmService.mContext.getContentResolver(),
+                "app_lock_timeout",
+                5000L,
+                userId);
+    }
+
     private boolean isLastAuthWithinGracePeriod(String packageName, int userId) {
         final long lastSuccessfulAuth = getLastSuccessfulAuthTimeForLockedPackage(packageName,
                 userId);
-        return lastSuccessfulAuth + DEFAULT_APP_LOCK_GRACE_PERIOD_MS.toMillis()
-                > System.currentTimeMillis()
+        long timeoutMs = getAppLockTimeoutMs(userId);
+        if (timeoutMs == -1) {
+            return lastSuccessfulAuth != AppLockLockedState.INVALID_AUTH_TIME_MS;
+        }
+        return lastSuccessfulAuth + timeoutMs > System.currentTimeMillis()
                 && lastSuccessfulAuth != AppLockLockedState.INVALID_AUTH_TIME_MS;
     }
 
@@ -622,6 +633,11 @@ public final class AppLockLocalService implements AppLockInternal,
             Slog.d(TAG, "handleLockedState for " + packageName + " and user: " + userId);
         }
 
+        long timeoutMs = getAppLockTimeoutMs(userId);
+        if (timeoutMs == -1) {
+            return;
+        }
+
         if (getOrCreateAppLockLockedStateLocked(packageName, userId).mLockedUpdateRunnable
                 != null) {
             if (DEBUG) {
@@ -637,8 +653,7 @@ public final class AppLockLocalService implements AppLockInternal,
 
         getOrCreateAppLockLockedStateLocked(packageName, userId).mLockedUpdateRunnable =
                 setPackageLocked;
-        mInjector.getHandler().postDelayed(setPackageLocked,
-                DEFAULT_APP_LOCK_GRACE_PERIOD_MS.toMillis());
+        mInjector.getHandler().postDelayed(setPackageLocked, timeoutMs);
     }
 
     @Override
