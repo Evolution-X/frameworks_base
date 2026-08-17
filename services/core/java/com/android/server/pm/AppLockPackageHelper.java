@@ -412,8 +412,7 @@ public final class AppLockPackageHelper {
     private static final class InjectorImpl implements Injector {
         @Override
         public boolean isDeviceSecure(Context context, int userId) {
-            final KeyguardManager keyguardManager = context.getSystemService(KeyguardManager.class);
-            return keyguardManager != null && keyguardManager.isDeviceSecure(userId);
+            return com.android.internal.app.AppLockCredentialUtils.isAppLockSecure(context, userId);
         }
     }
 }

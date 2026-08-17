@@ -226,8 +226,7 @@ public class AppLockActivity extends Activity {
         final CharSequence packageLabel = applicationInfo.loadLabel(packageManager);
 
         mKeyguardManager = getSystemService(KeyguardManager.class);
-        final boolean isDeviceSecure = mKeyguardManager != null && mKeyguardManager.isDeviceSecure(
-                UserHandle.myUserId());
+        final boolean isDeviceSecure = AppLockCredentialUtils.isAppLockSecure(this, UserHandle.myUserId());
         if (applicationInfo.isAppLockEnabled) {
             // Disable App Lock.
             if (isDeviceSecure) {
@@ -318,13 +317,67 @@ public class AppLockActivity extends Activity {
         mScreenLockDialog.show();
     }
 
-    /** Displays the biometric authentication prompt to the user to confirm App Lock state change.*/
+    /** Displays the biometric authentication prompt or custom credential UI to confirm App Lock state change.*/
     @SuppressLint("AndroidFrameworkRequiresPermission")
     protected void showBiometricPrompt(String packageName, CharSequence packageLabel,
             boolean newAppLockEnabled) {
         if (DEBUG) {
             Slog.d(TAG, "showBiometricPrompt called for " + packageName);
         }
+        int credentialType = AppLockCredentialUtils.getCredentialType(this, UserHandle.myUserId());
+        if (credentialType != AppLockCredentialUtils.CREDENTIAL_TYPE_DEVICE) {
+            boolean biometricsAllowed = AppLockCredentialUtils.isBiometricsAllowed(this, UserHandle.myUserId());
+            android.hardware.biometrics.BiometricManager bm = getSystemService(android.hardware.biometrics.BiometricManager.class);
+            boolean canBiometric = bm != null && bm.canAuthenticate(Authenticators.BIOMETRIC_STRONG) == android.hardware.biometrics.BiometricManager.BIOMETRIC_SUCCESS;
+
+            if (biometricsAllowed && canBiometric) {
+                final String biometricPromptSubtitle = newAppLockEnabled
+                        ? getString(R.string.enable_app_lock_biometric_prompt_subtitle, packageLabel)
+                        : getString(R.string.disable_app_lock_biometric_prompt_subtitle, packageLabel);
+                final BiometricPrompt.Builder biometricPromptBuilder = mInjector.getBiometricPromptBuilder(this)
+                        .setTitle(getString(R.string.biometric_dialog_default_title))
+                        .setSubtitle(biometricPromptSubtitle)
+                        .setLogoDescription(packageLabel.toString())
+                        .setAllowedAuthenticators(Authenticators.BIOMETRIC_STRONG)
+                        .setNegativeButton(getString(R.string.cancel), getMainExecutor(), (dialog, which) -> {
+                            showCustomCredentialUi(packageName, packageLabel, newAppLockEnabled);
+                        });
+
+                final Bitmap packageLogo = convertDrawableToBitmap(getPackageLogoAsDrawable(packageName));
+                if (packageLogo != null) {
+                    biometricPromptBuilder.setLogoBitmap(packageLogo);
+                }
+
+                final BiometricPrompt biometricPrompt = biometricPromptBuilder.build();
+                biometricPrompt.authenticate(new CancellationSignal(), getMainExecutor(),
+                        new BiometricPrompt.AuthenticationCallback() {
+                            @Override
+                            public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result) {
+                                super.onAuthenticationSucceeded(result);
+                                final boolean success = getPackageManager().setPackageAppLockEnabled(packageName, newAppLockEnabled);
+                                showResultToast(success, packageName, packageLabel, newAppLockEnabled);
+                                finish();
+                            }
+
+                            @Override
+                            public void onAuthenticationError(int errorCode, CharSequence errString) {
+                                super.onAuthenticationError(errorCode, errString);
+                                if (errorCode != BiometricPrompt.BIOMETRIC_ERROR_USER_CANCELED
+                                        && errorCode != BiometricPrompt.BIOMETRIC_ERROR_CANCELED) {
+                                    showCustomCredentialUi(packageName, packageLabel, newAppLockEnabled);
+                                } else {
+                                    showResultToast(false, packageName, packageLabel, newAppLockEnabled);
+                                    finish();
+                                }
+                            }
+                        });
+                return;
+            } else {
+                showCustomCredentialUi(packageName, packageLabel, newAppLockEnabled);
+                return;
+            }
+        }
+
         final BiometricPrompt.AuthenticationCallback authenticationCallback =
                 new BiometricPrompt.AuthenticationCallback() {
                     @Override
@@ -370,6 +423,36 @@ public class AppLockActivity extends Activity {
         final BiometricPrompt biometricPrompt = biometricPromptBuilder.build();
         biometricPrompt.authenticate(new CancellationSignal(), getMainExecutor(),
                 authenticationCallback);
+    }
+
+    private void showCustomCredentialUi(String packageName, CharSequence packageLabel, boolean newAppLockEnabled) {
+        getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
+        try {
+            getWindow().getAttributes().setBlurBehindRadius(80);
+        } catch (Throwable ignored) {}
+        getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        getWindow().setLayout(android.view.WindowManager.LayoutParams.MATCH_PARENT,
+                android.view.WindowManager.LayoutParams.MATCH_PARENT);
+
+        Bitmap packageLogo = convertDrawableToBitmap(getPackageLogoAsDrawable(packageName));
+        AppLockCustomCredentialView customView = new AppLockCustomCredentialView(this);
+        customView.setUserId(UserHandle.myUserId());
+        customView.setAppDetails(packageLabel, packageLogo);
+        customView.setOnUnlockListener(new AppLockCustomCredentialView.OnUnlockListener() {
+            @Override
+            public void onUnlocked() {
+                final boolean success = getPackageManager().setPackageAppLockEnabled(packageName, newAppLockEnabled);
+                showResultToast(success, packageName, packageLabel, newAppLockEnabled);
+                finish();
+            }
+
+            @Override
+            public void onCancelled() {
+                showResultToast(false, packageName, packageLabel, newAppLockEnabled);
+                finish();
+            }
+        });
+        setContentView(customView);
     }
 
     /** Displays a user education dialog to the user which informs about the App Lock feature. */
@@ -426,8 +509,7 @@ public class AppLockActivity extends Activity {
                 if (mScreenLockDialog != null && mScreenLockDialog.isShowing()) {
                     mScreenLockDialog.dismiss();
                 }
-                if (mKeyguardManager != null
-                        && mKeyguardManager.isDeviceSecure(UserHandle.myUserId())) {
+                if (AppLockCredentialUtils.isAppLockSecure(this, UserHandle.myUserId())) {
                     showUserEducationDialog(packageName, packageLabel);
                 } else {
                     if (DEBUG) {
