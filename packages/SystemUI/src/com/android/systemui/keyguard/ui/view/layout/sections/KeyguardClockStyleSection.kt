@@ -94,43 +94,6 @@ constructor(
                 setMargin(R.id.clock_ls, ConstraintSet.END, 0)
                 setElevation(R.id.clock_ls, 1f)
             }
-
-            // UNIFIED BARRIER - always run, so stock clock layouts get it too
-            createUnifiedBarrierAndNotificationConstraints(constraintSet)
-        }
-    }
-    
-    private fun createUnifiedBarrierAndNotificationConstraints(constraintSet: ConstraintSet) {
-        constraintSet.apply {
-            val barrierIds = mutableListOf(
-                R.id.keyguard_slice_view,
-                R.id.keyguard_weather,
-                R.id.default_weather_image,
-                R.id.default_weather_text,
-                R.id.keyguard_info_widgets,
-                R.id.keyguard_widgets,
-                R.id.lockscreen_clock_view
-            )
-            if (isCustomClockEnabled) {
-                barrierIds.add(R.id.clock_ls)
-            }
-
-            createBarrier(
-                R.id.smart_space_barrier_bottom,
-                Barrier.BOTTOM,
-                0,
-                *barrierIds.toIntArray()
-            )
-
-            if (constraintSet.getConstraint(R.id.left_aligned_notification_icon_container) != null) {
-                connect(
-                    R.id.left_aligned_notification_icon_container,
-                    ConstraintSet.TOP,
-                    R.id.smart_space_barrier_bottom,
-                    ConstraintSet.BOTTOM,
-                    context.resources.getDimensionPixelSize(R.dimen.below_clock_padding_start_icons)
-                )
-            }
         }
     }
     
