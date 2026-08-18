@@ -25,6 +25,7 @@ import androidx.constraintlayout.widget.Barrier
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
 import com.android.systemui.keyguard.shared.model.KeyguardSection
+import com.android.systemui.keyguard.ui.viewmodel.KeyguardClockViewModel
 import com.android.systemui.plugins.keyguard.ui.clocks.ClockViewIds
 import com.android.systemui.res.R
 import com.android.systemui.shared.R as sharedR
@@ -34,6 +35,7 @@ class InfoWidgetsSection
 @Inject
 constructor(
     private val context: Context,
+    private val keyguardClockViewModel: KeyguardClockViewModel,
 ) : KeyguardSection() {
     
     private var infoWidgetsView: View? = null
@@ -61,6 +63,9 @@ constructor(
     
     override fun bindData(constraintLayout: ConstraintLayout) {
         // ProgressImageView components handle their own data binding
+        infoWidgetsView?.let { view ->
+            keyguardClockViewModel.burnInLayer?.addView(view)
+        }
     }
     
     override fun applyConstraints(constraintSet: ConstraintSet) {
@@ -100,6 +105,7 @@ constructor(
     
     override fun removeViews(constraintLayout: ConstraintLayout) {
         infoWidgetsView?.let { view ->
+            keyguardClockViewModel.burnInLayer?.removeView(view)
             (view.parent as? ViewGroup)?.removeView(view)
         }
         infoWidgetsView = null
