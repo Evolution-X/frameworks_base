@@ -20,4 +20,5 @@
     <external-path name="screenrecord" path="."/>
     <cache-path name="multi_user" path="multi_user/" />
     <cache-path name="clipboard_cache" path="clipboard_cache/" />
+    <cache-path name="screenshot" path="screenshot/"/>
 </paths>
