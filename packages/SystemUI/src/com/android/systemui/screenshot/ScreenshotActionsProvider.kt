@@ -21,7 +21,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.UserHandle
 import android.provider.DocumentsContract
+import android.provider.Settings
 import android.util.Log
 import androidx.appcompat.content.res.AppCompatResources
 import com.android.internal.logging.UiEventLogger
@@ -94,6 +96,15 @@ constructor(
     private var result: ScreenshotSavedResult? = null
     private var webUri: Uri? = null
 
+    private val isClipboardOnly: Boolean
+        get() =
+            Settings.System.getIntForUser(
+                context.contentResolver,
+                Settings.System.SCREENSHOT_CLIPBOARD_ONLY,
+                0,
+                UserHandle.USER_CURRENT,
+            ) == 1
+
     init {
         actionsCallback.providePreviewAction(
             PreviewAction(context.resources.getString(R.string.screenshot_edit_description)) {
@@ -135,7 +146,19 @@ constructor(
             }
         }
 
-        if (screenCaptureRecordFeaturesInteractor.isLargeScreenScreencaptureEnabled) {
+        if (isClipboardOnly) {
+            actionsCallback.provideActionButton(
+                ActionButtonAppearance(
+                    AppCompatResources.getDrawable(context, R.drawable.ic_screenshot_save),
+                    null,
+                    context.resources.getString(R.string.screenshot_save_to_storage_label),
+                ),
+                showDuringEntrance = true,
+            ) {
+                debugLog(LogConfig.DEBUG_ACTIONS) { "Save to storage tapped" }
+                actionsCallback.saveToStorage()
+            }
+        } else if (screenCaptureRecordFeaturesInteractor.isLargeScreenScreencaptureEnabled) {
             actionsCallback.provideActionButton(
                 ActionButtonAppearance(
                     AppCompatResources.getDrawable(context, R.drawable.ic_content_copy),
@@ -245,11 +268,11 @@ constructor(
 
     override fun setCompletedScreenshot(result: ScreenshotSavedResult) {
         if (this.result != null) {
-            Log.e(TAG, "Got a second completed screenshot for existing request!")
-            return
+            debugLog(LogConfig.DEBUG_ACTIONS) { "Replacing completed screenshot result" }
         }
         this.result = result
         pendingAction?.also { applicationScope.launch { it.invoke(result) } }
+        pendingAction = null
     }
 
     override fun onAssistContent(assistContent: AssistContent?) {
