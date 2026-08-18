@@ -29,7 +29,6 @@ public final class PixelDeviceRepository {
 
     private static final String TAG = "PixelDeviceRepository";
     public static final String CACHE_KEY = "pi_pixel_device_cache";
-    private static final long CACHE_TTL = 30L * 24 * 60 * 60 * 1000; // 30 days
     private static final int CACHE_VERSION = 2;
     private static final String GOOGLE_URL = "https://developer.android.com";
 
@@ -46,10 +45,21 @@ public final class PixelDeviceRepository {
         public final String buildId;
         public final String securityPatch;
         public final long fetchedAt;
+        // Precise factory image publish date (yyyy-MM-dd), from the image's
+        // Last-Modified header. Null when unavailable — callers fall back to
+        // estimating from the canary month instead.
+        public final String releaseDate;
 
         public PixelProfile(String codename, String model, String brand, String device,
                 String product, String fingerprint, String buildId,
                 String securityPatch, long fetchedAt) {
+            this(codename, model, brand, device, product, fingerprint, buildId,
+                    securityPatch, fetchedAt, null);
+        }
+
+        public PixelProfile(String codename, String model, String brand, String device,
+                String product, String fingerprint, String buildId,
+                String securityPatch, long fetchedAt, String releaseDate) {
             this.codename     = codename;
             this.model        = model;
             this.brand        = brand;
@@ -59,6 +69,7 @@ public final class PixelDeviceRepository {
             this.buildId      = buildId;
             this.securityPatch = securityPatch;
             this.fetchedAt    = fetchedAt;
+            this.releaseDate  = releaseDate;
         }
 
         // Kotlin-style getters for compatibility with existing call sites
@@ -71,23 +82,28 @@ public final class PixelDeviceRepository {
         public String getBuildId()       { return buildId; }
         public String getSecurityPatch() { return securityPatch; }
         public long   getFetchedAt()     { return fetchedAt; }
-    }
+        public String getReleaseDate()   { return releaseDate; }
 
-    // Must be updated when new Pixel codenames are released — devices not listed here
-    // will be silently skipped during network profile fetch in fetchFromNetwork()
-    public static final Set<String> KNOWN_CODENAMES = Collections.unmodifiableSet(
-            new HashSet<>(Arrays.asList(
-                    // Pixel 9 series
-                    "tokay", "caiman", "komodo", "comet", "tegu",
-                    // Pixel 10 series
-                    "frankel", "blazer", "mustang", "rango", "stallion",
-                    // Tablet
-                    "tangorpro"
-            )));
+        /** This profile's canary month (YYYY-MM), derived from securityPatch. */
+        public String getCanaryMonth() {
+            return securityPatch != null && securityPatch.length() >= 7
+                    ? securityPatch.substring(0, 7) : null;
+        }
+    }
 
     public static final Map<String, String> DEVICE_MODEL_MAP;
     static {
         Map<String, String> m = new HashMap<>();
+        m.put("oriole",    "Pixel 6");
+        m.put("raven",     "Pixel 6 Pro");
+        m.put("bluejay",   "Pixel 6a");
+        m.put("panther",   "Pixel 7");
+        m.put("cheetah",   "Pixel 7 Pro");
+        m.put("lynx",      "Pixel 7a");
+        m.put("felix",     "Pixel Fold");
+        m.put("shiba",     "Pixel 8");
+        m.put("husky",     "Pixel 8 Pro");
+        m.put("akita",     "Pixel 8a");
         m.put("tangorpro", "Pixel Tablet");
         m.put("tokay",     "Pixel 9");
         m.put("caiman",    "Pixel 9 Pro");
@@ -111,44 +127,101 @@ public final class PixelDeviceRepository {
         DEVICE_MODEL_MAP = Collections.unmodifiableMap(m);
     }
 
+    // Must be updated when a codename's *tier* (Pro XL vs Pro vs base vs a-series) is
+    // confirmed — used only to pick the default codename, never to filter what the
+    // network fetch returns. Newest-first; unranked/unknown codenames are simply not
+    // eligible to become the default until added here.
+    public static final List<String> GENERATION_ORDER = Collections.unmodifiableList(
+            Arrays.asList(
+                    // Pixel 10 series (current default tier: Pro XL)
+                    "mustang", "rango", "blazer", "frankel", "stallion",
+                    // Pixel 9 series
+                    "komodo", "caiman", "comet", "tokay", "tegu",
+                    // Tablet
+                    "tangorpro"
+            ));
+
+    // Shared default spoof target packages — single source of truth used by both
+    // PixelPropsUtils (runtime) and PixelPropsSettings (UI), rather than three
+    // separately-maintained copies.
+    public static final Set<String> DEFAULT_PP_TARGETS = Collections.unmodifiableSet(
+            new HashSet<>(Arrays.asList(
+                    "com.amazon.avod.thirdpartyclient",
+                    "com.android.chrome",
+                    "com.breel.wallpapers20",
+                    "com.disney.disneyplus",
+                    "com.google.android.aicore",
+                    "com.google.android.apps.accessibility.magnifier",
+                    "com.google.android.apps.aiwallpapers",
+                    "com.google.android.apps.bard",
+                    "com.google.android.apps.customization.pixel",
+                    "com.google.android.apps.emojiwallpaper",
+                    "com.google.android.apps.pixel.agent",
+                    "com.google.android.apps.pixel.creativeassistant",
+                    "com.google.android.apps.pixel.nowplaying",
+                    "com.google.android.apps.pixel.psi",
+                    "com.google.android.apps.pixel.subzero",
+                    "com.google.android.apps.pixel.support",
+                    "com.google.android.apps.privacy.wildlife",
+                    "com.google.android.apps.subscriptions.red",
+                    "com.google.android.apps.wallpaper",
+                    "com.google.android.apps.wallpaper.pixel",
+                    "com.google.android.apps.weather",
+                    "com.google.android.googlequicksearchbox",
+                    "com.google.android.pcs",
+                    "com.google.android.wallpaper.effects",
+                    "com.google.pixel.livewallpaper",
+                    "com.microsoft.android.smsorganizer",
+                    "com.nhs.online.nhsonline",
+                    "com.nothing.smartcenter",
+                    "com.realme.link",
+                    "in.startv.hotstar",
+                    "jp.id_credit_sp2.android"
+            )));
+
+    /**
+     * Returns the newest ranked codename present in [available], per GENERATION_ORDER.
+     * Unranked/unrecognized codenames (e.g. a not-yet-confirmed Pixel 11 tier) are
+     * never auto-selected as default — add them to GENERATION_ORDER once confirmed.
+     */
+    public static String getDefaultPhoneCodename(List<PixelProfile> available) {
+        Set<String> present = new HashSet<>();
+        for (PixelProfile p : available) present.add(p.codename);
+        for (String c : GENERATION_ORDER) {
+            if (present.contains(c)) return c;
+        }
+        return "mustang";
+    }
+
+    public static String getDefaultPhoneCodename() {
+        return getDefaultPhoneCodename(FALLBACK_PROFILES);
+    }
+
     // Hardcoded fallback profiles — only used when network fails AND cache is empty
     public static final List<PixelProfile> FALLBACK_PROFILES;
     static {
         List<PixelProfile> f = new ArrayList<>();
         f.add(new PixelProfile("mustang",   "Pixel 10 Pro XL",   "google", "mustang",   "mustang",
-                "google/mustang/mustang:16/CP1A.260505.005/15081906:user/release-keys",
-                "CP1A.260505.005", "2026-05-05", 0L));
-        f.add(new PixelProfile("rango",     "Pixel 10 Pro Fold", "google", "rango",     "rango",
-                "google/rango/rango:16/CP1A.260505.005/15081906:user/release-keys",
-                "CP1A.260505.005", "2026-05-05", 0L));
-        f.add(new PixelProfile("blazer",    "Pixel 10 Pro",      "google", "blazer",    "blazer",
-                "google/blazer/blazer:16/CP1A.260505.005/15081906:user/release-keys",
-                "CP1A.260505.005", "2026-05-05", 0L));
-        f.add(new PixelProfile("frankel",   "Pixel 10",          "google", "frankel",   "frankel",
-                "google/frankel/frankel:16/CP1A.260505.005/15081906:user/release-keys",
-                "CP1A.260505.005", "2026-05-05", 0L));
-        f.add(new PixelProfile("stallion",  "Pixel 10a",         "google", "stallion",  "stallion",
-                "google/stallion/stallion:16/CP1A.260505.005/15081906:user/release-keys",
-                "CP1A.260505.005", "2026-05-05", 0L));
-        f.add(new PixelProfile("komodo",    "Pixel 9 Pro XL",    "google", "komodo",    "komodo",
-                "google/komodo/komodo:16/CP1A.260505.005/15081906:user/release-keys",
-                "CP1A.260505.005", "2026-05-05", 0L));
-        f.add(new PixelProfile("caiman",    "Pixel 9 Pro",       "google", "caiman",    "caiman",
-                "google/caiman/caiman:16/CP1A.260505.005/15081906:user/release-keys",
-                "CP1A.260505.005", "2026-05-05", 0L));
-        f.add(new PixelProfile("comet",     "Pixel 9 Pro Fold",  "google", "comet",     "comet",
-                "google/comet/comet:16/CP1A.260505.005/15081906:user/release-keys",
-                "CP1A.260505.005", "2026-05-05", 0L));
-        f.add(new PixelProfile("tokay",     "Pixel 9",           "google", "tokay",     "tokay",
-                "google/tokay/tokay:16/CP1A.260505.005/15081906:user/release-keys",
-                "CP1A.260505.005", "2026-05-05", 0L));
-        f.add(new PixelProfile("tegu",      "Pixel 9a",          "google", "tegu",      "tegu",
-                "google/tegu/tegu:16/CP1A.260505.005/15081906:user/release-keys",
-                "CP1A.260505.005", "2026-05-05", 0L));
+                "google/mustang/mustang:17/CP2A.260805.005/15828068:user/release-keys",
+                "CP2A.260805.005", "2026-08-05", 0L));
         f.add(new PixelProfile("tangorpro", "Pixel Tablet",      "google", "tangorpro", "tangorpro",
-                "google/tangorpro/tangorpro:16/CP1A.260505.005/15081906:user/release-keys",
-                "CP1A.260505.005", "2026-05-05", 0L));
+                "google/tangorpro/tangorpro:17/CP2A.260705.006/15641320:user/release-keys",
+                "CP2A.260705.005", "2026-07-05", 0L));
         FALLBACK_PROFILES = Collections.unmodifiableList(f);
+    }
+
+    /**
+     * True if both timestamps fall in the same calendar year+month, using the
+     * device's default timezone. Used to gate re-fetching to once per month
+     * rather than a rolling window, matching canary's actual release cadence.
+     */
+    private static boolean isSameMonth(long a, long b) {
+        java.util.Calendar ca = java.util.Calendar.getInstance();
+        ca.setTimeInMillis(a);
+        java.util.Calendar cb = java.util.Calendar.getInstance();
+        cb.setTimeInMillis(b);
+        return ca.get(java.util.Calendar.YEAR) == cb.get(java.util.Calendar.YEAR)
+                && ca.get(java.util.Calendar.MONTH) == cb.get(java.util.Calendar.MONTH);
     }
 
     private PixelDeviceRepository() {}
@@ -162,8 +235,10 @@ public final class PixelDeviceRepository {
         synchronized (sFetchLock) {
             List<PixelProfile> cached = readCache(context);
             long fetchedAt = cached.isEmpty() ? 0L : cached.get(0).fetchedAt;
-            boolean stale = cached.isEmpty() ||
-                    (System.currentTimeMillis() - fetchedAt) > CACHE_TTL;
+            // Canary profiles turn over roughly once a month; re-fetching within the
+            // same calendar month just re-downloads the same builds. Only treat the
+            // cache as stale once the wall-clock month has actually rolled over.
+            boolean stale = cached.isEmpty() || !isSameMonth(fetchedAt, System.currentTimeMillis());
 
             if (!forceRefresh && !stale) return cached;
 
@@ -185,6 +260,51 @@ public final class PixelDeviceRepository {
 
     public static List<PixelProfile> getProfiles(Context context) {
         return getProfiles(context, false);
+    }
+
+    /**
+     * Validates that a fingerprint string matches the expected Android format:
+     * brand/product/device:VERSION/ID/INCREMENTAL:TYPE/KEYS
+     */
+    public static boolean isValidFingerprint(String fp) {
+        if (fp == null) return false;
+        return fp.matches("^[^/]+/[^/]+/[^:]+:[^/]+/[^/]+/[^:]+:[^/]+/[^:]+$");
+    }
+
+    /**
+     * Returns days elapsed since a YYYY-MM-DD security patch date, or null if
+     * unparseable.
+     */
+    public static Long getPatchAgeDays(String patch) {
+        try {
+            java.text.SimpleDateFormat sdf =
+                    new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
+            java.util.Date d = sdf.parse(patch);
+            if (d == null) return null;
+            return (System.currentTimeMillis() - d.getTime()) / (1000L * 60 * 60 * 24);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Returns days remaining until a canary profile's estimated expiry (~6 weeks
+     * from its release date, falling back to the 1st of its canary month), or
+     * null if unparseable. Negative once expired.
+     */
+    public static Long getDaysUntilExpiry(String canaryMonth, String releaseDate) {
+        try {
+            java.text.SimpleDateFormat sdf =
+                    new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
+            String base = (releaseDate != null && !releaseDate.isEmpty())
+                    ? releaseDate : canaryMonth + "-01";
+            java.util.Date parsed = sdf.parse(base);
+            if (parsed == null) return null;
+            long expiry = parsed.getTime() + 42L * 24 * 60 * 60 * 1000;
+            return (expiry - System.currentTimeMillis()) / (1000L * 60 * 60 * 24);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /**
@@ -240,7 +360,8 @@ public final class PixelDeviceRepository {
                             o.getString("fingerprint"),
                             o.getString("buildId"),
                             o.getString("securityPatch"),
-                            o.getLong("fetchedAt")
+                            o.getLong("fetchedAt"),
+                            o.optString("releaseDate", null)
                     ));
                 } catch (Exception ignored) {}
             }
@@ -267,6 +388,7 @@ public final class PixelDeviceRepository {
                 o.put("buildId",       p.buildId);
                 o.put("securityPatch", p.securityPatch);
                 o.put("fetchedAt",     p.fetchedAt);
+                if (p.releaseDate != null) o.put("releaseDate", p.releaseDate);
                 arr.put(o);
             }
             String json = arr.toString();
@@ -329,15 +451,26 @@ public final class PixelDeviceRepository {
                 }
                 if (bestQprPath == null) continue;
 
-                // Step 3: extract device codenames from QPR table rows
+                // Step 3: extract device codenames from QPR table rows. No known-codename
+                // filter here — an unlisted device (e.g. an unconfirmed Pixel 11 tier) is
+                // still picked up the moment Flash Tool/Google publish it.
                 String qprHtml = readUrl(GOOGLE_URL + bestQprPath);
                 java.util.regex.Matcher rm = rowPattern.matcher(qprHtml);
+                // codename -> friendly model name straight from the page table,
+                // e.g. "bluejay" -> "Pixel 6a". Preferred over DEVICE_MODEL_MAP
+                // since it's always current; the map is only a fallback for the
+                // rare case a row's name cell is empty.
+                Map<String, String> scrapedModelNames = new HashMap<>();
                 List<String> deviceCodenames = new ArrayList<>();
                 Set<String> seenDevices = new HashSet<>();
                 while (rm.find()) {
                     String device = rm.group(1).trim();
-                    if (KNOWN_CODENAMES.contains(device) && seenDevices.add(device)) {
+                    String modelName = rm.group(2).trim();
+                    if (seenDevices.add(device)) {
                         deviceCodenames.add(device);
+                        if (!modelName.isEmpty()) {
+                            scrapedModelNames.put(device, modelName);
+                        }
                     }
                 }
                 if (deviceCodenames.isEmpty()) continue;
@@ -375,6 +508,7 @@ public final class PixelDeviceRepository {
                         String id = null;
                         String incremental = null;
                         String canaryId = null;
+                        String factoryImageUrl = null;
 
                         for (int i = buildsArray.length() - 1; i >= 0; i--) {
                             org.json.JSONObject b = buildsArray.optJSONObject(i);
@@ -388,6 +522,9 @@ public final class PixelDeviceRepository {
                             incremental = bid;
                             String mid = meta.optString("id");
                             if (mid.contains("canary-")) canaryId = mid;
+                            String fiUrl = b.optString("factoryImageDownloadUrl");
+                            if (fiUrl.isEmpty()) fiUrl = meta.optString("factoryImageDownloadUrl");
+                            if (!fiUrl.isEmpty()) factoryImageUrl = fiUrl;
                             break;
                         }
                         if (id == null || incremental == null) continue;
@@ -403,14 +540,20 @@ public final class PixelDeviceRepository {
                             }
                         }
 
+                        // Precise release date from the factory image itself — this is what
+                        // lets expiry tracking be maximally accurate rather than assuming the
+                        // 1st of the canary month.
+                        String releaseDate = fetchLastModifiedDate(factoryImageUrl);
+
                         String fingerprint = "google/" + product + "/" + device
                                 + ":CANARY/" + id + "/" + incremental + ":user/release-keys";
-                        String model = DEVICE_MODEL_MAP.containsKey(device)
-                                ? DEVICE_MODEL_MAP.get(device) : device;
+                        String model = scrapedModelNames.getOrDefault(device,
+                                DEVICE_MODEL_MAP.getOrDefault(
+                                        device, "Unknown Pixel (" + device + ")"));
 
                         profiles.add(new PixelProfile(
                                 device, model, "google", device, product,
-                                fingerprint, id, securityPatch, now));
+                                fingerprint, id, securityPatch, now, releaseDate));
                     } catch (Exception e) {
                         Log.w(TAG, "Failed to fetch canary build for " + device + ": " + e.getMessage());
                     }
@@ -455,6 +598,32 @@ public final class PixelDeviceRepository {
             return new String(bytes, StandardCharsets.UTF_8);
         } finally {
             input.close();
+        }
+    }
+
+    /**
+     * HEAD-requests a factory image URL to read its Last-Modified header,
+     * giving a precise release date instead of assuming the 1st of the
+     * canary month. Returns a yyyy-MM-dd string, or null if unavailable.
+     */
+    private static String fetchLastModifiedDate(String url) {
+        if (url == null || url.isEmpty()) return null;
+        try {
+            java.net.HttpURLConnection conn =
+                    (java.net.HttpURLConnection) new URL(url).openConnection();
+            conn.setRequestMethod("HEAD");
+            conn.setConnectTimeout(10000);
+            conn.setReadTimeout(10000);
+            String lastModified = conn.getHeaderField("Last-Modified");
+            conn.disconnect();
+            if (lastModified == null) return null;
+            java.text.SimpleDateFormat httpFmt = new java.text.SimpleDateFormat(
+                    "EEE, dd MMM yyyy HH:mm:ss zzz", java.util.Locale.US);
+            java.util.Date parsed = httpFmt.parse(lastModified);
+            if (parsed == null) return null;
+            return new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(parsed);
+        } catch (Exception e) {
+            return null;
         }
     }
 }
