@@ -319,4 +319,7 @@
     <string name="saver_confirmation_dialog_summary_extreme_mode">Includes all changes listed above. Also pauses non-essential apps and their notifications.</string>
     <!-- Button in the first-time Battery Saver confirmation dialog that opens Extreme Battery Saver onboarding. [CHAR LIMIT=30] -->
     <string name="saver_confirmation_dialog_setup_action">Set up</string>
+
+    <!-- Label for UI element which writes a clipboard-only screenshot to storage [CHAR LIMIT=30] -->
+    <string name="screenshot_save_to_storage_label">Save to storage</string>
 </resources>
