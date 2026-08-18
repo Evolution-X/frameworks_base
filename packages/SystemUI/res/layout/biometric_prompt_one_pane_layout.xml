@@ -272,6 +272,17 @@
         android:orientation="horizontal"
         app:layout_constraintGuide_begin="@dimen/biometric_prompt_one_pane_medium_top_guideline_padding" />
 
+    <ImageView
+        android:id="@+id/biometric_prompt_udfps_anim"
+        android:layout_width="@dimen/udfps_animation_size"
+        android:layout_height="@dimen/udfps_animation_size"
+        android:importantForAccessibility="no"
+        android:scaleType="centerInside"
+        app:layout_constraintBottom_toBottomOf="@id/biometric_icon"
+        app:layout_constraintEnd_toEndOf="@id/biometric_icon"
+        app:layout_constraintStart_toStartOf="@id/biometric_icon"
+        app:layout_constraintTop_toTopOf="@id/biometric_icon" />
+
     <com.android.systemui.biometrics.BiometricPromptLottieViewWrapper
         android:id="@+id/biometric_icon"
         android:layout_width="wrap_content"
