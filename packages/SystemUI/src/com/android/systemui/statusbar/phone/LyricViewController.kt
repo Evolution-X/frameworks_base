@@ -99,13 +99,21 @@ abstract class LyricViewController(
 
         Dependency.get(DarkIconDispatcher::class.java).addDarkReceiver(this)
         Dependency.get(NotificationListener::class.java).addNotificationHandler(this)
-        lyricsFetcher.addCallback(lyricsCallback)
     }
+
+    private var lyricsCallbackRegistered = false
 
     fun setEnabled(enabled: Boolean) {
         this.enabled = enabled
-        if (!this.enabled && started) {
-            stopLyric()
+        if (enabled && !lyricsCallbackRegistered) {
+            lyricsCallbackRegistered = true
+            lyricsFetcher.addCallback(lyricsCallback)
+        } else if (!enabled && lyricsCallbackRegistered) {
+            lyricsCallbackRegistered = false
+            lyricsFetcher.removeCallback(lyricsCallback)
+            if (started) {
+                stopLyric()
+            }
         }
     }
 
@@ -158,7 +166,10 @@ abstract class LyricViewController(
     override fun onNotificationsInitialized() {}
 
     fun destroy() {
-        lyricsFetcher.removeCallback(lyricsCallback)
+        if (lyricsCallbackRegistered) {
+            lyricsCallbackRegistered = false
+            lyricsFetcher.removeCallback(lyricsCallback)
+        }
     }
 
     fun startLyric() {
