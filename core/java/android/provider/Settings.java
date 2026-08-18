@@ -6946,6 +6946,11 @@ public final class Settings {
         public static final String SCREENSHOT_SHUTTER_SOUND = "screenshot_shutter_sound";
 
         /**
+         * @hide
+         */
+        public static final String SCREENSHOT_CLIPBOARD_ONLY = "screenshot_clipboard_only";
+
+        /**
          * Whether allowing pocket service to register sensors and dispatch informations.
          *   0 = disabled
          *   1 = enabled
