@@ -24,6 +24,7 @@ import androidx.constraintlayout.widget.Barrier
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
 import com.android.systemui.keyguard.shared.model.KeyguardSection
+import com.android.systemui.keyguard.ui.viewmodel.KeyguardClockViewModel
 import com.android.systemui.res.R
 import javax.inject.Inject
 import com.android.systemui.lockscreen.LockScreenWidgets
@@ -34,6 +35,7 @@ class KeyguardWidgetViewSection
 @Inject
 constructor(
     private val context: Context,
+    private val keyguardClockViewModel: KeyguardClockViewModel,
 ) : KeyguardSection() {
 
     private var widgetView: LockScreenWidgets? = null
@@ -123,6 +125,7 @@ constructor(
             
             // Force a layout pass to ensure the view is measured and laid out
             view.requestLayout()
+            keyguardClockViewModel.burnInLayer?.addView(view)
         }
     }
 
@@ -167,6 +170,7 @@ constructor(
     override fun removeViews(constraintLayout: ConstraintLayout) {
         Log.d(TAG, "removeViews called")
         widgetView?.let { view ->
+            keyguardClockViewModel.burnInLayer?.removeView(view)
             try {
                 constraintLayout.removeView(view)
                 Log.d(TAG, "Successfully removed widget view")
