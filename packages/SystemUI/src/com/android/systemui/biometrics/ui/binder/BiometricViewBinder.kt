@@ -208,6 +208,8 @@ object BiometricViewBinder {
             subtitleView.text = viewModel.subtitle.first()
             descriptionView.text = viewModel.description.first()
 
+            var udfpsAnimController: UdfpsPromptAnimationController? = null
+
             if (modalities.hasUdfps) {
                 val udfpsGuidanceViewStub =
                     view.findViewById<ViewStub>(R.id.biometric_prompt_udfps_accessibility_overlay)
@@ -217,6 +219,8 @@ object BiometricViewBinder {
                         viewModel.udfpsAccessibilityOverlayViewModel,
                     )
                 }
+                val udfpsAnimView = view.requireViewById<ImageView>(R.id.biometric_prompt_udfps_anim)
+                udfpsAnimController = UdfpsPromptAnimationBinder.bind(udfpsAnimView, viewModel)
             }
 
             BiometricCustomizedViewBinder.bind(
@@ -226,6 +230,11 @@ object BiometricViewBinder {
             )
 
             // set button listeners
+            iconView.onTouchListener { _: View, event: MotionEvent ->
+                udfpsAnimController?.onTouchEvent(event)
+                viewModel.onOverlayTouch(event)
+            }
+
             closeButton.setOnClickListener { legacyCallback.onUserCanceled() }
             cancelButton.setOnClickListener { legacyCallback.onUserCanceled() }
             credentialFallbackButton.setOnClickListener {
@@ -390,19 +399,6 @@ object BiometricViewBinder {
                                 credentialFallbackButton.visibility = View.GONE
                                 fallbackButton.visibility = View.GONE
                             }
-                        }
-                    }
-                }
-
-                // reuse the icon as a confirm button
-                launch {
-                    viewModel.isIconConfirmButton.collect { isButton ->
-                        if (isButton && !accessibilityManager.isEnabled) {
-                            iconView.onTouchListener { _: View, event: MotionEvent ->
-                                viewModel.onOverlayTouch(event)
-                            }
-                        } else {
-                            iconView.setOnTouchListener(null)
                         }
                     }
                 }
