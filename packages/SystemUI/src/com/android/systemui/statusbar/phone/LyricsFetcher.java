@@ -25,6 +25,7 @@ import android.media.session.PlaybackState;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
+import android.os.Process;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import android.util.Log;
@@ -147,7 +148,7 @@ public class LyricsFetcher {
     private LyricsFetcher(Context context) {
         mContext = context.getApplicationContext();
         mMediaSessionManager = mContext.getSystemService(MediaSessionManager.class);
-        mWorkerThread = new HandlerThread("LyricsFetcher-worker");
+        mWorkerThread = new HandlerThread("LyricsFetcher-worker", Process.THREAD_PRIORITY_BACKGROUND);
         mWorkerThread.start();
         mWorkerHandler = new Handler(mWorkerThread.getLooper());
     }
