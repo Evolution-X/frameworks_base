@@ -17,6 +17,7 @@
 package com.android.systemui.screenshot
 
 import android.app.assist.AssistContent
+import android.util.Log
 import com.android.systemui.screenshot.ui.viewmodel.ActionButtonAppearance
 import com.android.systemui.screenshot.ui.viewmodel.PreviewAction
 import com.android.systemui.screenshot.ui.viewmodel.ScreenshotViewModel
@@ -24,6 +25,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import java.util.UUID
+import java.util.function.Consumer
 
 /**
  * Responsible for obtaining the actions for each screenshot and sending them to the view model.
@@ -36,6 +38,7 @@ constructor(
     private val viewModel: ScreenshotViewModel,
     private val actionsProviderFactory: ScreenshotActionsProvider.Factory,
     @Assisted val actionExecutor: ActionExecutor,
+    @Assisted private val onSaveToStorageRequested: (Consumer<ScreenshotSavedResult?>) -> Unit,
 ) {
     private val actionProviders: MutableMap<UUID, ScreenshotActionsProvider> = mutableMapOf()
     private var currentScreenshotId: UUID? = null
@@ -81,7 +84,10 @@ constructor(
 
     @AssistedFactory
     interface Factory {
-        fun getController(actionExecutor: ActionExecutor): ScreenshotActionsController
+        fun getController(
+            actionExecutor: ActionExecutor,
+            onSaveToStorageRequested: (Consumer<ScreenshotSavedResult?>) -> Unit,
+        ): ScreenshotActionsController
     }
 
     inner class ActionsCallback(private val screenshotId: UUID) {
@@ -113,5 +119,24 @@ constructor(
                 viewModel.setActionVisibility(buttonId, visible)
             }
         }
+
+        fun saveToStorage() {
+            if (screenshotId != currentScreenshotId) {
+                return
+            }
+            onSaveToStorageRequested(
+                Consumer { result ->
+                    if (result != null) {
+                        setCompletedScreenshot(screenshotId, result)
+                    } else {
+                        Log.e(TAG, "Failed to save screenshot to storage on demand")
+                    }
+                }
+            )
+        }
+    }
+
+    companion object {
+        private const val TAG = "ScreenshotActionsCtrl"
     }
 }
