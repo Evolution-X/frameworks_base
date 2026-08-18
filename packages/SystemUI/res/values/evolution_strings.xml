@@ -288,4 +288,7 @@
     <string name="usage_data_weekly">used this week</string>
     <string name="usage_data_default_suffix">Data</string>
     <string name="usage_wifi_default_suffix">Wi-Fi</string>
+
+    <!-- Label for UI element which writes a clipboard-only screenshot to storage [CHAR LIMIT=30] -->
+    <string name="screenshot_save_to_storage_label">Save to storage</string>
 </resources>

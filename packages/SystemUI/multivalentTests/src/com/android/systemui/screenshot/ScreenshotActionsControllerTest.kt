@@ -65,7 +65,7 @@ class ScreenshotActionsControllerTest : SysuiTestCase() {
     @Before
     fun setUp() {
         actionsController =
-            ScreenshotActionsController(viewModel, actionsProviderFactory, actionExecutor)
+            ScreenshotActionsController(viewModel, actionsProviderFactory, actionExecutor) {}
     }
 
     @Test
