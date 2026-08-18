@@ -59,6 +59,7 @@ public class LyricsFetcher {
     private static final int MAX_RETRIES = 2;
 
     private static volatile LyricsFetcher sInstance;
+    private static volatile HttpURLConnection mInFlightConnection;
 
     public static synchronized LyricsFetcher getInstance(Context context) {
         if (sInstance == null) {
@@ -306,9 +307,17 @@ public class LyricsFetcher {
         mRetryCount = 0;
 
         final int generation = ++mFetchGeneration;
-        final String cleanArtist = cleanArtistName(artist);
-        final String cleanSong = cleanSongTitle(song);
-        mWorkerHandler.post(() -> fetchLyrics(cleanArtist, cleanSong, generation));
+
+        HttpURLConnection stale = mInFlightConnection;
+        if (stale != null) {
+            mWorkerHandler.post(stale::disconnect);
+        }
+        
+        mWorkerHandler.post(() -> {
+            String cleanArtist = cleanArtistName(artist);
+            String cleanSong = cleanSongTitle(song);
+            fetchLyrics(cleanArtist, cleanSong, generation);
+        });
     }
 
     private void fetchLyrics(String artist, String song, int generation) {
@@ -317,6 +326,8 @@ public class LyricsFetcher {
         boolean failed = false;
         HttpURLConnection conn = null;
         try {
+            if (generation != mFetchGeneration) return;
+
             String query = URLEncoder.encode(artist + " " + song, "UTF-8");
             URL url = new URL(LRCLIB_URL + query);
             conn = (HttpURLConnection) url.openConnection();
@@ -325,6 +336,8 @@ public class LyricsFetcher {
             conn.setReadTimeout(5000);
             conn.setRequestProperty("User-Agent", "SystemUI-LunarisLyrics/1.0 (https://github.com/Lunaris-AOSP)");
 
+            mInFlightConnection = conn;
+
             if (conn.getResponseCode() == 200) {
                 StringBuilder sb = new StringBuilder();
                 try (BufferedReader reader = new BufferedReader(
@@ -332,6 +345,8 @@ public class LyricsFetcher {
                     String line;
                     while ((line = reader.readLine()) != null) sb.append(line);
                 }
+                if (generation != mFetchGeneration) return;
+
                 JSONArray results = new JSONArray(sb.toString());
                 if (results.length() > 0) {
                     JSONObject best = results.getJSONObject(0);
@@ -344,15 +359,18 @@ public class LyricsFetcher {
                         plainLyrics = plain;
                     }
                 }
-                } else {
+            } else {
                 failed = true;
             }
         } catch (Exception e) {
-            failed = true;
-            if (DEBUG) Log.e(TAG, "Failed to fetch lyrics", e);
-            } finally {
+            if (generation == mFetchGeneration && DEBUG) Log.e(TAG, "Failed to fetch lyrics", e);
+            failed = (generation == mFetchGeneration);
+        } finally {
             if (conn != null) {
                 conn.disconnect();
+            }
+            if (mInFlightConnection == conn) {
+                mInFlightConnection = null;
             }
         }
 
