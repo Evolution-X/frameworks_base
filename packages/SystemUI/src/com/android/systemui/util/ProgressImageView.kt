@@ -138,6 +138,11 @@ class ProgressImageView @JvmOverloads constructor(
         val screenFilter = IntentFilter(Intent.ACTION_SCREEN_ON)
         context.registerReceiver(screenOnReceiver, screenFilter, Context.RECEIVER_NOT_EXPORTED)
         context.contentResolver.registerContentObserver(
+            Settings.System.getUriFor("lockscreen_widgets_enabled"),
+            false,
+            settingsObserver
+        )
+        context.contentResolver.registerContentObserver(
             Settings.System.getUriFor("lockscreen_info_widgets_enabled"),
             false,
             settingsObserver
@@ -275,11 +280,15 @@ class ProgressImageView @JvmOverloads constructor(
     }
     
     private fun updateVisibility() {
-        val enabled = Settings.System.getInt(
+        val masterEnabled = Settings.System.getInt(
+            context.contentResolver,
+            "lockscreen_widgets_enabled", 0
+        ) == 1
+        val infoEnabled = Settings.System.getInt(
             context.contentResolver,
             "lockscreen_info_widgets_enabled", 0
         ) == 1
-        visibility = if (enabled) VISIBLE else GONE
+        visibility = if (masterEnabled && infoEnabled) VISIBLE else GONE
     }
 
     companion object {
