@@ -31,7 +31,6 @@ import com.android.systemui.dagger.qualifiers.PerUser;
 import com.android.systemui.dump.DumpManager;
 import com.android.systemui.charging.ChargingAnimationViewController;
 import com.android.systemui.edgelight.EdgeLightViewController;
-import com.android.systemui.nowplaying.NowPlayingViewController;
 import com.android.systemui.keyguard.KeyguardSliceProvider;
 import com.android.systemui.media.MediaViewController;
 import com.android.systemui.people.PeopleProvider;
@@ -254,9 +253,6 @@ public interface SysUIComponent {
 
     @SysUISingleton
     EdgeLightViewController edgeLightViewController();
-
-    @SysUISingleton
-    NowPlayingViewController nowPlayingViewController();
 
     @SysUISingleton
     ChargingAnimationViewController chargingAnimationViewController();
