@@ -41,7 +41,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
@@ -400,6 +403,7 @@ private fun KeyguardChipBody(
             modifier = Modifier
                 .height(dynamicHeight)
                 .widthIn(min = dynamicMinWidth, max = 180.dp)
+                .border(BorderStroke(0.3.dp, chipStrokeColor()), ChipShape)
                 .clip(ChipShape)
                 .squishAnimation(toggleCount)
                 .background(Color.Transparent)
@@ -664,9 +668,10 @@ private fun KeyguardBatteryChip(
         Row(
             modifier = modifier
                 .height(dynamicHeight)
+                .widthIn(min = 48.dp, max = 180.dp)
+                .border(BorderStroke(0.3.dp, chipStrokeColor()), ChipShape)
                 .clip(ChipShape)
                 .background(Color.Transparent)
-                .widthIn(min = 48.dp, max = 180.dp)
                 .padding(horizontal = SpaceMd)
                 .animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec()),
             verticalAlignment = Alignment.CenterVertically,
@@ -1195,6 +1200,12 @@ private fun ActionButton(
             )
         }
     }
+}
+
+@Composable
+private fun chipStrokeColor(): Color {
+    val base = if (isSystemInDarkTheme()) Color.White else Color.Black
+    return base.copy(alpha = 0.3f)
 }
 
 @Composable
