@@ -109,6 +109,7 @@ import com.android.systemui.motioncues.MotionCuesModule;
 import com.android.systemui.navigationbar.NavigationBarComponent;
 import com.android.systemui.navigationbar.gestural.dagger.GestureModule;
 import com.android.systemui.notetask.NoteTaskModule;
+import com.android.systemui.nowplaying.ambient.NowPlayingKeyguardSection;
 import com.android.systemui.people.PeopleModule;
 import com.android.systemui.personalcontext.dagger.PersonalContextModule;
 import com.android.systemui.personalcontext.dagger.PersonalContextModuleCompat;
@@ -627,4 +628,9 @@ public abstract class SystemUIModule {
     @Named(KeyguardSectionsModule.KEYGUARD_AMBIENT_INDICATION_AREA_SECTION)
     abstract KeyguardSection bindDefaultAmbientIndicationAreaSection(
             DefaultAmbientIndicationAreaSection impl);
+
+    @Binds
+    @Named(KeyguardSectionsModule.KEYGUARD_NOW_PLAYING_SECTION)
+    abstract KeyguardSection bindNowPlayingKeyguardSection(
+            NowPlayingKeyguardSection impl);
 }
