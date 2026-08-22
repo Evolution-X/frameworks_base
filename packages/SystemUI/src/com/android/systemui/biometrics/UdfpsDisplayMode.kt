@@ -38,14 +38,12 @@ constructor(
     // The request is reset to null after it's processed.
     private var currentRequest: Request? = null
 
+    override fun getCurrentToken(): Any? = currentRequest
+
     override fun enable(onEnabled: Runnable?) {
         execution.isMainThread()
         logger.v(TAG, "enable")
 
-        if (currentRequest != null) {
-            logger.e(TAG, "enable | already requested")
-            return
-        }
         if (authController.udfpsRefreshRateCallback == null) {
             logger.e(TAG, "enable | mDisplayManagerCallback is null")
             return
@@ -93,6 +91,51 @@ constructor(
         currentRequest = null
         onDisabled?.run() ?: logger.w(TAG, "disable | onDisabled is null")
         Trace.endSection()
+    }
+
+    override fun disableIfCurrent(expectedToken: Any?, onDisabled: Runnable?): Boolean {
+        execution.isMainThread()
+        if (currentRequest !== expectedToken) {
+            logger.v(TAG, "disableIfCurrent | stale, superseded by a newer request; skipping")
+            return false
+        }
+        disable(onDisabled)
+        return true
+    }
+
+    override fun requestRate(refreshRate: Float) {
+        execution.isMainThread()
+
+        val request = currentRequest
+        if (request == null) {
+            logger.w(TAG, "requestRate | no active UDFPS request")
+            return
+        }
+        if (authController.udfpsRefreshRateCallback == null) {
+            logger.e(TAG, "requestRate | mDisplayManagerCallback is null")
+            return
+        }
+
+        Trace.beginSection("UdfpsDisplayMode.requestRate")
+
+        try {
+            authController.udfpsRefreshRateCallback!!.onRequestRate(request.displayId, refreshRate)
+            logger.v(TAG, "requestRate | requested $refreshRate Hz for UDFPS wind-down")
+        } catch (e: RemoteException) {
+            logger.e(TAG, "requestRate", e)
+        }
+
+        Trace.endSection()
+    }
+
+    override fun requestRateIfCurrent(expectedToken: Any?, refreshRate: Float): Boolean {
+        execution.isMainThread()
+        if (currentRequest !== expectedToken) {
+            logger.v(TAG, "requestRateIfCurrent | stale, superseded by a newer request; skipping")
+            return false
+        }
+        requestRate(refreshRate)
+        return true
     }
 }
 
