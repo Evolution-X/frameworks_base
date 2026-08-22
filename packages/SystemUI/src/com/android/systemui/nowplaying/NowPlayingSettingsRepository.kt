@@ -1,5 +1,8 @@
 /*
- * Copyright (C) 2024-2025 Lunaris AOSP
+ * Copyright (C) 2024-2026 Lunaris AOSP
+ *
+ * SPDX-FileCopyrightText: Evolution X
+ * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,14 +35,11 @@ data class NowPlayingSettings(
     val colorMode: Int,
     val iconStyle: Int,
     val iconSize: Int,
-    val useCompactStyle: Boolean,
-    val verticalPosition: Float,
     val trackTextSize: Float,
     val artistTextSize: Float,
     val showOnAod: Boolean,
     val showOnLockscreen: Boolean,
     val tapToExpand: Boolean = true,
-    val useWaveformSeekBar: Boolean = false,
     val useLyricsMode: Boolean = false
 )
 
@@ -47,7 +47,6 @@ class NowPlayingSettingsRepository(context: Context) {
 
     private val resolver: ContentResolver = context.contentResolver
 
-    private val DEFAULT_VERTICAL_POSITION = 98
     private val DEFAULT_TRACK_SIZE = 14
     private val DEFAULT_ARTIST_SIZE = 12
     private val DEFAULT_ICON_STYLE = 0
@@ -58,69 +57,53 @@ class NowPlayingSettingsRepository(context: Context) {
         observeSettingInt(SETTING_COLOR_MODE, 0),
         observeSettingInt(SETTING_ICON_STYLE, DEFAULT_ICON_STYLE),
         observeSettingInt(SETTING_ICON_SIZE, DEFAULT_ICON_SIZE),
-        observeSettingInt(SETTING_USE_COMPACT_STYLE, 0),
-        observeSettingInt(SETTING_VERTICAL_POSITION, DEFAULT_VERTICAL_POSITION),
         observeSettingInt(SETTING_TRACK_TEXT_SIZE, DEFAULT_TRACK_SIZE),
         observeSettingInt(SETTING_ARTIST_TEXT_SIZE, DEFAULT_ARTIST_SIZE),
         observeSettingInt(SETTING_SHOW_ON_AOD, 1),
         observeSettingInt(SETTING_SHOW_ON_LOCKSCREEN, 1),
         observeSettingInt(SETTING_TAP_TO_EXPAND, 1),
-        observeSettingInt(SETTING_WAVEFORM_SEEKBAR, 0),
         observeSettingInt(SETTING_LYRICS_MODE, 0),
     ) { flows: Array<Any?> ->
         val enabled = flows[0] as Int
         val colorMode = flows[1] as Int
         val iconStyle = flows[2] as Int
         val iconSize = flows[3] as Int
-        val compactStyle = flows[4] as Int
-        val positionInt = flows[5] as Int
-        val trackSize = flows[6] as Int
-        val artistSize = flows[7] as Int
-        val showAod = flows[8] as Int
-        val showLock = flows[9] as Int
-        val tapToExpand = flows[10] as Int
-        val waveform = flows[11] as Int
-        val lyricsMode = flows[12] as Int
-        val position = (positionInt / 100f).coerceIn(0.1f, 1.0f)
+        val trackSize = flows[4] as Int
+        val artistSize = flows[5] as Int
+        val showAod = flows[6] as Int
+        val showLock = flows[7] as Int
+        val tapToExpand = flows[8] as Int
+        val lyricsMode = flows[9] as Int
         val iconStyleClamped = iconStyle.coerceIn(0, 2)
         val iconSizeClamped = iconSize.coerceIn(5, 40)
         val trackSizeClamped = trackSize.toFloat().coerceIn(8f, 24f)
         val artistSizeClamped = artistSize.toFloat().coerceIn(5f, 20f)
-        
+
         NowPlayingSettings(
             isEnabled = enabled == 1,
             colorMode = colorMode.coerceIn(0, 2),
             iconStyle = iconStyleClamped,
             iconSize = iconSizeClamped,
-            useCompactStyle = compactStyle == 1,
-            verticalPosition = position,
             trackTextSize = trackSizeClamped,
             artistTextSize = artistSizeClamped,
             showOnAod = showAod == 1,
             showOnLockscreen = showLock == 1,
             tapToExpand = tapToExpand == 1,
-            useWaveformSeekBar = waveform == 1,
             useLyricsMode = lyricsMode == 1,
         )
     }.distinctUntilChanged()
 
     fun currentSettings(): NowPlayingSettings {
-        val positionInt = Settings.System.getIntForUser(
-            resolver, 
-            SETTING_VERTICAL_POSITION, 
-            DEFAULT_VERTICAL_POSITION, 
-            UserHandle.USER_CURRENT
-        )
         val trackSizeInt = Settings.System.getIntForUser(
-            resolver, 
-            SETTING_TRACK_TEXT_SIZE, 
-            DEFAULT_TRACK_SIZE, 
+            resolver,
+            SETTING_TRACK_TEXT_SIZE,
+            DEFAULT_TRACK_SIZE,
             UserHandle.USER_CURRENT
         )
         val artistSizeInt = Settings.System.getIntForUser(
-            resolver, 
-            SETTING_ARTIST_TEXT_SIZE, 
-            DEFAULT_ARTIST_SIZE, 
+            resolver,
+            SETTING_ARTIST_TEXT_SIZE,
+            DEFAULT_ARTIST_SIZE,
             UserHandle.USER_CURRENT
         )
         val iconStyle = Settings.System.getIntForUser(
@@ -135,7 +118,7 @@ class NowPlayingSettingsRepository(context: Context) {
             DEFAULT_ICON_SIZE,
             UserHandle.USER_CURRENT
         )
-        
+
         return NowPlayingSettings(
             isEnabled = Settings.System.getIntForUser(
                 resolver, SETTING_ENABLED, 0, UserHandle.USER_CURRENT
@@ -145,10 +128,6 @@ class NowPlayingSettingsRepository(context: Context) {
             ).coerceIn(0, 2),
             iconStyle = iconStyle.coerceIn(0, 2),
             iconSize = iconSize.coerceIn(5, 40),
-            useCompactStyle = Settings.System.getIntForUser(
-                resolver, SETTING_USE_COMPACT_STYLE, 0, UserHandle.USER_CURRENT
-            ) == 1,
-            verticalPosition = (positionInt / 100f).coerceIn(0.1f, 1.0f),
             trackTextSize = trackSizeInt.toFloat().coerceIn(8f, 24f),
             artistTextSize = artistSizeInt.toFloat().coerceIn(5f, 20f),
             showOnAod = Settings.System.getIntForUser(
@@ -159,9 +138,6 @@ class NowPlayingSettingsRepository(context: Context) {
             ) == 1,
             tapToExpand = Settings.System.getIntForUser(
                 resolver, SETTING_TAP_TO_EXPAND, 1, UserHandle.USER_CURRENT
-            ) == 1,
-            useWaveformSeekBar = Settings.System.getIntForUser(
-                resolver, SETTING_WAVEFORM_SEEKBAR, 0, UserHandle.USER_CURRENT
             ) == 1,
             useLyricsMode = Settings.System.getIntForUser(
                 resolver, SETTING_LYRICS_MODE, 0, UserHandle.USER_CURRENT
@@ -177,7 +153,7 @@ class NowPlayingSettingsRepository(context: Context) {
                 trySend(value)
             }
         }
-        
+
         try {
             resolver.registerContentObserver(uri, false, observer)
             val initialValue = Settings.System.getIntForUser(resolver, key, default, UserHandle.USER_CURRENT)
@@ -186,8 +162,8 @@ class NowPlayingSettingsRepository(context: Context) {
             Log.e(TAG, "Error observing setting: $key", e)
             trySend(default)
         }
-        
-        awaitClose { 
+
+        awaitClose {
             try {
                 resolver.unregisterContentObserver(observer)
             } catch (e: Exception) {
@@ -202,14 +178,11 @@ class NowPlayingSettingsRepository(context: Context) {
         private const val SETTING_COLOR_MODE = "nowplaying_color_mode"
         private const val SETTING_ICON_STYLE = "nowplaying_icon_style"
         private const val SETTING_ICON_SIZE = "nowplaying_icon_size"
-        private const val SETTING_USE_COMPACT_STYLE = "nowplaying_use_compact_style"
-        private const val SETTING_VERTICAL_POSITION = "nowplaying_vertical_position"
         private const val SETTING_TRACK_TEXT_SIZE = "nowplaying_track_text_size"
         private const val SETTING_ARTIST_TEXT_SIZE = "nowplaying_artist_text_size"
         private const val SETTING_SHOW_ON_AOD = "nowplaying_show_on_aod"
         private const val SETTING_SHOW_ON_LOCKSCREEN = "nowplaying_show_on_lockscreen"
         private const val SETTING_TAP_TO_EXPAND = "nowplaying_tap_to_expand"
-        private const val SETTING_WAVEFORM_SEEKBAR = "media_waveform_seekbar"
         private const val SETTING_LYRICS_MODE = "nowplaying_lyrics_mode"
 
         const val COLOR_MODE_WHITE = 0

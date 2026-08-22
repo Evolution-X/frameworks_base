@@ -7,4 +7,5 @@
     <string name="accessibility_now_playing_play_icon">Play on Default Music Player</string>
     <string name="accessibility_now_playing_unlike_icon">Remove from favorites</string>
     <string name="now_playing_label">Now Playing</string>
+    <string name="now_playing_track_and_artist_description">Now playing: %1$s by %2$s</string>
 </resources>
