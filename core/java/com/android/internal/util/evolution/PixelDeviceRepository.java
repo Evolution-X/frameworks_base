@@ -133,7 +133,9 @@ public final class PixelDeviceRepository {
     // eligible to become the default until added here.
     public static final List<String> GENERATION_ORDER = Collections.unmodifiableList(
             Arrays.asList(
-                    // Pixel 10 series (current default tier: Pro XL)
+                    // Pixel 11 series (current default tier: Pro XL)
+                    "kodiak", "grizzly", "yogi", "cubs",
+                    // Pixel 10 series
                     "mustang", "rango", "blazer", "frankel", "stallion",
                     // Pixel 9 series
                     "komodo", "caiman", "comet", "tokay", "tegu",
@@ -190,7 +192,7 @@ public final class PixelDeviceRepository {
         for (String c : GENERATION_ORDER) {
             if (present.contains(c)) return c;
         }
-        return "mustang";
+        return "kodiak";
     }
 
     public static String getDefaultPhoneCodename() {
@@ -201,6 +203,9 @@ public final class PixelDeviceRepository {
     public static final List<PixelProfile> FALLBACK_PROFILES;
     static {
         List<PixelProfile> f = new ArrayList<>();
+        f.add(new PixelProfile("kodiak",    "Pixel 11 Pro XL",   "google", "kodiak",    "kodiak",
+                "google/kodiak/kodiak:17/CD1A.260714.001.A9/15938155:user/release-keys",
+                "CD1A.260714.001.A9", "2026-08-05", 0L));
         f.add(new PixelProfile("mustang",   "Pixel 10 Pro XL",   "google", "mustang",   "mustang",
                 "google/mustang/mustang:17/CP2A.260805.005/15828068:user/release-keys",
                 "CP2A.260805.005", "2026-08-05", 0L));
@@ -309,7 +314,7 @@ public final class PixelDeviceRepository {
 
     /**
      * Returns a single profile by codename from cache.
-     * Falls back to mustang (mobile) or tangorpro (tablet) if not found.
+     * Falls back to kodiak (mobile) or tangorpro (tablet) if not found.
      * Safe to call from any thread.
      */
     public static PixelProfile getProfileByCodename(Context context, String codename,
@@ -320,7 +325,7 @@ public final class PixelDeviceRepository {
                 cached = readCache(context);
                 sMemoryCache = cached;
             }
-            String defaultCodename = isTablet ? "tangorpro" : "mustang";
+            String defaultCodename = isTablet ? "tangorpro" : "kodiak";
             PixelProfile result = findByCodename(cached, codename);
             if (result == null) result = findByCodename(cached, defaultCodename);
             if (result == null) result = findByCodename(FALLBACK_PROFILES, codename);
@@ -328,7 +333,7 @@ public final class PixelDeviceRepository {
             return result;
         } catch (Exception e) {
             Log.w(TAG, "getProfileByCodename failed, using fallback: " + e.getMessage());
-            return findByCodename(FALLBACK_PROFILES, isTablet ? "tangorpro" : "mustang");
+            return findByCodename(FALLBACK_PROFILES, isTablet ? "tangorpro" : "kodiak");
         }
     }
 
