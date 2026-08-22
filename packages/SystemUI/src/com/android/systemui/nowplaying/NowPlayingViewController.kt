@@ -1,6 +1,9 @@
 /*
  * Copyright (C) 2024-2026 Lunaris AOSP
  *
+ * SPDX-FileCopyrightText: Evolution X
+ * SPDX-License-Identifier: Apache-2.0
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -18,16 +21,24 @@ package com.android.systemui.nowplaying
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.Rect
 import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.util.Log
-import android.view.WindowManager
-import android.widget.FrameLayout
+import android.view.View
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.palette.graphics.Palette
 import com.android.settingslib.Utils
 import com.android.systemui.dagger.SysUISingleton
+import com.android.systemui.lifecycle.repeatWhenAttached
+import com.android.systemui.nowplaying.ambient.NowPlayingAmbientContainer
+import com.android.systemui.nowplaying.ambient.NowPlayingAmbientViewModel
+import com.android.systemui.nowplaying.ambient.PixelAmbientIndicationDetector
+import com.android.systemui.plugins.FalsingManager
+import com.android.systemui.power.domain.interactor.PowerInteractor
 import com.android.systemui.res.R
 import com.android.systemui.util.ScrimUtils
 import com.android.systemui.statusbar.phone.LyricsFetcher
@@ -40,10 +51,20 @@ class NowPlayingViewController
 @Inject
 constructor(
     private val context: Context,
+    private val ambientViewModel: NowPlayingAmbientViewModel,
+    private val falsingManager: FalsingManager,
+    private val powerInteractor: PowerInteractor,
 ) : ScrimUtils.ScrimEventListener {
 
-    private val nowPlayingView = NowPlayingView(context)
-        .apply { id = R.id.now_playing_view }
+    private val nativeAmbientIndicationAvailable: Boolean by lazy {
+        PixelAmbientIndicationDetector.shouldUseNativeAmbientIndication(context)
+    }
+
+    private val ambientContainer: NowPlayingAmbientContainer by lazy {
+        NowPlayingAmbientContainer.inflate(context).apply {
+            id = R.id.now_playing_view
+        }
+    }
     private val settingsRepo = NowPlayingSettingsRepository(context)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -73,21 +94,15 @@ constructor(
 
     private val lyricsCallback = object : LyricsFetcher.Callback {
         override fun onSyncedLineChanged(prevLine: String?, currentLine: String?, nextLine: String?) {
-            nowPlayingView.prevLyric = prevLine ?: ""
-            nowPlayingView.currentLyric = currentLine ?: ""
-            nowPlayingView.nextLyric = nextLine ?: ""
+            ambientContainer.setLyricLine(currentLine)
         }
 
         override fun onPlainLyricsAvailable(plainLyrics: String) {
-            nowPlayingView.prevLyric = ""
-            nowPlayingView.currentLyric = plainLyrics
-            nowPlayingView.nextLyric = ""
+            ambientContainer.setLyricLine(plainLyrics)
         }
 
         override fun onLyricsCleared() {
-            nowPlayingView.prevLyric = ""
-            nowPlayingView.currentLyric = ""
-            nowPlayingView.nextLyric = ""
+            ambientContainer.setLyricLine(null)
         }
     }
 
@@ -109,14 +124,6 @@ constructor(
     }
 
     private var currentAlbumArtColor: Int? = null
-
-    private val expandedOverlay: NowPlayingExpandedOverlay by lazy {
-        NowPlayingExpandedOverlay(
-            context = context,
-            windowManager = context.getSystemService(WindowManager::class.java)!!,
-            mediaSessionManager = mediaSessionManager,
-        )
-    }
 
     private val mediaCallback = object : MediaController.Callback() {
         override fun onMetadataChanged(metadata: MediaMetadata?) {
@@ -162,34 +169,33 @@ constructor(
     init {
         INSTANCE = this
 
-        try {
-            ScrimUtils.get()?.addListener(this)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error adding ScrimUtils listener", e)
-        }
-        
-        observeSettings()
-        
-        startMediaMonitoring()
-
-        nowPlayingView.isClickable = true
-        nowPlayingView.isFocusable = true
-        nowPlayingView.setOnClickListener {
-            if (NowPlayingOverlayState.isOverlayOpen.value) {
-                expandedOverlay.hide()
-            } else if (currentSettings.tapToExpand) {
-                expandedOverlay.show()
+        if (!nativeAmbientIndicationAvailable) {
+            try {
+                ScrimUtils.get()?.addListener(this)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error adding ScrimUtils listener", e)
             }
+
+            observeSettings()
+            observeBurnInTranslation()
+            observeRootViewTapOutside()
+
+            startMediaMonitoring()
+
+            ambientContainer.isClickable = true
+            ambientContainer.isFocusable = true
+            ambientContainer.falsingManager = falsingManager
+            ambientContainer.powerInteractor = powerInteractor
         }
     }
 
-    fun getNowPlayingView(): FrameLayout = nowPlayingView
+    fun getNowPlayingView(): View = ambientContainer
 
     private fun observeSettings() {
         settingsJob?.cancel()
         settingsJob = scope.launch {
             settingsRepo.settingsFlow
-                .catch { e -> 
+                .catch { e ->
                     Log.e(TAG, "Error observing settings", e)
                 }
                 .collect { settings ->
@@ -199,12 +205,55 @@ constructor(
         }
     }
 
+    /**
+     * Applies AOD burn-in-protection translation to the ambient pill, keeping it in sync with
+     * the rest of the keyguard's burn-in-protected elements instead of sitting static in one
+     * spot for hours during doze.
+     */
+    private fun observeBurnInTranslation() {
+        scope.launch {
+            ambientContainer.repeatWhenAttached {
+                repeatOnLifecycle(Lifecycle.State.CREATED) {
+                    launch {
+                        ambientViewModel.translationX.collect { x ->
+                            ambientContainer.translationX = x
+                        }
+                    }
+                    launch {
+                        ambientViewModel.translationY.collect { y ->
+                            ambientContainer.translationY = y
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Collapses the expanded album-art card when the user taps anywhere on the keyguard root
+     * view outside the pill/card's own bounds, matching Google's tap-outside-to-collapse
+     * behavior for the Pixel ambient indication.
+     */
+    private fun observeRootViewTapOutside() {
+        scope.launch {
+            ambientContainer.repeatWhenAttached {
+                repeatOnLifecycle(Lifecycle.State.CREATED) {
+                    launch {
+                        ambientViewModel.rootViewTapPosition.collect { point ->
+                            val rect = Rect()
+                            ambientContainer.getHitRect(rect)
+                            if (!rect.contains(point.x, point.y)) {
+                                ambientContainer.collapseIfExpanded()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private fun updateViewWithSettings(settings: NowPlayingSettings) {
         val textColor = resolveTextColor(settings.colorMode)
-        
-        if (!settings.tapToExpand && NowPlayingOverlayState.isOverlayOpen.value) {
-            expandedOverlay.hide()
-        }
 
         setLyricsFetcherEnabled(settings.useLyricsMode)
 
@@ -214,19 +263,14 @@ constructor(
             stopControllerResync()
         }
 
-        nowPlayingView.apply {
-            this.textColor = textColor
-            iconStyle = settings.iconStyle
-            iconSizeDp = settings.iconSize
-            useCompactStyle = settings.useCompactStyle
-            verticalPosition = settings.verticalPosition
-            lyricsMode = settings.useLyricsMode
-            updateTextSize(settings.trackTextSize, settings.artistTextSize)
-            NowPlayingOverlayState.update {
-                copy(useWaveformSeekBar = settings.useWaveformSeekBar)
-            }
+        ambientContainer.apply {
+            setTextColor(textColor)
+            setIconStyle(settings.iconStyle, settings.iconSize)
+            setTrackAndArtistTextSize(settings.trackTextSize, settings.artistTextSize)
+            setLyricsModeEnabled(settings.useLyricsMode)
+            setExpandOnTap(settings.tapToExpand)
         }
-        
+
         updateState()
     }
 
@@ -237,9 +281,7 @@ constructor(
         } else if (!enabled && lyricsCallbackRegistered) {
             lyricsCallbackRegistered = false
             lyricsFetcher.removeCallback(lyricsCallback)
-            nowPlayingView.prevLyric = ""
-            nowPlayingView.currentLyric = ""
-            nowPlayingView.nextLyric = ""
+            ambientContainer.setLyricLine(null)
         }
     }
 
@@ -249,7 +291,7 @@ constructor(
                 sessionsChangedListener,
                 null
             )
-            
+
             val controllers = mediaSessionManager.getActiveSessions(null)
             updateActiveController(controllers)
         } catch (e: Exception) {
@@ -272,10 +314,10 @@ constructor(
 
         activeController = newController
         activeController?.registerCallback(mediaCallback)
-        
+
         currentPackageName = activeController?.packageName ?: ""
-        nowPlayingView.appPackageName = currentPackageName
-        
+        ambientContainer.setAppPackageName(currentPackageName)
+
         updateMetadata(activeController?.metadata)
         updatePlaybackState(activeController?.playbackState)
     }
@@ -285,9 +327,6 @@ constructor(
         currentArtist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST)
             ?: metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
             ?: ""
-        
-        nowPlayingView.trackTitle = currentTrackTitle
-        nowPlayingView.artistName = currentArtist
 
         val albumArt: Bitmap? = run {
             val meta = metadata ?: return@run null
@@ -301,25 +340,15 @@ constructor(
                 val extracted = extractAlbumArtColor(albumArt)
                 withContext(Dispatchers.Main) {
                     currentAlbumArtColor = extracted
-                    NowPlayingOverlayState.update { copy(albumArtColor = extracted) }
-                    nowPlayingView.textColor = resolveTextColor(currentSettings.colorMode)
+                    ambientContainer.setTextColor(resolveTextColor(currentSettings.colorMode))
                 }
             }
         } else {
             currentAlbumArtColor = null
-            NowPlayingOverlayState.update { copy(albumArtColor = null) }
         }
 
-        NowPlayingOverlayState.update {
-            copy(
-                track = currentTrackTitle,
-                artist = currentArtist,
-                packageName = currentPackageName,
-                albumArt = albumArt,
-                useWaveformSeekBar = currentSettings.useWaveformSeekBar,
-            )
-        }
-        
+        ambientContainer.setTrackAndArtist(currentTrackTitle, currentArtist, albumArt)
+
         updateState()
     }
 
@@ -351,28 +380,13 @@ constructor(
 
     private fun updatePlaybackState(state: PlaybackState?) {
         isPlaying = state?.state == PlaybackState.STATE_PLAYING
-        val duration = activeController?.metadata
-            ?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0L
-        val pos = state?.position?.coerceAtLeast(0L) ?: 0L
-        val progress = if (duration > 0L) (pos.toFloat() / duration).coerceIn(0f, 1f) else 0f
-        NowPlayingOverlayState.update {
-            copy(
-                isPlaying = this@NowPlayingViewController.isPlaying,
-                duration = duration,
-                position = pos,
-                progress = progress,
-                playbackSpeed = state?.playbackSpeed?.takeIf { it > 0f } ?: 1f,
-                positionUpdateTime = state?.lastPositionUpdateTime ?: 0L,
-                packageName = currentPackageName,
-            )
-        }
         updateState()
     }
 
     private fun updateState() {
         if (!currentSettings.isEnabled) {
             cancelDebounceJobs()
-            nowPlayingView.hide()
+            ambientContainer.hideAmbient()
             return
         }
 
@@ -394,7 +408,7 @@ constructor(
         if (shouldShow) {
             hideDelayJob?.cancel()
             hideDelayJob = null
-            if (nowPlayingView.visible) return
+            if (ambientContainer.isAmbientVisible) return
             showDelayJob?.cancel()
             showDelayJob = scope.launch {
                 delay(SHOW_DELAY_MS)
@@ -408,14 +422,14 @@ constructor(
                         && !isScreenOff
                         && ((isKeyguardShowing && !isDozing && currentSettings.showOnLockscreen)
                                 || (isDozing && currentSettings.showOnAod))) {
-                    nowPlayingView.show()
+                    ambientContainer.showAmbient()
                 }
                 showDelayJob = null
             }
         } else {
             showDelayJob?.cancel()
             showDelayJob = null
-            if (!nowPlayingView.visible) return
+            if (!ambientContainer.isAmbientVisible) return
             hideDelayJob?.cancel()
             hideDelayJob = scope.launch {
                 delay(HIDE_DELAY_MS)
@@ -429,7 +443,7 @@ constructor(
                             && !isScreenOff
                             && ((isKeyguardShowing && !isDozing && currentSettings.showOnLockscreen)
                                     || (isDozing && currentSettings.showOnAod)))) {
-                    nowPlayingView.hide()
+                    ambientContainer.hideAmbient()
                 }
                 hideDelayJob = null
             }
@@ -438,8 +452,7 @@ constructor(
 
     private fun forceHide() {
         cancelDebounceJobs()
-        nowPlayingView.hide()
-        expandedOverlay.hide()
+        ambientContainer.hideAmbient()
     }
 
     private fun cancelDebounceJobs() {
@@ -516,6 +529,7 @@ constructor(
     }
 
     fun cleanup() {
+        if (nativeAmbientIndicationAvailable) return
         activeController?.unregisterCallback(mediaCallback)
         try {
             mediaSessionManager.removeOnActiveSessionsChangedListener(sessionsChangedListener)
@@ -524,9 +538,7 @@ constructor(
             Log.e(TAG, "Error during cleanup", e)
         }
         cancelDebounceJobs()
-        expandedOverlay.hide()
         settingsJob?.cancel()
         scope.cancel()
     }
 }
-
