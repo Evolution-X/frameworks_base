@@ -175,6 +175,32 @@ public class AuthController implements
     @Nullable private UdfpsController mUdfpsController;
     @Nullable private UdfpsOverlayParams mUdfpsOverlayParams;
     @Nullable private IUdfpsRefreshRateRequestCallback mUdfpsRefreshRateRequestCallback;
+
+    private volatile boolean mIsUdfpsFingerDown = false;
+    private final Set<UdfpsFingerDownListener> mUdfpsFingerDownListeners = new HashSet<>();
+
+    public interface UdfpsFingerDownListener {
+        void onUdfpsFingerDownChanged(boolean isFingerDown);
+    }
+
+    public void addUdfpsFingerDownListener(@NonNull UdfpsFingerDownListener listener) {
+        mUdfpsFingerDownListeners.add(listener);
+    }
+
+    public void removeUdfpsFingerDownListener(@NonNull UdfpsFingerDownListener listener) {
+        mUdfpsFingerDownListeners.remove(listener);
+    }
+
+    private void setUdfpsFingerDown(boolean isFingerDown) {
+        if (mIsUdfpsFingerDown == isFingerDown) {
+            return;
+        }
+        mIsUdfpsFingerDown = isFingerDown;
+        for (UdfpsFingerDownListener listener : new HashSet<>(mUdfpsFingerDownListeners)) {
+            listener.onUdfpsFingerDownChanged(isFingerDown);
+        }
+    }
+
     @NonNull private Lazy<UdfpsLogger> mUdfpsLogger;
     @VisibleForTesting IBiometricSysuiReceiver mReceiver;
     @VisibleForTesting @NonNull final BiometricDisplayListener mOrientationListener;
@@ -310,10 +336,12 @@ public class AuthController implements
             mUdfpsController.addCallback(new UdfpsController.Callback() {
                 @Override
                 public void onFingerUp() {
+                    setUdfpsFingerDown(false);
                 }
 
                 @Override
                 public void onFingerDown() {
+                    setUdfpsFingerDown(true);
                     if (mCurrentDialog != null) {
                         mCurrentDialog.onPointerDown();
                     }
