@@ -125,7 +125,10 @@ constructor(
             
             // Force a layout pass to ensure the view is measured and laid out
             view.requestLayout()
-            keyguardClockViewModel.burnInLayer?.addView(view)
+            keyguardClockViewModel.burnInLayer?.apply {
+                addView(view)
+                updatePostLayout(constraintLayout)
+            }
         }
     }
 
@@ -170,7 +173,10 @@ constructor(
     override fun removeViews(constraintLayout: ConstraintLayout) {
         Log.d(TAG, "removeViews called")
         widgetView?.let { view ->
-            keyguardClockViewModel.burnInLayer?.removeView(view)
+            keyguardClockViewModel.burnInLayer?.apply {
+                removeView(view)
+                updatePostLayout(constraintLayout)
+            }
             try {
                 constraintLayout.removeView(view)
                 Log.d(TAG, "Successfully removed widget view")
