@@ -45,4 +45,21 @@ public interface UdfpsDisplayModeProvider {
      * @param onDisabled A runnable that will be executed once mode is disabled.
      */
     void disable(@Nullable Runnable onDisabled);
+
+    default void requestRate(float refreshRate) {
+        // Default no-op for implementations that don't support an intermediate rate step.
+    }
+
+    @Nullable
+    default Object getCurrentToken() {
+        return null;
+    }
+
+    default boolean disableIfCurrent(@Nullable Object expectedToken, @Nullable Runnable onDisabled) {
+        return false;
+    }
+
+    default boolean requestRateIfCurrent(@Nullable Object expectedToken, float refreshRate) {
+        return false;
+    }
 }

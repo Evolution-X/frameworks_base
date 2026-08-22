@@ -2918,6 +2918,15 @@ public class DisplayModeDirector {
             }
         }
 
+        @Override
+        public void onRequestRate(int displayId, float refreshRate) {
+            synchronized (mLock) {
+                mUdfpsRefreshRateEnabled.put(displayId, true);
+                final Vote vote = Vote.forPhysicalRefreshRates(refreshRate, refreshRate);
+                mVotesStorage.updateVote(displayId, Vote.PRIORITY_UDFPS, vote);
+            }
+        }
+
         @GuardedBy("mLock")
         private void updateVoteLocked(int displayId, boolean enabled, int votePriority) {
             final Vote vote;
