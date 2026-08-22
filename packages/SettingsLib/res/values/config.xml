@@ -43,8 +43,23 @@
     </string>
 
     <array name="config_override_carrier_5g_plus">
+        <item>@array/carrier_1_5g_plus</item>
+        <item>@array/carrier_1839_5g_plus</item>
         <item>@array/carrier_2032_5g_plus</item>
+        <item>@array/carrier_2126_5g_plus</item>
     </array>
+
+    <integer-array name="carrier_1_5g_plus">
+        <!-- carrier id: 1 (T-Mobile US) -->
+        <item>1</item>
+        <item>@string/data_connection_5g_plus_carrier_1</item>
+    </integer-array>
+
+    <integer-array name="carrier_1839_5g_plus">
+        <!-- carrier id: 1839 (Verizon Wireless) -->
+        <item>1839</item>
+        <item>@string/data_connection_5g_plus_carrier_1839</item>
+    </integer-array>
 
     <integer-array name="carrier_2032_5g_plus">
         <!-- carrier id: 2032 -->
@@ -60,4 +75,10 @@
     `config_dualShadeEnabledByDefault` is used.
     -->
     <bool name="config_useDualShadeSetting">true</bool>
+
+    <integer-array name="carrier_2126_5g_plus">
+        <!-- carrier id: 2126 (Spectrum Mobile) -->
+        <item>2126</item>
+        <item>@string/data_connection_5g_plus_carrier_2126</item>
+    </integer-array>
 </resources>

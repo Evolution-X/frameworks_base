@@ -17,6 +17,8 @@
 package com.android.systemui.statusbar.pipeline.mobile.domain.interactor
 
 import android.content.Context
+import android.telephony.SubscriptionManager
+import android.telephony.TelephonyManager
 import android.provider.Settings
 import com.android.settingslib.SignalIcon.MobileIconGroup
 import com.android.settingslib.graph.SignalDrawable
@@ -238,12 +240,43 @@ class MobileIconInteractorImpl(
 
     // True if there exists _any_ icon override for this carrierId. Note that overrides can include
     // any or none of the icon groups defined in MobileMappings, so we still need to check on a
-    // per-network-type basis whether or not the given icon group is overridden
+    // per-network-type basis whether or not the given icon group is overridden.
+    // eSIM profiles sometimes report UNKNOWN (-1) until identity settles; also try SubscriptionInfo
+    // + MCC/MNC inference so T-Mobile/Spectrum icons still apply.
     private val carrierIdIconOverrideExists =
         connectionRepository.carrierId
-            .map { carrierIdOverrides.carrierIdEntryExists(it) }
+            .map { carrierIdOverrides.carrierIdEntryExists(resolveCarrierIdForIconOverride(it)) }
             .distinctUntilChanged()
             .stateIn(scope, SharingStarted.WhileSubscribed(), false)
+
+    private fun resolveCarrierIdForIconOverride(rawCarrierId: Int): Int {
+        if (carrierIdOverrides.carrierIdEntryExists(rawCarrierId)) {
+            return rawCarrierId
+        }
+        val subInfo =
+            context.getSystemService(SubscriptionManager::class.java)
+                ?.getActiveSubscriptionInfo(subscriptionId)
+        if (subInfo != null) {
+            val fromSub = subInfo.carrierId
+            if (carrierIdOverrides.carrierIdEntryExists(fromSub)) {
+                return fromSub
+            }
+            val mcc = subInfo.mccString
+            val mnc = subInfo.mncString
+            if (mcc != null && mnc != null) {
+                val inferred =
+                    MobileIconCarrierIdOverridesImpl.inferCarrierIdFromMccMnc(mcc + mnc)
+                if (inferred != null) {
+                    return inferred
+                }
+            }
+        }
+        // Keep UNKNOWN as-is when we cannot infer
+        if (rawCarrierId == TelephonyManager.UNKNOWN_CARRIER_ID) {
+            return rawCarrierId
+        }
+        return rawCarrierId
+    }
 
     override val networkName =
         combine(connectionRepository.operatorAlphaShort, connectionRepository.networkName) {
@@ -300,7 +333,7 @@ class MobileIconInteractorImpl(
                 if (overrideExists) {
                     val iconOverride =
                         carrierIdOverrides.getOverrideFor(
-                            connectionRepository.carrierId.value,
+                            resolveCarrierIdForIconOverride(connectionRepository.carrierId.value),
                             networkType.name,
                             context.resources,
                         )
