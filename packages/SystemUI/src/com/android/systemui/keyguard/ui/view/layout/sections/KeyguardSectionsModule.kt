@@ -30,6 +30,8 @@ abstract class KeyguardSectionsModule {
         const val KEYGUARD_AMBIENT_INDICATION_AREA_SECTION =
             "keyguard_ambient_indication_area_section"
         const val KEYGUARD_BATTERY_CHARGING_SECTION = "keyguard_battery_charging_section"
+        const val KEYGUARD_NOW_PLAYING_SECTION =
+            "keyguard_now_playing_section"
     }
 
     @BindsOptionalOf
@@ -39,4 +41,8 @@ abstract class KeyguardSectionsModule {
     @BindsOptionalOf
     @Named(KEYGUARD_BATTERY_CHARGING_SECTION)
     abstract fun batteryChargingSection(): KeyguardSection
+
+    @BindsOptionalOf
+    @Named(KEYGUARD_NOW_PLAYING_SECTION)
+    abstract fun nowPlayingSection(): KeyguardSection
 }
