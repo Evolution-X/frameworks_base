@@ -91,8 +91,44 @@ class MobileIconCarrierIdOverridesImpl : MobileIconCarrierIdOverrides {
          * https://android.googlesource.com/platform/packages/providers/TelephonyProvider/+/master/assets/latest_carrier_id/carrier_list.textpb
          */
         private val MAPPING = mapOf(
+            // 1 == T-Mobile US
+            1 to R.array.carrierId_1_iconOverrides,
+            // 1839 == Verizon Wireless
+            1839 to R.array.carrierId_1839_iconOverrides,
+            // 1949 == Metro by T-Mobile (same 5G UC branding)
+            1949 to R.array.carrierId_1_iconOverrides,
             // 2032 == Xfinity Mobile
             2032 to R.array.carrierId_2032_iconOverrides,
+            // 2126 == Spectrum Mobile
+            2126 to R.array.carrierId_2126_iconOverrides,
+            // 2146 == Visible (Verizon MVNO -> 5G UW)
+            2146 to R.array.carrierId_1839_iconOverrides,
+        )
+
+        /**
+         * Infer a mapped carrierId from MCC+MNC when Telephony reports UNKNOWN or an
+         * unmapped id (common with freshly-enabled eSIM profiles).
+         *
+         * @return a carrierId present in [MAPPING], or null if unknown
+         */
+        @JvmStatic
+        fun inferCarrierIdFromMccMnc(mccMnc: String?): Int? {
+            if (mccMnc.isNullOrEmpty()) return null
+            // Verizon / Spectrum / Visible share 311480; UW icon is correct for all
+            if (mccMnc == "311480" || mccMnc.startsWith("310012")) {
+                return 1839
+            }
+            // T-Mobile US + Metro PLMNs used on physical and eSIM profiles
+            if (mccMnc in TMO_PLMNS) {
+                return 1
+            }
+            return null
+        }
+
+        private val TMO_PLMNS = setOf(
+            "310026", "310160", "310200", "310210", "310220", "310230", "310240",
+            "310250", "310260", "310270", "310300", "310310", "310490", "310530",
+            "310640", "310660", "310800", "31026",
         )
 
         /**
