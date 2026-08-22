@@ -64,7 +64,10 @@ constructor(
     override fun bindData(constraintLayout: ConstraintLayout) {
         // ProgressImageView components handle their own data binding
         infoWidgetsView?.let { view ->
-            keyguardClockViewModel.burnInLayer?.addView(view)
+            keyguardClockViewModel.burnInLayer?.apply {
+                addView(view)
+                updatePostLayout(constraintLayout)
+            }
         }
     }
     
@@ -105,7 +108,10 @@ constructor(
     
     override fun removeViews(constraintLayout: ConstraintLayout) {
         infoWidgetsView?.let { view ->
-            keyguardClockViewModel.burnInLayer?.removeView(view)
+            keyguardClockViewModel.burnInLayer?.apply {
+                removeView(view)
+                updatePostLayout(constraintLayout)
+            }
             (view.parent as? ViewGroup)?.removeView(view)
         }
         infoWidgetsView = null
