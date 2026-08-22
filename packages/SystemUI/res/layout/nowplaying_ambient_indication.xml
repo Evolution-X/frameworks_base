@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: Evolution X
+     SPDX-License-Identifier: Apache-2.0
+-->
+<com.android.systemui.nowplaying.ambient.NowPlayingAmbientContainer
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_gravity="bottom|center_horizontal"
+    android:id="@+id/nowplaying_ambient_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="41dp"
+    android:layout_marginEnd="41dp"
+    android:forceHasOverlappingRendering="false">
+
+    <FrameLayout
+        android:id="@+id/nowplaying_ambient_wrapper_container"
+        android:layout_width="match_parent"
+        android:layout_height="80dp"
+        android:layout_gravity="center"
+        android:importantForAccessibility="no">
+
+        <ImageView
+            android:id="@+id/nowplaying_ambient_background"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:visibility="gone"
+            android:clickable="false"
+            android:scaleType="center"
+            android:importantForAccessibility="no"/>
+
+        <FrameLayout
+            android:id="@+id/nowplaying_ambient_extended_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="16dp"
+            android:gravity="center">
+
+            <LinearLayout
+                android:id="@+id/nowplaying_ambient_collapsed_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center">
+
+                <ImageView
+                    android:id="@+id/nowplaying_ambient_icon"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@android:color/transparent"
+                    android:visibility="gone"
+                    android:clickable="true"
+                    android:scaleType="center"
+                    android:importantForAccessibility="no"/>
+
+                <FrameLayout
+                    android:id="@+id/nowplaying_ambient_text_container"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clipChildren="false"
+                    android:gravity="start|center_vertical"
+                    android:paddingStart="2dp"
+                    android:paddingEnd="14dp">
+
+                    <LinearLayout
+                        android:id="@+id/nowplaying_ambient_text_set_real"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/nowplaying_ambient_text"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textAppearance="@style/TextAppearance.Keyguard.BottomArea"
+                            android:textSize="14sp"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:shadowColor="@android:color/transparent"
+                            android:forceHasOverlappingRendering="false"/>
+
+                        <TextView
+                            android:id="@+id/nowplaying_ambient_text_extended"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textAppearance="@style/TextAppearance.Keyguard.BottomArea"
+                            android:textSize="12sp"
+                            android:visibility="gone"
+                            android:clickable="false"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:shadowColor="@android:color/transparent"
+                            android:importantForAccessibility="no"
+                            android:forceHasOverlappingRendering="false"/>
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/nowplaying_ambient_text_set_temp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:alpha="0"
+                        android:visibility="invisible">
+
+                        <TextView
+                            android:id="@+id/nowplaying_ambient_text_temp"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textAppearance="@style/TextAppearance.Keyguard.BottomArea"
+                            android:textSize="14sp"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:shadowColor="@android:color/transparent"
+                            android:importantForAccessibility="no"
+                            android:forceHasOverlappingRendering="false"/>
+
+                        <TextView
+                            android:id="@+id/nowplaying_ambient_text_extended_temp"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textAppearance="@style/TextAppearance.Keyguard.BottomArea"
+                            android:textSize="12sp"
+                            android:clickable="false"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:shadowColor="@android:color/transparent"
+                            android:importantForAccessibility="no"
+                            android:forceHasOverlappingRendering="false"/>
+                    </LinearLayout>
+                </FrameLayout>
+            </LinearLayout>
+        </FrameLayout>
+    </FrameLayout>
+</com.android.systemui.nowplaying.ambient.NowPlayingAmbientContainer>
