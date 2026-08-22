@@ -17,6 +17,7 @@
 package com.android.systemui.statusbar.pipeline.mobile.domain.interactor
 
 import android.content.Context
+import android.telephony.SubscriptionManager
 import android.provider.Settings
 import com.android.systemui.Dependency
 import com.android.settingslib.SignalIcon.MobileIconGroup
@@ -222,13 +223,40 @@ class MobileIconInteractorKairosImpl(
             }
         }
 
+    private fun resolveCarrierIdForIconOverride(rawCarrierId: Int): Int {
+        if (carrierIdOverrides.carrierIdEntryExists(rawCarrierId)) {
+            return rawCarrierId
+        }
+        val subInfo =
+            context.getSystemService(SubscriptionManager::class.java)
+                ?.getActiveSubscriptionInfo(subscriptionId)
+        if (subInfo != null) {
+            val fromSub = subInfo.carrierId
+            if (carrierIdOverrides.carrierIdEntryExists(fromSub)) {
+                return fromSub
+            }
+            val mcc = subInfo.mccString
+            val mnc = subInfo.mncString
+            if (mcc != null && mnc != null) {
+                val inferred =
+                    MobileIconCarrierIdOverridesImpl.inferCarrierIdFromMccMnc(mcc + mnc)
+                if (inferred != null) {
+                    return inferred
+                }
+            }
+        }
+        return rawCarrierId
+    }
+
     override val networkTypeIconGroup: State<NetworkTypeIconModel> =
         combine(defaultNetworkType, connectionRepository.carrierId) { networkType, carrierId ->
-                // DefaultIcon comes out of the icongroup lookup, we check for overrides here
-                if (carrierIdOverrides.carrierIdEntryExists(carrierId)) {
+                // DefaultIcon comes out of the icongroup lookup, we check for overrides here.
+                // Resolve via SubscriptionInfo/MCC for eSIM profiles that report UNKNOWN.
+                val resolvedCarrierId = resolveCarrierIdForIconOverride(carrierId)
+                if (carrierIdOverrides.carrierIdEntryExists(resolvedCarrierId)) {
                     val iconOverride =
                         carrierIdOverrides.getOverrideFor(
-                            carrierId,
+                            resolvedCarrierId,
                             networkType.name,
                             context.resources,
                         )
