@@ -61,6 +61,14 @@ class UdfpsTouchOverlay(context: Context, attrs: AttributeSet?) : FrameLayout(co
         }
     }
 
+    fun reconfigureDisplayRateOnly(onEnabled: Runnable) {
+        if (isDisplayConfigured) {
+            return
+        }
+        isDisplayConfigured = true
+        udfpsDisplayMode?.enable(onEnabled)
+    }
+
     private fun doIlluminate(surface: Surface?, onDisplayConfigured: Runnable?) {
         udfpsDisplayMode?.enable {
             onDisplayConfigured?.run()
@@ -75,5 +83,34 @@ class UdfpsTouchOverlay(context: Context, attrs: AttributeSet?) : FrameLayout(co
             view.visibility = INVISIBLE
         }
         udfpsDisplayMode?.disable(null /* onDisabled */)
+    }
+
+    fun currentDisplayModeToken(): Any? = udfpsDisplayMode?.currentToken
+
+    fun requestDisplayRate(refreshRate: Float) {
+        if (!isDisplayConfigured) {
+            return
+        }
+        udfpsDisplayMode?.requestRate(refreshRate)
+    }
+
+    fun requestDisplayRateIfCurrent(expectedToken: Any?, refreshRate: Float): Boolean {
+        if (!isDisplayConfigured) {
+            return false
+        }
+        return udfpsDisplayMode?.requestRateIfCurrent(expectedToken, refreshRate) ?: false
+    }
+
+    fun unconfigureDisplayIfCurrent(expectedToken: Any?): Boolean {
+        val mode = udfpsDisplayMode ?: return false
+        val acted = mode.disableIfCurrent(expectedToken, null /* onDisabled */)
+        if (acted) {
+            isDisplayConfigured = false
+            ghbmView?.let { view ->
+                view.setGhbmIlluminationListener(null)
+                view.visibility = INVISIBLE
+            }
+        }
+        return acted
     }
 }
