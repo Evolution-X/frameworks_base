@@ -109,8 +109,7 @@ class UdfpsHelper(
 
         override fun onDisplayChanged(displayId: Int) {
             if (displayId == Display.DEFAULT_DISPLAY && view.isAttachedToWindow) {
-                brightnessToAlpha()
-                windowManager.updateViewLayout(view, dimLayoutParams)
+                animateToCurrentBrightness()
             }
         }
 
@@ -128,10 +127,10 @@ class UdfpsHelper(
     }
 
     private fun interpolateAlpha(brightness: Int): Float {
-        val lowerEntry = brightnessAlphaMap.entries
-            .lastOrNull { it.key <= brightness } ?: return 0f
-        val upperEntry = brightnessAlphaMap.entries
-            .firstOrNull { it.key >= brightness } ?: return 0f
+        val lowerEntry = brightnessAlphaMap.entries.lastOrNull { it.key <= brightness }
+            ?: return brightnessAlphaMap.entries.minByOrNull { it.key }!!.value.div(255.0f)
+        val upperEntry = brightnessAlphaMap.entries.firstOrNull { it.key >= brightness }
+            ?: return brightnessAlphaMap.entries.maxByOrNull { it.key }!!.value.div(255.0f)
         val (lowerBrightness, lowerAlpha) = lowerEntry
         val (upperBrightness, upperAlpha) = upperEntry
 
@@ -148,7 +147,7 @@ class UdfpsHelper(
     // than what is set on config_screenBrightnessSettingMinimumFloat.
     // While it's possible to operate with floats, the dimming array was made by referencing
     // brightness_alpha_lut array from the kernel. This provides a comparable array.
-    private fun brightnessToAlpha() {
+    private fun brightnessToAlpha(): Float {
         val adjustedBrightness =
             (currentBrightness.coerceIn(minBrightness, maxBrightness) * maxPanelBrightness).toInt()
 
@@ -158,13 +157,24 @@ class UdfpsHelper(
         Log.i(TAG, "Adjusted Brightness: $adjustedBrightness, Alpha: $targetAlpha")
 
         alphaAnimator.setFloatValues(view.alpha, targetAlpha)
-        // Set the dim for both the view and the layout
+        return targetAlpha
+    }
+
+    private fun animateToCurrentBrightness() {
+        brightnessToAlpha()
+        alphaAnimator.cancel()
+        alphaAnimator.start()
+    }
+
+    private fun snapToCurrentBrightness() {
+        val targetAlpha = brightnessToAlpha()
+        alphaAnimator.cancel()
         view.alpha = targetAlpha
         dimLayoutParams.alpha = targetAlpha
     }
 
     fun addDimLayer() {
-        brightnessToAlpha()
+        snapToCurrentBrightness()
         windowManager.addView(view, dimLayoutParams)
         displayManager.registerDisplayListener(
             displayListener,
@@ -174,8 +184,11 @@ class UdfpsHelper(
     }
 
     fun removeDimLayer() {
-        windowManager.removeView(view)
+        alphaAnimator.cancel()
         displayManager.unregisterDisplayListener(displayListener)
+        if (view.isAttachedToWindow) {
+            windowManager.removeView(view)
+        }
     }
 
     init {
@@ -207,9 +220,7 @@ class UdfpsHelper(
             shadeInteractor.isShadeTouchable.collect {
                 view.isVisible = it
                 if (view.isVisible) {
-                    brightnessToAlpha()
-                    alphaAnimator.cancel()
-                    alphaAnimator.start()
+                    animateToCurrentBrightness()
                 }
             }
         }
