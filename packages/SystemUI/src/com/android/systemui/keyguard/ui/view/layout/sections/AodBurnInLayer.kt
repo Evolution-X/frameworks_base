@@ -20,6 +20,7 @@ import android.content.Context
 import android.view.View
 import android.view.ViewTreeObserver.OnPreDrawListener
 import androidx.constraintlayout.helper.widget.Layer
+import androidx.constraintlayout.widget.ConstraintLayout
 
 class AodBurnInLayer(
     context: Context,
@@ -36,17 +37,31 @@ class AodBurnInLayer(
     private var _translationX = 0F
     private var _translationY = 0F
 
+    private var _rotation = 0F
+
     private val _predrawListener = OnPreDrawListener {
         super.setScaleX(_scaleX)
         super.setScaleY(_scaleY)
         super.setTranslationX(_translationX)
         super.setTranslationY(_translationY)
+        super.setRotation(_rotation)
         true
     }
 
     // avoid adding views with same ids
     override fun addView(view: View?) {
-        view?.let { if (it.id !in referencedIds) super.addView(view) }
+        view?.let {
+            if (it.id !in referencedIds) {
+                super.addView(view)
+                syncAfterMutation()
+            }
+        }
+    }
+
+    override fun removeView(view: View?): Int {
+        val result = super.removeView(view)
+        syncAfterMutation()
+        return result
     }
 
     fun registerListener(rootView: View) {
@@ -55,6 +70,10 @@ class AodBurnInLayer(
 
     fun unregisterListener(rootView: View) {
         rootView.viewTreeObserver.removeOnPreDrawListener(_predrawListener)
+    }
+
+    private fun syncAfterMutation() {
+        (parent as? ConstraintLayout)?.let { super.updatePostLayout(it) }
     }
 
     override fun setScaleX(scaleX: Float) {
@@ -91,5 +110,13 @@ class AodBurnInLayer(
 
     override fun getTranslationY(): Float {
         return _translationY
+    }
+
+    override fun setRotation(rotation: Float) {
+        _rotation = rotation
+    }
+
+    override fun getRotation(): Float {
+        return _rotation
     }
 }
