@@ -308,8 +308,14 @@ fun AxDynamicBarKeyguardChip(
                         MaterialTheme.motionScheme.fastEffectsSpec(),
                         label = "kg_accent",
                     )
+                    val isDark = isSystemInDarkTheme()
+                    val neutralTextOverride = when (event) {
+                        is IslandEvent.Hotspot, is IslandEvent.Clipboard ->
+                            if (isDark) Color.White else Color.Black
+                        else -> null
+                    }
                     val contentColor by animateColorAsState(
-                        chipContentColorOn(rawAccent),
+                        neutralTextOverride ?: chipContentColorOn(rawAccent),
                         MaterialTheme.motionScheme.fastEffectsSpec(),
                         label = "kg_content",
                     )
@@ -369,7 +375,6 @@ private fun KeyguardChipBody(
     val motionScheme = MaterialTheme.motionScheme
     var toggleCount by remember { mutableIntStateOf(0) }
     val isMedia = event is IslandEvent.Media
-
     val parts = rememberChargingParts(batteryString)
     val isMultiLineCharging = event is IslandEvent.Charging && parts.size >= 2
     val dynamicHeight = when {
@@ -380,18 +385,16 @@ private fun KeyguardChipBody(
     val dynamicMinWidth = if (isMedia) MusicChipMinWidth else 48.dp
 
     Box(contentAlignment = Alignment.Center) {
-        if (isMedia) {
-            Box(
+        Box(
+            modifier = Modifier
+                .matchParentSize(),
+        ) {
+            AndroidView(
+                factory = { ctx -> MusicPillBlurHost(ctx) },
                 modifier = Modifier
-                    .matchParentSize(),
-            ) {
-                AndroidView(
-                    factory = { ctx -> MusicPillBlurHost(ctx) },
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(ChipShape),
-                )
-            }
+                    .fillMaxSize()
+                    .clip(ChipShape),
+            )
         }
         Row(
             modifier = Modifier
@@ -399,7 +402,7 @@ private fun KeyguardChipBody(
                 .widthIn(min = dynamicMinWidth, max = 180.dp)
                 .clip(ChipShape)
                 .squishAnimation(toggleCount)
-                .background(if (isMedia) Color.Transparent else accent)
+                .background(Color.Transparent)
                 .animateContentSize(motionScheme.defaultSpatialSpec())
                 .then(
                     if (progress != null) {
@@ -648,11 +651,21 @@ private fun KeyguardBatteryChip(
     val dynamicHeight = if (isMultiLine) 48.dp else ChipHeight
 
     Box(contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(ChipShape),
+        ) {
+            AndroidView(
+                factory = { ctx -> MusicPillBlurHost(ctx) },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
         Row(
             modifier = modifier
                 .height(dynamicHeight)
                 .clip(ChipShape)
-                .background(accent)
+                .background(Color.Transparent)
                 .widthIn(min = 48.dp, max = 180.dp)
                 .padding(horizontal = SpaceMd)
                 .animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec()),
