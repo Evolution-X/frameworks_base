@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="now_playing_track_and_artist_description">Now playing: %1$s by %2$s</string>
+</resources>

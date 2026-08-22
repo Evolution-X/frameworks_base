@@ -82,9 +82,11 @@ import com.android.systemui.inputmethod.InputMethodModule;
 import com.android.systemui.keyboard.KeyboardModule;
 import com.android.systemui.keyevent.data.repository.KeyEventRepositoryModule;
 import com.android.systemui.keyguard.data.quickaffordance.KeyguardDataQuickAffordanceModule;
+import com.android.systemui.keyguard.shared.model.KeyguardSection;
 import com.android.systemui.keyguard.shared.quickaffordance.KeyguardQuickAffordancesMetricsLogger;
 import com.android.systemui.keyguard.shared.quickaffordance.KeyguardQuickAffordancesMetricsLoggerImpl;
 import com.android.systemui.keyguard.ui.composable.LockscreenContent;
+import com.android.systemui.keyguard.ui.view.layout.sections.KeyguardSectionsModule;
 import com.android.systemui.lineage.LineageModule;
 import com.android.systemui.log.dagger.LogModule;
 import com.android.systemui.log.dagger.MonitorLog;
@@ -101,6 +103,7 @@ import com.android.systemui.motioncues.MotionCuesModule;
 import com.android.systemui.navigationbar.NavigationBarComponent;
 import com.android.systemui.navigationbar.gestural.dagger.GestureModule;
 import com.android.systemui.notetask.NoteTaskModule;
+import com.android.systemui.nowplaying.ambient.NowPlayingKeyguardSection;
 import com.android.systemui.people.PeopleModule;
 import com.android.systemui.personalcontext.dagger.PersonalContextModule;
 import com.android.systemui.personalcontext.dagger.PersonalContextModuleCompat;
@@ -496,4 +499,9 @@ public abstract class SystemUIModule {
     static SettingsProxy.CurrentUserIdProvider provideCurrentUserId(UserTracker userTracker) {
         return userTracker::getUserId;
     }
+
+    @Binds
+    @Named(KeyguardSectionsModule.KEYGUARD_NOW_PLAYING_SECTION)
+    abstract KeyguardSection bindNowPlayingKeyguardSection(
+            NowPlayingKeyguardSection impl);
 }
