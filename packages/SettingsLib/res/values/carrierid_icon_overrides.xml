@@ -29,4 +29,20 @@
         <item>5G_PLUS</item>
         <item>@drawable/ic_5g_plus_mobiledata_default</item>
     </array>
+
+    <!-- T-Mobile US: NR Advanced -> 5G UC -->
+    <array name="carrierId_1_iconOverrides">
+        <item>5G_PLUS</item>
+        <item>@drawable/ic_5g_uc_mobiledata</item>
+    </array>
+    <!-- Verizon Wireless: NR Advanced -> 5G UW -->
+    <array name="carrierId_1839_iconOverrides">
+        <item>5G_PLUS</item>
+        <item>@drawable/ic_5g_uw_mobiledata</item>
+    </array>
+    <!-- Spectrum Mobile (VZW MVNO): NR Advanced -> 5G UW -->
+    <array name="carrierId_2126_iconOverrides">
+        <item>5G_PLUS</item>
+        <item>@drawable/ic_5g_uw_mobiledata</item>
+    </array>
 </resources>
