@@ -588,7 +588,7 @@
     <bool name="config_showBatteryEstimateQSBH">false</bool>
 
     <!-- Whether to show extra battery saver confirmation dialog. -->
-    <bool name="config_extra_battery_saver_confirmation">false</bool>
+    <bool name="config_extra_battery_saver_confirmation">true</bool>
 
     <!-- A path representing a shield. Will sometimes be displayed with the battery icon when
          needed. This path is a 10px wide and 13px tall. -->

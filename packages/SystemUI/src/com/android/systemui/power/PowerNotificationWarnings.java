@@ -198,6 +198,7 @@ public class PowerNotificationWarnings implements PowerUI.WarningsUI {
     @VisibleForTesting boolean mExtremeLowBatterySectionEntered;
     private SystemUIDialog mSaverConfirmation;
     private SystemUIDialog mSaverEnabledConfirmation;
+    @VisibleForTesting BatterySaverConfirmationDialog mBatterySaverModeConfirmation;
     private boolean mHighTempWarning;
     private SystemUIDialog mHighTempDialog;
     private SystemUIDialog mThermalShutdownDialog;
@@ -899,7 +900,21 @@ public class PowerNotificationWarnings implements PowerUI.WarningsUI {
     }
 
     private void showStartSaverConfirmation(Bundle extras) {
-        if (mSaverConfirmation != null || mUseExtraSaverConfirmation) return;
+        if (mUseExtraSaverConfirmation) {
+            // Show the richer confirmation dialog that lets the user pick between Standard
+            // Battery Saver and Extreme Battery Saver (Flipendo).
+            if (mBatterySaverModeConfirmation == null) {
+                mBatterySaverModeConfirmation = new BatterySaverConfirmationDialog(
+                        mContext,
+                        mActivityStarter,
+                        mDialogTransitionAnimator,
+                        mBatteryControllerLazy.get(),
+                        mSystemUIDialogFactory);
+            }
+            mBatterySaverModeConfirmation.show();
+            return;
+        }
+        if (mSaverConfirmation != null) return;
         final SystemUIDialog d = mSystemUIDialogFactory.create();
         final boolean confirmOnly = extras.getBoolean(BatterySaverUtils.EXTRA_CONFIRM_TEXT_ONLY);
         final int batterySaverTriggerMode =
