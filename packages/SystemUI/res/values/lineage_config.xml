@@ -82,4 +82,8 @@
 
     <!-- Whether to play turbulence noise after clicking the play button -->
     <bool name="config_turbulenceNoise">true</bool>
+
+    <!-- Whether to show the severe low battery notification that suggests turning on
+         Extreme Battery Saver. -->
+    <bool name="config_show_extreme_battery_saver_reminder">true</bool>
 </resources>
