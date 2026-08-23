@@ -16,10 +16,12 @@
 
 package com.android.systemui.axdynamicbar.ui.compose
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.Icon
@@ -27,6 +29,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,6 +45,7 @@ import com.android.systemui.axdynamicbar.shared.OnCardSecondary
 import com.android.systemui.axdynamicbar.shared.OnCardText
 import com.android.systemui.axdynamicbar.shared.SpaceLg
 import com.android.systemui.axdynamicbar.shared.sendWithBal
+import com.android.systemui.axdynamicbar.shared.toScaledBitmap
 import com.android.systemui.res.R
 
 @Composable
@@ -49,7 +54,19 @@ internal fun NowPlayingExpanded(event: IslandEvent.NowPlaying, interactor: Islan
     ExpandedCardLayout(
         accentColor = MintAccent,
         icon = {
-            Icon(Icons.Filled.MusicNote, null, tint = MintAccent, modifier = Modifier.size(30.dp))
+            event.albumArt?.let { art ->
+                Image(
+                    bitmap = art.toScaledBitmap(40.dp),
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Crop,
+                )
+            } ?: Icon(
+                Icons.Filled.MusicNote,
+                null,
+                tint = MintAccent,
+                modifier = Modifier.size(30.dp),
+            )
         },
         title = {
             Text(
