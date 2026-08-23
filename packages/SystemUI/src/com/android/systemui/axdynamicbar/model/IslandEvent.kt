@@ -169,10 +169,12 @@ sealed class IslandEvent(open val priority: Int, val id: String) : Comparable<Is
         val key: String,
         val sbn: StatusBarNotification? = null,
         val appIcon: Drawable? = null,
+        /** Album cover when available (notif largeIcon or metadata fallback). */
+        val albumArt: Drawable? = null,
         val actions: List<NotificationAction> = emptyList(),
     ) : IslandEvent(priority = 42, id = "now_playing") {
         override val behavior = EventBehavior(autoDismissMs = null)
-        override fun withoutDrawables() = copy(appIcon = null)
+        override fun withoutDrawables() = copy(appIcon = null, albumArt = null)
     }
 
     data class Timer(
