@@ -287,4 +287,20 @@
     <string name="usage_data_weekly">used this week</string>
     <string name="usage_data_default_suffix">Data</string>
     <string name="usage_wifi_default_suffix">Wi-Fi</string>
+
+    <!-- Tiered low battery notifications -->
+    <!-- Text of the low battery notification shown when Extreme Battery Saver is in aggressive mode, suggesting it instead. [CHAR LIMIT=NONE]-->
+    <string name="low_battery_notification_text_ebs">Turn on Extreme Battery Saver to extend battery life</string>
+    <!-- Title of the severe low battery notification, shown when the battery is about to run out. The placeholder is a localized percentage, e.g. "5%". [CHAR LIMIT=NONE]-->
+    <string name="severe_battery_notification_title"><xliff:g id="percentage" example="5%">%s</xliff:g> battery left</string>
+    <!-- Text of the severe low battery notification, which suggests turning on Extreme Battery Saver. [CHAR LIMIT=NONE]-->
+    <string name="severe_battery_notification_text">Turn on Extreme Battery Saver. This will pause all non-essential apps</string>
+    <!-- Text of the severe low battery notification shown when Battery Saver is already on or scheduled, offering to switch to Extreme Battery Saver. [CHAR LIMIT=NONE]-->
+    <string name="severe_battery_notification_switch_text">Switch to Extreme Battery Saver?\n\nThis will pause all non-essential apps and their notifications</string>
+    <!-- Notification action that switches to Extreme Battery Saver [CHAR LIMIT=30] -->
+    <string name="severe_low_battery_dialog_switch_action_text">Switch</string>
+    <!-- Title of the extreme low battery notification, shown right before the device shuts down due to critically low battery. [CHAR LIMIT=NONE]-->
+    <string name="extreme_low_battery_notification_title">Very low battery</string>
+    <!-- Text of the extreme low battery notification. [CHAR LIMIT=NONE]-->
+    <string name="extreme_low_battery_notification_text">Your phone will shut down if it\u2019s not charged soon</string>
 </resources>
