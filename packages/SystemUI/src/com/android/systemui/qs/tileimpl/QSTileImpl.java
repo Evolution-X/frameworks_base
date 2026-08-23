@@ -433,10 +433,18 @@ public abstract class QSTileImpl<TState extends State> implements QSTile, Lifecy
      * @param expandable {@link Expandable} from which the opening window will be animated.
      */
     protected void handleLongClick(@Nullable Expandable expandable) {
+        Intent intent = getLongClickIntent();
+        if (intent == null) {
+            if (DEBUG) {
+                Log.w(TAG, "Ignoring long click for " + mTileSpec
+                        + ": getLongClickIntent() returned null");
+            }
+            return;
+        }
         ActivityTransitionAnimator.Controller animationController =
                 expandable != null ? expandable.activityTransitionController(
                         InteractionJankMonitor.CUJ_SHADE_APP_LAUNCH_FROM_QS_TILE) : null;
-        mActivityStarter.postStartActivityDismissingKeyguard(getLongClickIntent(), 0,
+        mActivityStarter.postStartActivityDismissingKeyguard(intent, 0,
                 animationController);
     }
 
