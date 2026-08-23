@@ -318,6 +318,14 @@ message SystemMessage {
     // Package: android
     NOTE_WRONG_HSUM_STATUS = 77;
 
+    // Warn the user about severe low battery (battery saver strongly suggested).
+    // Package: com.android.systemui
+    NOTE_POWER_SEVERE_LOW = 78;
+
+    // Warn the user about extreme low battery (device is about to shut down).
+    // Package: com.android.systemui
+    NOTE_POWER_EXTREME_LOW = 79;
+
     // ADD_NEW_IDS_ABOVE_THIS_LINE
     // Legacy IDs with arbitrary values appear below
     // Legacy IDs existed as stable non-conflicting constants prior to the O release
