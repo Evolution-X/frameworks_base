@@ -2007,14 +2007,11 @@
     <!-- Disclosure at the bottom of Quick Settings that indicates that the device is connected to a VPN in the work profile. The placeholder is the VPN name. [CHAR LIMIT=100] -->
     <string name="quick_settings_disclosure_managed_profile_named_vpn">Your work apps are connected to the internet through <xliff:g id="vpn_app" example="Foo VPN App">%1$s</xliff:g></string>
 
-
     <!-- Disclosure at the bottom of Quick Settings that indicates that the device is connected to a VPN in the personal profile (instead of the work profile). The placeholder is the VPN name. [CHAR LIMIT=100] -->
     <string name="quick_settings_disclosure_personal_profile_named_vpn">Your personal apps are connected to the internet through <xliff:g id="vpn_app" example="Foo VPN App">%1$s</xliff:g></string>
 
-
     <!-- Disclosure at the bottom of Quick Settings that indicates that the device is connected to a VPN. The placeholder is the VPN name. [CHAR LIMIT=100] -->
     <string name="quick_settings_disclosure_named_vpn">This device is connected to the internet through <xliff:g id="vpn_app" example="Foo VPN App">%1$s</xliff:g></string>
-
 
     <!-- Monitoring dialog title for financed device [CHAR LIMIT=60] -->
     <string name="monitoring_title_financed_device">This device is provided by <xliff:g id="organization_name" example="Foo, Inc.">%s</xliff:g></string>
@@ -2179,7 +2176,6 @@
     <!-- Enter/Exiting screen pinning indication. -->
     <string name="screen_pinning_start">App pinned</string>
     <string name="screen_pinning_exit">App unpinned</string>
-
 
     <!-- Hide quick settings tile confirmation title -->
 
@@ -2584,7 +2580,6 @@
     <!-- Notification: Control panel: Label for the app that posted this notification, if it's not the package that the notification was posted for -->
     <string name="notification_delegate_header">Proxied notification</string>
 
-
     <!-- Notification: Control panel: text that appears when the posting app has provided the summarization text for the notification -->
     <string name="notification_summarization_header">Summarized by <xliff:g id="app_name" example="YouTube">%1$s</xliff:g></string>
 
@@ -2720,7 +2715,6 @@
     <string name="notification_rules_action_bundle_description" translatable="false">Notifications are collapsed &amp; grouped together.</string>
     <!-- Notifications with this action will not be shown to the user at all. [CHAR LIMIT=NONE]-->
     <string name="notification_rules_action_block_description" translatable="false">Notifications are blocked from interrupting and appearing in the shade.</string>
-
 
     <!-- Title for a page where users can add or remove people/contacts/group chats that will be affected by a notification rule. [CHAR LIMIT=30]-->
     <string name="notification_rules_field_people" translatable="false">People</string>
@@ -4438,7 +4432,6 @@
     <!--- Text for every time a display is disconnected [CHAR LIMIT=NONE]-->
     <string name="connected_display_removal_text">External display disconnected</string>
 
-
     <!-- Title of the privacy dialog, shown for active / recent app usage of some phone sensors [CHAR LIMIT=30] -->
     <string name="privacy_dialog_title">Microphone, Camera &amp; Location</string>
     <!-- Subtitle of the privacy dialog, shown for active / recent app usage of some phone sensors [CHAR LIMIT=NONE] -->
@@ -4880,7 +4873,6 @@
     <string name="ambientcue_first_time_edu_text">
         We use AI to proactively suggest info and actions relevant to what you’re doing on screen
     </string>
-
 
     <!-- Description of the icon on the educational tooltip. [CHAR LIMIT=NONE] -->
     <string name="ambientcue_first_time_edu_icon_description">
