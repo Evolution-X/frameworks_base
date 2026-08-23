@@ -38,6 +38,8 @@ public final class FlipendoUtils {
     private static final String FLIPENDO_AUTHORITY = "com.google.android.flipendo.api";
     private static final String METHOD_GET_FLIPENDO_STATE = "get_flipendo_state";
     private static final String METHOD_FORCE_ENABLE_FLIPENDO = "force_enable_flipendo_method";
+    private static final String METHOD_UPDATE_FLIPENDO_MODE = "update_flipendo_mode_method";
+    private static final String KEY_UPDATE_FLIPENDO_MODE = "update_flipendo_mode";
     private static final String KEY_FLIPENDO_STATE = "flipendo_state";
     private static final String KEY_IS_FLIPENDO_AGGRESSIVE = "is_flipendo_aggressive";
 
@@ -82,6 +84,22 @@ public final class FlipendoUtils {
                             null /* arg */, null /* extras */);
         } catch (Exception e) {
             Log.e(TAG, "enableFlipendo() failed", e);
+        }
+    }
+
+    /**
+     * Applies the Extreme Battery Saver mode selection made in the first-time Battery Saver
+     * confirmation dialog. Must not be called on the main thread.
+     */
+    public static void applyExtremeSaverMode(Context context) {
+        try {
+            final Bundle extras = new Bundle(1);
+            extras.putInt(KEY_UPDATE_FLIPENDO_MODE, 1);
+            context.getContentResolver()
+                    .call(FLIPENDO_AUTHORITY, METHOD_UPDATE_FLIPENDO_MODE,
+                            null /* arg */, extras);
+        } catch (Exception e) {
+            Log.e(TAG, "applyExtremeSaverMode() failed", e);
         }
     }
 }
