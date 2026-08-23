@@ -160,7 +160,7 @@ internal fun PillEventIcon(
         is IslandEvent.Media -> MediaPillIcon(event)
         is IslandEvent.PromotedOngoing -> PromotedOngoingPillIcon(event, tint)
         is IslandEvent.Sports -> SportsPillIcon(event)
-        is IslandEvent.NowPlaying -> AnimatedNowPlayingIcon(tint ?: MintAccent)
+        is IslandEvent.NowPlaying -> NowPlayingPillIcon(event, tint ?: MintAccent)
         is IslandEvent.Bluetooth -> AnimatedBluetoothIcon(tint ?: BlueAccent)
         is IslandEvent.Hotspot -> AnimatedHotspotIcon(tint ?: TealAccent)
         is IslandEvent.Charging -> AnimatedBoltIcon(tint ?: GreenAccent)
@@ -433,6 +433,18 @@ private fun AnimatedHotspotIcon(color: Color) {
         }
         drawCircle(color, radius = size.minDimension * 0.1f, center = Offset(cx, cy))
     }
+}
+
+@Composable
+private fun NowPlayingPillIcon(event: IslandEvent.NowPlaying, color: Color) {
+    event.albumArt?.let { art ->
+        Image(
+            bitmap = art.toScaledBitmap(16.dp),
+            contentDescription = null,
+            modifier = Modifier.size(16.dp).clip(RoundedCornerShape(4.dp)),
+            contentScale = ContentScale.Crop,
+        )
+    } ?: AnimatedNowPlayingIcon(color)
 }
 
 @Composable
