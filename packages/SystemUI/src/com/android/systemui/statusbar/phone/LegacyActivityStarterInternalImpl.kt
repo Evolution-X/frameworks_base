@@ -776,8 +776,12 @@ constructor(
     }
 
     /** Retrieves the current user handle to start the Activity. */
-    private fun getActivityUserHandle(intent: Intent): UserHandle {
-        return if (currentShadeContext.packageName == intent.component?.packageName) {
+    private fun getActivityUserHandle(intent: Intent?): UserHandle {
+        if (intent == null) {
+            Log.w(TAG, "getActivityUserHandle called with a null intent")
+        }
+        return if (intent != null &&
+            currentShadeContext.packageName == intent.component?.packageName) {
             UserHandle(UserHandle.myUserId())
         } else {
             userTracker.userHandle
