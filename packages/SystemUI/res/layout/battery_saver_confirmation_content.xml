@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Content view for the first-time Battery Saver confirmation dialog: lets the user
+  choose between Standard and Extreme Battery Saver before turning it on.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <RelativeLayout
+        android:id="@+id/standard_option_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="20dp"
+        android:background="?android:attr/selectableItemBackground"
+        android:gravity="center_vertical">
+
+        <RadioButton
+            android:id="@+id/standard_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:background="@null"
+            android:clickable="false"
+            android:focusable="false"
+            android:checked="true"
+            android:padding="8dp" />
+
+        <TextView
+            android:id="@+id/standard_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="4dp"
+            android:layout_toEndOf="@id/standard_button"
+            android:text="@string/saver_confirmation_dialog_title_standard_mode"
+            android:textAppearance="?android:attr/textAppearanceMedium" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/standard_title"
+            android:layout_toEndOf="@id/standard_button"
+            android:text="@string/saver_confirmation_dialog_summary_standard_mode"
+            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:textColor="?android:attr/textColorSecondary" />
+    </RelativeLayout>
+
+    <RelativeLayout
+        android:id="@+id/extreme_option_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:background="?android:attr/selectableItemBackground"
+        android:gravity="center_vertical">
+
+        <RadioButton
+            android:id="@+id/extreme_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:background="@null"
+            android:clickable="false"
+            android:focusable="false"
+            android:padding="8dp" />
+
+        <TextView
+            android:id="@+id/extreme_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="4dp"
+            android:layout_toEndOf="@id/extreme_button"
+            android:text="@string/saver_confirmation_dialog_title_extreme_mode"
+            android:textAppearance="?android:attr/textAppearanceMedium" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/extreme_title"
+            android:layout_toEndOf="@id/extreme_button"
+            android:text="@string/saver_confirmation_dialog_summary_extreme_mode"
+            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:textColor="?android:attr/textColorSecondary" />
+    </RelativeLayout>
+
+    <Button
+        android:id="@+id/setup_button"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="10dp"
+        android:text="@string/saver_confirmation_dialog_setup_action" />
+</LinearLayout>
