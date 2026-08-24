@@ -312,13 +312,8 @@ fun AxDynamicBarKeyguardChip(
                         label = "kg_accent",
                     )
                     val isDark = isSystemInDarkTheme()
-                    val neutralTextOverride = when (event) {
-                        is IslandEvent.Hotspot, is IslandEvent.Clipboard ->
-                            if (isDark) Color.White else Color.Black
-                        else -> null
-                    }
                     val contentColor by animateColorAsState(
-                        neutralTextOverride ?: chipContentColorOn(rawAccent),
+                        if (isDark) Color.White else Color.Black,
                         MaterialTheme.motionScheme.fastEffectsSpec(),
                         label = "kg_content",
                     )
