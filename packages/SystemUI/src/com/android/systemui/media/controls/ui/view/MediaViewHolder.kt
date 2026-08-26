@@ -47,6 +47,8 @@ private const val TAG = "MediaViewHolder"
 class MediaViewHolder constructor(itemView: View) {
     val player = itemView as TransitionLayout
 
+    val pulseView = itemView.requireViewById<com.android.systemui.pulse.PulseView>(R.id.media_pulse_view)
+
     // Player information
     val albumView = itemView.requireViewById<ImageView>(R.id.album_art)
     val multiRippleView = itemView.requireViewById<MultiRippleView>(R.id.touch_ripple_view)
@@ -268,6 +270,7 @@ class MediaViewHolder constructor(itemView: View) {
                 R.id.turbulence_noise_view,
                 R.id.loading_effect_view,
                 R.id.touch_ripple_view,
+                R.id.media_pulse_view,
             )
 
         val headlineSmallTF: Typeface = Typeface.create(GSF_HEADLINE_SMALL, Typeface.NORMAL)
