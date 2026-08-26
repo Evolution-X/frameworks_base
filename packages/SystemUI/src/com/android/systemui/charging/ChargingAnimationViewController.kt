@@ -46,6 +46,7 @@ constructor(
     private var isCharging: Boolean = false
     private var batteryLevel: Int = 0
     private var isKeyguardShowing: Boolean = false
+    private var isKeyguardGoingAway: Boolean = false
     private var isDozing: Boolean = false
     private var wasCharging: Boolean = false
 
@@ -185,6 +186,11 @@ constructor(
             return
         }
 
+        if (isKeyguardGoingAway) {
+            chargingView.hide()
+            return
+        }
+
         val isPanelCollapsed = try {
             ScrimUtils.get()?.isPanelFullyCollapsed() ?: true
         } catch (e: Exception) {
@@ -213,6 +219,16 @@ constructor(
 
     override fun onKeyguardShowingChanged(showing: Boolean) {
         isKeyguardShowing = showing
+        updateVisibility()
+    }
+
+    override fun onKeyguardFadingAwayChanged(fadingAway: Boolean) {
+        isKeyguardGoingAway = fadingAway
+        updateVisibility()
+    }
+
+    override fun onKeyguardGoingAwayChanged(goingAway: Boolean) {
+        isKeyguardGoingAway = goingAway
         updateVisibility()
     }
 
