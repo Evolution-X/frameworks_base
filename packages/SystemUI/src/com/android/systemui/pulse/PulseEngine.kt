@@ -38,7 +38,7 @@ class PulseEngine(
             if (fftAverage == null || fftAverage!!.size != barCount) {
                 fftAverage = Array(barCount) { FFTAverage() }
             }
-            val heightMultiplier = settingsRepo.getHeightMultiplier()
+            val heightMultiplier = if (settingsRepo.isPulseMediaEnabled()) (25 / 100f) else settingsRepo.getHeightMultiplier()
             val output = FloatArray(barCount)
             for (i in 0 until barCount) {
                 val realIndex = i * 2 + 2
@@ -65,7 +65,7 @@ class PulseEngine(
             }
             val output = FloatArray(barCount)
             val samplesPerBar = (data.size / barCount).coerceAtLeast(1)
-            val heightMultiplier = settingsRepo.getHeightMultiplier()
+            val heightMultiplier = if (settingsRepo.isPulseMediaEnabled()) (25 / 100f) else settingsRepo.getHeightMultiplier()
 
             for (i in 0 until barCount) {
                 val start = i * samplesPerBar
