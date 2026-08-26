@@ -1,0 +1,5 @@
+<permissions>
+    <privapp-permissions package="com.google.android.apps.nexuslauncher">
+        <permission name="android.permission.GET_ROLE_HOLDERS"/>
+    </privapp-permissions>
+</permissions>
