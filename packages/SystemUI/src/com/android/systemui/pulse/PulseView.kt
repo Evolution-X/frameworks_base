@@ -37,7 +37,7 @@ class PulseView @JvmOverloads constructor(
     private var engine: PulseEngine? = null
     private var isAttached = false
     private var isVisible = false
-    private var isRenderingAllowed = false 
+    private var renderingRequested = false 
     private var settingsRepo: PulseSettingsRepository? = null
     
     private var fadeAnimator: ValueAnimator? = null
@@ -45,6 +45,12 @@ class PulseView @JvmOverloads constructor(
     private var visibilityAnimator: ViewPropertyAnimator? = null
     private var captureMode: PulseAudioDataProcessor.CaptureMode =
         PulseAudioDataProcessor.CaptureMode.FFT
+
+    private var ownsRenderer = false
+    private var currentAnimator: ValueAnimator? = null
+    private var targetVisible = false
+
+    private var checkMediaEnabled: Boolean = false 
 
     init {
         layoutParams = ViewGroup.LayoutParams(
@@ -60,10 +66,30 @@ class PulseView @JvmOverloads constructor(
         captureMode = settingsRepo.getCaptureMode()
 
         renderer = PulseRenderer(context, settingsRepo)
+        ownsRenderer = true
         engine = PulseEngine(context, settingsRepo) { processedHeights ->
             renderer?.updateHeights(processedHeights)
             postInvalidate()
         }
+    }
+
+    private val isRenderingAllowed: Boolean
+        get() {
+            if (!renderingRequested) return false
+            val repo = settingsRepo ?: return false
+            return if (checkMediaEnabled) {
+                repo.isPulseEnabled() && repo.isPulseMediaEnabled()
+            } else {
+                repo.isPulseEnabled()
+            }
+        }
+
+    fun attachExternalRenderer(renderer: PulseRenderer, settingsRepo: PulseSettingsRepository) {
+        this.renderer = renderer
+        this.settingsRepo = settingsRepo
+        this.checkMediaEnabled = true
+        ownsRenderer = false
+        alpha = 1f
     }
 
     fun onCaptureModeChanged(mode: PulseAudioDataProcessor.CaptureMode) {
@@ -82,7 +108,10 @@ class PulseView @JvmOverloads constructor(
         fadeAnimator = null
         visibilityAnimator?.cancel()
         engine?.stop()
-        renderer?.cleanup()
+        if (ownsRenderer) {
+            renderer?.cleanup()
+        }
+    
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -94,7 +123,7 @@ class PulseView @JvmOverloads constructor(
     }
 
     fun updateVisualizerData(data: PulseData) {
-        if (isAttached && isVisible && data.isDataValid) {
+        if (isAttached && isRenderingAllowed && data.isDataValid) {
             when (captureMode) {
                 PulseAudioDataProcessor.CaptureMode.FFT ->
                     data.fftBytes?.let { engine?.processFFT(it) }
@@ -109,91 +138,50 @@ class PulseView @JvmOverloads constructor(
     }
 
     fun setVisibility(visible: Boolean, animate: Boolean = true, durationMs: Long = 300L) {
-        if (isVisible == visible) return
+        if (targetVisible == visible && (currentAnimator?.isRunning == true || isVisible == visible)) {
+            return
+        }
+        targetVisible = visible
         isVisible = visible
 
-        visibilityAnimator?.cancel()
+        currentAnimator?.cancel()
 
         if (!animate) {
+            currentAnimator = null
             alpha = if (visible) 1f else 0f
-            visibility = if (visible) VISIBLE else GONE
-            isRenderingAllowed = visible
+            this.visibility = if (visible) VISIBLE else GONE
+            renderingRequested = visible
             return
         }
 
         if (visible) {
-            isRenderingAllowed = true
-            visibility = VISIBLE
-            alpha = 0f
-            visibilityAnimator = animate()
-                .alpha(1f)
-                .setDuration(durationMs)
-                .withEndAction { visibilityAnimator = null }
-            visibilityAnimator?.start()
-        } else {
-            visibilityAnimator = animate()
-                .alpha(0f)
-                .setDuration(durationMs)
-                .withEndAction {
-                    isRenderingAllowed = false
-                    visibility = GONE
-                    visibilityAnimator = null
-                }
-            visibilityAnimator?.start()
+            renderingRequested = true
+            this.visibility = VISIBLE
         }
-    }
 
-    fun fadeIn(durationMs: Long) {
-        fadeAnimator?.cancel()
-        visibilityAnimator?.cancel()
-        visibilityAnimator = null
-        setVisibility(true, animate = false)
-        fadeAnimator = ValueAnimator.ofFloat(alpha, 1f).apply {
+        currentAnimator = ValueAnimator.ofFloat(alpha, if (visible) 1f else 0f).apply {
             duration = durationMs
             interpolator = fadeInterpolator
-            addUpdateListener { animation ->
-                alpha = animation.animatedValue as Float
+            addUpdateListener { anim ->
+                alpha = anim.animatedValue as Float
                 invalidate()
             }
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
-                    alpha = 1f
-                    fadeAnimator = null
+                    if (targetVisible == visible) { // only finalize if nothing superseded us
+                        if (!visible) {
+                            renderingRequested = false
+                            this@PulseView.visibility = GONE
+                        }
+                    }
+                    currentAnimator = null
                 }
                 override fun onAnimationCancel(animation: Animator) {
-                    fadeAnimator = null
+                    currentAnimator = null
                 }
             })
             start()
         }
     }
 
-    fun fadeOut(durationMs: Long, onComplete: (() -> Unit)? = null) {
-        fadeAnimator?.cancel()
-        visibilityAnimator?.cancel()
-        visibilityAnimator = null
-
-        fadeAnimator = ValueAnimator.ofFloat(alpha, 0f).apply {
-            duration = durationMs
-            interpolator = fadeInterpolator
-            addUpdateListener { animation ->
-                alpha = animation.animatedValue as Float
-                invalidate()
-            }
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    alpha = 0f
-                    setVisibility(false, animate = false)
-                    fadeAnimator = null
-                    onComplete?.invoke()
-                }
-                override fun onAnimationCancel(animation: Animator) {
-                    setVisibility(false, animate = false)
-                    fadeAnimator = null
-                    onComplete?.invoke()
-                }
-            })
-            start()
-        }
-    }
 }
