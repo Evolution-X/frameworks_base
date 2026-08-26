@@ -543,7 +543,13 @@ public class VirtualDeviceManagerService extends SystemService implements Watchd
             return;
         }
         final RoleManager roleManager = getContext().getSystemService(RoleManager.class);
-        final List<String> homePackages = roleManager.getRoleHolders(RoleManager.ROLE_HOME);
+        final long token = Binder.clearCallingIdentity();
+        final List<String> homePackages;
+        try {
+            homePackages = roleManager.getRoleHolders(RoleManager.ROLE_HOME);
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
         final String[] callerPackages =
                 getContext().getPackageManager().getPackagesForUid(callingUid);
         for (int i = 0; i < callerPackages.length; i++) {
