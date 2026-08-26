@@ -25,8 +25,14 @@ import android.os.Handler
 import android.os.UserHandle
 import android.os.Looper
 import android.provider.Settings
+import com.android.systemui.dagger.SysUISingleton
 
-class PulseSettingsRepository(private val context: Context) {
+import javax.inject.Inject
+
+@SysUISingleton
+class PulseSettingsRepository @Inject constructor(
+    private val context: Context
+) {
 
     companion object {
         private const val PULSE_ENABLED = Settings.Secure.LOCKSCREEN_PULSE_ENABLED
@@ -36,6 +42,7 @@ class PulseSettingsRepository(private val context: Context) {
         private const val PULSE_CUSTOM_COLOR = Settings.Secure.PULSE_CUSTOM_COLOR
         private const val PULSE_RENDERER = Settings.Secure.PULSE_RENDERER
         private const val PULSE_SHOW_ON_AMBIENT = Settings.Secure.PULSE_SHOW_ON_AMBIENT
+        private const val PULSE_SHOW_ON_MEDIA_PLAYER = Settings.Secure.PULSE_SHOW_ON_MEDIA_PLAYER
         private const val PULSE_HEIGHT_MULTIPLIER = Settings.Secure.PULSE_HEIGHT_MULTIPLIER
         private const val PULSE_BASS_HAPTICS = Settings.Secure.PULSE_BASS_HAPTICS
         private const val PULSE_CAPTURE_MODE = Settings.Secure.PULSE_CAPTURE_MODE
@@ -47,6 +54,7 @@ class PulseSettingsRepository(private val context: Context) {
         private const val DEFAULT_CUSTOM_COLOR = Color.WHITE
         private const val DEFAULT_RENDERER = "solid"
         private const val DEFAULT_SHOW_ON_AMBIENT = true
+        private const val DEFAULT_SHOW_ON_MEDIA_PLAYER = false
         private const val DEFAULT_HEIGHT_MULTIPLIER = 100 // 100 = 1.0x (normal height)
         private const val DEFAULT_HAPTICS_ENABLED = false
         private const val DEFAULT_HAPTICS_MODE = 0
@@ -64,6 +72,7 @@ class PulseSettingsRepository(private val context: Context) {
     private var cachedCustomColor: Int? = null
     private var cachedRenderer: String? = null
     private var cachedShowOnAmbient: Boolean? = null
+    private var cachedShowOnMediaPlayer: Boolean? = null
     private var cachedHeightMultiplier: Float? = null
     private var cachedHapticsEnabled: Boolean? = null
     private var cachedHapticsMode: Int? = null
@@ -82,6 +91,7 @@ class PulseSettingsRepository(private val context: Context) {
             Settings.Secure.getUriFor(PULSE_CUSTOM_COLOR),
             Settings.Secure.getUriFor(PULSE_RENDERER),
             Settings.Secure.getUriFor(PULSE_SHOW_ON_AMBIENT),
+            Settings.Secure.getUriFor(PULSE_SHOW_ON_MEDIA_PLAYER),
             Settings.Secure.getUriFor(PULSE_HEIGHT_MULTIPLIER),
             Settings.Secure.getUriFor(PULSE_RENDERER),
             Settings.Secure.getUriFor(PULSE_BASS_HAPTICS),
@@ -145,6 +155,13 @@ class PulseSettingsRepository(private val context: Context) {
         return cachedShowOnAmbient!!
     }
 
+    fun isPulseMediaEnabled(): Boolean {
+        if (cachedShowOnMediaPlayer == null) {
+            cachedShowOnMediaPlayer = getSecureSetting(PULSE_SHOW_ON_MEDIA_PLAYER, DEFAULT_SHOW_ON_MEDIA_PLAYER)
+        }
+        return cachedShowOnMediaPlayer!!
+    }
+
     fun getStyleMode(): String {
         // Valid values: "solid", "fading", "neon", "retro", "minimal",
         //               "sparkle", "matrix", "particle", "waveform"
@@ -195,6 +212,7 @@ class PulseSettingsRepository(private val context: Context) {
         cachedHapticsEnabled = null
         cachedHapticsMode = null
         cachedCaptureMode = null
+        cachedShowOnMediaPlayer = null
         onSettingsChangedListener?.invoke()
     }
 

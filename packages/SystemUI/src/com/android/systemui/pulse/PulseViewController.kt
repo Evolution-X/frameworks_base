@@ -61,7 +61,7 @@ class PulseViewController @Inject constructor(
         PulseBassHaptics(context)
 
     val pulseEnabled: Boolean
-        get() = settingsRepository.isPulseEnabled()
+        get() = settingsRepository.isPulseEnabled() && !settingsRepository.isPulseMediaEnabled()
 
     private val isCollapsed: Boolean
         get() = ScrimUtils.get().isPanelFullyCollapsed()
@@ -167,22 +167,16 @@ class PulseViewController @Inject constructor(
 
     private fun updatePulseDisplay(show: Boolean) {
         mainScope.launch {
-            view.setVisibility(show)
             if (show) {
-                view.setVisibility(true)
                 audioProcessor.startCapture()
-                view.fadeIn(PULSE_FADE_IN_DURATION_MS)
+                view.setVisibility(true, animate = true, durationMs = PULSE_FADE_IN_DURATION_MS)
             } else if (pulseEnabled && hapticsMode > 1) {
                 audioProcessor.startCapture()
-                view.fadeOut(PULSE_FADE_OUT_DURATION_MS) {
-                    view.setVisibility(false)
-                }
+                view.setVisibility(false, animate = true, durationMs = PULSE_FADE_OUT_DURATION_MS)
             } else {
-                view.fadeOut(PULSE_FADE_OUT_DURATION_MS) {
-                    view.setVisibility(false)
-                    audioProcessor.stopCapture()
-                    bassHaptics.reset()
-                }
+                view.setVisibility(false, animate = true, durationMs = PULSE_FADE_OUT_DURATION_MS)
+                audioProcessor.stopCapture()
+                bassHaptics.reset()
             }
         }
     }
