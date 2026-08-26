@@ -108,6 +108,8 @@ import com.android.systemui.media.MediaSessionManager;
 import com.android.systemui.monet.ColorScheme;
 import com.android.systemui.plugins.ActivityStarter;
 import com.android.systemui.plugins.FalsingManager;
+import com.android.systemui.pulse.PulseAudioBridge;
+import com.android.systemui.pulse.PulseSettingsRepository;
 import com.android.systemui.res.R;
 import com.android.systemui.scene.shared.flag.SceneContainerFlag;
 import com.android.systemui.shade.ShadeDisplayAware;
@@ -240,6 +242,11 @@ public class MediaControlPanel {
     @Nullable
     private Runnable mOnSuggestionSpaceVisibleRunnable = null;
 
+    private final PulseAudioBridge mPulseAudioBridge;
+    private final PulseSettingsRepository mPulseSettingsRepository;
+    private boolean mPulseAcquired = false;
+    private boolean mLastPulseShouldRun = false;
+
     private final PaintDrawCallback mNoiseDrawCallback =
             new PaintDrawCallback() {
                 @Override
@@ -290,7 +297,9 @@ public class MediaControlPanel {
             CommunalSceneInteractor communalSceneInteractor,
             NotificationLockscreenUserManager lockscreenUserManager,
             GlobalSettings globalSettings,
-            CommunalTransitionAnimatorController.Factory communalAnimationControllerFactory
+            CommunalTransitionAnimatorController.Factory communalAnimationControllerFactory,
+            PulseAudioBridge pulseAudioBridge,
+            PulseSettingsRepository pulseSettingsRepository
     ) {
         mContext = context;
         mBackgroundExecutor = backgroundExecutor;
@@ -309,6 +318,8 @@ public class MediaControlPanel {
         mLockscreenUserManager = lockscreenUserManager;
         mCommunalSceneInteractor = communalSceneInteractor;
         mCommunalAnimationControllerFactory = communalAnimationControllerFactory;
+        mPulseAudioBridge = pulseAudioBridge;
+        mPulseSettingsRepository = pulseSettingsRepository;
 
         mSeekBarViewModel.setLogSeek(() -> {
             if (mPackageName != null && mInstanceId != null) {
@@ -333,6 +344,11 @@ public class MediaControlPanel {
         mSeekBarViewModel.removeContentDescriptionListener(mContentDescriptionListener);
         mSeekBarViewModel.onDestroy();
         mMediaViewController.onDestroy();
+
+        if (mPulseAcquired) {
+            mPulseAudioBridge.release();
+            mPulseAcquired = false;
+        }
     }
 
     /**
@@ -365,6 +381,14 @@ public class MediaControlPanel {
      */
     public void setListening(boolean listening) {
         mSeekBarViewModel.setListening(listening);
+
+        if (!listening && mPulseAcquired) {
+            mPulseAudioBridge.release();
+            mPulseAcquired = false;
+        } else if (listening && mLastPulseShouldRun && !mPulseAcquired) {
+            mPulseAudioBridge.acquire();
+            mPulseAcquired = true;
+        }
     }
 
     @VisibleForTesting
@@ -471,6 +495,15 @@ public class MediaControlPanel {
 
         mTurbulenceNoiseController = new TurbulenceNoiseController(turbulenceNoiseView);
 
+        vh.getPulseView().attachExternalRenderer(mPulseAudioBridge.getRenderer(), mPulseSettingsRepository);
+        mLastPulseShouldRun = false; 
+
+        mPulseAudioBridge.setOnPulseEnabledChangedListener(() -> {
+            Log.d("PulseDebug", "pulse enabled changed callback fired");
+            mMainExecutor.execute(this::updatePulseState);
+            return Unit.INSTANCE;
+        });
+
         mColorSchemeTransition = new ColorSchemeTransition(
                 mContext, mMediaViewHolder, mMultiRippleController, mTurbulenceNoiseController);
         mMetadataAnimationHandler = new MetadataAnimationHandler(exit, enter);
@@ -565,6 +598,8 @@ public class MediaControlPanel {
 
         boolean isSongUpdated = bindSongMetadata(data);
         bindArtworkAndColors(data, key, isSongUpdated);
+
+        updatePulseState();
 
         // TODO: We don't need to refresh this state constantly, only if the state actually changed
         // to something which might impact the measurement
@@ -927,6 +962,7 @@ public class MediaControlPanel {
 
                 MediaSessionManager.Companion.get().onAlbumArtChanged(albumArt);
                 MediaSessionManager.Companion.get().onMediaColorsChanged(colorScheme.getAccent1().getS100());
+                mPulseAudioBridge.onMediaColorsChanged(colorScheme.getAccent1().getS100());
 
                 // Transition Colors to current color scheme
                 boolean colorSchemeChanged;
@@ -1585,5 +1621,30 @@ public class MediaControlPanel {
                  mMediaViewController.refreshState();        // measure view and refresh the state 
             }
          } 
+
+         @Override
+         public void onPlaybackStateChanged(PlaybackState state) {
+            updatePulseState();
+         }
      };
+
+    private void updatePulseState() {
+        if (mMediaViewHolder == null) return;
+        boolean shouldRun = mPulseSettingsRepository.isPulseEnabled()
+                && mPulseSettingsRepository.isPulseMediaEnabled()
+                && isPlaying();
+
+        if (shouldRun == mLastPulseShouldRun) return;
+        mLastPulseShouldRun = shouldRun;
+
+        if (shouldRun && !mPulseAcquired) {
+            mPulseAudioBridge.acquire();
+            mPulseAcquired = true;
+        } else if (!shouldRun && mPulseAcquired) {
+            mPulseAudioBridge.release();
+            mPulseAcquired = false;
+        }
+
+        mMediaViewHolder.getPulseView().setVisibility(shouldRun, true, 300L);
+    }
 }
