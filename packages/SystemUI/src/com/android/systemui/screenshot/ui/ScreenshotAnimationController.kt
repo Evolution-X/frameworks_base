@@ -20,12 +20,14 @@ import android.animation.Animator
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
+import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.BlendMode
 import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.PointF
 import android.graphics.Rect
+import android.provider.Settings
 import android.util.Log
 import android.util.MathUtils
 import android.view.View
@@ -83,7 +85,7 @@ class ScreenshotAnimationController(
 
         val previewAnimator = getPreviewAnimator(bounds)
 
-        if (showFlash) {
+        if (showFlash && isScreenshotFlashEnabled(view.context)) {
             val flashInAnimator =
                 ObjectAnimator.ofFloat(flashView, "alpha", 0f, 1f).apply {
                     duration = FLASH_IN_DURATION_MS
@@ -384,12 +386,22 @@ class ScreenshotAnimationController(
 
     companion object {
         private const val TAG = "ScreenshotAnimationController"
+        private const val SCREENSHOT_FLASH_ENABLED_SETTING = "screenshot_flash_enabled"
+        private const val SCREENSHOT_FLASH_ENABLED_DEFAULT = 1
         private const val MINIMUM_VELOCITY = 1.5f // pixels per millisecond
         private const val FLASH_IN_DURATION_MS: Long = 133
         private const val FLASH_OUT_DURATION_MS: Long = 217
         private const val PREVIEW_X_ANIMATION_DURATION_MS: Long = 234
         private const val PREVIEW_Y_ANIMATION_DURATION_MS: Long = 500
         private const val ACTION_REVEAL_DELAY_MS: Long = 200
+
+        fun isScreenshotFlashEnabled(context: Context): Boolean {
+            return Settings.Global.getInt(
+                context.contentResolver,
+                SCREENSHOT_FLASH_ENABLED_SETTING,
+                SCREENSHOT_FLASH_ENABLED_DEFAULT,
+            ) != 0
+        }
 
         val SCREENSHOT_DISMISSAL_SPRING =
             DesktopExperienceFlags.DesktopExperienceFlag(
