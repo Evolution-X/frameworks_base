@@ -4,5 +4,7 @@
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources>
-
+    <!-- Mobile data enable confirmation dialog: "Don't ask me again" checkbox row -->
+    <color name="mobile_data_dialog_checkbox_bg">@color/materialColorSurfaceContainerHigh</color>
+    <color name="mobile_data_dialog_checkbox_text">@color/materialColorOnSurface</color>
 </resources>
