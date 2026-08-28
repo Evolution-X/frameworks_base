@@ -866,8 +866,16 @@ public class VoiceInteractionManagerService extends SystemService {
                 setCurInteractor(new ComponentName(curInteractorInfo.getServiceInfo().packageName,
                         curInteractorInfo.getServiceInfo().name), userHandle);
             } else {
-                // No voice interactor, so clear the setting.
-                setCurInteractor(null, userHandle);
+                // Before clearing, preserve the assistant that was configured in Settings
+                final ComponentName assistant = getCurAssistant(userHandle);
+                final ComponentName assistantInteractor =
+                        findInteractorForAssistant(userHandle, assistant);
+                if (assistantInteractor != null) {
+                    setCurInteractor(assistantInteractor, userHandle);
+                } else {
+                    // No voice interactor, so clear the setting.
+                    setCurInteractor(null, userHandle);
+                }
             }
 
             initRecognizer(userHandle);
@@ -1073,6 +1081,25 @@ public class VoiceInteractionManagerService extends SystemService {
         public String getDefaultAssistant() {
             String assistant = mContext.getString(R.string.config_defaultAssistant);
             return TextUtils.isEmpty(assistant) ? null : assistant;
+        }
+
+        @Nullable
+        private ComponentName findInteractorForAssistant(@UserIdInt int user,
+                @Nullable ComponentName assistant) {
+            if (assistant == null) {
+                return null;
+            }
+            for (ResolveInfo resolveInfo : queryInteractorServices(user,
+                    assistant.getPackageName())) {
+                ServiceInfo serviceInfo = resolveInfo.serviceInfo;
+                VoiceInteractionServiceInfo info =
+                        new VoiceInteractionServiceInfo(mContext.getPackageManager(), serviceInfo);
+                if (info.getParseError() == null && info.getSupportsAssist()
+                        && info.getRecognitionService() != null) {
+                    return serviceInfo.getComponentName();
+                }
+            }
+            return null;
         }
 
         ComponentName getCurInteractor(int userHandle) {
