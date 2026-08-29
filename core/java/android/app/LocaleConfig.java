@@ -150,7 +150,15 @@ public class LocaleConfig implements Parcelable {
             }
         }
         Resources res = context.getResources();
-        parseLocaleConfig(context.getApplicationInfo().getLocaleConfigRes(), res);
+        int localeConfigRes = context.getApplicationInfo().getLocaleConfigRes();
+        if (localeConfigRes != 0
+                && !isResourceInPackage(res, localeConfigRes, context.getPackageName())) {
+            // A package context under construction still references its creator's
+            // Resources, where this ID can name an unrelated file.
+            mStatus = STATUS_NOT_SPECIFIED;
+            return;
+        }
+        parseLocaleConfig(localeConfigRes, res);
     }
 
     /**
@@ -252,6 +260,14 @@ public class LocaleConfig implements Parcelable {
             Slog.w(TAG, "Failed to parse XML configuration from "
                     + res.getResourceEntryName(resourceId), e);
             mStatus = STATUS_PARSING_FAILED;
+        }
+    }
+
+    private static boolean isResourceInPackage(Resources res, int resourceId, String packageName) {
+        try {
+            return packageName.equals(res.getResourcePackageName(resourceId));
+        } catch (Resources.NotFoundException e) {
+            return false;
         }
     }
 
