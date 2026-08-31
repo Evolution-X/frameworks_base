@@ -107,11 +107,20 @@ public class FadeBottomDrawable extends Drawable {
         final float clipLine = bounds.bottom - mBottomInsetPx;
         BitmapShader bitmapShader =
                 new BitmapShader(mBitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
-        Matrix matrix = new Matrix();
-        matrix.setScale(
+        float scale = Math.max(
                 bounds.width() / (float) mBitmap.getWidth(),
                 bounds.height() / (float) mBitmap.getHeight());
-        matrix.postTranslate(bounds.left, bounds.top);
+        float dx = bounds.left
+                + (bounds.width() - mBitmap.getWidth() * scale) * 0.5f;
+        float dy = bounds.top
+                + (bounds.height() - mBitmap.getHeight() * scale) * 0.5f;
+        android.util.Log.i("FadeBottomDrawable", "=== FADE BOTTOM DRAWABLE DIAGNOSTIC ===");
+        android.util.Log.i("FadeBottomDrawable", "bounds: " + bounds + ", bitmap: " + mBitmap.getWidth() + "x" + mBitmap.getHeight());
+        android.util.Log.i("FadeBottomDrawable", "scale: " + scale + ", dx: " + dx + ", dy: " + dy);
+        android.util.Log.i("FadeBottomDrawable", "========================================");
+        Matrix matrix = new Matrix();
+        matrix.setScale(scale, scale);
+        matrix.postTranslate(dx, dy);
         bitmapShader.setLocalMatrix(matrix);
 
         if (mFadeHeightPx <= 0) {

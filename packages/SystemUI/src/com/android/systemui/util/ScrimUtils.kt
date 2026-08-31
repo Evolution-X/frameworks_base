@@ -222,8 +222,10 @@ class ScrimUtils private constructor(context: Context?) {
             listeners.notifyOnMain { it.onQsVisibilityChanged(visible) }
             if (visible) {
                 mWallpaperDepthUtils?.getDepthWallpaperView()?.translationZ = -100f
+                mWallpaperDepthUtils?.getBackgroundView()?.translationZ = -100f
             } else if (mStateIsKeyguard) {
                 mWallpaperDepthUtils?.getDepthWallpaperView()?.translationZ = 0f
+                mWallpaperDepthUtils?.getBackgroundView()?.translationZ = 0f
                 mainHandler.postDelayed({
                     mWallpaperDepthUtils?.updateDepthWallpaper()
                     mWallpaperDepthUtils?.updateDepthWallpaperVisibility()
@@ -343,12 +345,14 @@ class ScrimUtils private constructor(context: Context?) {
         val fullyCollapsed = expansion <= 0f
         if (fullyCollapsed) {
             mWallpaperDepthUtils?.getDepthWallpaperView()?.translationZ = 0f
+            mWallpaperDepthUtils?.getBackgroundView()?.translationZ = 0f
             if (mStateIsKeyguard) {
                 mWallpaperDepthUtils?.updateDepthWallpaper()
                 mWallpaperDepthUtils?.updateDepthWallpaperVisibility()
             }
         } else {
             mWallpaperDepthUtils?.getDepthWallpaperView()?.translationZ = -100f
+            mWallpaperDepthUtils?.getBackgroundView()?.translationZ = -100f
         }
     }
 
