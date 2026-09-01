@@ -564,6 +564,26 @@ public class TrickyStoreService {
         return mCustomPatchLevel;
     }
 
+    /**
+     * Returns true if the given patch date string is more than 12 months old.
+     * Accepts YYYY-MM-DD only; unparsable or null input is treated as not stale
+     * (we don't want to warn on a value we can't understand).
+     */
+    private static final long PATCH_STALE_THRESHOLD_MS = 365L * 24 * 60 * 60 * 1000L;
+
+    public static boolean isPatchLevelStale(String patchDate) {
+        if (patchDate == null || patchDate.isEmpty()) return false;
+        try {
+            java.text.SimpleDateFormat sdf =
+                new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
+            sdf.setLenient(false);
+            long patchMs = sdf.parse(patchDate.trim()).getTime();
+            return System.currentTimeMillis() - patchMs > PATCH_STALE_THRESHOLD_MS;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     public boolean hasKeyboxes() {
         return mKeyBoxManager.hasKeyboxes();
     }
