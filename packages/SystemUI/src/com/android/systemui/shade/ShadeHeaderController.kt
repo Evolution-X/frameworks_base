@@ -272,6 +272,16 @@ constructor(
             }
         }
 
+    // Stable OnLayoutChangeListener instance (SAM ctor, NOT a bare lambda) so add/remove target
+    // the same object; added in onViewAttached, removed in onViewDetached to avoid accumulating a
+    // listener on the clock view across attach/detach cycles.
+    private val clockPivotListener =
+        View.OnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+            val newPivot = if (v.isLayoutRtl) v.width.toFloat() else 0f
+            v.pivotX = newPivot
+            v.pivotY = v.height.toFloat() / 2
+        }
+
     private var singleCarrier = false
 
     private val demoModeReceiver =
@@ -455,11 +465,7 @@ constructor(
 
         header.setOnApplyWindowInsetsListener(insetListener)
 
-        clock.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
-            val newPivot = if (v.isLayoutRtl) v.width.toFloat() else 0f
-            v.pivotX = newPivot
-            v.pivotY = v.height.toFloat() / 2
-        }
+        clock.addOnLayoutChangeListener(clockPivotListener)
         clock.setOnClickListener { launchClockActivity() }
 
         dumpManager.registerDumpable(this)
@@ -481,6 +487,7 @@ constructor(
 
     override fun onViewDetached() {
         clock.setOnClickListener(null)
+        clock.removeOnLayoutChangeListener(clockPivotListener)
         privacyIconsController.chipVisibilityListener = null
         dumpManager.unregisterDumpable(this::class.java.simpleName)
         configurationController.removeCallback(configurationControllerListener)
