@@ -104,6 +104,12 @@ public class DreamOverlayContainerViewController extends
 
     // Main thread handler used to schedule periodic tasks (e.g. burn-in protection updates).
     private final Handler mHandler;
+
+    // Stable token for the periodic burn-in protection update. Kept as a single Runnable instance
+    // so it can be posted and removed by reference, instead of clearing the entire shared @Main
+    // Handler queue on detach.
+    private final Runnable mBurnInProtectionUpdater = this::updateBurnInOffsets;
+
     private final CoroutineDispatcher mBackgroundDispatcher;
     private final int mDreamOverlayMaxTranslationY;
     private final PrimaryBouncerCallbackInteractor mPrimaryBouncerCallbackInteractor;
@@ -270,7 +276,7 @@ public class DreamOverlayContainerViewController extends
     protected void onViewAttached() {
         mWakingUpFromSwipe = false;
         mJitterStartTimeMillis = System.currentTimeMillis();
-        mHandler.postDelayed(this::updateBurnInOffsets, mBurnInProtectionUpdateInterval);
+        mHandler.postDelayed(mBurnInProtectionUpdater, mBurnInProtectionUpdateInterval);
         mPrimaryBouncerCallbackInteractor.addBouncerExpansionCallback(mBouncerExpansionCallback);
         mBouncerlessScrimController.addCallback(mBouncerlessExpansionCallback);
         final Region emptyRegion = Region.obtain();
@@ -314,7 +320,7 @@ public class DreamOverlayContainerViewController extends
             mFlowHandle.dispose();
             mFlowHandle = null;
         }
-        mHandler.removeCallbacksAndMessages(null);
+        mHandler.removeCallbacks(mBurnInProtectionUpdater);
         mPrimaryBouncerCallbackInteractor.removeBouncerExpansionCallback(mBouncerExpansionCallback);
         mBouncerlessScrimController.removeCallback(mBouncerlessExpansionCallback);
         mTouchInsetSession.clear();
@@ -350,7 +356,7 @@ public class DreamOverlayContainerViewController extends
         mView.setTranslationX(burnInOffsetX);
         mView.setTranslationY(burnInOffsetY);
 
-        mHandler.postDelayed(this::updateBurnInOffsets, mBurnInProtectionUpdateInterval);
+        mHandler.postDelayed(mBurnInProtectionUpdater, mBurnInProtectionUpdateInterval);
     }
 
     private void updateTransitionState(float bouncerHideAmount) {
