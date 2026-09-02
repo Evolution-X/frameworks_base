@@ -197,7 +197,7 @@ class DisplayDeviceRepository implements DisplayAdapter.Listener {
             } else if (DEBUG && (diff &
                     (DisplayDeviceInfo.DIFF_MODE_ID | DisplayDeviceInfo.DIFF_RENDER_TIMINGS
                             | DisplayDeviceInfo.DIFF_FRAME_RATE_OVERRIDE)) != 0) {
-                Slog.i(TAG, "Display device changed render timings: \"" + info.name
+                Slog.d(TAG, "Display device changed render timings: \"" + info.name
                         + "\", renderFrameRate=" + info.renderFrameRate
                         + ", presentationDeadlineNanos=" + info.presentationDeadlineNanos
                         + ", appVsyncOffsetNanos=" + info.appVsyncOffsetNanos
