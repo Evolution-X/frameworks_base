@@ -7189,6 +7189,16 @@ public final class Settings {
         /**
          * @hide
          */
+        public static final String STATUS_BAR_DYNAMIC_ISLAND_WIDTH_SCALE = "status_bar_dynamic_island_width_scale";
+
+        /**
+         * @hide
+         */
+        public static final String STATUS_BAR_DYNAMIC_ISLAND_HEIGHT_SCALE = "status_bar_dynamic_island_height_scale";
+
+        /**
+         * @hide
+         */
         public static final String STATUS_BAR_DYNAMIC_ISLAND_SCREEN_RECORDING = "status_bar_dynamic_island_screen_recording";
 
         /**
