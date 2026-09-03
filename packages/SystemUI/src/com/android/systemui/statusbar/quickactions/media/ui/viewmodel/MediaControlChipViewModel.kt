@@ -32,6 +32,7 @@ import com.android.systemui.statusbar.quickactions.ui.compose.ChipColors
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import java.util.Locale
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
 /**
@@ -45,14 +46,21 @@ constructor(
 ) : StatusBarPopupChipViewModel, HydratedActivatable() {
 
     override val chip: QuickActionChipModel by
-        mediaControlChipInteractor.mediaControlChipModel
-            .map { model -> toPopupChipModel(model) }
+        combine(
+            mediaControlChipInteractor.mediaControlChipModel,
+            mediaControlChipInteractor.mediaUseWaveform,
+        ) { model, useWaveform ->
+            toPopupChipModel(model, useWaveform)
+        }
             .hydratedStateOf(
                 traceName = "chip",
                 initialValue = QuickActionChipModel.Hidden(QuickActionChipId.MediaControl),
             )
 
-    private fun toPopupChipModel(model: MediaControlChipModel?): QuickActionChipModel {
+        private fun toPopupChipModel(
+            model: MediaControlChipModel?,
+            useWaveform: Boolean = false,
+        ): QuickActionChipModel {
         if (model == null || model.songName.isNullOrEmpty()) {
             return QuickActionChipModel.Hidden(QuickActionChipId.MediaControl)
         }
@@ -74,7 +82,7 @@ constructor(
             chipContent = ChipContent.Text(songTitle),
             colors = ChipColors.DynamicIsland,
             contentDescription = contentDescription,
-            popupContent = PopupContentModel.Media(model),
+            popupContent = PopupContentModel.Media(model, useWaveform),
         )
     }
 
