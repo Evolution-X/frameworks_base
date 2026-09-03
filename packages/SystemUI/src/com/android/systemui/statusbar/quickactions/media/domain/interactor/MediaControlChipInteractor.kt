@@ -232,14 +232,7 @@ constructor(
                     val song = model.songName?.toString()
                     val artist = model.artistName?.toString()
                     val packageName = model.packageName
-                    val isSupportedApp =
-                        packageName?.contains("music", ignoreCase = true) == true ||
-                            packageName?.contains("youtube", ignoreCase = true) == true ||
-                            packageName?.contains("spotify", ignoreCase = true) == true ||
-                            packageName?.contains("vanced", ignoreCase = true) == true ||
-                            packageName?.contains("rvx", ignoreCase = true) == true
-
-                    if (song != null && artist != null && isSupportedApp) {
+                        if (song != null && artist != null) {
                         if (song != lastFetchedSong || artist != lastFetchedArtist) {
                             lastFetchedSong = song
                             lastFetchedArtist = artist
