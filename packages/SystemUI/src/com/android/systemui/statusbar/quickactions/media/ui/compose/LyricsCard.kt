@@ -26,6 +26,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -60,8 +62,8 @@ fun LyricsCard(
     }
 
     Surface(
-        color = Color(0xF21A1A1A),
-        contentColor = Color.White,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = MaterialTheme.colorScheme.onSurface,
         shape = PopupShape,
         shadowElevation = 12.dp,
         modifier = modifier.widthIn(min = 320.dp, max = 400.dp).height(200.dp),
@@ -104,7 +106,7 @@ fun LyricsCard(
 
                     Text(
                         text = line.text,
-                        color = Color.White,
+                        color = LocalContentColor.current,
                         fontSize = (16.sp * scale),
                         fontWeight = fontWeight,
                         textAlign = TextAlign.Center,
@@ -125,7 +127,7 @@ fun LyricsCard(
                 item {
                     Text(
                         text = plainLyrics,
-                        color = Color.White.copy(alpha = 0.8f),
+                        color = LocalContentColor.current.copy(alpha = 0.8f),
                         fontSize = 15.sp,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth(),
