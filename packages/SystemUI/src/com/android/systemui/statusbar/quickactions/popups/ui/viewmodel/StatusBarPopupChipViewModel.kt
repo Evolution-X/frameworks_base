@@ -28,6 +28,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import com.android.systemui.dagger.qualifiers.Application
+import com.android.systemui.keyguard.domain.interactor.KeyguardTransitionInteractor
+import com.android.systemui.keyguard.shared.model.KeyguardState
 import com.android.systemui.lifecycle.HydratedActivatable
 import com.android.systemui.statusbar.pipeline.shared.domain.interactor.StatusBarVisibilityInteractor
 import com.android.systemui.statusbar.quickactions.alarm.ui.viewmodel.AlarmPopupChipViewModel
@@ -52,6 +54,7 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 
@@ -64,6 +67,7 @@ class StatusBarPopupChipsViewModel
 constructor(
     @Assisted private val displayId: Int,
     @Application private val context: Context,
+     private val keyguardTransitionInteractor: KeyguardTransitionInteractor,
     private val quickActionsInteractor: QuickActionsInteractor,
     private val statusBarVisibilityInteractor: StatusBarVisibilityInteractor,
     mediaControlChipFactory: MediaControlChipViewModel.Factory,
@@ -104,6 +108,8 @@ constructor(
             }
         }
 
+    private var isOnLockscreen by mutableStateOf(false)
+
     /** The ID of the current chip that is currently active, or `null` if no chip is active. */
     private val currentActiveQuickActionId: QuickActionChipId?
         get() = quickActionsInteractor.activePanel?.chipId.takeIf { isShadeWindowOnThisDisplay }
@@ -132,6 +138,10 @@ constructor(
     }
 
     val shownQuickActionChips: List<QuickActionChipModel> by derivedStateOf {
+        if (!isDynamicIslandEnabled || isOnLockscreen) {
+            return@derivedStateOf emptyList()
+        }
+
         val bundle = incomingQuickActionChipBundle
         val candidateChips =
             if (isDynamicIslandEnabled) {
@@ -211,6 +221,11 @@ constructor(
                 UserHandle.USER_ALL,
             )
             dynamicIslandObserver.onChange(false)
+
+            launch {
+                keyguardTransitionInteractor.isFinishedIn(KeyguardState.LOCKSCREEN)
+                    .collectLatest { isOnLockscreen = it }
+            }
 
             launch { avControlsChip.activate() }
             launch { mediaControlChip.activate() }
