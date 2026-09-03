@@ -29,12 +29,14 @@ import com.android.systemui.statusbar.quickactions.shared.model.ChipContent
 import com.android.systemui.statusbar.quickactions.shared.model.ChipIcon
 import com.android.systemui.statusbar.quickactions.shared.model.PopupContentModel
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipId
+import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipModel
 import com.android.systemui.statusbar.quickactions.ui.compose.ChipColors
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
 /** ViewModel backing the flashlight page inside the dynamic island. */
@@ -67,6 +69,14 @@ constructor(
                 awaitClose { flashlightController.removeCallback(callback) }
             }
             .map(::toPopupChipModel)
+            .combine(
+                DynamicIslandFeatureSettings.observeDynamicIslandFeatureEnabled(
+                    context,
+                    DynamicIslandFeatureSettings.FLASHLIGHT,
+                )
+            ) { model, enabled ->
+                if (enabled) model else QuickActionChipModel.Hidden(QuickActionChipId.Flashlight)
+            }
             .hydratedStateOf(
                 traceName = "chip",
                 initialValue = QuickActionChipModel.Hidden(QuickActionChipId.Flashlight),
