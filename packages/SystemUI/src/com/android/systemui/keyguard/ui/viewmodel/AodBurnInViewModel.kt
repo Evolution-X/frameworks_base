@@ -208,11 +208,12 @@ constructor(
                 xDimenResourceId = R.dimen.burn_in_prevention_offset_x,
                 yDimenResourceId = R.dimen.burn_in_prevention_offset_y,
             ),
-        ) { interpolated, burnIn ->
-            val useAltAod =
-                keyguardClockViewModel.currentClock.value
-                    ?.config
-                    ?.useAlternateSmartspaceAODTransition == true
+            // Re-evaluate when the clock changes: whether the large clock is scaled or only
+            // translated depends on the clock, and a model computed before it loaded would
+            // otherwise stick until the next burn-in step.
+            keyguardClockViewModel.currentClock,
+        ) { interpolated, burnIn, currentClock ->
+            val useAltAod = currentClock?.config?.useAlternateSmartspaceAODTransition == true
             // Only scale large non-weather clocks elements in large weather clock will translate
             // the same as smartspace
             val useScaleOnly = (!useAltAod) && keyguardClockViewModel.isLargeClockVisible.value
