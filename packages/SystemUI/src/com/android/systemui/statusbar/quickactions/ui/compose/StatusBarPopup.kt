@@ -25,7 +25,9 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.Composable
@@ -43,6 +45,7 @@ import com.android.systemui.res.R
 import com.android.systemui.statusbar.quickactions.alarm.ui.compose.AlarmPopup
 import com.android.systemui.statusbar.quickactions.flashlight.ui.compose.FlashlightPopup
 import com.android.systemui.statusbar.quickactions.livescore.ui.compose.LiveScorePopup
+import com.android.systemui.statusbar.quickactions.media.ui.compose.LyricsCard
 import com.android.systemui.statusbar.quickactions.media.ui.compose.MediaControlPopup
 import com.android.systemui.statusbar.quickactions.screenrecord.ui.compose.ScreenRecordPopup
 import com.android.systemui.statusbar.quickactions.shared.model.PopupContentModel
@@ -118,7 +121,22 @@ fun StatusBarPopup(
         ) {
             Box(modifier = Modifier.padding(8.dp).wrapContentSize()) {
                 when (val popupContent = viewModel.popupContent) {
-                    is PopupContentModel.Media -> MediaControlPopup(model = popupContent.model)
+                    is PopupContentModel.Media -> {
+                        val model = popupContent.model
+                        val hasLyrics =
+                            !model.lyrics.isNullOrBlank() || !model.syncedLyrics.isNullOrBlank()
+                        if (hasLyrics) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                MediaControlPopup(model = model)
+                                LyricsCard(model = model)
+                            }
+                        } else {
+                            MediaControlPopup(model = model)
+                        }
+                    }
                     is PopupContentModel.ScreenRecord -> ScreenRecordPopup(model = popupContent.model)
                     is PopupContentModel.LiveScore -> LiveScorePopup(model = popupContent.model)
                     is PopupContentModel.Flashlight -> FlashlightPopup(model = popupContent.model)
