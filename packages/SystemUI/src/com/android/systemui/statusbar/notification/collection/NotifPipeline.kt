@@ -97,6 +97,16 @@ constructor(
         return mShadeListBuilder.bundleEntries
     }
 
+    /**
+     * Returns the most recently rendered shade list: the top-level entries that survived every
+     * filter of the last pipeline run, in display order. Read-only; it reflects the state the
+     * pipeline last handed to the view layer, so it can lag a state change (e.g. the keyguard
+     * showing) by one pipeline run.
+     */
+    fun getShadeList(): List<PipelineEntry> {
+        return mShadeListBuilder.shadeList
+    }
+
     override fun addCollectionListener(listener: NotifCollectionListener) {
         mNotifCollection.addCollectionListener(listener)
     }
