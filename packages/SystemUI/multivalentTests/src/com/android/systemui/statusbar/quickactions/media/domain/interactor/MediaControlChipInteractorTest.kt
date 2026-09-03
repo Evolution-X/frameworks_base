@@ -18,6 +18,7 @@ package com.android.systemui.statusbar.quickactions.media.domain.interactor
 
 import android.graphics.drawable.Drawable
 import android.platform.test.flag.junit.FlagsParameterization
+import android.provider.Settings
 import androidx.test.filters.SmallTest
 import com.android.systemui.SysuiTestCase
 import com.android.systemui.flags.parameterizeSceneContainerFlag
@@ -61,6 +62,11 @@ class MediaControlChipInteractorTest(flags: FlagsParameterization) : SysuiTestCa
 
     @Before
     fun setUp() {
+        Settings.System.putInt(
+            mContext.contentResolver,
+            Settings.System.STATUS_BAR_SHOW_MUSIC_TICKER,
+            1,
+        )
         kosmos.underTest.initialize()
         MockitoAnnotations.initMocks(this)
     }
