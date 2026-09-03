@@ -76,7 +76,6 @@ import com.android.systemui.statusbar.phone.ui.TintedIconManager
 import com.android.systemui.statusbar.pipeline.battery.ui.composable.UnifiedBattery
 import com.android.systemui.statusbar.pipeline.battery.ui.viewmodel.BatteryViewModel
 import com.android.systemui.statusbar.pipeline.shared.ui.viewmodel.HomeStatusBarViewModel
-import com.android.systemui.statusbar.quickactions.popups.StatusBarPopupChips
 import com.android.systemui.statusbar.quickactions.ui.compose.QuickActionChipsContainer
 import com.android.systemui.statusbar.shared.ui.compose.StatusBarIcon
 import com.android.systemui.statusbar.systemstatusicons.SystemStatusIconsInCompose
@@ -168,12 +167,10 @@ fun DesktopStatusBar(
                 )
             }
 
-            if (StatusBarPopupChips.isEnabled) {
                 QuickActionChipsContainer(
                     chips = viewModel.popupChips,
                     isDarkProvider = viewModel.areaDark::isDarkTheme,
                 )
-            }
 
             // The wrapper row prevents application of ElementSpacing between the chips. Instead,
             // they will internally allocate the same padding space to their touch targets.

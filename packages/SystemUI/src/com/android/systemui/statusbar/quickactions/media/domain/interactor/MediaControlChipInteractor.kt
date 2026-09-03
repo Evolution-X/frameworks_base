@@ -16,8 +16,15 @@
 
 package com.android.systemui.statusbar.quickactions.media.domain.interactor
 
+import android.content.Context
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
+import android.os.UserHandle
+import android.provider.Settings
 import androidx.compose.runtime.snapshotFlow
 import com.android.systemui.dagger.SysUISingleton
+import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.dagger.qualifiers.Background
 import com.android.systemui.media.controls.shared.model.MediaData
 import com.android.systemui.media.remedia.data.model.MediaDataModel
@@ -40,17 +47,24 @@ import kotlinx.coroutines.flow.stateIn
  * Provides a [StateFlow] of [MediaControlChipModel] representing the current state of the media
  * control chip. Emits a new [MediaControlChipModel] when there is an active media session and the
  * corresponding user preference is found, otherwise emits null.
- *
- * This functionality is only enabled on large screen devices.
  */
 @SysUISingleton
 class MediaControlChipInteractor
 @Inject
 constructor(
+    @Application private val context: Context,
     @Background private val backgroundScope: CoroutineScope,
     private val mediaRepository: MediaRepositoryImpl,
 ) {
     private val isEnabled = MutableStateFlow(false)
+    private val isMusicTickerEnabled = MutableStateFlow(false)
+    private var isInitialized = false
+    private val musicTickerObserver =
+        object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                updateMusicTickerState()
+            }
+        }
 
     private val mediaControlChipModelForScene: Flow<MediaControlChipModel?> = snapshotFlow {
         mediaRepository.currentMedia.firstOrNull { it.isActive }?.toMediaControlChipModel()
@@ -78,8 +92,11 @@ constructor(
 
     /** The currently active [MediaControlChipModel] */
     val mediaControlChipModel: StateFlow<MediaControlChipModel?> =
-        combine(_mediaControlChipModel, isEnabled) { mediaControlChipModel, isEnabled ->
-                if (isEnabled) {
+        combine(_mediaControlChipModel, isEnabled, isMusicTickerEnabled) {
+            mediaControlChipModel,
+            isEnabled,
+            isMusicTickerEnabled ->
+                if (isEnabled && isMusicTickerEnabled) {
                     mediaControlChipModel
                 } else {
                     null
@@ -87,19 +104,39 @@ constructor(
             }
             .stateIn(backgroundScope, SharingStarted.WhileSubscribed(), null)
 
-    /**
-     * The media control chip may not be enabled on all form factors, so only the relevant form
-     * factors should initialize the interactor. This must be called from a CoreStartable.
-     */
+    /** Initializes setting observation. This must be called from a CoreStartable. */
     fun initialize() {
+        if (isInitialized) {
+            return
+        }
+        isInitialized = true
+        context.contentResolver.registerContentObserver(
+            Settings.System.getUriFor(Settings.System.STATUS_BAR_SHOW_MUSIC_TICKER),
+            false,
+            musicTickerObserver,
+            UserHandle.USER_ALL,
+        )
+        updateMusicTickerState()
         isEnabled.value = true
+    }
+
+    private fun updateMusicTickerState() {
+        isMusicTickerEnabled.value =
+            Settings.System.getIntForUser(
+                context.contentResolver,
+                Settings.System.STATUS_BAR_SHOW_MUSIC_TICKER,
+                0,
+                UserHandle.USER_CURRENT,
+            ) != 0
     }
 }
 
 private fun MediaDataModel.toMediaControlChipModel(): MediaControlChipModel {
     return MediaControlChipModel.Compose(
         appIcon = this.appIcon,
+        artworkIcon = this.background,
         appName = this.appName,
+        artistName = this.subtitle,
         songName = this.title,
         playOrPause = this.playbackStateActions?.getActionById(R.id.actionPlayPause),
     )
@@ -108,7 +145,9 @@ private fun MediaDataModel.toMediaControlChipModel(): MediaControlChipModel {
 private fun MediaData.toMediaControlChipModel(): MediaControlChipModel {
     return MediaControlChipModel.Legacy(
         appIcon = this.appIcon,
+        artworkIcon = this.artwork,
         appName = this.app,
+        artistName = this.artist,
         songName = this.song,
         playOrPause = this.semanticActions?.getActionById(R.id.actionPlayPause),
     )
