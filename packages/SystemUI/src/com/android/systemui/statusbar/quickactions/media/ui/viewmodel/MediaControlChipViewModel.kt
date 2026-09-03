@@ -16,19 +16,19 @@
 
 package com.android.systemui.statusbar.quickactions.media.ui.viewmodel
 
-import android.content.Context
+import androidx.compose.runtime.getValue
 import com.android.systemui.common.shared.model.ContentDescription
 import com.android.systemui.common.shared.model.Icon
-import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.lifecycle.HydratedActivatable
-import com.android.systemui.res.R
 import com.android.systemui.statusbar.quickactions.media.domain.interactor.MediaControlChipInteractor
 import com.android.systemui.statusbar.quickactions.media.shared.model.MediaControlChipModel
 import com.android.systemui.statusbar.quickactions.popups.ui.viewmodel.StatusBarPopupChipViewModel
 import com.android.systemui.statusbar.quickactions.shared.model.ChipContent
 import com.android.systemui.statusbar.quickactions.shared.model.ChipIcon
+import com.android.systemui.statusbar.quickactions.shared.model.PopupContentModel
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipId
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipModel
+import com.android.systemui.statusbar.quickactions.ui.compose.ChipColors
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import java.util.Locale
@@ -36,26 +36,20 @@ import kotlinx.coroutines.flow.map
 
 /**
  * [StatusBarPopupChipViewModel] for a media control chip in the status bar. This view model is
- * responsible for converting the [MediaControlChipModel] to a [QuickActionChipModel] that can be
  * used to display a media control chip.
  */
 class MediaControlChipViewModel
 @AssistedInject
 constructor(
-    @Application private val applicationContext: Context,
     mediaControlChipInteractor: MediaControlChipInteractor,
-    private val popupViewModelFactory: MediaControlPopupViewModel.Factory,
 ) : StatusBarPopupChipViewModel, HydratedActivatable() {
 
-    /**
-     * A snapshot [State] of the current [QuickActionChipModel]. This emits a new
-     * [QuickActionChipModel] whenever the underlying [MediaControlChipModel] changes.
-     */
     override val chip: QuickActionChipModel by
         mediaControlChipInteractor.mediaControlChipModel
             .map { model -> toPopupChipModel(model) }
             .hydratedStateOf(
-                initialValue = QuickActionChipModel.Hidden(QuickActionChipId.MediaControl)
+                traceName = "chip",
+                initialValue = QuickActionChipModel.Hidden(QuickActionChipId.MediaControl),
             )
 
     private fun toPopupChipModel(model: MediaControlChipModel?): QuickActionChipModel {
@@ -63,71 +57,25 @@ constructor(
             return QuickActionChipModel.Hidden(QuickActionChipId.MediaControl)
         }
 
+        val contentDescription = model.appName?.let { ContentDescription.Loaded(description = it) }
+        val defaultIcon =
+            model.artworkIcon
+                ?: model.appIcon
+                ?: Icon.Resource(
+                    resId = com.android.internal.R.drawable.ic_audio_media,
+                    contentDescription = contentDescription,
+                )
+
         val songTitle = normalizeSongTitle(model.songName.toString(), model.artistName?.toString())
 
         return QuickActionChipModel.PopupChip(
             chipId = QuickActionChipId.MediaControl,
-            icons = listOf(model.createIcon()),
+            icons = listOf(ChipIcon(icon = defaultIcon, onClick = model.openApp)),
             chipContent = ChipContent.Text(songTitle),
-            popupViewModelFactory = popupViewModelFactory,
+            colors = ChipColors.DynamicIsland,
+            contentDescription = contentDescription,
+            popupContent = PopupContentModel.Media(model),
         )
-    }
-
-    private fun MediaControlChipModel.createIcon(): ChipIcon {
-        val playOrPause = playOrPause ?: return getDefaultIcon()
-        val icon = playOrPause.icon ?: return getDefaultIcon()
-        val action = playOrPause.action ?: return getDefaultIcon()
-
-        val contentDescription =
-            ContentDescription.Loaded(description = playOrPause.contentDescription.toString())
-
-        val artworkOrAppIcon =
-            when (this) {
-                is MediaControlChipModel.Legacy -> {
-                    (artworkIcon ?: appIcon)?.loadDrawable(applicationContext)?.let {
-                        Icon.Loaded(drawable = it, contentDescription = contentDescription)
-                    }
-                }
-                is MediaControlChipModel.Compose -> artworkIcon ?: appIcon
-            }
-
-        if (artworkOrAppIcon != null) {
-            return ChipIcon(
-                icon = artworkOrAppIcon,
-                onClick = { action.run() },
-                isHighlighted = false,
-            )
-        }
-
-        // Fallback to action icon if no artwork/app icon
-        val copyIcon = icon.constantState?.newDrawable()?.mutate() ?: icon
-        return ChipIcon(
-            icon = Icon.Loaded(drawable = copyIcon, contentDescription = contentDescription),
-            onClick = { action.run() },
-            isHighlighted = true,
-        )
-    }
-
-    /** fallback in case [MediaControlChipModel.playOrPause] is incomplete */
-    private fun MediaControlChipModel.getDefaultIcon(): ChipIcon {
-        val contentDescription = appName?.let { ContentDescription.Loaded(description = it) }
-
-        val defaultIcon =
-            when (this) {
-                is MediaControlChipModel.Legacy -> {
-                    (artworkIcon ?: appIcon)?.loadDrawable(applicationContext)?.let {
-                        Icon.Loaded(drawable = it, contentDescription = contentDescription)
-                    }
-                        ?: Icon.Resource(
-                            resId = com.android.internal.R.drawable.ic_audio_media,
-                            contentDescription = contentDescription,
-                        )
-                }
-
-                is MediaControlChipModel.Compose -> artworkIcon ?: appIcon
-            }
-
-        return ChipIcon(icon = defaultIcon)
     }
 
     @AssistedFactory
@@ -138,25 +86,20 @@ constructor(
     private fun normalizeSongTitle(title: String, artist: String?): String {
         if (title.isBlank()) return title
         val separatorRegex = Regex("\\s*[-–—|•]\\s*")
-        val parts = title.split(separatorRegex, limit = 2)
-        if (parts.size != 2) return title
-
-        val left = parts[0].trim()
-        val right = parts[1].trim()
-        if (left.isBlank() || right.isBlank()) return title
-
-        val artistKey = artist?.toComparableKey() ?: return title
-        val leftKey = left.toComparableKey()
-        val rightKey = right.toComparableKey()
-
-        return when {
-            leftKey.contains(artistKey) -> right
-            rightKey.contains(artistKey) -> left
-            else -> title
+        val parts = title.split(separatorRegex).map { it.trim() }.filter { it.isNotEmpty() }
+        if (parts.size >= 2) {
+            val lowerArtist = artist?.lowercase(Locale.getDefault())?.trim()
+            if (lowerArtist != null && lowerArtist.isNotEmpty()) {
+                if (parts[0].lowercase(Locale.getDefault()) == lowerArtist) {
+                    return parts.subList(1, parts.size).joinToString(" - ")
+                }
+                if (parts.last().lowercase(Locale.getDefault()) == lowerArtist) {
+                    return parts.subList(0, parts.size - 1).joinToString(" - ")
+                }
+            }
+            val parenArtistRegex = Regex("\\((?:feat|ft|with|by)[^)]*\\)", RegexOption.IGNORE_CASE)
+            return title.replace(parenArtistRegex, "").trim()
         }
-    }
-
-    private fun String.toComparableKey(): String {
-        return lowercase(Locale.US).replace(Regex("[^a-z0-9]+"), " ").trim()
+        return title
     }
 }

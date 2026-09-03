@@ -106,4 +106,60 @@ sealed interface ChipColors {
             colorScheme: ColorScheme,
         ): Color = privacyBlack()
     }
+
+    /** A dark, pill-shaped treatment for the centered dynamic island. */
+    data object DynamicIsland : ChipColors {
+        private val baseBackground = Color(0xE6000000)
+        private val expandedBackground = Color(0xF2000000)
+
+        @Composable
+        override fun chipBackground(isSelected: Boolean, colorScheme: ColorScheme): Color =
+            if (isSelected) expandedBackground else baseBackground
+
+        @Composable
+        override fun chipContent(isSelected: Boolean, colorScheme: ColorScheme): Color =
+            Color.White
+
+        @Composable
+        override fun chipOutline(isSelected: Boolean, colorScheme: ColorScheme): Color =
+            Color.White.copy(alpha = if (isSelected) 0.18f else 0.10f)
+
+        @Composable
+        override fun icon(
+            isSelected: Boolean,
+            isHighlighted: Boolean,
+            colorScheme: ColorScheme,
+        ): Color = chipContent(isSelected = isSelected, colorScheme = colorScheme)
+
+        @Composable
+        override fun iconBackground(isSelected: Boolean, colorScheme: ColorScheme): Color =
+            Color.White.copy(alpha = 0.14f)
+    }
+
+    /** Dynamic island styling for destructive or time-critical states like recording. */
+    data object DynamicIslandAlert : ChipColors {
+        private val accent = Color(0xFFFF5A5F)
+
+        @Composable
+        override fun chipBackground(isSelected: Boolean, colorScheme: ColorScheme): Color =
+            DynamicIsland.chipBackground(isSelected = isSelected, colorScheme = colorScheme)
+
+        @Composable
+        override fun chipContent(isSelected: Boolean, colorScheme: ColorScheme): Color = accent
+
+        @Composable
+        override fun chipOutline(isSelected: Boolean, colorScheme: ColorScheme): Color =
+            accent.copy(alpha = if (isSelected) 0.28f else 0.18f)
+
+        @Composable
+        override fun icon(
+            isSelected: Boolean,
+            isHighlighted: Boolean,
+            colorScheme: ColorScheme,
+        ): Color = accent
+
+        @Composable
+        override fun iconBackground(isSelected: Boolean, colorScheme: ColorScheme): Color =
+            accent.copy(alpha = 0.14f)
+    }
 }

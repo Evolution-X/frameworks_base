@@ -19,29 +19,20 @@ package com.android.systemui.statusbar.quickactions.media.shared.model
 import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.media.controls.shared.model.MediaAction
 
-/** Model used to display a media control chip in the status bar. */
-sealed interface MediaControlChipModel {
-
-    val appName: String?
-    val artistName: CharSequence?
-    val songName: CharSequence?
-    val playOrPause: MediaAction?
-
-    data class Legacy(
-        val appIcon: android.graphics.drawable.Icon?,
-        val artworkIcon: android.graphics.drawable.Icon?,
-        override val appName: String?,
-        override val artistName: CharSequence?,
-        override val songName: CharSequence?,
-        override val playOrPause: MediaAction?,
-    ) : MediaControlChipModel
-
-    data class Compose(
-        val appIcon: Icon,
+/** Model used to display and control media from the status bar island. */
+    data class MediaControlChipModel(
+        val appIcon: Icon?,
         val artworkIcon: Icon?,
-        override val appName: String?,
-        override val artistName: CharSequence?,
-        override val songName: CharSequence?,
-        override val playOrPause: MediaAction?,
-    ) : MediaControlChipModel
-}
+        val appName: String?,
+        val artistName: CharSequence?,
+        val songName: CharSequence?,
+        val playOrPause: MediaAction?,
+        val nextAction: MediaAction?,
+        val previousAction: MediaAction?,
+        val openApp: (() -> Unit)?,
+        val seekTo: ((Long) -> Unit)?,
+        val durationMs: Long,
+        val positionMs: Long,
+        val canBeScrubbed: Boolean,
+        val isPlaying: Boolean,
+)

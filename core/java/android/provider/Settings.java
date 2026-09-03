@@ -7179,7 +7179,7 @@ public final class Settings {
         /**
          * @hide
          */
-        public static final String STATUS_BAR_SHOW_MUSIC_TICKER = "status_bar_show_music_ticker";
+        public static final String STATUS_BAR_SHOW_DYNAMIC_ISLAND = "status_bar_show_dynamic_island";
 
         /**
          * Lockscreen Media Art
