@@ -7177,6 +7177,11 @@ public final class Settings {
         public static final String SMART_5G = "smart_5g";
 
         /**
+         * @hide
+         */
+        public static final String STATUS_BAR_SHOW_MUSIC_TICKER = "status_bar_show_music_ticker";
+
+        /**
          * Lockscreen Media Art
          * @hide
          */
