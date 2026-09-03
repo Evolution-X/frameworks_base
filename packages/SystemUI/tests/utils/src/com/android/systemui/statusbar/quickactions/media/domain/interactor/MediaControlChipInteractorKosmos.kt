@@ -16,6 +16,7 @@
 
 package com.android.systemui.statusbar.quickactions.media.domain.interactor
 
+import android.content.applicationContext
 import com.android.systemui.kosmos.Kosmos
 import com.android.systemui.kosmos.backgroundScope
 import com.android.systemui.media.remedia.data.repository.mediaRepository
@@ -23,6 +24,7 @@ import com.android.systemui.media.remedia.data.repository.mediaRepository
 val Kosmos.mediaControlChipInteractor: MediaControlChipInteractor by
     Kosmos.Fixture {
         MediaControlChipInteractor(
+            context = applicationContext,
             backgroundScope = backgroundScope,
             mediaRepository = mediaRepository,
         )
