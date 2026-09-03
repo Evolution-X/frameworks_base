@@ -138,4 +138,3 @@ sealed class QuickActionChipModel {
 val QuickActionChipModel.PopupChip.chipText: String?
     get() = (chipContent as? ChipContent.Text)?.text
 
-

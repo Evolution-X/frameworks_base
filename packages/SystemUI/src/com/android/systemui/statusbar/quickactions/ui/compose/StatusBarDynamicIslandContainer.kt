@@ -35,7 +35,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -56,6 +56,7 @@ fun StatusBarDynamicIslandContainer(
     var popupAnchorChip by remember { mutableStateOf<QuickActionChipModel.PopupChip?>(null) }
     var popupVisible by remember { mutableStateOf(false) }
     var knownChipIds by remember { mutableStateOf<List<QuickActionChipId>>(emptyList()) }
+    var anchorBounds by remember { mutableStateOf<Rect?>(null) }
 
     LaunchedEffect(chips) {
         val currentChipIds = chips.map { it.chipId }
@@ -153,6 +154,7 @@ fun StatusBarDynamicIslandContainer(
                 viewModel = chip,
                 pageCount = chips.size,
                 cutoutSpec = cutoutSpec,
+                onChipBoundsChanged = { bounds -> anchorBounds = bounds },
                 modifier =
                     Modifier.pointerInput(chips.size, chip.chipId) {
                         detectHorizontalDragGestures(
@@ -182,6 +184,7 @@ fun StatusBarDynamicIslandContainer(
             StatusBarPopup(
                 viewModel = anchoredChip,
                 isVisible = popupVisible,
+                chipBoundsInScreen = anchorBounds,
             )
         }
     }
