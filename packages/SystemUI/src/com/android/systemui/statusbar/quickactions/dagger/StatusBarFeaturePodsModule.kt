@@ -22,6 +22,7 @@ import com.android.systemui.statusbar.quickactions.assistant.data.repository.Ass
 import com.android.systemui.statusbar.quickactions.assistant.data.repository.AssistantRepositoryImpl
 import com.android.systemui.statusbar.quickactions.assistant.domain.interactor.AssistantIconInteractor
 import com.android.systemui.statusbar.quickactions.assistant.domain.interactor.AssistantIconInteractorImpl
+import com.android.systemui.statusbar.quickactions.media.MediaControlChipStartable
 import com.android.systemui.statusbar.quickactions.sharescreen.domain.interactor.ShareScreenPrivacyIndicatorInteractor
 import dagger.Binds
 import dagger.Module
@@ -44,5 +45,12 @@ interface StatusBarFeaturePodsModule {
     @ClassKey(ShareScreenPrivacyIndicatorInteractor::class)
     fun bindShareScreenPrivacyIndicatorInteractor(
         impl: ShareScreenPrivacyIndicatorInteractor
+    ): CoreStartable
+
+    @Binds
+    @IntoMap
+    @ClassKey(MediaControlChipStartable::class)
+    fun bindMediaControlChipStartable(
+        impl: MediaControlChipStartable
     ): CoreStartable
 }
