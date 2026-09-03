@@ -32,13 +32,27 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.keyframes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
@@ -50,6 +64,10 @@ import com.android.systemui.statusbar.quickactions.screenrecord.shared.model.Scr
 import com.android.systemui.statusbar.quickactions.shared.model.PopupContentModel
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipModel
 import com.android.systemui.statusbar.quickactions.shared.model.chipText
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.launch
 
 /** Single centered status bar capsule styled like a compact dynamic island. */
 @Composable
@@ -59,6 +77,7 @@ fun StatusBarDynamicIslandChip(
     cutoutSpec: DynamicIslandCutoutSpec,
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
+    onChipBoundsChanged: (Rect) -> Unit = {},
 ) {
     val isMediaChip = viewModel.popupContent is PopupContentModel.Media
     val chipShape = RoundedCornerShape(50)
@@ -78,6 +97,11 @@ fun StatusBarDynamicIslandChip(
             isSelected = viewModel.isPopupShown,
             colorScheme = MaterialTheme.colorScheme,
         )
+    val view = LocalView.current
+    val boundsModifier =
+        Modifier.onGloballyPositioned { coordinates ->
+            onChipBoundsChanged(coordinates.boundsInScreen(view))
+        }
     if (viewModel.popupContent.isUtilityStatusContent() && viewModel.icons.isNotEmpty()) {
         UtilityStatusIslandChip(
             viewModel = viewModel,
@@ -86,7 +110,7 @@ fun StatusBarDynamicIslandChip(
             chipBackgroundColor = chipBackgroundColor,
             chipContentColor = chipContentColor,
             chipOutline = chipOutline,
-            modifier = modifier,
+            modifier = modifier.then(boundsModifier),
         )
         return
     }
@@ -120,6 +144,8 @@ fun StatusBarDynamicIslandChip(
     Row(
         modifier =
             modifier
+                .then(boundsModifier)
+                .openSquishAnimation(viewModel.isPopupShown)
                 .defaultMinSize(minHeight = 32.dp)
                 .widthIn(
                     min = compactWidth ?: 0.dp,
@@ -259,6 +285,7 @@ private fun UtilityStatusIslandChip(
     Row(
         modifier =
             modifier
+                .openSquishAnimation(viewModel.isPopupShown)
                 .defaultMinSize(minHeight = 32.dp)
                 .width(connectedIslandWidth)
                 .clip(RoundedCornerShape(50))
@@ -409,4 +436,58 @@ private fun compactIslandWidthFor(content: PopupContentModel): Dp? {
         is PopupContentModel.Flashlight -> CompactUtilityIslandWidth
         else -> null
     }
+}
+
+@Composable
+private fun Modifier.openSquishAnimation(isOpen: Boolean): Modifier {
+    val scaleX = remember { Animatable(1f, visibilityThreshold = 0.01f) }
+    val scaleY = remember { Animatable(1f, visibilityThreshold = 0.01f) }
+    val currentIsOpen by rememberUpdatedState(isOpen)
+    LaunchedEffect(Unit) {
+        snapshotFlow { currentIsOpen }
+            .drop(1)
+            .collectLatest { open ->
+                if (!open) return@collectLatest
+                scaleX.snapTo(1f)
+                scaleY.snapTo(1f)
+                coroutineScope {
+                    launch {
+                        scaleX.animateTo(
+                            targetValue = 1f,
+                            animationSpec =
+                                keyframes {
+                                    durationMillis = 360
+                                    0.9f at 0
+                                    1.05f at 160 using FastOutSlowInEasing
+                                    0.98f at 280
+                                    1f at 360
+                                },
+                        )
+                    }
+                    launch {
+                        scaleY.animateTo(
+                            targetValue = 1f,
+                            animationSpec =
+                                keyframes {
+                                    durationMillis = 360
+                                    1.12f at 0
+                                    0.94f at 160 using FastOutSlowInEasing
+                                    1.02f at 280
+                                    1f at 360
+                                },
+                        )
+                    }
+                }
+            }
+    }
+    return this.graphicsLayer {
+        this.scaleX = scaleX.value
+        this.scaleY = scaleY.value
+    }
+}
+
+private fun LayoutCoordinates.boundsInScreen(view: android.view.View): Rect {
+    val location = IntArray(2)
+    view.getLocationOnScreen(location)
+    return boundsInRoot().translate(Offset(location[0].toFloat(), location[1].toFloat()))
 }

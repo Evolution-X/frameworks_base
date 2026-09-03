@@ -18,13 +18,13 @@ package com.android.systemui.statusbar.quickactions.ui.compose
 
 import android.view.ViewTreeObserver
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,8 +32,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Density
@@ -60,6 +71,7 @@ import com.android.systemui.statusbar.quickactions.stopwatch.ui.compose.Stopwatc
 fun StatusBarPopup(
     viewModel: QuickActionChipModel.PopupChip,
     isVisible: Boolean,
+    chipBoundsInScreen: Rect? = null,
 ) {
     val density = Density(LocalContext.current)
     Popup(
@@ -82,17 +94,30 @@ fun StatusBarPopup(
                 dismissOnClickOutside = true,
             ),
     ) {
-        val window = LocalView.current
-        DisposableEffect(window) {
+        val popupView = LocalView.current
+        var popupBoundsInScreen by remember { mutableStateOf<Rect?>(null) }
+        val transformOrigin by remember {
+            derivedStateOf {
+                val chip = chipBoundsInScreen
+                val popup = popupBoundsInScreen
+                if (chip == null || popup == null || popup.width <= 0f) {
+                    TransformOrigin(0.5f, 0f)
+                } else {
+                    val pivotX = ((chip.center.x - popup.left) / popup.width).coerceIn(0.05f, 0.95f)
+                    TransformOrigin(pivotX, 0f)
+                }
+            }
+        }
+        DisposableEffect(popupView) {
             val listener =
                 ViewTreeObserver.OnComputeInternalInsetsListener { info ->
                     info.setTouchableInsets(
                         ViewTreeObserver.InternalInsetsInfo.TOUCHABLE_INSETS_FRAME
                     )
                 }
-            window.viewTreeObserver.addOnComputeInternalInsetsListener(listener)
+            popupView.viewTreeObserver.addOnComputeInternalInsetsListener(listener)
             onDispose {
-                window.viewTreeObserver.removeOnComputeInternalInsetsListener(listener)
+                popupView.viewTreeObserver.removeOnComputeInternalInsetsListener(listener)
             }
         }
 
@@ -101,25 +126,29 @@ fun StatusBarPopup(
             enter =
                 fadeIn(animationSpec = tween(140)) +
                     scaleIn(
-                        initialScale = 0.92f,
-                        animationSpec = tween(220),
-                    ) +
-                    slideInVertically(
-                        initialOffsetY = { -it / 6 },
-                        animationSpec = tween(220),
+                        initialScale = 0.4f,
+                        transformOrigin = transformOrigin,
+                        animationSpec =
+                            spring(
+                                dampingRatio = 0.62f,
+                                stiffness = 380f,
+                                visibilityThreshold = Spring.DefaultDisplacementThreshold,
+                            ),
                     ),
             exit =
-                fadeOut(animationSpec = tween(120)) +
+                fadeOut(animationSpec = tween(130)) +
                     scaleOut(
-                        targetScale = 0.94f,
-                        animationSpec = tween(160),
-                    ) +
-                    slideOutVertically(
-                        targetOffsetY = { -it / 8 },
-                        animationSpec = tween(160),
+                        targetScale = 0.55f,
+                        transformOrigin = transformOrigin,
+                        animationSpec = spring(dampingRatio = 0.9f, stiffness = 500f),
                     ),
         ) {
-            Box(modifier = Modifier.padding(8.dp).wrapContentSize()) {
+            Box(
+                modifier =
+                    Modifier.padding(8.dp).wrapContentSize().onGloballyPositioned { coordinates ->
+                        popupBoundsInScreen = coordinates.boundsInScreen(popupView)
+                    }
+            ) {
                 when (val popupContent = viewModel.popupContent) {
                     is PopupContentModel.Media -> {
                         val model = popupContent.model
@@ -147,4 +176,10 @@ fun StatusBarPopup(
             }
         }
     }
+}
+
+private fun LayoutCoordinates.boundsInScreen(view: android.view.View): Rect {
+    val location = IntArray(2)
+    view.getLocationOnScreen(location)
+    return boundsInRoot().translate(Offset(location[0].toFloat(), location[1].toFloat()))
 }
