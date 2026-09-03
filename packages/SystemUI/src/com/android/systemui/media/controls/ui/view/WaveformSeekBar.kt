@@ -80,6 +80,7 @@ class WaveformSeekBar @JvmOverloads constructor(
     private var fadeAnimator: ValueAnimator? = null
     var isPlaying = false
         private set
+    var followsMediaColors = true
     
     init {
         thumb = TransparentDrawable()
@@ -160,7 +161,9 @@ class WaveformSeekBar @JvmOverloads constructor(
     }
     
     override fun onMediaColorsChanged(color: Int) {
-        post { setWaveformColor(color) }
+        if (followsMediaColors) {
+            post { setWaveformColor(color) }
+        }
     }
     
     override fun onDraw(canvas: Canvas) {
