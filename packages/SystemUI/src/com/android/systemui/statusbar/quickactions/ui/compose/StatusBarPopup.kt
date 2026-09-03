@@ -63,6 +63,7 @@ import com.android.systemui.statusbar.quickactions.screenrecord.ui.compose.Scree
 import com.android.systemui.statusbar.quickactions.shared.model.PopupContentModel
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipModel
 import com.android.systemui.statusbar.quickactions.stopwatch.ui.compose.StopwatchPopup
+import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings.POPUP_COLOR_MODE_BLUR
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
@@ -141,6 +142,8 @@ fun StatusBarPopup(
         val scaleY = remember { Animatable(initialScaleFromChip.y) }
         val alpha = remember { Animatable(0f) }
         val translationY = remember { Animatable(-24f) }
+        val colorMode = rememberPopupColorMode()
+        val skipMotionOnDismiss = colorMode == POPUP_COLOR_MODE_BLUR
 
         LaunchedEffect(isVisible, popupBoundsInScreen != null) {
             if (isVisible && popupBoundsInScreen != null) {
@@ -182,6 +185,23 @@ fun StatusBarPopup(
                     launch { alpha.animateTo(1f, animationSpec = tween(180)) }
                 }
             } else if (!isVisible) {
+                if (skipMotionOnDismiss) {
+                    coroutineScope {
+                        launch {
+                            scaleX.animateTo(
+                                targetValue = 0.01f,
+                                animationSpec = tween(130),
+                            )
+                        }
+                        launch {
+                            scaleY.animateTo(
+                                targetValue = 0.01f,
+                                animationSpec = tween(130),
+                            )
+                        }
+                        launch { alpha.animateTo(0f, animationSpec = tween(120)) }
+                    }
+                } else {
                 coroutineScope {
                     launch {
                         scaleX.animateTo(
@@ -210,6 +230,7 @@ fun StatusBarPopup(
                         )
                     }
                     launch { alpha.animateTo(0f, animationSpec = tween(160)) }
+                    }
                 }
             }
         }
