@@ -46,9 +46,11 @@ import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipM
 import com.android.systemui.statusbar.quickactions.ui.compose.ChipColors
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
+import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings
 import java.util.Locale
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
 /** ViewModel backing the next-alarm page inside the dynamic island. */
@@ -103,6 +105,14 @@ constructor(
                 }
             }
             .map(::toPopupChipModel)
+            .combine(
+                DynamicIslandFeatureSettings.observeDynamicIslandFeatureEnabled(
+                    context,
+                    DynamicIslandFeatureSettings.ALARMS,
+                )
+            ) { model, enabled ->
+                if (enabled) model else QuickActionChipModel.Hidden(QuickActionChipId.Alarm)
+            }
             .hydratedStateOf(
                 traceName = "chip",
                 initialValue = QuickActionChipModel.Hidden(QuickActionChipId.Alarm),
