@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -38,9 +37,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.android.systemui.common.ui.compose.Icon
-import com.android.systemui.statusbar.quickactions.ui.compose.PopupActionChips
-import com.android.systemui.statusbar.quickactions.ui.compose.rememberElapsedDurationText
 import com.android.systemui.statusbar.quickactions.stopwatch.shared.model.StopwatchPopupModel
+import com.android.systemui.statusbar.quickactions.ui.compose.PopupActionChips
+import com.android.systemui.statusbar.quickactions.ui.compose.PopupSurface
+import com.android.systemui.statusbar.quickactions.ui.compose.rememberElapsedDurationText
 
 private val PopupShape = RoundedCornerShape(32.dp)
 
@@ -51,11 +51,8 @@ fun StopwatchPopup(
     modifier: Modifier = Modifier,
 ) {
     val accent = MaterialTheme.colorScheme.primary
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        contentColor = MaterialTheme.colorScheme.onSurface,
+    PopupSurface(
         shape = PopupShape,
-        shadowElevation = 12.dp,
         modifier =
             modifier
                 .widthIn(min = 300.dp, max = 360.dp)
