@@ -18,6 +18,7 @@ package com.android.systemui.statusbar.pipeline.shared.ui.composable
 
 import android.content.Context
 import android.graphics.Rect
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -57,6 +58,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onLayoutRectChanged
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalViewConfiguration
@@ -69,6 +71,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.android.compose.modifiers.thenIf
 import com.android.compose.theme.PlatformTheme
 import com.android.compose.theme.colorAttr
+import com.android.keyguard.AlphaOptimizedLinearLayout
 import com.android.systemui.Flags
 import com.android.systemui.clock.ClockModernization
 import com.android.systemui.clock.ui.composable.Clock
@@ -90,6 +93,7 @@ import com.android.systemui.lifecycle.repeatWhenAttached
 import com.android.systemui.lifecycle.viewModel
 import com.android.systemui.plugins.DarkIconDispatcher
 import com.android.systemui.res.R
+import com.android.systemui.scene.shared.flag.SceneContainerFlag
 import com.android.systemui.scene.ui.view.WindowRootView
 import com.android.systemui.shade.ui.composable.VariableDayDate
 import com.android.systemui.statusbar.StatusBarAlwaysUseRegionSampling
@@ -118,6 +122,7 @@ import com.android.systemui.statusbar.pipeline.battery.ui.viewmodel.BatteryViewM
 import com.android.systemui.statusbar.pipeline.shared.ui.binder.HomeStatusBarIconBlockListBinder
 import com.android.systemui.statusbar.pipeline.shared.ui.binder.HomeStatusBarTouchExclusionRegionBinder
 import com.android.systemui.statusbar.pipeline.shared.ui.binder.HomeStatusBarViewBinder
+import com.android.systemui.statusbar.quickactions.ui.compose.QuickActionChipsContainer
 import com.android.systemui.statusbar.pipeline.shared.ui.view.SystemStatusIconsLayoutHelper
 import com.android.systemui.statusbar.pipeline.shared.ui.viewmodel.HomeStatusBarViewModel
 import com.android.systemui.statusbar.pipeline.shared.ui.viewmodel.HomeStatusBarViewModel.HomeStatusBarViewModelFactory
@@ -338,6 +343,37 @@ fun StatusBarRoot(
                         statusBarRegionSamplingViewModelFactory,
                     )
                 }
+
+                // Add a composable container for `QuickActionChip`s (Music Ticker, etc.)
+                val centeredArea =
+                    phoneStatusBarView.requireViewById<AlphaOptimizedLinearLayout>(
+                        R.id.centered_area
+                    )
+
+                val composeView =
+                    ComposeView(context).apply {
+                        layoutParams =
+                            LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.WRAP_CONTENT,
+                                LinearLayout.LayoutParams.WRAP_CONTENT,
+                            ).apply { gravity = Gravity.CENTER }
+
+                        setViewCompositionStrategy(
+                            if (SceneContainerFlag.isEnabled) {
+                                ViewCompositionStrategy.Default
+                            } else {
+                                ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed
+                            }
+                        )
+
+                        setContent {
+                            QuickActionChipsContainer(
+                                chips = statusBarViewModel.popupChips,
+                                isDarkProvider = statusBarViewModel.areaDark::isDarkTheme,
+                            )
+                        }
+                    }
+                centeredArea.addView(composeView)
 
                 // This binder handles everything else
                 statusBarViewBinder.bind(
