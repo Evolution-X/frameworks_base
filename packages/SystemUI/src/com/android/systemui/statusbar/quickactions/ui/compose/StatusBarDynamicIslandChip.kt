@@ -88,11 +88,6 @@ fun StatusBarDynamicIslandChip(
     val chipShape = RoundedCornerShape(50)
     val colors = viewModel.colors
     val (widthScale, heightScale) = rememberDynamicIslandSizeScale()
-    val chipBackgroundColor =
-        colors.chipBackground(
-            isSelected = viewModel.isPopupShown,
-            colorScheme = MaterialTheme.colorScheme,
-        )
     val chipContentColor =
         colors.chipContent(
             isSelected = viewModel.isPopupShown,
@@ -119,7 +114,6 @@ fun StatusBarDynamicIslandChip(
             cutoutSpec = cutoutSpec,
             widthScale = widthScale,
             heightScale = heightScale,
-            chipBackgroundColor = chipBackgroundColor,
             chipContentColor = chipContentColor,
             chipOutline = chipOutline,
             modifier = modifier.then(boundsModifier),
@@ -164,7 +158,7 @@ fun StatusBarDynamicIslandChip(
                     max = compactWidth ?: (CompactIslandMaxWidth * widthScale),
                 )
                 .clip(chipShape)
-                .background(chipBackgroundColor)
+                .background(Color.Black)
                 .border(width = 1.dp, color = chipOutline, shape = chipShape)
                 .clickable(onClick = hapticOnTap)
                 .padding(horizontal = 12.dp * widthScale, vertical = 7.dp * heightScale),
@@ -267,7 +261,6 @@ private fun UtilityStatusIslandChip(
     cutoutSpec: DynamicIslandCutoutSpec,
     widthScale: Float = 1f,
     heightScale: Float = 1f,
-    chipBackgroundColor: Color,
     chipContentColor: Color,
     chipOutline: Color,
     modifier: Modifier = Modifier,
@@ -309,7 +302,7 @@ private fun UtilityStatusIslandChip(
                 .defaultMinSize(minHeight = 32.dp * heightScale)
                 .width(connectedIslandWidth)
                 .clip(RoundedCornerShape(50))
-                .background(chipBackgroundColor)
+                .background(Color.Black)
                 .border(width = 1.dp, color = chipOutline, shape = RoundedCornerShape(50))
                 .clickable(onClick = onTap),
         horizontalArrangement = Arrangement.spacedBy(0.dp),
