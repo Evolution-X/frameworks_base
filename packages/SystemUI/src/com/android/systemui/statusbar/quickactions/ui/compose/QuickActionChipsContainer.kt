@@ -177,6 +177,7 @@ private fun Popup(chip: QuickActionChipModel.PopupChip, modifier: Modifier = Mod
             )
         }
 
+    val isMediaChip = chip.chipId == QuickActionChipId.MediaControl
     if (chip.chipId == QuickActionChipId.ShareScreenPrivacyIndicator) {
         QuickActionChip(
             modifier = positionedModifier,
@@ -188,6 +189,7 @@ private fun Popup(chip: QuickActionChipModel.PopupChip, modifier: Modifier = Mod
             onClick = { chip.togglePopup(context, RectF(boundsCache)) },
             cornerRadius = 16.dp,
             horizontalPadding = PaddingValues(horizontal = 8.dp),
+            isMediaChip = isMediaChip,
         )
     } else {
         QuickActionChip(
@@ -198,6 +200,7 @@ private fun Popup(chip: QuickActionChipModel.PopupChip, modifier: Modifier = Mod
             colors = chip.colors,
             contentDescription = chip.contentDescription,
             onClick = { chip.togglePopup(context, RectF(boundsCache)) },
+            isMediaChip = isMediaChip,
         )
     }
 }
