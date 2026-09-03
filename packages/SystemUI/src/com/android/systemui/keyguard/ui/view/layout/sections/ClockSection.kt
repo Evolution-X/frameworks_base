@@ -151,16 +151,12 @@ constructor(
                     )
                 }
             } else {
-                if (aodBurnInViewModel.movement.value.scaleClockOnly) {
-                    setScaleX(
-                        getTargetClockFace(clock).views,
-                        aodBurnInViewModel.movement.value.scale,
-                    )
-                    setScaleY(
-                        getTargetClockFace(clock).views,
-                        aodBurnInViewModel.movement.value.scale,
-                    )
-                }
+                // Clocks that only translate in AOD are never scaled; reset explicitly, since the
+                // constraint set is cloned from the views and would carry a stale scale along.
+                val movement = aodBurnInViewModel.movement.value
+                val scale = if (movement.scaleClockOnly) movement.scale else 1F
+                setScaleX(getTargetClockFace(clock).views, scale)
+                setScaleY(getTargetClockFace(clock).views, scale)
             }
             createUnifiedBarrierAndNotificationConstraints(this)
         }
