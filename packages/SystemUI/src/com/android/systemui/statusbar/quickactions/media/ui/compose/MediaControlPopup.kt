@@ -310,12 +310,15 @@ private fun MediaProgressSection(
                     factory = { context ->
                         WaveformSeekBar(context).apply {
                             max = 10_000
+                            followsMediaColors = false
                             setWaveformColor(accentArgb)
                             setThumbColor(accentArgb)
                             isEnabled = false
                         }
                     },
                     update = { bar ->
+                        bar.setWaveformColor(accentArgb)
+                        bar.setThumbColor(accentArgb)
                         val target =
                             if (durationMs > 0L) {
                                 ((displayedPositionMs.toFloat() / durationMs) * 10_000f)
