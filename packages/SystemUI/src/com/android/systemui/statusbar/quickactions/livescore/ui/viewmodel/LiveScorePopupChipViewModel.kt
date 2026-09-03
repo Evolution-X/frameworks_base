@@ -28,6 +28,7 @@ import com.android.systemui.statusbar.notification.domain.interactor.ActiveNotif
 import com.android.systemui.statusbar.notification.shared.ActiveNotificationModel
 import com.android.systemui.statusbar.policy.KeyguardStateController
 import com.android.systemui.statusbar.quickactions.livescore.shared.model.LiveScoreChipModel
+import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings
 import com.android.systemui.statusbar.quickactions.popups.shared.toActivityLaunchAction
 import com.android.systemui.statusbar.quickactions.popups.ui.viewmodel.StatusBarPopupChipViewModel
 import com.android.systemui.statusbar.quickactions.shared.model.ChipContent
@@ -56,7 +57,14 @@ constructor(
         combine(
             activeNotificationsInteractor.promotedOngoingNotifications,
             activeNotificationsInteractor.allRepresentativeNotifications,
-        ) { promotedNotifications, allNotifications ->
+            DynamicIslandFeatureSettings.observeDynamicIslandFeatureEnabled(
+                context,
+                DynamicIslandFeatureSettings.LIVE_SCORES,
+            ),
+        ) { promotedNotifications, allNotifications, liveScoresEnabled ->
+            if (!liveScoresEnabled) {
+                return@combine QuickActionChipModel.Hidden(QuickActionChipId.LiveScore)
+            }
             val orderedNotifications =
                 promotedNotifications.mapNotNull { notif -> allNotifications[notif.key] }
             val candidate =

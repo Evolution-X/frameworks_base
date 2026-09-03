@@ -237,6 +237,17 @@ constructor(
                     .collect { quickActionsInteractor.close() }
             }
 
+            launch {
+                snapshotFlow {
+                        val activeId = currentShownPopupChipId ?: return@snapshotFlow false
+                        val bundle = incomingQuickActionChipBundle
+
+                        bundle.asList.find { it.chipId == activeId } is QuickActionChipModel.Hidden
+                    }
+                    .filter { isHidden -> isHidden }
+                    .collect { currentShownPopupChipId = null }
+            }
+
             try {
                 awaitCancellation()
             } finally {
