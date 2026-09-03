@@ -18,10 +18,16 @@ package com.android.systemui.statusbar.quickactions.media.ui.compose
 
 import android.content.Context
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
 import android.text.format.DateUtils
 import android.widget.SeekBar
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.keyframes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,15 +47,20 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -60,9 +71,14 @@ import com.android.systemui.common.shared.model.Icon as UiIcon
 import com.android.systemui.common.ui.compose.Icon as UiIconView
 import com.android.systemui.media.controls.shared.model.MediaAction
 import com.android.systemui.media.controls.ui.drawable.SquigglyProgress
+import com.android.systemui.media.controls.ui.view.WaveformSeekBar
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.quickactions.media.shared.model.MediaControlChipModel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.launch
 
 private val PopupShape = RoundedCornerShape(34.dp)
 private val ArtworkShape = RoundedCornerShape(24.dp)
@@ -71,6 +87,7 @@ private val ArtworkShape = RoundedCornerShape(24.dp)
 @Composable
 fun MediaControlPopup(
     model: MediaControlChipModel,
+    useWaveform: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val accent = MaterialTheme.colorScheme.primary
@@ -136,6 +153,7 @@ fun MediaControlPopup(
                     canBeScrubbed = model.canBeScrubbed,
                     onSeekTo = model.seekTo,
                     accent = accent,
+                    useWaveform = useWaveform,
                 )
             }
 
@@ -146,8 +164,8 @@ fun MediaControlPopup(
             ) {
                 MediaActionButton(
                     action = model.previousAction,
-                    containerColor = Color.White.copy(alpha = 0.11f),
-                    iconTint = Color.White,
+                    containerColor = LocalContentColor.current.copy(alpha = 0.11f),
+                    iconTint = LocalContentColor.current,
                 )
                 MediaActionButton(
                     action = model.playOrPause,
@@ -159,8 +177,8 @@ fun MediaControlPopup(
                 )
                 MediaActionButton(
                     action = model.nextAction,
-                    containerColor = Color.White.copy(alpha = 0.11f),
-                    iconTint = Color.White,
+                    containerColor = LocalContentColor.current.copy(alpha = 0.11f),
+                    iconTint = LocalContentColor.current,
                 )
             }
         }
@@ -200,6 +218,7 @@ private fun MediaProgressSection(
     canBeScrubbed: Boolean,
     onSeekTo: ((Long) -> Unit)?,
     accent: Color,
+    useWaveform: Boolean = false,
 ) {
     var isScrubbing by remember { mutableStateOf(false) }
     var displayedPositionMs by remember { mutableStateOf(positionMs.coerceIn(0L, durationMs)) }
@@ -228,72 +247,173 @@ private fun MediaProgressSection(
         }
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                text = formatElapsedTime(displayedPositionMs),
-                style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.60f),
-            )
-            Text(
-                text = formatElapsedTime(durationMs),
-                style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.60f),
-            )
-        }
+    val accentArgb = accent.toArgb()
+    val trackAlphaArgb = accent.copy(alpha = 0.20f).toArgb()
 
-        AndroidView(
-            modifier = Modifier.fillMaxWidth().height(28.dp),
-            factory = { context ->
-                SeekBar(context).apply {
-                    max = durationMs.toClampedInt()
-                    splitTrack = false
-                    progressDrawable = context.getDrawable(R.drawable.media_squiggly_progress)?.mutate()
-                    thumb = createSeekBarThumb(context, accent.toArgb())
-                    setPadding(0, 0, 0, 0)
-                }
-            },
-            update = { seekBar ->
-                seekBar.max = durationMs.toClampedInt().coerceAtLeast(1)
-                configureProgressDrawable(
-                    seekBar = seekBar,
-                    accent = accent,
-                    isPlaying = isPlaying && canBeScrubbed && !isScrubbing,
-                    enabled = canBeScrubbed,
-                )
-                seekBar.isEnabled = canBeScrubbed
-                seekBar.thumb.alpha = if (canBeScrubbed) 255 else 120
-                if (!isScrubbing) {
-                    seekBar.progress = displayedPositionMs.coerceIn(0L, durationMs).toClampedInt()
-                }
-                seekBar.setOnSeekBarChangeListener(
-                    object : SeekBar.OnSeekBarChangeListener {
-                        override fun onProgressChanged(
-                            seekBar: SeekBar?,
-                            progress: Int,
-                            fromUser: Boolean,
-                        ) {
-                            if (fromUser) {
-                                displayedPositionMs = progress.toLong()
-                            }
-                        }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = formatElapsedTime(displayedPositionMs),
+            style = MaterialTheme.typography.labelMedium,
+            color = LocalContentColor.current.copy(alpha = 0.60f),
+        )
 
-                        override fun onStartTrackingTouch(seekBar: SeekBar?) {
-                            isScrubbing = true
-                        }
+        Box(modifier = Modifier.weight(1f).height(28.dp)) {
+            var boxWidthPx by remember { mutableStateOf(0) }
 
-                        override fun onStopTrackingTouch(seekBar: SeekBar?) {
-                            val newPositionMs = seekBar?.progress?.toLong() ?: displayedPositionMs
-                            displayedPositionMs = newPositionMs
-                            currentSeekAction?.invoke(newPositionMs)
-                            isScrubbing = false
+            fun applyFraction(fraction: Float) {
+                displayedPositionMs = (fraction.coerceIn(0f, 1f) * durationMs).toLong()
+            }
+            val gestureModifier =
+                Modifier.onSizeChanged { boxWidthPx = it.width }
+                    .pointerInput(canBeScrubbed, durationMs) {
+                        if (!canBeScrubbed) return@pointerInput
+                        detectTapGestures { offset ->
+                            applyFraction(offset.x / boxWidthPx.coerceAtLeast(1).toFloat())
+                            currentSeekAction?.invoke(displayedPositionMs)
                         }
                     }
+                    .pointerInput(canBeScrubbed, durationMs) {
+                        if (!canBeScrubbed) return@pointerInput
+                        detectHorizontalDragGestures(
+                            onDragStart = { offset ->
+                                isScrubbing = true
+                                applyFraction(offset.x / boxWidthPx.coerceAtLeast(1).toFloat())
+                            },
+                            onDragEnd = {
+                                currentSeekAction?.invoke(displayedPositionMs)
+                                isScrubbing = false
+                            },
+                            onDragCancel = { isScrubbing = false },
+                            onHorizontalDrag = { change, _ ->
+                                applyFraction(
+                                    change.position.x / boxWidthPx.coerceAtLeast(1).toFloat()
+                                )
+                                change.consume()
+                            },
+                        )
+                    }
+
+            if (useWaveform) {
+                AndroidView(
+                    modifier = Modifier.fillMaxWidth().height(28.dp).then(gestureModifier),
+                    factory = { context ->
+                        WaveformSeekBar(context).apply {
+                            max = 10_000
+                            setWaveformColor(accentArgb)
+                            setThumbColor(accentArgb)
+                            isEnabled = false
+                        }
+                    },
+                    update = { bar ->
+                        val target =
+                            if (durationMs > 0L) {
+                                ((displayedPositionMs.toFloat() / durationMs) * 10_000f)
+                                    .toInt()
+                                    .coerceIn(0, 10_000)
+                            } else 0
+                        if (bar.progress != target) bar.progress = target
+                        when {
+                            isPlaying && !bar.isPlaying -> bar.startWaveAnimation()
+                            !isPlaying && bar.isPlaying -> bar.stopWaveAnimation()
+                        }
+                    },
                 )
-            },
+            } else {
+                AndroidView(
+                    modifier = Modifier.fillMaxWidth().height(28.dp).then(gestureModifier),
+                    factory = { context ->
+                        SeekBar(context).apply {
+                            max = durationMs.toClampedInt()
+                            splitTrack = false
+                            setPadding(0, 0, 0, 0)
+                            thumb = createSeekBarThumb(context, accentArgb)
+                            val layer = progressDrawable?.mutate() as? LayerDrawable
+                            if (layer != null) {
+                                layer.findDrawableByLayerId(android.R.id.background)
+                                    ?.mutate()
+                                    ?.setTint(trackAlphaArgb)
+                                layer.findDrawableByLayerId(android.R.id.secondaryProgress)
+                                    ?.mutate()
+                                    ?.setTint(
+                                        com.android.internal.graphics.ColorUtils.setAlphaComponent(
+                                            accentArgb,
+                                            60,
+                                        )
+                                    )
+                                val squiggle =
+                                    SquigglyProgress().apply {
+                                        waveLength =
+                                            context.resources
+                                                .getDimensionPixelSize(
+                                                    R.dimen.qs_media_seekbar_progress_wavelength
+                                                )
+                                                .toFloat()
+                                        lineAmplitude =
+                                            context.resources
+                                                .getDimensionPixelSize(
+                                                    R.dimen.qs_media_seekbar_progress_amplitude
+                                                )
+                                                .toFloat()
+                                        phaseSpeed =
+                                            context.resources
+                                                .getDimensionPixelSize(
+                                                    R.dimen.qs_media_seekbar_progress_phase
+                                                )
+                                                .toFloat()
+                                        strokeWidth =
+                                            context.resources
+                                                .getDimensionPixelSize(
+                                                    R.dimen.qs_media_seekbar_progress_stroke_width
+                                                )
+                                                .toFloat()
+                                        setTint(accentArgb)
+                                        drawRemainingLine = false
+                                        transitionEnabled = true
+                                        animate = false
+                                    }
+                                layer.setDrawableByLayerId(android.R.id.progress, squiggle)
+                                progressDrawable = layer
+                            }
+                        }
+                    },
+                    update = { seekBar ->
+                        seekBar.max = durationMs.toClampedInt().coerceAtLeast(1)
+                        seekBar.thumb?.alpha = if (canBeScrubbed) 255 else 120
+                        if (!isScrubbing) {
+                            seekBar.progress =
+                                displayedPositionMs.coerceIn(0L, durationMs).toClampedInt()
+                        }
+
+                        (seekBar.thumb as? GradientDrawable)?.setColor(accentArgb)
+
+                        val layer = seekBar.progressDrawable as? LayerDrawable
+                        layer?.findDrawableByLayerId(android.R.id.background)?.setTint(trackAlphaArgb)
+                        layer?.findDrawableByLayerId(android.R.id.secondaryProgress)?.setTint(
+                            com.android.internal.graphics.ColorUtils.setAlphaComponent(
+                                accentArgb,
+                                60,
+                            )
+                        )
+                        val squiggle =
+                            layer?.findDrawableByLayerId(android.R.id.progress) as? SquigglyProgress
+                        squiggle?.apply {
+                            setTint(accentArgb)
+                            setAlpha(if (canBeScrubbed) 255 else 120)
+                            animate = isPlaying && canBeScrubbed && !isScrubbing
+                        }
+                    },
+                )
+            }
+        }
+
+        Text(
+            text = formatElapsedTime(durationMs),
+            style = MaterialTheme.typography.labelMedium,
+            color = LocalContentColor.current.copy(alpha = 0.60f),
         )
     }
 }
@@ -312,14 +432,19 @@ private fun MediaActionButton(
         return
     }
 
+    var toggleCount by remember { mutableIntStateOf(0) }
     val contentDescription =
         action.contentDescription?.toString()?.let { ContentDescription.Loaded(it) }
     Box(
         modifier =
-            Modifier.size(buttonSize)
+            Modifier.squishAnimation(toggleCount)
+                .size(buttonSize)
                 .clip(CircleShape)
                 .background(containerColor)
-                .clickable(enabled = action.action != null) { action.action?.run() },
+                .clickable(enabled = action.action != null) {
+                    action.action?.run()
+                    toggleCount++
+                },
         contentAlignment = Alignment.Center,
     ) {
         UiIconView(
@@ -328,28 +453,6 @@ private fun MediaActionButton(
             tint = iconTint,
         )
     }
-}
-
-private fun configureProgressDrawable(
-    seekBar: SeekBar,
-    accent: Color,
-    isPlaying: Boolean,
-    enabled: Boolean,
-) {
-    val context = seekBar.context
-    val progressDrawable = seekBar.progressDrawable as? SquigglyProgress ?: return
-    progressDrawable.waveLength =
-        context.resources.getDimensionPixelSize(R.dimen.qs_media_seekbar_progress_wavelength).toFloat()
-    progressDrawable.lineAmplitude =
-        context.resources.getDimensionPixelSize(R.dimen.qs_media_seekbar_progress_amplitude).toFloat()
-    progressDrawable.phaseSpeed =
-        context.resources.getDimensionPixelSize(R.dimen.qs_media_seekbar_progress_phase).toFloat()
-    progressDrawable.strokeWidth =
-        context.resources.getDimensionPixelSize(R.dimen.qs_media_seekbar_progress_stroke_width).toFloat()
-    progressDrawable.transitionEnabled = true
-    progressDrawable.animate = isPlaying
-    progressDrawable.setTint(accent.toArgb())
-    progressDrawable.alpha = if (enabled) 255 else 180
 }
 
 private fun createSeekBarThumb(context: Context, tintColor: Int): GradientDrawable {
@@ -370,4 +473,49 @@ private fun Long.toClampedInt(): Int {
 
 private fun formatElapsedTime(milliseconds: Long): String {
     return DateUtils.formatElapsedTime(milliseconds / DateUtils.SECOND_IN_MILLIS)
+}
+
+@Composable
+private fun Modifier.squishAnimation(toggleCount: Int): Modifier {
+    val scaleX = remember { Animatable(1f, visibilityThreshold = 0.01f) }
+    val scaleY = remember { Animatable(1f, visibilityThreshold = 0.01f) }
+    val currentToggleCount by rememberUpdatedState(toggleCount)
+    LaunchedEffect(Unit) {
+        snapshotFlow { currentToggleCount }
+            .drop(1)
+            .collectLatest {
+                scaleX.snapTo(1f)
+                scaleY.snapTo(1f)
+                coroutineScope {
+                    launch {
+                        scaleX.animateTo(
+                            targetValue = 1f,
+                            animationSpec =
+                                keyframes {
+                                    durationMillis = 400
+                                    1.066f at 120 using FastOutSlowInEasing
+                                    0.967f at 260
+                                    1f at 400
+                                },
+                        )
+                    }
+                    launch {
+                        scaleY.animateTo(
+                            targetValue = 1f,
+                            animationSpec =
+                                keyframes {
+                                    durationMillis = 400
+                                    0.945f at 120 using FastOutSlowInEasing
+                                    1.033f at 260
+                                    1f at 400
+                                },
+                        )
+                    }
+                }
+            }
+    }
+    return this.graphicsLayer {
+        this.scaleX = scaleX.value
+        this.scaleY = scaleY.value
+    }
 }
