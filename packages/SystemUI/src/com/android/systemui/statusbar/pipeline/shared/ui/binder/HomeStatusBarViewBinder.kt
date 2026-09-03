@@ -90,6 +90,7 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
         val denyListed: Boolean,
         val hideForHun: Boolean,
         val chipStyle: Int,
+        val dynamicIslandEnabled: Boolean = false,
         val position: Int,
         val visibilityModel: VisibilityModel,
         val gradientStartColor: Int = Color.parseColor("#FF6B6B"),
@@ -184,6 +185,8 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
                             denyListed = false,
                             hideForHun = false,
                             chipStyle = 0,
+                            dynamicIslandEnabled =
+                                context.contentResolver.readDynamicIslandEnabled(),
                             position = context.contentResolver.readClockPosition(),
                             visibilityModel = VisibilityModel(View.GONE, true),
                             gradientStartColor = context.contentResolver.readGradientStartColor(),
@@ -211,6 +214,8 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
                     Settings.System.getUriFor(Settings.System.STATUSBAR_CLOCK_CHIP_GRADIENT_ANGLE)
                 val gradientMaskTextUri: Uri =
                     Settings.System.getUriFor(Settings.System.STATUSBAR_CLOCK_CHIP_GRADIENT_MASK_TEXT)
+                val dynamicIslandUri: Uri =
+                    Settings.System.getUriFor(Settings.System.STATUS_BAR_SHOW_DYNAMIC_ISLAND)
 
                 val taskStackListener =
                     object : TaskStackChangeListener {
@@ -307,6 +312,11 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
                                            gradientMaskText =
                                                context.contentResolver.readGradientMaskText()
                                        )
+                                    dynamicIslandUri ->
+                                        current.copy(
+                                            dynamicIslandEnabled =
+                                                context.contentResolver.readDynamicIslandEnabled()
+                                       )
                                     else -> current
                                 }
                             }
@@ -315,7 +325,7 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
 
                 val urisToObserve = listOf(clockAutoHideUri, iconHideListUri, statusBarClockUri,
                     statusBarClockChipUri, gradientStartColorUri, gradientEndColorUri, gradientAngleUri,
-                    gradientMaskTextUri)
+                    gradientMaskTextUri, dynamicIslandUri)
                 urisToObserve.forEach { uri ->
                     context.contentResolver.registerContentObserver(
                         uri,
@@ -436,7 +446,9 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
                                     state.visibilityModel.visibility == View.VISIBLE &&
                                         !hunBlocksClock &&
                                         !state.autoHide &&
-                                        !state.denyListed
+                                        !state.denyListed &&
+                                        !(state.position == CLOCK_POSITION_CENTER &&
+                                            state.dynamicIslandEnabled)
                                 ) {
                                     state.visibilityModel
                                 } else {
@@ -588,6 +600,15 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
             0,
             UserHandle.USER_CURRENT,
         )
+    }
+
+    private fun ContentResolver.readDynamicIslandEnabled(): Boolean {
+        return Settings.System.getIntForUser(
+            this,
+            Settings.System.STATUS_BAR_SHOW_DYNAMIC_ISLAND,
+            0,
+            UserHandle.USER_CURRENT,
+        ) != 0
     }
 
     private fun ContentResolver.readClockPosition(): Int {

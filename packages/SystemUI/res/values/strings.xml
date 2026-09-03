@@ -400,6 +400,20 @@
     <string name="screenrecord_stop_dialog_message_specific_app">You\'re currently recording <xliff:g id="app_name" example="Photos App">%1$s</xliff:g></string>
     <!-- Button to stop a screen recording [CHAR LIMIT=35] -->
     <string name="screenrecord_stop_dialog_button">Stop recording</string>
+    <string name="dynamic_island_screen_record_short">REC</string>
+    <string name="dynamic_island_screen_record_active">Recording is active</string>
+    <string name="dynamic_island_screen_record_countdown">Starts in %1$ss</string>
+    <string name="dynamic_island_alarm_title">Next alarm</string>
+    <string name="dynamic_island_flashlight_enabled">Enabled</string>
+    <string name="dynamic_island_flashlight_short">ON</string>
+    <string name="dynamic_island_open_action">Open</string>
+    <string name="dynamic_island_open_clock_action">Open clock</string>
+    <string name="dynamic_island_stopwatch_title">Stopwatch</string>
+    <string name="dynamic_island_alarm_active_title">Alarm</string>
+    <string name="dynamic_island_action_snooze">Snooze</string>
+    <string name="dynamic_island_action_lap">Lap</string>
+    <string name="dynamic_island_action_stop">Stop</string>
+    <string name="dynamic_island_action_resume">Resume</string>
 
     <!-- Screen recording should record entire screen [CHAR LIMIT=35] -->
     <string name="screen_record_entire_screen">Entire screen</string>

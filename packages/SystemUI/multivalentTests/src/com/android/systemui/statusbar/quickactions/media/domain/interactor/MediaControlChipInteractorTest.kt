@@ -64,7 +64,7 @@ class MediaControlChipInteractorTest(flags: FlagsParameterization) : SysuiTestCa
     fun setUp() {
         Settings.System.putInt(
             mContext.contentResolver,
-            Settings.System.STATUS_BAR_SHOW_MUSIC_TICKER,
+            Settings.System.STATUS_BAR_SHOW_DYNAMIC_ISLAND,
             1,
         )
         kosmos.underTest.initialize()
