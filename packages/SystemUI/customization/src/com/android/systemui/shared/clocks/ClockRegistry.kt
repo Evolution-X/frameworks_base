@@ -67,6 +67,7 @@ private val KNOWN_PLUGINS: Map<String, List<ClockMetadata>> =
         "com.android.systemui.clocks.numoverlap" to
             listOf(ClockMetadata("DIGITAL_CLOCK_NUMBEROVERLAP")),
         "com.android.systemui.clocks.weather" to listOf(ClockMetadata("DIGITAL_CLOCK_WEATHER")),
+        "com.android.systemui.clocks.words" to listOf(ClockMetadata("DIGITAL_CLOCK_WORDS")),
     )
 private const val TRACE_CLOCK_CHANGE = "LOCKSCREEN_CLOCK_CHANGE"
 private const val TRACE_STYLE_CHANGE = "LOCKSCREEN_CLOCK_STYLE_CHANGE"
