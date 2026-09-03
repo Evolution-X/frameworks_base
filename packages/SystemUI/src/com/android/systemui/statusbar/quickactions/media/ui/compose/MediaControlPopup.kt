@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -74,8 +75,8 @@ fun MediaControlPopup(
 ) {
     val accent = MaterialTheme.colorScheme.primary
     Surface(
-        color = Color(0xF21A1A1A),
-        contentColor = Color.White,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = MaterialTheme.colorScheme.onSurface,
         shape = PopupShape,
         shadowElevation = 12.dp,
         modifier = modifier.widthIn(min = 320.dp, max = 400.dp),
@@ -111,7 +112,7 @@ fun MediaControlPopup(
                         text = model.songName?.toString().orEmpty(),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color.White,
+                        color = LocalContentColor.current,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -119,7 +120,7 @@ fun MediaControlPopup(
                         Text(
                             text = artist.toString(),
                             style = MaterialTheme.typography.bodyLarge,
-                            color = Color.White.copy(alpha = 0.72f),
+                            color = LocalContentColor.current.copy(alpha = 0.8f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )

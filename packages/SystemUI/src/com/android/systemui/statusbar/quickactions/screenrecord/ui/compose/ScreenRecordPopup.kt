@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -52,8 +53,8 @@ fun ScreenRecordPopup(
 ) {
     val accent = Color(0xFFFF5A5F)
     Surface(
-        color = Color(0xF21A1A1A),
-        contentColor = Color.White,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = MaterialTheme.colorScheme.onSurface,
         shape = PopupShape,
         shadowElevation = 12.dp,
         modifier = modifier.widthIn(min = 280.dp, max = 360.dp),
@@ -87,7 +88,7 @@ fun ScreenRecordPopup(
                                     stringResource(R.string.dynamic_island_screen_record_active)
                             },
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.72f),
+                        color = LocalContentColor.current.copy(alpha = 0.73f),
                     )
                 }
             }

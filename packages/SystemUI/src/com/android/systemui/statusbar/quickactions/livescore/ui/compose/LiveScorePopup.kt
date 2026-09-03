@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -49,8 +50,8 @@ fun LiveScorePopup(
 ) {
     val accent = MaterialTheme.colorScheme.primary
     Surface(
-        color = Color(0xF21A1A1A),
-        contentColor = Color.White,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = MaterialTheme.colorScheme.onSurface,
         shape = PopupShape,
         shadowElevation = 12.dp,
         modifier = modifier.widthIn(min = 320.dp, max = 400.dp),
@@ -95,7 +96,7 @@ fun LiveScorePopup(
                     Text(
                         text = subtitle,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.72f),
+                        color = LocalContentColor.current.copy(alpha = 0.73f),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
