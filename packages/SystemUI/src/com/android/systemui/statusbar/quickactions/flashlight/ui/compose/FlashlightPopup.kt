@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -54,8 +55,8 @@ fun FlashlightPopup(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        color = Color(0xF21A1A1A),
-        contentColor = Color.White,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = MaterialTheme.colorScheme.onSurface,
         shape = PopupShape,
         shadowElevation = 12.dp,
         modifier = modifier.widthIn(min = 280.dp, max = 340.dp),
@@ -90,7 +91,7 @@ fun FlashlightPopup(
                                 stringResource(R.string.quick_settings_flashlight_tile_level_percentage, it)
                             } ?: stringResource(R.string.dynamic_island_flashlight_enabled),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.72f),
+                        color = LocalContentColor.current.copy(alpha = 0.73f),
                     )
                 }
             }
