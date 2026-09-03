@@ -39,6 +39,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -53,6 +54,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
@@ -60,6 +62,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.android.systemui.common.ui.compose.Icon
+import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings
 import com.android.systemui.statusbar.quickactions.screenrecord.shared.model.ScreenRecordPopupModel
 import com.android.systemui.statusbar.quickactions.shared.model.PopupContentModel
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipModel
@@ -82,6 +85,7 @@ fun StatusBarDynamicIslandChip(
     val isMediaChip = viewModel.popupContent is PopupContentModel.Media
     val chipShape = RoundedCornerShape(50)
     val colors = viewModel.colors
+    val (widthScale, heightScale) = rememberDynamicIslandSizeScale()
     val chipBackgroundColor =
         colors.chipBackground(
             isSelected = viewModel.isPopupShown,
@@ -107,6 +111,8 @@ fun StatusBarDynamicIslandChip(
             viewModel = viewModel,
             onTap = onTap,
             cutoutSpec = cutoutSpec,
+            widthScale = widthScale,
+            heightScale = heightScale,
             chipBackgroundColor = chipBackgroundColor,
             chipContentColor = chipContentColor,
             chipOutline = chipOutline,
@@ -115,7 +121,7 @@ fun StatusBarDynamicIslandChip(
         return
     }
 
-    val compactWidth = compactIslandWidthFor(viewModel.popupContent)
+    val compactWidth = compactIslandWidthFor(viewModel.popupContent)?.times(widthScale)
     val hasInlineTimer = viewModel.popupContent is PopupContentModel.Stopwatch
     val trailingDecorationWidth =
         when (val popupContent = viewModel.popupContent) {
@@ -138,7 +144,7 @@ fun StatusBarDynamicIslandChip(
             else -> 18.dp + (8.dp * (viewModel.icons.size - 1))
         }
     val maxTextWidth =
-        (CompactIslandMaxWidth - 24.dp - leadingDecorationWidth - trailingDecorationWidth)
+        ((CompactIslandMaxWidth * widthScale) - 24.dp - leadingDecorationWidth - trailingDecorationWidth)
             .coerceAtLeast(56.dp)
 
     Row(
@@ -146,16 +152,16 @@ fun StatusBarDynamicIslandChip(
             modifier
                 .then(boundsModifier)
                 .openSquishAnimation(viewModel.isPopupShown)
-                .defaultMinSize(minHeight = 32.dp)
+                .defaultMinSize(minHeight = 32.dp * heightScale)
                 .widthIn(
                     min = compactWidth ?: 0.dp,
-                    max = compactWidth ?: CompactIslandMaxWidth,
+                    max = compactWidth ?: (CompactIslandMaxWidth * widthScale),
                 )
                 .clip(chipShape)
                 .background(chipBackgroundColor)
                 .border(width = 1.dp, color = chipOutline, shape = chipShape)
                 .clickable(onClick = onTap)
-                .padding(horizontal = 12.dp, vertical = 7.dp),
+                .padding(horizontal = 12.dp * widthScale, vertical = 7.dp * heightScale),
         horizontalArrangement =
             if (isMediaChip) Arrangement.SpaceBetween else Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -247,24 +253,26 @@ private fun UtilityStatusIslandChip(
     viewModel: QuickActionChipModel.PopupChip,
     onTap: () -> Unit,
     cutoutSpec: DynamicIslandCutoutSpec,
+    widthScale: Float = 1f,
+    heightScale: Float = 1f,
     chipBackgroundColor: Color,
     chipContentColor: Color,
     chipOutline: Color,
     modifier: Modifier = Modifier,
 ) {
     val rightSegmentWidth =
-        when (viewModel.popupContent) {
+        (when (viewModel.popupContent) {
             is PopupContentModel.Flashlight -> 52.dp
             is PopupContentModel.Alarm -> 72.dp
             else -> 80.dp
-        }
+        }) * widthScale
     val connectedIslandWidth =
-        (CompactUtilityConnectedIslandChromeWidth +
+        ((CompactUtilityConnectedIslandChromeWidth * widthScale) +
                 cutoutSpec.embeddedGapWidth +
                 rightSegmentWidth)
             .coerceIn(
-                CompactUtilityConnectedIslandMinWidth,
-                CompactUtilityConnectedIslandMaxWidth,
+                CompactUtilityConnectedIslandMinWidth * widthScale,
+                CompactUtilityConnectedIslandMaxWidth * widthScale,
             )
     val utilityText =
         when (val popupContent = viewModel.popupContent) {
@@ -286,7 +294,7 @@ private fun UtilityStatusIslandChip(
         modifier =
             modifier
                 .openSquishAnimation(viewModel.isPopupShown)
-                .defaultMinSize(minHeight = 32.dp)
+                .defaultMinSize(minHeight = 32.dp * heightScale)
                 .width(connectedIslandWidth)
                 .clip(RoundedCornerShape(50))
                 .background(chipBackgroundColor)
@@ -295,7 +303,7 @@ private fun UtilityStatusIslandChip(
         horizontalArrangement = Arrangement.spacedBy(0.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(modifier = Modifier.width(10.dp * widthScale))
         Icon(
             icon = viewModel.icons.first().icon,
             modifier = Modifier.size(16.dp),
@@ -305,7 +313,12 @@ private fun UtilityStatusIslandChip(
         Box(
             modifier =
                 Modifier.width(rightSegmentWidth)
-                    .padding(start = 6.dp, top = 7.dp, bottom = 7.dp, end = 6.dp),
+                    .padding(
+                        start = 6.dp * widthScale,
+                        top = 7.dp * heightScale,
+                        bottom = 7.dp * heightScale,
+                        end = 6.dp * widthScale,
+                    ),
             contentAlignment = Alignment.CenterEnd,
         ) {
             Text(
@@ -318,7 +331,7 @@ private fun UtilityStatusIslandChip(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(modifier = Modifier.width(10.dp * widthScale))
     }
 }
 
@@ -436,6 +449,26 @@ private fun compactIslandWidthFor(content: PopupContentModel): Dp? {
         is PopupContentModel.Flashlight -> CompactUtilityIslandWidth
         else -> null
     }
+}
+
+@Composable
+private fun rememberDynamicIslandSizeScale(): Pair<Float, Float> {
+    val context = LocalContext.current
+    val widthScale by
+        remember {
+            DynamicIslandFeatureSettings.observeDynamicIslandScale(
+                context,
+                DynamicIslandFeatureSettings.WIDTH_SCALE,
+            )
+        }.collectAsState(initial = 1f)
+    val heightScale by
+        remember {
+            DynamicIslandFeatureSettings.observeDynamicIslandScale(
+                context,
+                DynamicIslandFeatureSettings.HEIGHT_SCALE,
+            )
+        }.collectAsState(initial = 1f)
+    return widthScale to heightScale
 }
 
 @Composable
