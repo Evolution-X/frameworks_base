@@ -43,7 +43,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -77,6 +76,7 @@ import com.android.systemui.media.controls.ui.drawable.SquigglyProgress
 import com.android.systemui.media.controls.ui.view.WaveformSeekBar
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.quickactions.media.shared.model.MediaControlChipModel
+import com.android.systemui.statusbar.quickactions.ui.compose.PopupSurface
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -94,11 +94,8 @@ fun MediaControlPopup(
     modifier: Modifier = Modifier,
 ) {
     val accent = MaterialTheme.colorScheme.primary
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        contentColor = MaterialTheme.colorScheme.onSurface,
+    PopupSurface(
         shape = PopupShape,
-        shadowElevation = 12.dp,
         modifier = modifier.widthIn(min = 320.dp, max = 400.dp),
     ) {
         Column(
