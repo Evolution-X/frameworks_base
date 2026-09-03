@@ -265,22 +265,6 @@ public class LyricsFetcher {
         });
     }
 
-    private boolean isSupportedPackage(String pkg) {
-        if (pkg == null) return false;
-        String p = pkg.toLowerCase();
-        return p.contains("amazonmusic")
-        || p.contains("apple")
-        || p.contains("archivetune")
-        || p.contains("deezer")
-        || p.contains("music")
-        || p.contains("pandora")
-        || p.contains("spotify")
-        || p.contains("youtube")
-        || p.contains("youtubemusic")
-        || p.contains("vanced")
-        || p.contains("rvx");
-    }
-
     private void maybeFetchForCurrentMetadata() {
         if (mActiveController == null) return;
         MediaMetadata metadata = mActiveController.getMetadata();
@@ -290,9 +274,8 @@ public class LyricsFetcher {
         }
         String song = metadata.getString(MediaMetadata.METADATA_KEY_TITLE);
         String artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST);
-        String pkg = mActiveController.getPackageName();
 
-        if (TextUtils.isEmpty(song) || TextUtils.isEmpty(artist) || !isSupportedPackage(pkg)) {
+        if (TextUtils.isEmpty(song) || TextUtils.isEmpty(artist)) {
             clearLyrics();
             return;
         }
