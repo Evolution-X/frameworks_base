@@ -38,6 +38,7 @@ import com.android.systemui.statusbar.quickactions.popups.shared.model.PopupActi
 import com.android.systemui.statusbar.quickactions.popups.shared.toActivityLaunchAction
 import com.android.systemui.statusbar.quickactions.popups.shared.toSendAction
 import com.android.systemui.statusbar.quickactions.popups.ui.viewmodel.StatusBarPopupChipViewModel
+import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings
 import com.android.systemui.statusbar.quickactions.shared.model.ChipIcon
 import com.android.systemui.statusbar.quickactions.shared.model.PopupContentModel
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipId
@@ -49,6 +50,7 @@ import dagger.assisted.AssistedInject
 import java.util.Locale
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
 /** ViewModel backing the stopwatch page inside the dynamic island. */
@@ -103,6 +105,14 @@ constructor(
                     .firstOrNull()
             }
             .map(::toPopupChipModel)
+            .combine(
+                DynamicIslandFeatureSettings.observeDynamicIslandFeatureEnabled(
+                    context,
+                    DynamicIslandFeatureSettings.STOPWATCH,
+                )
+            ) { model, enabled ->
+                if (enabled) model else QuickActionChipModel.Hidden(QuickActionChipId.Stopwatch)
+            }
             .hydratedStateOf(
                 traceName = "chip",
                 initialValue = QuickActionChipModel.Hidden(QuickActionChipId.Stopwatch),
