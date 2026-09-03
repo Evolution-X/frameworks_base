@@ -337,6 +337,7 @@ private fun MediaProgressSection(
                             max = durationMs.toClampedInt()
                             splitTrack = false
                             setPadding(0, 0, 0, 0)
+                            isEnabled = false
                             thumb = createSeekBarThumb(context, accentArgb)
                             val layer = progressDrawable?.mutate() as? LayerDrawable
                             if (layer != null) {
