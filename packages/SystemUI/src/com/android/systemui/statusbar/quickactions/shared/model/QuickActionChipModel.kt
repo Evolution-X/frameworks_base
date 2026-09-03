@@ -83,7 +83,10 @@ sealed class ChipContent {
 sealed interface PopupContentModel {
     data object None : PopupContentModel
 
-    data class Media(val model: MediaControlChipModel) : PopupContentModel
+    data class Media(
+        val model: MediaControlChipModel,
+        val useWaveform: Boolean = false,
+    ) : PopupContentModel
 
     data class ScreenRecord(val model: ScreenRecordPopupModel) : PopupContentModel
 

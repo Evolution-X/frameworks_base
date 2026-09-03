@@ -169,6 +169,13 @@ constructor(
                 }
         }
 
+    val mediaUseWaveform: StateFlow<Boolean> =
+        DynamicIslandFeatureSettings.observeDynamicIslandFeatureEnabled(
+            context,
+            Settings.System.MEDIA_WAVEFORM_SEEKBAR,
+            false,
+        ).stateIn(backgroundScope, SharingStarted.WhileSubscribed(), false)
+
     /** The currently active [MediaControlChipModel] */
     val mediaControlChipModel: StateFlow<MediaControlChipModel?> =
         combine(
