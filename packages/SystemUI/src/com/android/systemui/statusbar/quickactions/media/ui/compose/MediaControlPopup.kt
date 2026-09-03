@@ -59,11 +59,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -438,6 +440,7 @@ private fun MediaActionButton(
     }
 
     var toggleCount by remember { mutableIntStateOf(0) }
+    val haptics = LocalHapticFeedback.current
     val contentDescription =
         action.contentDescription?.toString()?.let { ContentDescription.Loaded(it) }
     Box(
@@ -447,6 +450,7 @@ private fun MediaActionButton(
                 .clip(CircleShape)
                 .background(containerColor)
                 .clickable(enabled = action.action != null) {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     action.action?.run()
                     toggleCount++
                 },
