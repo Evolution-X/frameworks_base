@@ -176,7 +176,12 @@ fun StatusBarDynamicIslandChip(
                     onClick = hapticOnTap,
                     onLongClick = mediaOpenApp?.let { { hapticOnLongPress() } },
                 )
-                .padding(horizontal = 12.dp * widthScale, vertical = 7.dp * heightScale),
+                .padding(
+                    start = 10.dp * widthScale,
+                    end = 12.dp * widthScale,
+                    top = 7.dp * heightScale,
+                    bottom = 7.dp * heightScale,
+                ),
         horizontalArrangement =
             if (isMediaChip) Arrangement.SpaceBetween else Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
