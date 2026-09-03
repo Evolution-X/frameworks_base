@@ -37,6 +37,8 @@
     <dimen name="nowplaying_icon_padding_normal">16dp</dimen>
     <dimen name="nowplaying_title_artist_gap">6dp</dimen>
     <dimen name="nowplaying_ambient_margin_bottom">71dp</dimen>
+    <dimen name="nowplaying_ambient_min_height">80dp</dimen>
+    <dimen name="nowplaying_ambient_margin_above_indication">16dp</dimen>
 
     <!-- Lyric -->
     <dimen name="lyric_icon_margin_end">4dp</dimen>
