@@ -30,7 +30,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -40,9 +39,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import com.android.systemui.res.R
-import com.android.systemui.statusbar.quickactions.ui.compose.rememberElapsedDurationText
 import com.android.systemui.statusbar.quickactions.screenrecord.shared.model.ScreenRecordPopupModel
-
+import com.android.systemui.statusbar.quickactions.ui.compose.PopupSurface
+import com.android.systemui.statusbar.quickactions.ui.compose.rememberElapsedDurationText
 private val PopupShape = RoundedCornerShape(32.dp)
 
 /** Expanded screen-recording status card for the dynamic island. */
@@ -52,11 +51,8 @@ fun ScreenRecordPopup(
     modifier: Modifier = Modifier,
 ) {
     val accent = Color(0xFFFF5A5F)
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        contentColor = MaterialTheme.colorScheme.onSurface,
+    PopupSurface(
         shape = PopupShape,
-        shadowElevation = 12.dp,
         modifier = modifier.widthIn(min = 280.dp, max = 360.dp),
     ) {
         Column(
