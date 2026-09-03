@@ -17,9 +17,13 @@
 package com.android.systemui.statusbar.quickactions.media.domain.interactor
 
 import android.content.applicationContext
+import com.android.systemui.activityIntentHelper
 import com.android.systemui.kosmos.Kosmos
 import com.android.systemui.kosmos.backgroundScope
 import com.android.systemui.media.remedia.data.repository.mediaRepository
+import com.android.systemui.plugins.activityStarter
+import com.android.systemui.statusbar.notificationLockscreenUserManager
+import com.android.systemui.statusbar.policy.keyguardStateController
 
 val Kosmos.mediaControlChipInteractor: MediaControlChipInteractor by
     Kosmos.Fixture {
@@ -27,5 +31,9 @@ val Kosmos.mediaControlChipInteractor: MediaControlChipInteractor by
             context = applicationContext,
             backgroundScope = backgroundScope,
             mediaRepository = mediaRepository,
+            activityStarter = activityStarter,
+            activityIntentHelper = activityIntentHelper,
+            lockscreenUserManager = notificationLockscreenUserManager,
+            keyguardStateController = keyguardStateController,
         )
     }
