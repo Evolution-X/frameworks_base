@@ -50,7 +50,9 @@ import com.android.systemui.statusbar.quickactions.media.shared.model.MediaContr
 import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -90,6 +92,10 @@ constructor(
     private val isEnabled = MutableStateFlow(false)
     private val isDynamicIslandEnabled = MutableStateFlow(false)
     private var isInitialized = false
+    private val currentLyrics = MutableStateFlow<String?>(null)
+    private val currentSyncedLyrics = MutableStateFlow<String?>(null)
+    private var lastFetchedSong: String? = null
+    private var lastFetchedArtist: String? = null
     private val dynamicIslandObserver =
         object : ContentObserver(Handler(Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) {
@@ -140,8 +146,7 @@ constructor(
             .flatMapLatest { state -> state.token.playbackInfoFlow(context) }
             .distinctUntilChanged()
 
-    /** The currently active [MediaControlChipModel] */
-    val mediaControlChipModel: StateFlow<MediaControlChipModel?> =
+    private val baseMediaControlChipModel: Flow<MediaControlChipModel?> =
         combine(
             mediaControlState,
             livePlaybackInfo,
@@ -162,8 +167,18 @@ constructor(
                 } else {
                     null
                 }
-            }
-            .stateIn(backgroundScope, SharingStarted.WhileSubscribed(), null)
+        }
+
+    /** The currently active [MediaControlChipModel] */
+    val mediaControlChipModel: StateFlow<MediaControlChipModel?> =
+        combine(
+            baseMediaControlChipModel,
+            currentLyrics,
+            currentSyncedLyrics,
+        ) { baseModel, lyrics, syncedLyrics ->
+            baseModel?.copy(lyrics = lyrics, syncedLyrics = syncedLyrics)
+        }
+        .stateIn(backgroundScope, SharingStarted.WhileSubscribed(), null)
 
     /** Initializes setting observation. This must be called from a CoreStartable. */
     fun initialize() {
@@ -181,6 +196,7 @@ constructor(
         )
         updateDynamicIslandState()
         isEnabled.value = true
+        setupLyricsWorker()
     }
 
     private fun updateDynamicIslandState() {
@@ -192,6 +208,109 @@ constructor(
                 UserHandle.USER_CURRENT,
             ) != 0
     }
+
+    private fun setupLyricsWorker() {
+        backgroundScope.launch {
+            combine(
+                mediaControlState,
+                DynamicIslandFeatureSettings.observeDynamicIslandFeatureEnabled(
+                    context,
+                    DynamicIslandFeatureSettings.SHOW_LYRICS,
+                    false,
+                ),
+            ) { state, lyricsEnabled ->
+                Pair(state.model, lyricsEnabled)
+            }.collect { (model, lyricsEnabled) ->
+                if (model != null && lyricsEnabled) {
+                    val song = model.songName?.toString()
+                    val artist = model.artistName?.toString()
+                    val packageName = model.packageName
+                    val isSupportedApp =
+                        packageName?.contains("music", ignoreCase = true) == true ||
+                            packageName?.contains("youtube", ignoreCase = true) == true ||
+                            packageName?.contains("spotify", ignoreCase = true) == true ||
+                            packageName?.contains("vanced", ignoreCase = true) == true ||
+                            packageName?.contains("rvx", ignoreCase = true) == true
+
+                    if (song != null && artist != null && isSupportedApp) {
+                        if (song != lastFetchedSong || artist != lastFetchedArtist) {
+                            lastFetchedSong = song
+                            lastFetchedArtist = artist
+                            currentLyrics.value = null
+                            currentSyncedLyrics.value = null
+                            fetchLyrics(cleanArtistName(artist), cleanSongTitle(song))
+                        }
+                    } else {
+                        lastFetchedSong = null
+                        lastFetchedArtist = null
+                        currentLyrics.value = null
+                        currentSyncedLyrics.value = null
+                    }
+                } else {
+                    if (model == null) {
+                        lastFetchedSong = null
+                        lastFetchedArtist = null
+                    }
+                    currentLyrics.value = null
+                    currentSyncedLyrics.value = null
+                }
+            }
+        }
+    }
+
+    private fun cleanSongTitle(title: String): String {
+        if (title.isBlank()) return title
+        val separatorRegex = Regex("\\s+[-–—|•]\\s+")
+        var cleaned = title.split(separatorRegex)[0]
+        val parentheticalRegex =
+            Regex("(?i)\\s*[\\(\\[]([^\\)\\]]*(?:feat|remaster|live|video|version|edit|acoustic|single|studio|mono|stereo|re-recorded)[^\\)\\]]*)[\\]\\)]")
+        cleaned = cleaned.replace(parentheticalRegex, "")
+        val featRegex = Regex("(?i)\\s+\\b(feat\\.?|featuring|ft\\.?|with)\\b.*")
+        cleaned = cleaned.replace(featRegex, "")
+        return cleaned.trim()
+    }
+
+    private fun cleanArtistName(artist: String): String {
+        if (artist.isBlank()) return artist
+        val splitRegex = Regex("(?i)\\s*[,/;]\\s*|\\s+\\b(feat\\.?|featuring|ft\\.?|and|&)\\b\\s+")
+        return artist.split(splitRegex)[0].trim()
+    }
+
+    private suspend fun fetchLyrics(artist: String, song: String) =
+        withContext(Dispatchers.IO) {
+            var connection: java.net.HttpURLConnection? = null
+            try {
+                val query = java.net.URLEncoder.encode("$artist $song", "UTF-8")
+                val url = java.net.URL("https://lrclib.net/api/search?q=$query")
+                connection = url.openConnection() as java.net.HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 5000
+                connection.readTimeout = 5000
+                connection.setRequestProperty(
+                    "User-Agent",
+                    "SystemUI-DynamicIslandLyrics/1.0 (https://lineageos.org)",
+                )
+
+                if (connection.responseCode == 200) {
+                    val response = connection.inputStream.bufferedReader().use { it.readText() }
+                    val jsonArray = org.json.JSONArray(response)
+                    if (jsonArray.length() > 0) {
+                        val bestMatch = jsonArray.getJSONObject(0)
+                        val plainLyrics = bestMatch.optString("plainLyrics", "")
+                        val syncedLyrics = bestMatch.optString("syncedLyrics", "")
+
+                        if (plainLyrics.isNotBlank() || syncedLyrics.isNotBlank()) {
+                            currentLyrics.value = plainLyrics.takeIf { it.isNotBlank() }
+                            currentSyncedLyrics.value = syncedLyrics.takeIf { it.isNotBlank() }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("MediaControlChipInteractor", "Failed to fetch lyrics from LRCLIB", e)
+            } finally {
+                connection?.disconnect()
+            }
+        }
 }
 
 private fun MediaDataModel.toMediaControlState(
@@ -204,6 +323,7 @@ private fun MediaDataModel.toMediaControlState(
     return MediaControlState(
         model =
             MediaControlChipModel(
+                packageName = packageName,
                 appIcon = appIcon,
                 artworkIcon = background ?: appIcon,
                 appName = appName,
@@ -268,6 +388,7 @@ private fun MediaData.toMediaControlState(
     return MediaControlState(
         model =
             MediaControlChipModel(
+                packageName = packageName,
                 appIcon = appIcon,
                 artworkIcon = artworkIcon,
                 appName = app,
