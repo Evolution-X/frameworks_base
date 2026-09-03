@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -39,6 +38,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.android.systemui.common.ui.compose.Icon
 import com.android.systemui.statusbar.quickactions.livescore.shared.model.LiveScoreChipModel
+import com.android.systemui.statusbar.quickactions.ui.compose.PopupSurface
 
 private val PopupShape = RoundedCornerShape(32.dp)
 
@@ -49,17 +49,16 @@ fun LiveScorePopup(
     modifier: Modifier = Modifier,
 ) {
     val accent = MaterialTheme.colorScheme.primary
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        contentColor = MaterialTheme.colorScheme.onSurface,
+    PopupSurface(
         shape = PopupShape,
-        shadowElevation = 12.dp,
-        modifier = modifier.widthIn(min = 320.dp, max = 400.dp),
+        modifier =
+            modifier
+                .widthIn(min = 320.dp, max = 400.dp)
+                .clickable(enabled = model.onOpen != null) { model.onOpen?.invoke() },
     ) {
         Row(
             modifier =
                 Modifier.fillMaxWidth()
-                    .clickable(enabled = model.onOpen != null) { model.onOpen?.invoke() }
                     .padding(horizontal = 20.dp, vertical = 18.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically,
