@@ -18,13 +18,12 @@ package com.android.systemui.statusbar.quickactions.ui.compose
 
 import android.view.ViewTreeObserver
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,6 +31,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -62,10 +63,14 @@ import com.android.systemui.statusbar.quickactions.screenrecord.ui.compose.Scree
 import com.android.systemui.statusbar.quickactions.shared.model.PopupContentModel
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipModel
 import com.android.systemui.statusbar.quickactions.stopwatch.ui.compose.StopwatchPopup
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
 /**
  * Displays a popup in the status bar area. The offset is calculated to draw the popup below the
- * status bar.
+ * status bar. When [chipBoundsInScreen] is provided, the popup grows out of the chip's on-screen
+ * position and aspect ratio with an independent-axis squish animation, rather than a generic
+ * uniform scale-in.
  */
 @Composable
 fun StatusBarPopup(
@@ -96,6 +101,7 @@ fun StatusBarPopup(
     ) {
         val popupView = LocalView.current
         var popupBoundsInScreen by remember { mutableStateOf<Rect?>(null) }
+
         val transformOrigin by remember {
             derivedStateOf {
                 val chip = chipBoundsInScreen
@@ -103,11 +109,111 @@ fun StatusBarPopup(
                 if (chip == null || popup == null || popup.width <= 0f) {
                     TransformOrigin(0.5f, 0f)
                 } else {
-                    val pivotX = ((chip.center.x - popup.left) / popup.width).coerceIn(0.05f, 0.95f)
-                    TransformOrigin(pivotX, 0f)
+                    val pivotX =
+                        ((chip.center.x - popup.left) / popup.width).coerceIn(0.05f, 0.95f)
+                    val pivotY =
+                        if (popup.height > 0f) {
+                            ((chip.center.y - popup.top) / popup.height).coerceIn(0f, 0.3f)
+                        } else {
+                            0f
+                        }
+                    TransformOrigin(pivotX, pivotY)
                 }
             }
         }
+
+        val initialScaleFromChip by remember {
+            derivedStateOf {
+                val chip = chipBoundsInScreen
+                val popup = popupBoundsInScreen
+                if (chip == null || popup == null || popup.width <= 0f || popup.height <= 0f) {
+                    Offset(0.4f, 0.4f)
+                } else {
+                    Offset(
+                        x = (chip.width / popup.width).coerceIn(0.2f, 1f),
+                        y = (chip.height / popup.height).coerceIn(0.15f, 1f),
+                    )
+                }
+            }
+        }
+
+        val scaleX = remember { Animatable(initialScaleFromChip.x) }
+        val scaleY = remember { Animatable(initialScaleFromChip.y) }
+        val alpha = remember { Animatable(0f) }
+        val translationY = remember { Animatable(-24f) }
+
+        LaunchedEffect(isVisible, popupBoundsInScreen != null) {
+            if (isVisible && popupBoundsInScreen != null) {
+                scaleX.snapTo(initialScaleFromChip.x)
+                scaleY.snapTo(initialScaleFromChip.y)
+                alpha.snapTo(0f)
+                translationY.snapTo(-24f)
+                coroutineScope {
+                    launch {
+                        scaleX.animateTo(
+                            targetValue = 1f,
+                            animationSpec =
+                                spring(
+                                    dampingRatio = 0.6f,
+                                    stiffness = Spring.StiffnessLow,
+                                ),
+                        )
+                    }
+                    launch {
+                        scaleY.animateTo(
+                            targetValue = 1f,
+                            animationSpec =
+                                spring(
+                                    dampingRatio = 0.65f,
+                                    stiffness = Spring.StiffnessLow,
+                                ),
+                        )
+                    }
+                    launch {
+                        translationY.animateTo(
+                            targetValue = 0f,
+                            animationSpec =
+                                spring(
+                                    dampingRatio = 0.7f,
+                                    stiffness = Spring.StiffnessMediumLow,
+                                ),
+                        )
+                    }
+                    launch { alpha.animateTo(1f, animationSpec = tween(180)) }
+                }
+            } else if (!isVisible) {
+                coroutineScope {
+                    launch {
+                        scaleX.animateTo(
+                            targetValue = initialScaleFromChip.x,
+                            animationSpec =
+                                spring(
+                                    dampingRatio = 0.8f,
+                                    stiffness = Spring.StiffnessMediumLow,
+                                ),
+                        )
+                    }
+                    launch {
+                        scaleY.animateTo(
+                            targetValue = initialScaleFromChip.y,
+                            animationSpec =
+                                spring(
+                                    dampingRatio = 0.8f,
+                                    stiffness = Spring.StiffnessMediumLow,
+                                ),
+                        )
+                    }
+                    launch {
+                        translationY.animateTo(
+                            targetValue = -16f,
+                            animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                        )
+                    }
+                    launch { alpha.animateTo(0f, animationSpec = tween(160)) }
+                }
+            }
+        }
+
         DisposableEffect(popupView) {
             val listener =
                 ViewTreeObserver.OnComputeInternalInsetsListener { info ->
@@ -123,31 +229,23 @@ fun StatusBarPopup(
 
         AnimatedVisibility(
             visible = isVisible,
-            enter =
-                fadeIn(animationSpec = tween(140)) +
-                    scaleIn(
-                        initialScale = 0.4f,
-                        transformOrigin = transformOrigin,
-                        animationSpec =
-                            spring(
-                                dampingRatio = 0.62f,
-                                stiffness = 380f,
-                                visibilityThreshold = Spring.DefaultDisplacementThreshold,
-                            ),
-                    ),
-            exit =
-                fadeOut(animationSpec = tween(130)) +
-                    scaleOut(
-                        targetScale = 0.55f,
-                        transformOrigin = transformOrigin,
-                        animationSpec = spring(dampingRatio = 0.9f, stiffness = 500f),
-                    ),
+            enter = fadeIn(animationSpec = tween(60)),
+            exit = fadeOut(animationSpec = tween(160)),
         ) {
             Box(
                 modifier =
-                    Modifier.padding(8.dp).wrapContentSize().onGloballyPositioned { coordinates ->
-                        popupBoundsInScreen = coordinates.boundsInScreen(popupView)
-                    }
+                    Modifier.padding(8.dp)
+                        .wrapContentSize()
+                        .onGloballyPositioned { coordinates ->
+                            popupBoundsInScreen = coordinates.boundsInScreen(popupView)
+                        }
+                        .graphicsLayer {
+                            this.scaleX = scaleX.value
+                            this.scaleY = scaleY.value
+                            this.alpha = alpha.value
+                            this.translationY = translationY.value
+                            this.transformOrigin = transformOrigin
+                        }
             ) {
                 when (val popupContent = viewModel.popupContent) {
                     is PopupContentModel.Media -> {
