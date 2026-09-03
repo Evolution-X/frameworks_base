@@ -27,6 +27,7 @@ import com.android.systemui.statusbar.chips.screenrecord.domain.interactor.Scree
 import com.android.systemui.statusbar.chips.screenrecord.domain.model.ScreenRecordChipModel
 import com.android.systemui.statusbar.quickactions.popups.ui.viewmodel.StatusBarPopupChipViewModel
 import com.android.systemui.statusbar.quickactions.screenrecord.shared.model.ScreenRecordPopupModel
+import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings
 import com.android.systemui.statusbar.quickactions.shared.model.ChipContent
 import com.android.systemui.statusbar.quickactions.shared.model.ChipIcon
 import com.android.systemui.statusbar.quickactions.shared.model.PopupContentModel
@@ -38,6 +39,7 @@ import com.android.systemui.util.time.SystemClock
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
 /** ViewModel backing the screen-recording page inside the dynamic island. */
@@ -80,6 +82,14 @@ constructor(
     override val chip: QuickActionChipModel by
         popupModel
             .map { model -> toPopupChipModel(model) }
+            .combine(
+                DynamicIslandFeatureSettings.observeDynamicIslandFeatureEnabled(
+                    context,
+                    DynamicIslandFeatureSettings.SCREEN_RECORDING,
+                )
+            ) { model, enabled ->
+                if (enabled) model else QuickActionChipModel.Hidden(QuickActionChipId.ScreenRecord)
+            }
             .hydratedStateOf(
                 traceName = "chip",
                 initialValue = QuickActionChipModel.Hidden(QuickActionChipId.ScreenRecord),
