@@ -35,4 +35,7 @@ import com.android.systemui.media.controls.shared.model.MediaAction
         val positionMs: Long,
         val canBeScrubbed: Boolean,
         val isPlaying: Boolean,
+        val packageName: String? = null,
+        val lyrics: String? = null,
+        val syncedLyrics: String? = null,
 )
