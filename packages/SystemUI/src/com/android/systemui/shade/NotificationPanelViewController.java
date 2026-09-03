@@ -177,11 +177,15 @@ import com.android.systemui.statusbar.notification.DynamicPrivacyController;
 import com.android.systemui.statusbar.notification.NotificationWakeUpCoordinator;
 import com.android.systemui.statusbar.notification.PropertyAnimator;
 import com.android.systemui.statusbar.notification.ViewGroupFadeHelper;
+import com.android.systemui.statusbar.notification.collection.ListEntry;
+import com.android.systemui.statusbar.notification.collection.NotifPipeline;
 import com.android.systemui.statusbar.notification.collection.NotificationEntry;
+import com.android.systemui.statusbar.notification.collection.PipelineEntry;
 import com.android.systemui.statusbar.notification.domain.interactor.ActiveNotificationsInteractor;
 import com.android.systemui.statusbar.notification.headsup.HeadsUpManager;
 import com.android.systemui.statusbar.notification.headsup.HeadsUpTouchHelper;
 import com.android.systemui.statusbar.notification.headsup.OnHeadsUpChangedListener;
+import com.android.systemui.statusbar.notification.interruption.KeyguardNotificationVisibilityProvider;
 import com.android.systemui.statusbar.notification.row.ExpandableNotificationRow;
 import com.android.systemui.statusbar.notification.row.ExpandableView;
 import com.android.systemui.statusbar.notification.row.NotificationGutsManager;
@@ -603,6 +607,8 @@ public final class NotificationPanelViewController implements
     private final DreamingToLockscreenTransitionViewModel mDreamingToLockscreenTransitionViewModel;
     private final SharedNotificationContainerInteractor mSharedNotificationContainerInteractor;
     private final ActiveNotificationsInteractor mActiveNotificationsInteractor;
+    private final NotifPipeline mNotifPipeline;
+    private final KeyguardNotificationVisibilityProvider mKeyguardNotificationVisibilityProvider;
     private final KeyguardTransitionInteractor mKeyguardTransitionInteractor;
     private final KeyguardInteractor mKeyguardInteractor;
     private final PowerInteractor mPowerInteractor;
@@ -695,6 +701,8 @@ public final class NotificationPanelViewController implements
             ActivityStarter activityStarter,
             SharedNotificationContainerInteractor sharedNotificationContainerInteractor,
             ActiveNotificationsInteractor activeNotificationsInteractor,
+            NotifPipeline notifPipeline,
+            KeyguardNotificationVisibilityProvider keyguardNotificationVisibilityProvider,
             ShadeAnimationInteractor shadeAnimationInteractor,
             DeviceEntryFaceAuthInteractor deviceEntryFaceAuthInteractor,
             SplitShadeStateController splitShadeStateController,
@@ -729,6 +737,8 @@ public final class NotificationPanelViewController implements
         mKeyguardTransitionInteractor = keyguardTransitionInteractor;
         mSharedNotificationContainerInteractor = sharedNotificationContainerInteractor;
         mActiveNotificationsInteractor = activeNotificationsInteractor;
+        mNotifPipeline = notifPipeline;
+        mKeyguardNotificationVisibilityProvider = keyguardNotificationVisibilityProvider;
         mKeyguardInteractor = keyguardInteractor;
         mPowerInteractor = powerInteractor;
         mClockPositionAlgorithm = keyguardClockPositionAlgorithm;
@@ -1308,8 +1318,30 @@ public final class NotificationPanelViewController implements
     }
 
     private boolean hasVisibleNotifications() {
-        return mActiveNotificationsInteractor.getAreAnyNotificationsPresentValue()
-                || mMediaDataManager.hasActiveMedia();
+        return hasNotificationsVisibleOnKeyguard() || mMediaDataManager.hasActiveMedia();
+    }
+
+    /**
+     * Whether any rendered notification would show on the lockscreen, judged synchronously by the
+     * keyguard filter rather than by the rendered list alone. The rendered list is filtered for
+     * the keyguard by an asynchronous pipeline run, so right after unlocking (when the clock
+     * position is recomputed for the next lockscreen) and right after locking it still contains
+     * the silent notifications the lockscreen hides; sizing the clock from it flips the clock to
+     * SMALL for a moment on both edges.
+     */
+    private boolean hasNotificationsVisibleOnKeyguard() {
+        for (PipelineEntry entry : mNotifPipeline.getShadeList()) {
+            ListEntry listEntry = entry.asListEntry();
+            NotificationEntry representative =
+                    listEntry == null ? null : listEntry.getRepresentativeEntry();
+            // Bundles have no representative entry; treat them as visible.
+            if (representative == null
+                    || !mKeyguardNotificationVisibilityProvider
+                            .shouldHideNotificationOnKeyguard(representative)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -3688,6 +3720,12 @@ public final class NotificationPanelViewController implements
             }
             if (keyguardShowing) {
                 updateDozingVisibilities(false /* animate */);
+            }
+            if (fromShadeToKeyguard) {
+                // Size and place the clock for the notifications the lockscreen will show before
+                // it becomes visible, instead of leaving the layout computed while unlocked in
+                // place until the next doze or layout pass repositions it in front of the user.
+                positionClockAndNotifications();
             }
 
             // The update needs to happen after the headerSlide in above, otherwise the translation
