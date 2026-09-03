@@ -173,15 +173,15 @@ fun StatusBarDynamicIslandChip(
                         viewModel.popupContent is PopupContentModel.LiveScore)
             Icon(
                 icon = chipIcon.icon,
-                modifier =
-                    Modifier.size(if (isArtworkLike) 18.dp else 16.dp)
-                        .then(
-                            if (isArtworkLike) {
-                                Modifier.clip(RoundedCornerShape(5.dp))
-                            } else {
-                                Modifier
-                            }
-                        ),
+                modifier = Modifier
+                    .size(if (isArtworkLike) 18.dp else 16.dp)
+                    .then(
+                        if (isArtworkLike) {
+                            Modifier.clip(CircleShape)
+                        } else {
+                            Modifier
+                        }
+                    ),
                 tint = if (isArtworkLike) Color.Unspecified else chipContentColor,
             )
         }
