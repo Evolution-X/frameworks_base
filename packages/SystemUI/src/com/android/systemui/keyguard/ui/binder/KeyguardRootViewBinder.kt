@@ -288,13 +288,13 @@ object KeyguardRootViewBinder {
 
                     launch {
                         viewModel.scale.collect { scaleViewModel ->
-                            if (scaleViewModel.scaleClockOnly) {
-                                // For clocks except weather clock, we have scale transition besides
-                                // translate
-                                childViews[largeClockId]?.let {
-                                    it.scaleX = scaleViewModel.scale
-                                    it.scaleY = scaleViewModel.scale
-                                }
+                            // For clocks except weather clock, we have scale transition besides
+                            // translate. Clocks that only translate must be put back to 1: the
+                            // scale may have been applied before the clock was known.
+                            val scale = if (scaleViewModel.scaleClockOnly) scaleViewModel.scale else 1f
+                            childViews[largeClockId]?.let {
+                                it.scaleX = scale
+                                it.scaleY = scale
                             }
                         }
                     }
