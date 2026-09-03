@@ -49,6 +49,15 @@ interface KeyguardNotificationVisibilityProvider {
      */
     fun shouldHideNotification(entry: NotificationEntry): Boolean
 
+    /**
+     * Like [shouldHideNotification], but answers for the keyguard whether or not it is currently
+     * showing: what the lockscreen would hide if it were shown right now. Lets callers that lay
+     * the lockscreen out ahead of time (e.g. the clock size) agree with the keyguard filter
+     * without waiting for a pipeline run.
+     */
+    fun shouldHideNotificationOnKeyguard(entry: NotificationEntry): Boolean =
+        shouldHideNotification(entry)
+
     /** Registers a listener to be notified when the internal keyguard state has been updated. */
     fun addOnStateChangedListener(listener: Consumer<String>)
 
@@ -208,6 +217,11 @@ constructor(
                 SHOW
             // Keyguard state doesn't matter if the keyguard is not showing.
             !isLockedOrLocking -> SHOW
+            else -> shouldHideNotificationOnKeyguard(entry)
+        }
+
+    override fun shouldHideNotificationOnKeyguard(entry: NotificationEntry): VisState =
+        when {
             // Notifications not allowed on the lockscreen, always hide.
             !lockscreenUserManager.shouldShowLockscreenNotifications() -> HIDE
             // secure lock device mode is enabled always disallow
