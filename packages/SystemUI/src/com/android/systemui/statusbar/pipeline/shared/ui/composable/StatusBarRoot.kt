@@ -121,7 +121,10 @@ import com.android.systemui.statusbar.pipeline.battery.ui.composable.BatteryWith
 import com.android.systemui.statusbar.pipeline.battery.ui.viewmodel.BatteryViewModel
 import com.android.systemui.statusbar.pipeline.shared.ui.binder.HomeStatusBarIconBlockListBinder
 import com.android.systemui.statusbar.pipeline.shared.ui.binder.HomeStatusBarTouchExclusionRegionBinder
+import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipId
+import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipModel
 import com.android.systemui.statusbar.pipeline.shared.ui.binder.HomeStatusBarViewBinder
+import com.android.systemui.statusbar.quickactions.ui.compose.StatusBarDynamicIslandContainer
 import com.android.systemui.statusbar.quickactions.ui.compose.QuickActionChipsContainer
 import com.android.systemui.statusbar.pipeline.shared.ui.view.SystemStatusIconsLayoutHelper
 import com.android.systemui.statusbar.pipeline.shared.ui.viewmodel.HomeStatusBarViewModel
@@ -367,9 +370,9 @@ fun StatusBarRoot(
                         )
 
                         setContent {
-                            QuickActionChipsContainer(
-                                chips = statusBarViewModel.popupChips,
-                                isDarkProvider = statusBarViewModel.areaDark::isDarkTheme,
+                            StatusBarDynamicIslandContainer(
+                                chips = statusBarViewModel.popupChips.filterIsInstance<QuickActionChipModel.PopupChip>(),
+                                onMediaControlPopupVisibilityChanged = {},
                             )
                         }
                     }
@@ -559,7 +562,9 @@ private fun addStartSideComposable(
                     )
                 }
                 val chipsVisibilityModel = statusBarViewModel.ongoingActivityChips
-                if (chipsVisibilityModel.areChipsAllowed) {
+                val shouldHideLegacyScreenRecordChip =
+                    statusBarViewModel.popupChips.any { it.chipId == QuickActionChipId.ScreenRecord }
+                if (chipsVisibilityModel.areChipsAllowed && !shouldHideLegacyScreenRecordChip) {
                     OngoingActivityChips(
                         chips = chipsVisibilityModel.chips,
                         iconViewStore = iconViewStore,

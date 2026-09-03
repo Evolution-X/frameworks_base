@@ -21,7 +21,13 @@ import android.graphics.RectF
 import com.android.systemui.common.shared.model.ContentDescription
 import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.statusbar.chips.ui.model.Chronometer
+import com.android.systemui.statusbar.quickactions.alarm.shared.model.AlarmPopupModel
+import com.android.systemui.statusbar.quickactions.flashlight.shared.model.FlashlightPopupModel
+import com.android.systemui.statusbar.quickactions.livescore.shared.model.LiveScoreChipModel
+import com.android.systemui.statusbar.quickactions.media.shared.model.MediaControlChipModel
 import com.android.systemui.statusbar.quickactions.popups.ui.viewmodel.StatusBarPopupViewModel
+import com.android.systemui.statusbar.quickactions.screenrecord.shared.model.ScreenRecordPopupModel
+import com.android.systemui.statusbar.quickactions.stopwatch.shared.model.StopwatchPopupModel
 import com.android.systemui.statusbar.quickactions.ui.compose.ChipColors
 import com.android.systemui.util.time.SystemClock
 
@@ -31,6 +37,16 @@ import com.android.systemui.util.time.SystemClock
  */
 sealed class QuickActionChipId(val value: String) {
     data object MediaControl : QuickActionChipId("MediaControl")
+
+    data object ScreenRecord : QuickActionChipId("ScreenRecord")
+
+    data object LiveScore : QuickActionChipId("LiveScore")
+
+    data object Flashlight : QuickActionChipId("Flashlight")
+
+    data object Stopwatch : QuickActionChipId("Stopwatch")
+
+    data object Alarm : QuickActionChipId("Alarm")
 
     data object AvControlsIndicator : QuickActionChipId("AvControlsIndicator")
 
@@ -63,6 +79,23 @@ sealed class ChipContent {
     data class Timer(val chronometer: Chronometer, val timeSource: SystemClock) : ChipContent()
 }
 
+/** Rich popup contents associated with a status bar chip. */
+sealed interface PopupContentModel {
+    data object None : PopupContentModel
+
+    data class Media(val model: MediaControlChipModel) : PopupContentModel
+
+    data class ScreenRecord(val model: ScreenRecordPopupModel) : PopupContentModel
+
+    data class LiveScore(val model: LiveScoreChipModel) : PopupContentModel
+
+    data class Flashlight(val model: FlashlightPopupModel) : PopupContentModel
+
+    data class Stopwatch(val model: StopwatchPopupModel) : PopupContentModel
+
+    data class Alarm(val model: AlarmPopupModel) : PopupContentModel
+}
+
 /** Model for individual status bar quick action chips. */
 sealed class QuickActionChipModel {
     abstract val logName: String
@@ -92,9 +125,17 @@ sealed class QuickActionChipModel {
         val colors: ChipColors = ChipColors.SystemTheme,
         val isPopupShown: Boolean = false,
         val togglePopup: (Context, RectF) -> Unit = { _, _ -> },
+        val showPopup: () -> Unit = {},
+        val hidePopup: () -> Unit = {},
         val contentDescription: ContentDescription? = null,
         val popupViewModelFactory: StatusBarPopupViewModel.Factory? = null,
+        val popupContent: PopupContentModel = PopupContentModel.None,
     ) : QuickActionChipModel() {
         override val logName = "Shown(id=$chipId, toggled=$isPopupShown)"
     }
 }
+
+val QuickActionChipModel.PopupChip.chipText: String?
+    get() = (chipContent as? ChipContent.Text)?.text
+
+

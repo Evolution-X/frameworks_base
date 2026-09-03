@@ -321,4 +321,20 @@
     <string name="app_volume_panel_empty">No apps are playing audio right now</string>
     <!-- Accessibility state description of an app volume slider [CHAR LIMIT=NONE] -->
     <string name="app_volume_panel_percent"><xliff:g id="percent" example="50">%d</xliff:g> percent</string>
+
+    <!-- Dynamic island -->
+    <string name="dynamic_island_screen_record_short">REC</string>
+    <string name="dynamic_island_screen_record_active">Recording is active</string>
+    <string name="dynamic_island_screen_record_countdown">Starts in %1$ss</string>
+    <string name="dynamic_island_alarm_title">Next alarm</string>
+    <string name="dynamic_island_flashlight_enabled">Enabled</string>
+    <string name="dynamic_island_flashlight_short">ON</string>
+    <string name="dynamic_island_open_action">Open</string>
+    <string name="dynamic_island_open_clock_action">Open clock</string>
+    <string name="dynamic_island_stopwatch_title">Stopwatch</string>
+    <string name="dynamic_island_alarm_active_title">Alarm</string>
+    <string name="dynamic_island_action_snooze">Snooze</string>
+    <string name="dynamic_island_action_lap">Lap</string>
+    <string name="dynamic_island_action_stop">Stop</string>
+    <string name="dynamic_island_action_resume">Resume</string>
 </resources>
