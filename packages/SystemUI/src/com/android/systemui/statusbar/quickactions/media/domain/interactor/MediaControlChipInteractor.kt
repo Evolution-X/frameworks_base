@@ -47,6 +47,7 @@ import com.android.systemui.res.R
 import com.android.systemui.statusbar.NotificationLockscreenUserManager
 import com.android.systemui.statusbar.policy.KeyguardStateController
 import com.android.systemui.statusbar.quickactions.media.shared.model.MediaControlChipModel
+import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -141,12 +142,22 @@ constructor(
 
     /** The currently active [MediaControlChipModel] */
     val mediaControlChipModel: StateFlow<MediaControlChipModel?> =
-        combine(mediaControlState, livePlaybackInfo, isEnabled, isDynamicIslandEnabled) {
+        combine(
+            mediaControlState,
+            livePlaybackInfo,
+            isEnabled,
+            isDynamicIslandEnabled,
+            DynamicIslandFeatureSettings.observeDynamicIslandFeatureEnabled(
+                context,
+                DynamicIslandFeatureSettings.MEDIA_CONTROLS,
+            ),
+        ) {
             mediaControlState,
             playbackInfo,
             isEnabled,
-            isDynamicIslandEnabled ->
-                if (isEnabled && isDynamicIslandEnabled) {
+            isDynamicIslandEnabled,
+            mediaControlsEnabled ->
+                if (isEnabled && isDynamicIslandEnabled && mediaControlsEnabled) {
                     mediaControlState.model?.withPlaybackInfo(playbackInfo)
                 } else {
                     null
