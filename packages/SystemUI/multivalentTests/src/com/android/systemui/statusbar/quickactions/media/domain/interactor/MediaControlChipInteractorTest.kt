@@ -199,6 +199,19 @@ class MediaControlChipInteractorTest(flags: FlagsParameterization) : SysuiTestCa
             assertThat(model?.playOrPause).isNull()
         }
 
+    @Test
+    fun mediaControlChipModel_withPackageName_preserved() =
+        kosmos.runTest {
+            val model by collectLastValue(underTest.mediaControlChipModel)
+
+            val userMedia =
+                MediaData(active = true, packageName = "com.google.android.apps.youtube.music")
+            updateMedia(userMedia)
+
+            assertThat(model).isNotNull()
+            assertThat(model?.packageName).isEqualTo("com.google.android.apps.youtube.music")
+        }
+
     private fun updateMedia(mediaData: MediaData) {
         if (MediaControlsInComposeFlag.isEnabled) {
             mediaRepository.addCurrentUserMediaEntry(mediaData)
