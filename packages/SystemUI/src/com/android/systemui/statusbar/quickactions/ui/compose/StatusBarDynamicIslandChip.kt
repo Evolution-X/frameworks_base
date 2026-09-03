@@ -62,6 +62,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.android.systemui.common.shared.model.Icon as IconModel
 import com.android.systemui.common.ui.compose.Icon
 import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings
 import com.android.systemui.statusbar.quickactions.screenrecord.shared.model.ScreenRecordPopupModel
@@ -210,15 +211,21 @@ fun StatusBarDynamicIslandChip(
             }
 
         when (val popupContent = viewModel.popupContent) {
-            is PopupContentModel.Media ->
+            is PopupContentModel.Media -> {
+                val artworkDrawable =
+                    remember(popupContent.model.artworkIcon) {
+                        (popupContent.model.artworkIcon as? IconModel.Loaded)?.drawable
+                    }
                 if (popupContent.model.isPlaying) {
                     AudioReactiveBars(
                         isPlaying = true,
                         color = chipContentColor,
+                        artworkDrawable = artworkDrawable,
                     )
                 } else if (pageCount > 1) {
                     SwipeHint(color = chipContentColor.copy(alpha = 0.72f))
                 }
+            }
             is PopupContentModel.ScreenRecord ->
                 when (val model = popupContent.model) {
                     is ScreenRecordPopupModel.Starting ->
