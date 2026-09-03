@@ -26,6 +26,7 @@ import android.graphics.drawable.AdaptiveIconDrawable
 import android.graphics.drawable.AnimatedVectorDrawable
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.DrawableWrapper
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -197,12 +198,15 @@ class NowPlayingAmbientContainer(context: Context, attrs: AttributeSet?) :
         if (initialized) renderCurrentState()
     }
 
+    /**
+     * Intentionally does not resize the ImageView's own layout bounds. Mirrors
+     * AmbientIndicationContainer's ambient_indication_icon: a fixed 48dp box with
+     * scaleType="center", so the glyph sits centered with breathing room around it
+     * rather than flush against the box edge. The glyph itself is sized to iconSizePx
+     * via wrapToIconSize() in updateIconDrawable().
+     */
     private fun applyIconSize() {
-        if (!initialized) return
-        val params = iconView.layoutParams
-        params.width = iconSizePx
-        params.height = iconSizePx
-        iconView.layoutParams = params
+        appIconCache.evictAll()
     }
 
     fun setTextColor(color: Int) {
@@ -394,8 +398,16 @@ class NowPlayingAmbientContainer(context: Context, attrs: AttributeSet?) :
                 ICON_STYLE_MUSIC -> getMusicNoteIcon()
                 else -> null
             }
-        iconView.setImageDrawable(drawable)
-        iconView.visibility = if (drawable != null) View.VISIBLE else View.GONE
+        val bounded = drawable?.let { wrapToIconSize(it) }
+        iconView.setImageDrawable(bounded)
+        iconView.visibility = if (bounded != null) View.VISIBLE else View.GONE
+    }
+
+    private fun wrapToIconSize(drawable: Drawable): Drawable {
+        return object : DrawableWrapper(drawable) {
+            override fun getIntrinsicWidth(): Int = iconSizePx
+            override fun getIntrinsicHeight(): Int = iconSizePx
+        }
     }
 
     private fun getMusicNoteIcon(): Drawable? {
