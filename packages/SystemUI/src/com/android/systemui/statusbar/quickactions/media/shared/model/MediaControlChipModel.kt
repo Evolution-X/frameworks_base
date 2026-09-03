@@ -23,19 +23,24 @@ import com.android.systemui.media.controls.shared.model.MediaAction
 sealed interface MediaControlChipModel {
 
     val appName: String?
+    val artistName: CharSequence?
     val songName: CharSequence?
     val playOrPause: MediaAction?
 
     data class Legacy(
         val appIcon: android.graphics.drawable.Icon?,
+        val artworkIcon: android.graphics.drawable.Icon?,
         override val appName: String?,
+        override val artistName: CharSequence?,
         override val songName: CharSequence?,
         override val playOrPause: MediaAction?,
     ) : MediaControlChipModel
 
     data class Compose(
         val appIcon: Icon,
+        val artworkIcon: Icon?,
         override val appName: String?,
+        override val artistName: CharSequence?,
         override val songName: CharSequence?,
         override val playOrPause: MediaAction?,
     ) : MediaControlChipModel

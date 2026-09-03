@@ -31,6 +31,7 @@ import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipI
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipModel
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
+import java.util.Locale
 import kotlinx.coroutines.flow.map
 
 /**
@@ -62,18 +63,12 @@ constructor(
             return QuickActionChipModel.Hidden(QuickActionChipId.MediaControl)
         }
 
-        val contentDescription = model.appName?.let { ContentDescription.Loaded(description = it) }
-
-        val waveformIcon =
-            Icon.Resource(
-                resId = R.drawable.ic_music_visualizer,
-                contentDescription = contentDescription,
-            )
+        val songTitle = normalizeSongTitle(model.songName.toString(), model.artistName?.toString())
 
         return QuickActionChipModel.PopupChip(
             chipId = QuickActionChipId.MediaControl,
             icons = listOf(model.createIcon()),
-            chipContent = ChipContent.IconOnly(waveformIcon),
+            chipContent = ChipContent.Text(songTitle),
             popupViewModelFactory = popupViewModelFactory,
         )
     }
@@ -83,13 +78,29 @@ constructor(
         val icon = playOrPause.icon ?: return getDefaultIcon()
         val action = playOrPause.action ?: return getDefaultIcon()
 
-        // This creates a separate copy of the icon so it can be styled individually for the media
-        // chip
-        val copyIcon = icon.constantState?.newDrawable()?.mutate() ?: icon
-
         val contentDescription =
             ContentDescription.Loaded(description = playOrPause.contentDescription.toString())
 
+        val artworkOrAppIcon =
+            when (this) {
+                is MediaControlChipModel.Legacy -> {
+                    (artworkIcon ?: appIcon)?.loadDrawable(applicationContext)?.let {
+                        Icon.Loaded(drawable = it, contentDescription = contentDescription)
+                    }
+                }
+                is MediaControlChipModel.Compose -> artworkIcon ?: appIcon
+            }
+
+        if (artworkOrAppIcon != null) {
+            return ChipIcon(
+                icon = artworkOrAppIcon,
+                onClick = { action.run() },
+                isHighlighted = false,
+            )
+        }
+
+        // Fallback to action icon if no artwork/app icon
+        val copyIcon = icon.constantState?.newDrawable()?.mutate() ?: icon
         return ChipIcon(
             icon = Icon.Loaded(drawable = copyIcon, contentDescription = contentDescription),
             onClick = { action.run() },
@@ -104,7 +115,7 @@ constructor(
         val defaultIcon =
             when (this) {
                 is MediaControlChipModel.Legacy -> {
-                    appIcon?.loadDrawable(applicationContext)?.let {
+                    (artworkIcon ?: appIcon)?.loadDrawable(applicationContext)?.let {
                         Icon.Loaded(drawable = it, contentDescription = contentDescription)
                     }
                         ?: Icon.Resource(
@@ -113,7 +124,7 @@ constructor(
                         )
                 }
 
-                is MediaControlChipModel.Compose -> appIcon
+                is MediaControlChipModel.Compose -> artworkIcon ?: appIcon
             }
 
         return ChipIcon(icon = defaultIcon)
@@ -122,5 +133,30 @@ constructor(
     @AssistedFactory
     interface Factory {
         fun create(): MediaControlChipViewModel
+    }
+
+    private fun normalizeSongTitle(title: String, artist: String?): String {
+        if (title.isBlank()) return title
+        val separatorRegex = Regex("\\s*[-–—|•]\\s*")
+        val parts = title.split(separatorRegex, limit = 2)
+        if (parts.size != 2) return title
+
+        val left = parts[0].trim()
+        val right = parts[1].trim()
+        if (left.isBlank() || right.isBlank()) return title
+
+        val artistKey = artist?.toComparableKey() ?: return title
+        val leftKey = left.toComparableKey()
+        val rightKey = right.toComparableKey()
+
+        return when {
+            leftKey.contains(artistKey) -> right
+            rightKey.contains(artistKey) -> left
+            else -> title
+        }
+    }
+
+    private fun String.toComparableKey(): String {
+        return lowercase(Locale.US).replace(Regex("[^a-z0-9]+"), " ").trim()
     }
 }

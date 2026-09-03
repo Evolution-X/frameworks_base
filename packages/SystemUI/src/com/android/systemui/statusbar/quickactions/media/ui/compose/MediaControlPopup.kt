@@ -21,12 +21,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.android.systemui.media.remedia.shared.flag.MediaControlsInComposeFlag
+import com.android.systemui.media.remedia.ui.compose.LocalDisableSquiggle
 import com.android.systemui.media.remedia.ui.compose.Media
 import com.android.systemui.media.remedia.ui.compose.MediaPresentationStyle
 import com.android.systemui.media.remedia.ui.compose.MediaUiBehavior
@@ -38,6 +40,7 @@ import com.android.systemui.statusbar.quickactions.media.ui.viewmodel.MediaContr
 @Composable
 fun MediaControlPopup(viewModel: MediaControlPopupViewModel, modifier: Modifier = Modifier) {
     if (MediaControlsInComposeFlag.isEnabled) {
+        CompositionLocalProvider(LocalDisableSquiggle provides true) {
         Media(
             viewModelFactory = viewModel.mediaViewModelFactory,
             presentationStyle = MediaPresentationStyle.Default,
@@ -60,6 +63,7 @@ fun MediaControlPopup(viewModel: MediaControlPopupViewModel, modifier: Modifier 
                     ),
             location = Media.Location.STATUS_BAR_POPUP,
         )
+      }
     } else {
         AndroidView(
             modifier =
