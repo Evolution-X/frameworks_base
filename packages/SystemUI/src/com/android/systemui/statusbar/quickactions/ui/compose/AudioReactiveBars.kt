@@ -74,7 +74,7 @@ private val SettleSpring = spring<Float>(
     stiffness = 140f,
 )
 
-private data class IdleConfig(
+private data class BarWaveConfig(
     val minLevel: Float,
     val maxLevel: Float,
     val durationMs: Int,
@@ -82,10 +82,17 @@ private data class IdleConfig(
 )
 
 private val IdleConfigs = arrayOf(
-    IdleConfig(minLevel = 0.14f, maxLevel = 0.26f, durationMs = 2600, phaseOffsetMs = 300),
-    IdleConfig(minLevel = 0.22f, maxLevel = 0.42f, durationMs = 2200, phaseOffsetMs = 0),
-    IdleConfig(minLevel = 0.22f, maxLevel = 0.42f, durationMs = 2200, phaseOffsetMs = 150),
-    IdleConfig(minLevel = 0.14f, maxLevel = 0.26f, durationMs = 2600, phaseOffsetMs = 450),
+    BarWaveConfig(minLevel = 0.14f, maxLevel = 0.26f, durationMs = 2600, phaseOffsetMs = 300),
+    BarWaveConfig(minLevel = 0.22f, maxLevel = 0.42f, durationMs = 2200, phaseOffsetMs = 0),
+    BarWaveConfig(minLevel = 0.22f, maxLevel = 0.42f, durationMs = 2200, phaseOffsetMs = 150),
+    BarWaveConfig(minLevel = 0.14f, maxLevel = 0.26f, durationMs = 2600, phaseOffsetMs = 450),
+)
+
+private val PlayingConfigs = arrayOf(
+    BarWaveConfig(minLevel = 0.22f, maxLevel = 0.88f, durationMs = 380, phaseOffsetMs = 0),
+    BarWaveConfig(minLevel = 0.35f, maxLevel = 1.00f, durationMs = 470, phaseOffsetMs = 140),
+    BarWaveConfig(minLevel = 0.28f, maxLevel = 0.95f, durationMs = 340, phaseOffsetMs = 70),
+    BarWaveConfig(minLevel = 0.18f, maxLevel = 0.82f, durationMs = 430, phaseOffsetMs = 210),
 )
 
 @Composable
@@ -100,6 +107,7 @@ fun AudioReactiveBars(
     startPadding: Dp = 0.dp,
 ) {
     var rawAccentColor by remember { mutableStateOf<Color?>(null) }
+    var lastAudioCaptureMs by remember { mutableStateOf(0L) }
 
     LaunchedEffect(artworkDrawable) {
         rawAccentColor = null
@@ -155,6 +163,8 @@ fun AudioReactiveBars(
                     ) {
                         val safe = waveform ?: return
                         if (safe.isEmpty()) return
+
+                        lastAudioCaptureMs = android.os.SystemClock.elapsedRealtime()
 
                         val half = safe.size / 2
                         val windowSize = half / (BAR_COUNT / 2)
@@ -249,14 +259,26 @@ fun AudioReactiveBars(
         )
     }
 
-    LaunchedEffect(isPlaying) {
-        if (isPlaying) return@LaunchedEffect
-        while (true) {
-            for (i in 0 until BAR_COUNT) {
-                rawLevels[i] = idleFloats[i].value
-            }
-            kotlinx.coroutines.delay(32L)
-        }
+    val playingTransition = rememberInfiniteTransition(label = "visualizer_playing")
+    val playingFloats = Array(BAR_COUNT) { index ->
+        val cfg = PlayingConfigs[index]
+        val start = if (index % 2 == 0) cfg.minLevel else cfg.maxLevel
+        val end = if (index % 2 == 0) cfg.maxLevel else cfg.minLevel
+        playingTransition.animateFloat(
+            initialValue = start,
+            targetValue = end,
+            animationSpec =
+                InfiniteRepeatableSpec(
+                    animation =
+                        tween(
+                            durationMillis = cfg.durationMs,
+                            delayMillis = cfg.phaseOffsetMs,
+                            easing = FastOutSlowInEasing,
+                        ),
+                    repeatMode = RepeatMode.Reverse,
+                ),
+            label = "playing_$index",
+        )
     }
 
     val totalWidth = barWidth * BAR_COUNT + spacing * (BAR_COUNT - 1)
@@ -275,8 +297,17 @@ fun AudioReactiveBars(
         for (index in 0 until BAR_COUNT) {
             val springLevel = animatedLevels[index].value
             val idleLevel = idleFloats[index].value
+            val playingLevel = playingFloats[index].value
 
-            val level = (if (isPlaying) springLevel else idleLevel).coerceIn(0.08f, 1f)
+            val hasActiveHardwareCapture =
+                isPlaying && (android.os.SystemClock.elapsedRealtime() - lastAudioCaptureMs < 1200L)
+
+            val level =
+                when {
+                    !isPlaying -> idleLevel
+                    hasActiveHardwareCapture -> springLevel
+                    else -> playingLevel
+                }.coerceIn(0.08f, 1f)
 
             val barH = maxH * level
             val left = index * (barPx + spacingPx)
