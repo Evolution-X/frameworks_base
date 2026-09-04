@@ -60,6 +60,9 @@ class ClockSizeTransition(
             addTransition(ClockFaceOutTransition(config, clockViewModel, logBuffer))
             addTransition(ClockFaceInTransition(config, clockViewModel, logBuffer))
         }
+        if (config.type == Type.ClockSize) {
+            addTransition(SliceViewFadeThroughTransition(logBuffer))
+        }
 
         addTransition(SmartspaceMoveTransition(config, clockViewModel, logBuffer))
     }
@@ -97,6 +100,20 @@ class ClockSizeTransition(
         open fun initTargets(from: Target, to: Target) {}
 
         open fun mutateTargets(from: Target, to: Target) {}
+
+        /** Bounds and alpha of the target at [fract] of the animation. */
+        protected open fun frameAt(from: Target, to: Target, fract: Float): Pair<Rect, Float> {
+            fun lerp(start: Int, end: Int): Int =
+                MathUtils.lerp(start.toFloat(), end.toFloat(), fract).toInt()
+            val bounds =
+                Rect(
+                    lerp(from.bounds.left, to.bounds.left),
+                    lerp(from.bounds.top, to.bounds.top),
+                    lerp(from.bounds.right, to.bounds.right),
+                    lerp(from.bounds.bottom, to.bounds.bottom),
+                )
+            return bounds to MathUtils.lerp(from.alpha, to.alpha, fract)
+        }
 
         data class Target(
             var view: View,
@@ -180,15 +197,6 @@ class ClockSizeTransition(
             }
 
             val sendToBack = from.isVisible && !to.isVisible
-            fun lerp(start: Int, end: Int, fract: Float): Int =
-                MathUtils.lerp(start.toFloat(), end.toFloat(), fract).toInt()
-            fun computeBounds(fract: Float): Rect =
-                Rect(
-                    lerp(from.bounds.left, to.bounds.left, fract),
-                    lerp(from.bounds.top, to.bounds.top, fract),
-                    lerp(from.bounds.right, to.bounds.right, fract),
-                    lerp(from.bounds.bottom, to.bounds.bottom, fract),
-                )
 
             fun assignAnimValues(
                 src: String,
@@ -197,8 +205,7 @@ class ClockSizeTransition(
                 log: Boolean = false,
             ) {
                 mutateTargets(from, to)
-                val bounds = computeBounds(fract)
-                val alpha = MathUtils.lerp(from.alpha, to.alpha, fract)
+                val (bounds, alpha) = frameAt(from, to, fract)
                 if (log) {
                     logger.i({
                         "$str1: $str2; fract=$int1%; alpha=$double1; " +
@@ -391,6 +398,47 @@ class ClockSizeTransition(
         companion object {
             const val CLOCK_OUT_MILLIS = 133L
             val CLOCK_OUT_INTERPOLATOR = Interpolators.LINEAR
+        }
+    }
+
+    /**
+     * The keyguard slice view carries the date row when smartspace is unavailable. It is a single
+     * view that changes position with the clock size and is not a target of the transitions
+     * above, so it used to jump. Fade it out where it was while the outgoing face fades out, then
+     * fade it in where it goes while the incoming face fades in, rather than sliding it across the
+     * clock.
+     */
+    class SliceViewFadeThroughTransition(logBuffer: LogBuffer) :
+        VisibilityBoundsTransition(logBuffer) {
+        override val captureSmartspace = false
+
+        init {
+            duration = DURATION_MILLIS
+            interpolator = Interpolators.LINEAR
+            addTarget(R.id.keyguard_slice_view)
+        }
+
+        override fun frameAt(from: Target, to: Target, fract: Float): Pair<Rect, Float> {
+            val outFraction = ClockFaceOutTransition.CLOCK_OUT_MILLIS / DURATION_MILLIS.toFloat()
+            return if (fract < outFraction) {
+                val outProgress =
+                    ClockFaceOutTransition.CLOCK_OUT_INTERPOLATOR.getInterpolation(
+                        fract / outFraction
+                    )
+                Rect(from.bounds) to from.alpha * (1f - outProgress)
+            } else {
+                val inProgress =
+                    ClockFaceInTransition.CLOCK_IN_INTERPOLATOR.getInterpolation(
+                        (fract - outFraction) / (1f - outFraction)
+                    )
+                Rect(to.bounds) to to.alpha * inProgress
+            }
+        }
+
+        companion object {
+            const val DURATION_MILLIS =
+                ClockFaceInTransition.CLOCK_IN_START_DELAY_MILLIS +
+                    ClockFaceInTransition.CLOCK_IN_MILLIS
         }
     }
 
