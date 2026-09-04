@@ -41,7 +41,6 @@ import com.android.systemui.res.R
 import com.android.systemui.shared.R as sharedR
 import com.google.android.material.math.MathUtils
 import java.lang.ref.WeakReference
-import kotlin.math.abs
 
 internal fun View.getRect(): Rect = Rect(this.left, this.top, this.right, this.bottom)
 
@@ -84,16 +83,11 @@ class ClockSizeTransition(
             transition.values[PROP_BOUNDS] = view.getRect()
 
             if (!captureSmartspace) return
+            // Without smartspace the date row is the keyguard slice view, which
+            // SliceViewFadeThroughTransition fades in place rather than moves, so there is no
+            // motion for the small clock to keep pace with: leave the bounds unset.
             val parent = view.parent as View
-            val targetSSView =
-                parent.findViewById<View>(sharedR.id.bc_smartspace_view)
-                    ?: parent.findViewById<View>(R.id.keyguard_slice_view)
-            if (targetSSView == null) {
-                logger.e({ "Failed to find smartspace equivalent target under $str1" }) {
-                    str1 = "$parent"
-                }
-                return
-            }
+            val targetSSView = parent.findViewById<View>(sharedR.id.bc_smartspace_view) ?: return
             transition.values[SMARTSPACE_BOUNDS] = targetSSView.getRect()
         }
 
@@ -346,16 +340,20 @@ class ClockSizeTransition(
             if (isLargeClock) {
                 // Large clock shouldn't move; fromBounds already set
             } else if (to.ssBounds != null && from.ssBounds != null) {
-                // Instead of moving the small clock the full distance, we compute the distance
-                // smartspace will move. We then scale this to match the duration of this animation
-                // so that the small clock moves at the same speed as smartspace.
+                // The small clock keeps pace with smartspace: it moves in the same direction, over
+                // the distance smartspace covers during this transition's duration. An incoming
+                // clock starts offset against that motion and arrives in place; an outgoing clock
+                // starts in place and leaves with it (rather than jumping to the offset first).
                 val ssTranslation =
-                    abs((to.ssBounds!!.top - from.ssBounds!!.top) * smallClockMoveScale).toInt()
-                from.bounds.top = to.bounds.top - ssTranslation
-                from.bounds.bottom = to.bounds.bottom - ssTranslation
-            } else {
-                logger.e("initTargets: smallClock received no smartspace bounds")
+                    ((to.ssBounds!!.top - from.ssBounds!!.top) * smallClockMoveScale).toInt()
+                if (to.isVisible) {
+                    from.bounds.offset(0, -ssTranslation)
+                } else {
+                    to.bounds.offset(0, ssTranslation)
+                }
             }
+            // Otherwise there is no smartspace motion to match (the slice view fades in place):
+            // the small clock fades in place too.
         }
     }
 
