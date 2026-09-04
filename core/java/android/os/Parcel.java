@@ -3384,7 +3384,17 @@ public final class Parcel {
         switch (code) {
             case EX_PARCELABLE:
                 if (readInt() > 0) {
-                    return (Exception) readParcelable(Parcelable.class.getClassLoader(), java.lang.Exception.class);
+                    try {
+                        Exception parceled = readParcelable(
+                                Parcelable.class.getClassLoader(), java.lang.Exception.class);
+                        return parceled != null
+                                ? parceled
+                                : new RuntimeException(msg + " [null Parcelable exception]");
+                    } catch (RuntimeException | Error e) {
+                        Log.e(TAG, "Failed to unparcel EX_PARCELABLE exception ("
+                                + msg + ")", e);
+                        return new RuntimeException(msg + " [corrupt Parcelable exception]", e);
+                    }
                 } else {
                     return new RuntimeException(msg + " [missing Parcelable]");
                 }
@@ -5426,6 +5436,14 @@ public final class Parcel {
             throw new BadParcelableException("Parcelable protocol requires a "
                     + "Parcelable.Creator object called "
                     + "CREATOR on class " + name, e);
+        } catch (ClassCastException e) {
+            Log.e(TAG, "CREATOR field is not a Parcelable.Creator on: " + name, e);
+            throw new BadParcelableException(
+                    "CREATOR field is not a Parcelable.Creator on class " + name, e);
+        } catch (LinkageError e) {
+            Log.e(TAG, "Linkage/initialization error when unmarshalling: " + name, e);
+            throw new BadParcelableException(
+                    "Linkage error when unmarshalling: " + name, e);
         }
         if (creator == null) {
             throw new BadParcelableException("Parcelable protocol requires a "
