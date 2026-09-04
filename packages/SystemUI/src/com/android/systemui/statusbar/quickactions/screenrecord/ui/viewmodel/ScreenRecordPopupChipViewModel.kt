@@ -16,6 +16,7 @@
 
 package com.android.systemui.statusbar.quickactions.screenrecord.ui.viewmodel
 
+import androidx.compose.runtime.getValue
 import android.content.Context
 import com.android.systemui.common.shared.model.ContentDescription
 import com.android.systemui.common.shared.model.Icon
