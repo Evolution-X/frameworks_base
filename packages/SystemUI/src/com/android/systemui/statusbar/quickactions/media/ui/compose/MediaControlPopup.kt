@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -65,6 +66,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -74,8 +76,14 @@ import com.android.systemui.common.ui.compose.Icon as UiIconView
 import com.android.systemui.media.controls.shared.model.MediaAction
 import com.android.systemui.media.controls.ui.drawable.SquigglyProgress
 import com.android.systemui.media.controls.ui.view.WaveformSeekBar
+import com.android.systemui.media.remedia.shared.flag.MediaControlsInComposeFlag
+import com.android.systemui.media.remedia.ui.compose.Media
+import com.android.systemui.media.remedia.ui.compose.MediaPresentationStyle
+import com.android.systemui.media.remedia.ui.compose.MediaUiBehavior
+import com.android.systemui.media.remedia.ui.viewmodel.MediaCarouselVisibility
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.quickactions.media.shared.model.MediaControlChipModel
+import com.android.systemui.statusbar.quickactions.media.ui.viewmodel.MediaControlPopupViewModel
 import com.android.systemui.statusbar.quickactions.ui.compose.PopupSurface
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -85,6 +93,54 @@ import kotlinx.coroutines.launch
 
 private val PopupShape = RoundedCornerShape(34.dp)
 private val ArtworkShape = RoundedCornerShape(24.dp)
+
+/** Displays a popup containing the Media controls in QuickActionsOverlay. */
+@Composable
+fun MediaControlPopup(
+    viewModel: MediaControlPopupViewModel,
+    modifier: Modifier = Modifier,
+) {
+    val viewModelFactory = viewModel.mediaViewModelFactory
+    val mediaHost = viewModel.mediaHost
+    if (MediaControlsInComposeFlag.isEnabled) {
+        Media(
+            viewModelFactory = viewModelFactory,
+            presentationStyle = MediaPresentationStyle.Default,
+            behavior =
+                MediaUiBehavior(
+                    carouselVisibility = MediaCarouselVisibility.WhenAnyCardIsActive,
+                    isCarouselDismissible = false,
+                    isCarouselScrollingEnabled = false,
+                ),
+            location = Media.Location.STATUS_BAR_POPUP,
+            onDismissed = {},
+            modifier =
+                modifier
+                    .width(400.dp)
+                    .height(200.dp)
+                    .clip(
+                        shape =
+                            RoundedCornerShape(
+                                dimensionResource(R.dimen.notification_corner_radius)
+                            )
+                    ),
+        )
+    } else {
+        AndroidView(
+            modifier =
+                modifier
+                    .width(400.dp)
+                    .height(200.dp)
+                    .clip(
+                        shape =
+                            RoundedCornerShape(
+                                dimensionResource(R.dimen.notification_corner_radius)
+                            )
+                    ),
+            factory = { mediaHost.hostView },
+        )
+    }
+}
 
 /** Expanded media controls for the centered dynamic island. */
 @Composable
@@ -438,7 +494,8 @@ private fun MediaActionButton(
     emphasized: Boolean = false,
     iconOverrideId: Int? = null,
 ) {
-    if (action == null || action.icon == null && iconOverrideId == null)) {
+    val act = action
+    if (act == null || (act.icon == null && iconOverrideId == null)) {
         Spacer(modifier = Modifier.size(buttonSize))
         return
     }
@@ -446,16 +503,16 @@ private fun MediaActionButton(
     var toggleCount by remember { mutableIntStateOf(0) }
     val haptics = LocalHapticFeedback.current
     val contentDescription =
-        action.contentDescription?.toString()?.let { ContentDescription.Loaded(it) }
+        act.contentDescription?.toString()?.let { ContentDescription.Loaded(it) }
     Box(
         modifier =
             Modifier.squishAnimation(toggleCount)
                 .size(buttonSize)
                 .clip(CircleShape)
                 .background(containerColor)
-                .clickable(enabled = action.action != null) {
+                .clickable(enabled = act.action != null) {
                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    action.action?.run()
+                    act.action?.run()
                     toggleCount++
                 },
         contentAlignment = Alignment.Center,
@@ -463,7 +520,7 @@ private fun MediaActionButton(
         val actualIcon = if (iconOverrideId != null) {
             UiIcon.Resource(iconOverrideId, contentDescription)
         } else {
-            action.icon?.let { UiIcon.Loaded(it, contentDescription) }
+            act.icon?.let { UiIcon.Loaded(it, contentDescription) }
         }
         if (actualIcon != null) {
             UiIconView(
