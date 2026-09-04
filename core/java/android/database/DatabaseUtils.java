@@ -222,7 +222,16 @@ public class DatabaseUtils {
             case 11:
                 throw new OperationCanceledException(msg);
             default:
-                reply.readException(code, msg);
+                try {
+                    reply.readException(code, msg);
+                } catch (RuntimeException e) {
+                    throw e;
+                } catch (Error e) {
+                    Log.e(TAG, "Unexpected error decoding remote exception "
+                            + "(code=" + code + ", msg=" + msg + ")", e);
+                    throw new RuntimeException(
+                            "Unexpected error decoding remote exception: " + msg, e);
+                }
         }
     }
 
