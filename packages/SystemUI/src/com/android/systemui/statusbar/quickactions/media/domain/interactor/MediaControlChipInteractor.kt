@@ -36,7 +36,9 @@ import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.dagger.qualifiers.Background
 import com.android.systemui.media.NotificationMediaManager
+import com.android.systemui.media.controls.domain.pipeline.getNotificationActions
 import com.android.systemui.media.controls.shared.model.MediaAction
+import com.android.systemui.media.controls.shared.model.MediaButton
 import com.android.systemui.media.controls.shared.model.MediaData
 import com.android.systemui.media.remedia.data.model.MediaDataModel
 import com.android.systemui.media.remedia.data.repository.MediaRepositoryImpl
@@ -223,7 +225,7 @@ constructor(
                 DynamicIslandFeatureSettings.observeDynamicIslandFeatureEnabled(
                     context,
                     DynamicIslandFeatureSettings.SHOW_LYRICS,
-                    false,
+                    true,
                 ),
             ) { state, lyricsEnabled ->
                 Pair(state.model, lyricsEnabled)
@@ -294,14 +296,15 @@ constructor(
                 if (connection.responseCode == 200) {
                     val response = connection.inputStream.bufferedReader().use { it.readText() }
                     val jsonArray = org.json.JSONArray(response)
-                    if (jsonArray.length() > 0) {
-                        val bestMatch = jsonArray.getJSONObject(0)
-                        val plainLyrics = bestMatch.optString("plainLyrics", "")
-                        val syncedLyrics = bestMatch.optString("syncedLyrics", "")
+                    for (i in 0 until jsonArray.length()) {
+                        val item = jsonArray.getJSONObject(i)
+                        val plainLyrics = item.optString("plainLyrics", "").trim()
+                        val syncedLyrics = item.optString("syncedLyrics", "").trim()
 
                         if (plainLyrics.isNotBlank() || syncedLyrics.isNotBlank()) {
                             currentLyrics.value = plainLyrics.takeIf { it.isNotBlank() }
                             currentSyncedLyrics.value = syncedLyrics.takeIf { it.isNotBlank() }
+                            break
                         }
                     }
                 }
@@ -320,6 +323,23 @@ private fun MediaDataModel.toMediaControlState(
     lockscreenUserManager: NotificationLockscreenUserManager,
     keyguardStateController: KeyguardStateController,
 ): MediaControlState {
+    val notifActions = getNotificationActions(notificationActions, activityStarter)
+    val nextAction =
+        playbackStateActions?.getActionById(R.id.actionNext)
+            ?: playbackStateActions?.actionsOrCustom?.firstOrNull { it.isNextAction() }
+            ?: notifActions.firstOrNull { it.isNextAction() }
+            ?: notifActions.getOrNull(2)
+    val previousAction =
+        playbackStateActions?.getActionById(R.id.actionPrev)
+            ?: playbackStateActions?.actionsOrCustom?.firstOrNull { it.isPrevAction() }
+            ?: notifActions.firstOrNull { it.isPrevAction() }
+            ?: notifActions.getOrNull(0)
+    val playOrPauseAction =
+        playbackStateActions?.getActionById(R.id.actionPlayPause)
+            ?: playbackStateActions?.actionsOrCustom?.firstOrNull { it.isPlayOrPauseAction() }
+            ?: notifActions.firstOrNull { it.isPlayOrPauseAction() }
+            ?: notifActions.getOrNull(1)
+
     return MediaControlState(
         model =
             MediaControlChipModel(
@@ -329,9 +349,9 @@ private fun MediaDataModel.toMediaControlState(
                 appName = appName,
                 artistName = subtitle,
                 songName = title,
-                playOrPause = playbackStateActions?.getActionById(R.id.actionPlayPause),
-                nextAction = playbackStateActions?.getActionById(R.id.actionNext),
-                previousAction = playbackStateActions?.getActionById(R.id.actionPrev),
+                playOrPause = playOrPauseAction,
+                nextAction = nextAction,
+                previousAction = previousAction,
                 openApp =
                     clickIntent.toAction(
                         activityStarter = activityStarter,
@@ -374,16 +394,22 @@ private fun MediaData.toMediaControlState(
             contentDescription =
                 ContentDescription.Loaded(listOfNotNull(artist, song).joinToString(" - ")),
         ) ?: appIcon
+    val notifActions = getNotificationActions(actions, activityStarter)
     val nextAction =
-        semanticActions?.actionsOrCustom?.firstOrNull { it.isNextAction() }
-            ?: actions.getOrNull(2)
+        semanticActions?.getActionById(R.id.actionNext)
+            ?: semanticActions?.actionsOrCustom?.firstOrNull { it.isNextAction() }
+            ?: notifActions.firstOrNull { it.isNextAction() }
+            ?: notifActions.getOrNull(2)
     val previousAction =
-        semanticActions?.actionsOrCustom?.firstOrNull { it.isPrevAction() }
-            ?: actions.getOrNull(0)
+        semanticActions?.getActionById(R.id.actionPrev)
+            ?: semanticActions?.actionsOrCustom?.firstOrNull { it.isPrevAction() }
+            ?: notifActions.firstOrNull { it.isPrevAction() }
+            ?: notifActions.getOrNull(0)
     val playOrPauseAction =
         semanticActions?.getActionById(R.id.actionPlayPause)
             ?: semanticActions?.actionsOrCustom?.firstOrNull { it.isPlayOrPauseAction() }
-            ?: actions.getOrNull(1)
+            ?: notifActions.firstOrNull { it.isPlayOrPauseAction() }
+            ?: notifActions.getOrNull(1)
 
     return MediaControlState(
         model =
@@ -407,6 +433,9 @@ private fun MediaData.toMediaControlState(
         token = token,
     )
 }
+
+private val MediaButton.actionsOrCustom: List<MediaAction>
+    get() = listOfNotNull(playOrPause, nextOrCustom, prevOrCustom, custom0, custom1)
 
 private fun MediaAction?.isPlayOrPauseAction(): Boolean {
     val description = this?.contentDescription ?: return false
@@ -550,13 +579,52 @@ private fun MediaController.resolvePlaybackInfo(context: Context): PlaybackInfo 
     val playbackState = playbackState
     val durationMs =
         metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION)?.coerceAtLeast(0L) ?: 0L
+    val isPlaying = playbackState?.isActivePlaybackState() == true
+    val transportControls = transportControls
+
+    val playOrPauseAction =
+        playbackState?.toPlayPauseAction(context = context, controller = this)
+            ?: if (isPlaying) {
+                MediaAction(
+                    icon = context.getDrawable(R.drawable.ic_media_pause_button),
+                    action = Runnable { transportControls.pause() },
+                    contentDescription = context.getString(R.string.controls_media_button_pause),
+                    background = context.getDrawable(R.drawable.ic_media_pause_button_container),
+                )
+            } else {
+                MediaAction(
+                    icon = context.getDrawable(R.drawable.ic_media_play_button),
+                    action = Runnable { transportControls.play() },
+                    contentDescription = context.getString(R.string.controls_media_button_play),
+                    background = context.getDrawable(R.drawable.ic_media_play_button_container),
+                )
+            }
+
+    val nextAction =
+        MediaAction(
+            icon = context.getDrawable(R.drawable.ic_skip_next_filled),
+            action = Runnable { transportControls.skipToNext() },
+            contentDescription = context.getString(R.string.controls_media_button_next),
+            background = null,
+        )
+
+    val previousAction =
+        MediaAction(
+            icon = context.getDrawable(R.drawable.ic_skip_previous_filled),
+            action = Runnable { transportControls.skipToPrevious() },
+            contentDescription = context.getString(R.string.controls_media_button_prev),
+            background = null,
+        )
+
     return PlaybackInfo(
         durationMs = durationMs,
         positionMs = playbackState?.computeActualPosition(durationMs) ?: 0L,
         canSeek =
-            playbackState?.actions?.and(PlaybackState.ACTION_SEEK_TO) != 0L && durationMs > 0L,
-        isPlaying = playbackState?.isActivePlaybackState() == true,
-        playOrPause = playbackState?.toPlayPauseAction(context = context, controller = this),
+            (playbackState?.actions?.and(PlaybackState.ACTION_SEEK_TO) != 0L || durationMs > 0L) && durationMs > 0L,
+        isPlaying = isPlaying,
+        playOrPause = playOrPauseAction,
+        nextAction = nextAction,
+        previousAction = previousAction,
     )
 }
 
@@ -620,6 +688,8 @@ private data class PlaybackInfo(
     val canSeek: Boolean,
     val isPlaying: Boolean,
     val playOrPause: MediaAction?,
+    val nextAction: MediaAction?,
+    val previousAction: MediaAction?,
 )
 
 private data class MediaControlState(
@@ -637,6 +707,8 @@ private fun MediaControlChipModel.withPlaybackInfo(playbackInfo: PlaybackInfo?):
     }
     return copy(
         playOrPause = playbackInfo.playOrPause ?: playOrPause,
+        nextAction = playbackInfo.nextAction ?: nextAction,
+        previousAction = playbackInfo.previousAction ?: previousAction,
         durationMs = durationMs.takeIf { it > 0L } ?: playbackInfo.durationMs,
         positionMs = playbackInfo.positionMs,
         canBeScrubbed = canBeScrubbed || playbackInfo.canSeek,

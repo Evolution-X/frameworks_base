@@ -16,6 +16,7 @@
 
 package com.android.systemui.statusbar.quickactions.livescore.ui.viewmodel
 
+import androidx.compose.runtime.getValue
 import android.content.Context
 import com.android.systemui.ActivityIntentHelper
 import com.android.systemui.common.shared.model.ContentDescription
