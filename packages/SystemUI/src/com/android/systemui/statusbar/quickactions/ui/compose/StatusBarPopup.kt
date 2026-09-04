@@ -95,7 +95,7 @@ fun StatusBarPopup(
         onDismissRequest = { viewModel.hidePopup() },
         properties =
             PopupProperties(
-                focusable = true,
+                focusable = false,
                 dismissOnBackPress = true,
                 dismissOnClickOutside = true,
             ),
@@ -145,8 +145,8 @@ fun StatusBarPopup(
         val colorMode = rememberPopupColorMode()
         val skipMotionOnDismiss = colorMode == POPUP_COLOR_MODE_BLUR
 
-        LaunchedEffect(isVisible, popupBoundsInScreen != null) {
-            if (isVisible && popupBoundsInScreen != null) {
+        LaunchedEffect(isVisible) {
+            if (isVisible) {
                 scaleX.snapTo(initialScaleFromChip.x)
                 scaleY.snapTo(initialScaleFromChip.y)
                 alpha.snapTo(0f)
@@ -184,7 +184,7 @@ fun StatusBarPopup(
                     }
                     launch { alpha.animateTo(1f, animationSpec = tween(180)) }
                 }
-            } else if (!isVisible) {
+            } else {
                 if (skipMotionOnDismiss) {
                     coroutineScope {
                         launch {
