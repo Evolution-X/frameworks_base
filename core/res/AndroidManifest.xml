@@ -526,6 +526,7 @@
     <protected-broadcast android:name="android.intent.action.PRECISE_CALL_STATE" />
     <protected-broadcast android:name="android.intent.action.SUBSCRIPTION_PHONE_STATE" />
     <protected-broadcast android:name="android.intent.action.USER_INFO_CHANGED" />
+    <protected-broadcast android:name="android.intent.action.USER_INFO_CHANGED_BACKGROUND" />
     <protected-broadcast android:name="android.intent.action.USER_UNLOCKED" />
     <protected-broadcast android:name="android.intent.action.WALLPAPER_CHANGED" />
 
