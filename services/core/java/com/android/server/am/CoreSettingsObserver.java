@@ -27,6 +27,7 @@ import android.content.Context;
 import android.database.ContentObserver;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.ServiceManager;
 import android.os.UserHandle;
 import android.provider.DeviceConfig;
 import android.provider.Settings;
@@ -318,6 +319,10 @@ class CoreSettingsObserver extends ContentObserver {
 
     protected final IntArray getVirtualDeviceIds() {
         if (mVirtualDeviceManager == null) {
+            // System providers are installed before VirtualDeviceManagerService starts.
+            if (ServiceManager.checkService(Context.VIRTUAL_DEVICE_SERVICE) == null) {
+                return new IntArray(0);
+            }
             mVirtualDeviceManager = mActivityManagerService.mContext.getSystemService(
                     VirtualDeviceManager.class);
             if (mVirtualDeviceManager == null) {
