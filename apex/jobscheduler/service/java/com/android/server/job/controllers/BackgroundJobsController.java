@@ -16,7 +16,6 @@
 
 package com.android.server.job.controllers;
 
-import static com.android.server.job.JobSchedulerService.NEVER_INDEX;
 import static com.android.server.job.JobSchedulerService.getPackageName;
 import static com.android.server.job.JobSchedulerService.sElapsedRealtimeClock;
 
@@ -375,9 +374,6 @@ public final class BackgroundJobsController extends StateController {
             isActive = mAppStateTracker.isUidActive(uid);
         } else {
             isActive = (activeState == KNOWN_ACTIVE);
-        }
-        if (isActive && jobStatus.getStandbyBucket() == NEVER_INDEX) {
-            jobStatus.maybeLogBucketMismatch();
         }
         boolean didChange =
                 jobStatus.setBackgroundNotRestrictedConstraintSatisfied(nowElapsed, canRun,
