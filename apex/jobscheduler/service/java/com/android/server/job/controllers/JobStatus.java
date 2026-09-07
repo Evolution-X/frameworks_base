@@ -451,11 +451,6 @@ public final class JobStatus {
     private int mStandbyBucketReason;
 
     /**
-     * Whether we've logged an error due to standby bucket mismatch with active uid state.
-     */
-    private boolean mLoggedBucketMismatch;
-
-    /**
      * Debugging: timestamp if we ever defer this job based on standby bucketing, this
      * is when we did so.
      */
@@ -1611,18 +1606,6 @@ public final class JobStatus {
 
         standbyBucket = newBucket;
         mStandbyBucketReason = reason;
-        mLoggedBucketMismatch = false;
-    }
-
-    /**
-     * Log a bucket mismatch if this is the first time for this job.
-     */
-    public void maybeLogBucketMismatch() {
-        if (!mLoggedBucketMismatch) {
-            Slog.wtf(TAG,
-                    "App " + getSourcePackageName() + " became active but still in NEVER bucket");
-            mLoggedBucketMismatch = true;
-        }
     }
 
     // Called only by the standby monitoring code
