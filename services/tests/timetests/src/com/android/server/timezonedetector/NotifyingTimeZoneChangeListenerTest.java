@@ -31,6 +31,7 @@ import static com.android.server.timezonedetector.TimeZoneDetectorStrategy.ORIGI
 import static com.android.server.timezonedetector.TimeZoneDetectorStrategy.ORIGIN_TELEPHONY;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -185,7 +186,7 @@ public class NotifyingTimeZoneChangeListenerTest {
                         mTimeZoneDetectorTelemetry,
                         mNotificationManager,
                         mFakeEnvironment,
-                        mockKeyguardManager,
+                        () -> mockKeyguardManager,
                         mMockPackageManager);
     }
 
@@ -604,6 +605,28 @@ public class NotifyingTimeZoneChangeListenerTest {
 
         // Now, the handler message should be enqueued.
         mHandler.assertTotalMessagesEnqueued(1);
+    }
+
+    @Test
+    @EnableFlags(android.timezone.flags.Flags.FLAG_ENABLE_AUTOMATIC_TIME_ZONE_REJECTION_LOGGING)
+    public void process_automaticDetection_keyguardBecomesAvailable() {
+        enableNotificationsWithManualChangeTracking();
+        KeyguardManager keyguardManager = mockKeyguardManager;
+        mockKeyguardManager = null;
+        mTimeZoneChangeTracker.process(new TimeZoneChangeEvent(
+                0, 1726597800000L, ORIGIN_TELEPHONY, mUid,
+                "Europe/Paris", "Europe/London", TIME_ZONE_CONFIDENCE_HIGH,
+                TIME_ZONE_CONFIDENCE_HIGH, "NO_REASON"));
+        mHandler.assertTotalMessagesEnqueued(1);
+
+        mockKeyguardManager = keyguardManager;
+        Mockito.when(mockKeyguardManager.isDeviceLocked()).thenReturn(true);
+        mTimeZoneChangeTracker.process(new TimeZoneChangeEvent(
+                Duration.ofHours(1).toMillis(), 1726601400000L, ORIGIN_TELEPHONY, mUid,
+                "Europe/London", "America/New_York", TIME_ZONE_CONFIDENCE_HIGH,
+                TIME_ZONE_CONFIDENCE_HIGH, "NO_REASON"));
+        mHandler.assertTotalMessagesEnqueued(1);
+        assertNotNull(mTimeZoneChangeTracker.mUserPresentReceiver);
     }
 
     @Test
