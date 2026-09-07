@@ -379,7 +379,7 @@ class RemoteSelectionToolbar(
         menuItems = transformMenuItems(context, showInfo.menuItems)
         viewPortOnScreen.set(showInfo.viewPortOnScreen)
 
-        if (showInfo.layoutRequired) {
+        if (showInfo.layoutRequired || mainPanelSize == null) {
             layoutMenuItems(menuItems!!, showInfo.suggestedWidth)
         }
 
@@ -746,6 +746,11 @@ class RemoteSelectionToolbar(
      * stopped.
      */
     private fun setPanelsStatesAtRestingPosition() {
+        if (mainPanelSize == null && overflowPanelSize == null) {
+            Log.w(TAG, "setPanelsStatesAtRestingPosition function was called before panels were measured")
+            return
+        }
+
         overflowButton.isEnabled = true
         overflowPanel.awakenScrollBars()
 
