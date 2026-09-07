@@ -50,6 +50,7 @@ import android.icu.text.DateFormat;
 import android.icu.text.SimpleDateFormat;
 import android.icu.util.TimeZone;
 import android.os.Handler;
+import android.os.ServiceManager;
 import android.os.UserHandle;
 import android.util.IndentingPrintWriter;
 import android.util.Log;
@@ -67,6 +68,7 @@ import java.lang.annotation.Target;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 /** An implementation of {@link TimeZoneChangeListener} that fires notifications. */
 public final class NotifyingTimeZoneChangeListener implements TimeZoneChangeListener {
@@ -124,7 +126,7 @@ public final class NotifyingTimeZoneChangeListener implements TimeZoneChangeList
     private final Context mContext;
     private final NotificationManager mNotificationManager;
     private final ActivityManagerInternal mActivityManagerInternal;
-    private final KeyguardManager mKeyguardManager;
+    private final Supplier<KeyguardManager> mKeyguardManagerSupplier;
 
     // For scheduling callbacks
     private final Handler mHandler;
@@ -198,7 +200,8 @@ public final class NotifyingTimeZoneChangeListener implements TimeZoneChangeList
                         telemetry,
                         context.getSystemService(NotificationManager.class),
                         environment,
-                        context.getSystemService(KeyguardManager.class),
+                        () -> ServiceManager.checkService(Context.TRUST_SERVICE) == null
+                                ? null : context.getSystemService(KeyguardManager.class),
                         context.getPackageManager());
 
         // Pretend there was an update to initialize configuration.
@@ -214,7 +217,7 @@ public final class NotifyingTimeZoneChangeListener implements TimeZoneChangeList
             TimeZoneDetectorTelemetry telemetry,
             NotificationManager notificationManager,
             @NonNull Environment environment,
-            KeyguardManager keyguardManager,
+            Supplier<KeyguardManager> keyguardManagerSupplier,
             PackageManager packageManager) {
         mHandler = Objects.requireNonNull(handler);
         mContext = Objects.requireNonNull(context);
@@ -225,7 +228,7 @@ public final class NotifyingTimeZoneChangeListener implements TimeZoneChangeList
         mNotificationManager = notificationManager;
         mTelemetry = telemetry;
         mEnvironment = Objects.requireNonNull(environment);
-        mKeyguardManager = keyguardManager;
+        mKeyguardManagerSupplier = Objects.requireNonNull(keyguardManagerSupplier);
     }
 
     @RequiresPermission("android.permission.INTERACT_ACROSS_USERS_FULL")
@@ -489,7 +492,8 @@ public final class NotifyingTimeZoneChangeListener implements TimeZoneChangeList
                     AUTO_REVERT_THRESHOLD);
             return;
         }
-        if (mKeyguardManager == null || !mKeyguardManager.isDeviceLocked()) {
+        KeyguardManager keyguardManager = mKeyguardManagerSupplier.get();
+        if (keyguardManager == null || !keyguardManager.isDeviceLocked()) {
             mHandler.postDelayed(
                     () -> changeAcceptedTimeHeuristicCallback(trackedChangeEventId),
                     AUTO_REVERT_THRESHOLD);
