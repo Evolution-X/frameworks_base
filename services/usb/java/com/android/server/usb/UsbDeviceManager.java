@@ -1641,6 +1641,7 @@ public class UsbDeviceManager implements ActivityTaskManagerInternal.ScreenObser
                                         NotificationManager.IMPORTANCE_HIGH));
                     }
                     mSystemReady = true;
+                    setTrustRestrictUsb();
                     finishBoot(operationId);
                     break;
                 case MSG_LOCALE_CHANGED:
@@ -2111,6 +2112,10 @@ public class UsbDeviceManager implements ActivityTaskManagerInternal.ScreenObser
         public abstract void resetCb(int status);
 
         public void setTrustRestrictUsb() {
+            // Initial gadget events can arrive before UsbService publishes its Binder.
+            if (!mSystemReady && ServiceManager.checkService(Context.USB_SERVICE) == null) {
+                return;
+            }
             final int restrictUsb = LineageSettings.Global.getInt(mContentResolver,
                     LineageSettings.Global.TRUST_RESTRICT_USB, 0);
             // Effective immediately, ejects any connected USB devices.
