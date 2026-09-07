@@ -1917,9 +1917,15 @@ public final class QuotaController extends StateController {
             }
             inRegularQuotaTimeElapsed = inQuotaTimeElapsed;
         }
-        if (remainingEJQuota <= 0) {
+        final int ejStandbyBucket =
+                getEJDebitsLocked(userId, packageName).getStandbyBucketLocked();
+        if (inRegularQuota && ejStandbyBucket == NEVER_INDEX) {
+            mInQuotaAlarmQueue.removeAlarmForKey(UserPackage.of(userId, packageName));
+            return;
+        }
+        if (remainingEJQuota <= 0 && ejStandbyBucket != NEVER_INDEX) {
             final long limitMs =
-                    getEJLimitMsLocked(userId, packageName, standbyBucket) - mQuotaBufferMs;
+                    getEJLimitMsLocked(userId, packageName, ejStandbyBucket) - mQuotaBufferMs;
             long sumMs = 0;
             final Timer ejTimer = mEJPkgTimers.get(userId, packageName);
             if (ejTimer != null && ejTimer.isActive()) {
@@ -1942,9 +1948,6 @@ public final class QuotaController extends StateController {
                     }
                 }
             } else if ((ejTimer == null || !ejTimer.isActive()) && inRegularQuota) {
-                // In some strange cases, an app may end be in the NEVER bucket but could have run
-                // some regular jobs. This results in no EJ timing sessions and QC having a bad
-                // time.
                 Slog.wtf(TAG, packageToString(userId, packageName)
                         + " has 0 EJ quota without running anything");
                 return;
