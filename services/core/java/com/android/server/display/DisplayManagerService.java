@@ -2962,7 +2962,9 @@ public final class DisplayManagerService extends SystemService {
 
     @Nullable
     private Display.Mode getStoredUserPreferredModeLocked(@Nullable DisplayDevice device) {
-        UserManager userManager = getUserManager();
+        // The system user has a fixed serial number, even before UserManager starts.
+        UserManager userManager = mCurrentUserId == UserHandle.USER_SYSTEM
+                ? null : getUserManager();
         int userSerial = userManager != null ? userManager.getUserSerialNumber(mCurrentUserId)
                 : UserHandle.USER_SERIAL_SYSTEM;
         DisplayMode userPreferredDisplayMode = mPersistentDataStore.getUserPreferredDisplayMode(
