@@ -22,6 +22,7 @@ import android.app.role.RoleManager;
 import android.app.supervision.SupervisionManager;
 import android.content.Context;
 import android.os.Binder;
+import android.os.ServiceManager;
 import android.os.UserHandle;
 import android.text.TextUtils;
 import android.util.ArraySet;
@@ -235,6 +236,10 @@ public class ProtectedPackages {
 
     /** Query the packages with supervision related roles. */
     private boolean isSupervisionPackage(@UserIdInt int userId, String packageName) {
+        // Installing system providers can reach this before SupervisionService starts.
+        if (ServiceManager.checkService(Context.SUPERVISION_SERVICE) == null) {
+            return false;
+        }
         SupervisionManager supervisionManager = mContext.getSystemService(SupervisionManager.class);
         if (supervisionManager == null) {
             Slog.w(TAG, "Failed to get SupervisionManager.");
