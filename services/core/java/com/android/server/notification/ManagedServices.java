@@ -379,7 +379,9 @@ abstract public class ManagedServices {
 
     protected void onServiceRemovedLocked(ManagedServiceInfo removed) { }
 
-    public void onBootPhaseAppsCanStart() {}
+    public void onBootPhaseAppsCanStart() {
+        rebindServices(false, USER_ALL);
+    }
 
     public void dump(PrintWriter pw, DumpFilter filter) {
         pw.println("    Allowed " + getCaption() + "s:");
@@ -1811,6 +1813,10 @@ abstract public class ManagedServices {
 
     // Attempt to bind to services, skipping those that cannot be found or lack the permission.
     private void bindToServices(SparseArray<Set<ComponentName>> componentsToBind) {
+        // Policy is loaded during onStart, before app storage dependencies are ready.
+        if (!ActivityManager.isSystemReady()) {
+            return;
+        }
         for (int i = 0; i < componentsToBind.size(); i++) {
             final int userId = componentsToBind.keyAt(i);
             final Set<ComponentName> add = componentsToBind.get(userId);
