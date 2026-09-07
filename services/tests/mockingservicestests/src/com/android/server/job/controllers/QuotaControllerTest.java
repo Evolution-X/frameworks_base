@@ -2607,6 +2607,33 @@ public class QuotaControllerTest {
                 any(Handler.class));
     }
 
+    @Test
+    public void testMaybeScheduleStartAlarmLocked_EjUsesActualBucket() {
+        setDischarging();
+        spyOn(mQuotaController);
+        doNothing().when(mQuotaController).maybeScheduleCleanupAlarmLocked();
+        setDeviceConfigLong(QcConstants.KEY_EJ_LIMIT_FREQUENT_MS, 10 * MINUTE_IN_MILLIS);
+        setDeviceConfigLong(QcConstants.KEY_EJ_LIMIT_ACTIVE_MS, 30 * MINUTE_IN_MILLIS);
+
+        JobStatus job = createExpeditedJobStatus("ejUsesActualBucket", 1);
+        setStandbyBucket(FREQUENT_INDEX, job);
+        trackJobs(job);
+        final long start = JobSchedulerService.sElapsedRealtimeClock.millis() - HOUR_IN_MILLIS;
+        mQuotaController.saveTimingSession(SOURCE_USER_ID, SOURCE_PACKAGE,
+                createTimingSession(start, 10 * MINUTE_IN_MILLIS, 1), true);
+
+        synchronized (mQuotaController.mLock) {
+            mQuotaController.maybeScheduleStartAlarmLocked(
+                    SOURCE_USER_ID, SOURCE_PACKAGE, ACTIVE_INDEX);
+        }
+
+        final long expectedAlarmTime = start + mQcConstants.EJ_WINDOW_SIZE_MS
+                + mQcConstants.IN_QUOTA_BUFFER_MS;
+        verify(mAlarmManager, timeout(1000)).setWindow(
+                anyInt(), eq(expectedAlarmTime), anyLong(), eq(TAG_QUOTA_CHECK), any(),
+                any(Handler.class));
+    }
+
     /**
      * Test that QC handles invalid cases where an app is in the NEVER bucket but has still run
      * jobs.
