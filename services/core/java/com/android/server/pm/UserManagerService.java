@@ -8315,7 +8315,8 @@ public class UserManagerService extends IUserManager.Stub {
         if (isHeadlessSystemUserMode != RoSystemProperties.MULTIUSER_HEADLESS_SYSTEM_USER) {
             pw.println("  (differs from the current default build value)");
         }
-        if (!TextUtils.isEmpty(SystemProperties.get(SYSTEM_USER_MODE_EMULATION_PROPERTY))) {
+        if (Build.isDebuggable()
+                && !TextUtils.isEmpty(SystemProperties.get(SYSTEM_USER_MODE_EMULATION_PROPERTY))) {
             pw.println("  (emulated by 'cmd user set-system-user-mode-emulation')");
             if (mUpdatingSystemUserMode) {
                 pw.println("  (and being updated after boot)");
