@@ -117,7 +117,7 @@ public class TaskSnapshotConvertUtil {
         try (ImageReader ir = ImageReader.newInstance(width, height,
                 pixelFormat, 1 /* maxImages */)) {
             snapshot.attachAndQueueBufferWithColorSpace(ir.getSurface());
-            try (Image image = ir.acquireLatestImage()) {
+            try (Image image = ir.acquireNextImage()) {
                 if (image == null || image.getPlaneCount() < 1) {
                     Slog.e(TAG, "Image reader cannot acquire image");
                     return null;
