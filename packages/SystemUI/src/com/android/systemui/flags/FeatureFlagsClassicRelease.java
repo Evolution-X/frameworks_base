@@ -30,8 +30,9 @@ import com.android.systemui.dagger.qualifiers.Main;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.PrintWriter;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -51,32 +52,36 @@ public class FeatureFlagsClassicRelease implements FeatureFlagsClassic {
     private final ServerFlagReader mServerFlagReader;
     private final Restarter mRestarter;
     private final Map<String, Flag<?>> mAllFlags;
-    private final Map<String, Boolean> mBooleanCache = new HashMap<>();
-    private final Map<String, String> mStringCache = new HashMap<>();
-    private final Map<String, Integer> mIntCache = new HashMap<>();
+    // Cache the first value until restart, including reads from background threads.
+    private final ConcurrentMap<String, Boolean> mBooleanCache = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, String> mStringCache = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Integer> mIntCache = new ConcurrentHashMap<>();
 
     private final ServerFlagReader.ChangeListener mOnPropertiesChanged =
             new ServerFlagReader.ChangeListener() {
                 @Override
                 public void onChange(Flag<?> flag, String value) {
+                    Boolean cachedBoolean = mBooleanCache.get(flag.getName());
+                    String cachedString = mStringCache.get(flag.getName());
+                    Integer cachedInt = mIntCache.get(flag.getName());
                     boolean shouldRestart = false;
-                    if (mBooleanCache.containsKey(flag.getName())) {
+                    if (cachedBoolean != null) {
                         boolean newValue = value == null ? false : Boolean.parseBoolean(value);
-                        if (mBooleanCache.get(flag.getName()) != newValue) {
+                        if (cachedBoolean != newValue) {
                             shouldRestart = true;
                         }
-                    } else if (mStringCache.containsKey(flag.getName())) {
+                    } else if (cachedString != null) {
                         String newValue = value == null ? "" : value;
-                        if (!mStringCache.get(flag.getName()).equals(newValue)) {
+                        if (!cachedString.equals(newValue)) {
                             shouldRestart = true;
                         }
-                    } else if (mIntCache.containsKey(flag.getName())) {
+                    } else if (cachedInt != null) {
                         int newValue = 0;
                         try {
                             newValue = value == null ? 0 : Integer.parseInt(value);
                         } catch (NumberFormatException e) {
                         }
-                        if (mIntCache.get(flag.getName()) != newValue) {
+                        if (cachedInt != newValue) {
                             shouldRestart = true;
                         }
                     }
@@ -122,93 +127,55 @@ public class FeatureFlagsClassicRelease implements FeatureFlagsClassic {
 
     @Override
     public boolean isEnabled(@NotNull ReleasedFlag flag) {
-        // Fill the cache.
         return isEnabledInternal(flag.getName(),
                 mServerFlagReader.readServerOverride(flag.getNamespace(), flag.getName(), true));
     }
 
     @Override
     public boolean isEnabled(ResourceBooleanFlag flag) {
-        // Fill the cache.
         return isEnabledInternal(flag.getName(), mResources.getBoolean(flag.getResourceId()));
     }
 
     @Override
     public boolean isEnabled(SysPropBooleanFlag flag) {
-        // Fill the cache.
         return isEnabledInternal(
                 flag.getName(),
                 mSystemProperties.getBoolean(flag.getName(), flag.getDefault()));
     }
 
-    /**
-     * Checks and fills the boolean cache. This is important, Always call through to this method!
-     *
-     * We use the cache as a way to decide if we need to restart the process when server-side
-     * changes occur.
-     */
     private boolean isEnabledInternal(String name, boolean defaultValue) {
-        // Fill the cache.
-        if (!mBooleanCache.containsKey(name)) {
-            mBooleanCache.put(name, defaultValue);
-        }
-
-        return mBooleanCache.get(name);
+        return mBooleanCache.computeIfAbsent(name, key -> defaultValue);
     }
 
     @NonNull
     @Override
     public String getString(@NonNull StringFlag flag) {
-        // Fill the cache.
         return getStringInternal(flag.getName(), flag.getDefault());
     }
 
     @NonNull
     @Override
     public String getString(@NonNull ResourceStringFlag flag) {
-        // Fill the cache.
         return getStringInternal(flag.getName(),
                 requireNonNull(mResources.getString(flag.getResourceId())));
     }
 
-    /**
-     * Checks and fills the String cache. This is important, Always call through to this method!
-     *
-     * We use the cache as a way to decide if we need to restart the process when server-side
-     * changes occur.
-     */
     private String getStringInternal(String name, String defaultValue) {
-        if (!mStringCache.containsKey(name)) {
-            mStringCache.put(name, defaultValue);
-        }
-
-        return mStringCache.get(name);
+        return mStringCache.computeIfAbsent(name, key -> defaultValue);
     }
 
     @Override
     public int getInt(@NonNull IntFlag flag) {
-        // Fill the cache.
         return getIntInternal(flag.getName(), flag.getDefault());
     }
 
     @Override
     public int getInt(@NonNull ResourceIntFlag flag) {
-        // Fill the cache.
         return mResources.getInteger(flag.getResourceId());
     }
 
-    /**
-     * Checks and fills the integer cache. This is important, Always call through to this method!
-     *
-     * We use the cache as a way to decide if we need to restart the process when server-side
-     * changes occur.
-     */
     private int getIntInternal(String name, int defaultValue) {
-        if (!mIntCache.containsKey(name)) {
-            mIntCache.put(name, defaultValue);
-        }
-
-        return mIntCache.get(name);
+        return mIntCache.computeIfAbsent(name, key -> defaultValue);
     }
 
     @Override
