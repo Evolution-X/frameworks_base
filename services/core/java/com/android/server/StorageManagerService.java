@@ -2852,6 +2852,11 @@ class StorageManagerService extends IStorageManager.Stub
     }
 
     private boolean prepareSmartIdleMaint() {
+        if (!mContext.getResources().getBoolean(
+                com.android.internal.R.bool.config_supportsSmartIdleMaintenance)) {
+            return false;
+        }
+
         /**
          * We can choose whether going with a new storage smart idle maintenance job
          * or falling back to the traditional way using DeviceConfig
