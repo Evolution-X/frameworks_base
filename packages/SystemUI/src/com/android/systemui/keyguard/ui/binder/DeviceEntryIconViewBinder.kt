@@ -35,6 +35,7 @@ import com.android.systemui.Dependency
 import com.android.systemui.Flags
 import com.android.systemui.Flags.enableLockscreenBlur
 import com.android.systemui.biometrics.UdfpsIconDrawable
+import com.android.systemui.common.ui.view.BackgroundBlurAlphaSync
 import com.android.systemui.common.ui.view.TouchHandlingView
 import com.android.systemui.keyguard.ui.view.DeviceEntryIconView
 import com.android.systemui.keyguard.ui.viewmodel.DeviceEntryBackgroundViewModel
@@ -334,8 +335,17 @@ object DeviceEntryIconViewBinder {
                                 setVisible(false, false)
                             }
                         bgView.addOnLayoutChangeListener(layoutChangeListener)
+                        // The blur region only knows the drawable's own alpha: follow the alpha
+                        // the icon is really drawn with (keyguard root fade on unlock, shade
+                        // drag) so the blur does not outlive the icon.
+                        val blurAlphaSync =
+                            BackgroundBlurAlphaSync(bgView) {
+                                    bgView.background as? BackgroundBlurDrawable
+                                }
+                                .start()
                         bgView.doOnDetach {
                             bgView.removeOnLayoutChangeListener(layoutChangeListener)
+                            blurAlphaSync.dispose()
                         }
 
                         launch("$TAG#windowRootViewBlurInteractor.isBlurCurrentlySupported") {
