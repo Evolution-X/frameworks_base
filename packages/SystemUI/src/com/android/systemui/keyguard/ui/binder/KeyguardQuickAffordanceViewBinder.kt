@@ -29,6 +29,7 @@ import androidx.core.animation.CycleInterpolator
 import androidx.core.animation.ObjectAnimator
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
+import androidx.core.view.doOnDetach
 import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
@@ -40,6 +41,7 @@ import com.android.systemui.animation.Expandable
 import com.android.systemui.animation.view.LaunchableImageView
 import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.common.ui.binder.IconViewBinder
+import com.android.systemui.common.ui.view.BackgroundBlurAlphaSync
 import com.android.systemui.common.ui.view.updateLongClickListener
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.keyguard.ui.viewmodel.KeyguardQuickAffordanceHapticViewModel
@@ -110,6 +112,18 @@ constructor(
                         }
                     val surfaceDrawable = view.background
                     view.background = LayerDrawable(arrayOf(blurDrawable, surfaceDrawable))
+                }
+                if (enableLockscreenBlur()) {
+                    // The blur region only knows the drawable's own alpha: follow the alpha the
+                    // button is really drawn with (keyguard root fade on unlock, shade drag) so
+                    // the blur does not outlive the button.
+                    val blurAlphaSync =
+                        BackgroundBlurAlphaSync(view) {
+                                (view.background as? LayerDrawable)?.getDrawable(0)
+                                    as? BackgroundBlurDrawable
+                            }
+                            .start()
+                    view.doOnDetach { blurAlphaSync.dispose() }
                 }
                 repeatOnLifecycle(Lifecycle.State.STARTED) {
                     launch {
