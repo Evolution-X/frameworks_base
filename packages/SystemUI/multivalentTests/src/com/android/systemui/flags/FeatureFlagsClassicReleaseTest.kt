@@ -21,6 +21,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
 import com.android.systemui.SysuiTestCase
 import com.google.common.truth.Truth.assertThat
+import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
@@ -106,6 +109,60 @@ class FeatureFlagsClassicReleaseTest : SysuiTestCase() {
     }
 
     @Test
+    fun concurrentReadersAgreeOnFirstCachedValues() {
+        val threadCount = 8
+        val flagCount = 64
+        repeat(threadCount) { worker ->
+            whenever(mResources.getBoolean(worker + 1)).thenReturn(worker % 2 == 0)
+        }
+        val barrier = CyclicBarrier(threadCount)
+        val executor = Executors.newFixedThreadPool(threadCount)
+        try {
+            val futures =
+                (0 until threadCount).map { worker ->
+                    executor.submit<List<Triple<Boolean, String, Int>>> {
+                        (0 until flagCount).map { index ->
+                            barrier.await(5, TimeUnit.SECONDS)
+                            Triple(
+                                mFeatureFlagsClassicRelease.isEnabled(
+                                    ResourceBooleanFlag("bool_$index", "test", worker + 1)
+                                ),
+                                mFeatureFlagsClassicRelease.getString(
+                                    StringFlag("string_$index", "test", "worker_$worker")
+                                ),
+                                mFeatureFlagsClassicRelease.getInt(
+                                    IntFlag("int_$index", "test", worker)
+                                )
+                            )
+                        }
+                    }
+                }
+            val results = futures.map { it.get(10, TimeUnit.SECONDS) }
+            results.forEach { result ->
+                assertThat(result).containsExactlyElementsIn(results.first()).inOrder()
+            }
+            results.first().forEachIndexed { index, value ->
+                assertThat(
+                    mFeatureFlagsClassicRelease.isEnabled(
+                        ResourceBooleanFlag("bool_$index", "test", 1)
+                    )
+                ).isEqualTo(value.first)
+                assertThat(
+                    mFeatureFlagsClassicRelease.getString(
+                        StringFlag("string_$index", "test", "later")
+                    )
+                ).isEqualTo(value.second)
+                assertThat(
+                    mFeatureFlagsClassicRelease.getInt(IntFlag("int_$index", "test", -1))
+                ).isEqualTo(value.third)
+            }
+        } finally {
+            executor.shutdownNow()
+            assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue()
+        }
+    }
+
+    @Test
     fun serverSide_OverridesReleased_MakesFalse() {
         val flag = ReleasedFlag("100", "test")
 
@@ -136,6 +193,7 @@ class FeatureFlagsClassicReleaseTest : SysuiTestCase() {
         mFeatureFlagsClassicRelease.isEnabled(flagA)
         serverFlagReader.setFlagValue(flagA.namespace, flagA.name, !flagA.default)
         Mockito.verify(restarter).restartSystemUI(Mockito.anyString())
+        assertThat(mFeatureFlagsClassicRelease.isEnabled(flagA)).isEqualTo(flagA.default)
     }
 
     @Test
