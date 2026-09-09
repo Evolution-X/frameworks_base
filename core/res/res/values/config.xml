@@ -5572,6 +5572,9 @@
     <!-- Default number of days to retain for the automatic storage manager. -->
     <integer translatable="false" name="config_storageManagerDaystoRetainDefault">90</integer>
 
+    <!-- Whether the kernel supports the F2FS interfaces used by smart idle maintenance. -->
+    <bool name="config_supportsSmartIdleMaintenance">true</bool>
+
     <!-- Name of a font family to use for headlines. If empty, falls back to platform default -->
     <string name="config_headlineFontFamily" translatable="false">sans-serif</string>
     <!-- Allows setting custom fontFeatureSettings on specific text. -->
