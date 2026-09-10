@@ -220,8 +220,8 @@ public final class PixelDeviceRepository {
     static {
         List<PixelProfile> f = new ArrayList<>();
         f.add(new PixelProfile("kodiak",    "Pixel 11 Pro XL",   "google", "kodiak",    "kodiak",
-                "google/kodiak/kodiak:17/CD1A.260714.001.A9/15938155:user/release-keys",
-                "CD1A.260714.001.A9", "2026-08-05", 0L, null, false));
+                "google/kodiak/kodiak:17/CD1A.260905.001.B1/16238327:user/release-keys",
+                "CD1A.260905.001.B1", "2026-09-05", 0L, null, false));
         f.add(new PixelProfile("mustang",   "Pixel 10 Pro XL",   "google", "mustang",   "mustang",
                 "google/mustang/mustang:17/CP2A.260805.005/15828068:user/release-keys",
                 "CP2A.260805.005", "2026-08-05", 0L, null, false));
