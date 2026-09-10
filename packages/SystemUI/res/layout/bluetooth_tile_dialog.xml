@@ -45,8 +45,6 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
         android:layout_marginBottom="@dimen/bluetooth_dialog_layout_margin"
-        android:paddingEnd="15dp"
-        android:paddingStart="36dp"
         android:ellipsize="end"
         android:gravity="center_vertical|center_horizontal"
         android:maxLines="2"
