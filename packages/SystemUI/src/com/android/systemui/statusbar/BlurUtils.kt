@@ -60,6 +60,11 @@ constructor(
 
     val maxBlurRadiusFlow: Flow<Float> = blurConfig.maxBlurRadiusFlow
 
+    /** [maxBlurRadius], scaled down for the given display refresh rate. See
+     *  [BlurConfig.maxBlurRadiusPxForRefreshRate]. */
+    fun maxBlurRadiusForRefreshRate(refreshRateHz: Float): Float =
+        blurConfig.maxBlurRadiusPxForRefreshRate(refreshRateHz)
+
     private var lastAppliedBlur = 0
     private var lastTargetViewRootImpl: ViewRootImpl? = null
     private var _transactionApplier = SyncRtSurfaceTransactionApplier(null)
