@@ -2577,17 +2577,24 @@ public class InputManagerService extends IInputManager.Stub
         }
         for (InputDevice device : devices) {
             final int id = device.getId();
-            if ((device.getSources() & InputDevice.SOURCE_MOUSE) != InputDevice.SOURCE_MOUSE) {
-                continue;
-            }
-            if ((device.getSources() & InputDevice.SOURCE_KEYBOARD) == InputDevice.SOURCE_KEYBOARD) {
-                continue;
-            }
+            // Composite controllers can initially appear as only a touchpad. Re-evaluate
+            // suppression when their keyboard/gamepad interfaces are added to the same id.
+            final boolean hasPointer = device.supportsSource(InputDevice.SOURCE_MOUSE);
+            final boolean hasControls = device.supportsSource(InputDevice.SOURCE_KEYBOARD)
+                    || device.supportsSource(InputDevice.SOURCE_GAMEPAD)
+                    || device.supportsSource(InputDevice.SOURCE_JOYSTICK);
             final String btAddress = mNative.getBluetoothAddress(id);
-            if (btAddress == null) {
-                continue;
-            }
-            if (isLikelyRealBluetoothPointer(btAddress)) {
+            final boolean shouldSuppress = hasPointer && !hasControls && btAddress != null
+                    && !isLikelyRealBluetoothPointer(btAddress);
+            if (!shouldSuppress) {
+                final boolean wasSuppressed;
+                synchronized (mInputDevicesLock) {
+                    wasSuppressed = mSuppressedBluetoothPointers.get(id);
+                    mSuppressedBluetoothPointers.delete(id);
+                }
+                if (wasSuppressed) {
+                    mNative.enableInputDevice(id);
+                }
                 continue;
             }
             synchronized (mInputDevicesLock) {
