@@ -8441,7 +8441,8 @@ public class NotificationManagerService extends SystemService {
     NotificationRecord createAutoGroupSummary(int userId, String pkg, String triggeringKey,
             String groupKey, int summaryId, NotificationAttributes summaryAttr) {
         NotificationRecord summaryRecord = null;
-        boolean isPermissionFixed = mPermissionHelper.isPermissionFixed(pkg, userId);
+        final int permissionUserId = userId == USER_ALL ? USER_SYSTEM : userId;
+        boolean isPermissionFixed = mPermissionHelper.isPermissionFixed(pkg, permissionUserId);
         synchronized (mNotificationLock) {
             NotificationRecord notificationRecord = mNotificationsByKey.get(triggeringKey);
             if (notificationRecord == null) {
@@ -9516,11 +9517,13 @@ public class NotificationManagerService extends SystemService {
         } else {
             notification.extras.remove(AxSandboxManager.EXTRA_NOTIFICATION_APP_LOCKED);
         }
-        r.setIsAppImportanceLocked(mPermissionHelper.isPermissionUserSet(pkg, userId));
+        r.setIsAppImportanceLocked(
+                mPermissionHelper.isPermissionUserSet(pkg, n.getNormalizedUserId()));
         r.setPostSilently(postSilently);
         r.setFlagBubbleRemoved(false);
         r.setPkgAllowedAsConvo(mMsgPkgsAllowedAsConvos.contains(pkg));
-        boolean isImportanceFixed = mPermissionHelper.isPermissionFixed(pkg, userId);
+        boolean isImportanceFixed =
+                mPermissionHelper.isPermissionFixed(pkg, n.getNormalizedUserId());
         r.setImportanceFixed(isImportanceFixed);
         if (notification.isFgsOrUij()) {
             if (((channel.getUserLockedFields() & NotificationChannel.USER_LOCKED_IMPORTANCE) == 0
