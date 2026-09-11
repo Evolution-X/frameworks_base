@@ -354,7 +354,7 @@ private fun KeyguardMediaPanel(event: IslandEvent.Media, interactor: IslandActio
                 ) { art ->
                     if (art != null) {
                         Image(
-                            bitmap = art.toScaledBitmap(SizeAlbumLg),
+                            bitmap = art.toSquareScaledBitmap(SizeAlbumLg),
                             contentDescription = null,
                             modifier = Modifier
                                 .fillMaxHeight()

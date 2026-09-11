@@ -384,7 +384,7 @@ private fun AnimatedTrophyIcon(color: Color) {
 private fun MediaPillIcon(event: IslandEvent.Media, animated: Boolean = true) {
     event.albumArt?.let { art ->
         Image(
-            bitmap = art.toScaledBitmap(16.dp),
+            bitmap = art.toSquareScaledBitmap(16.dp),
             contentDescription = null,
             modifier = Modifier.size(16.dp).clip(CircleShape),
             contentScale = ContentScale.Crop,
@@ -439,7 +439,7 @@ private fun AnimatedHotspotIcon(color: Color) {
 private fun NowPlayingPillIcon(event: IslandEvent.NowPlaying, color: Color) {
     event.albumArt?.let { art ->
         Image(
-            bitmap = art.toScaledBitmap(16.dp),
+            bitmap = art.toSquareScaledBitmap(16.dp),
             contentDescription = null,
             modifier = Modifier.size(16.dp).clip(RoundedCornerShape(4.dp)),
             contentScale = ContentScale.Crop,
