@@ -5,8 +5,11 @@ import com.android.systemui.res.R
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import androidx.core.graphics.ColorUtils
+import kotlin.math.min
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -486,6 +489,33 @@ internal fun formatTimeAgo(timestampMs: Long, res: android.content.res.Resources
 internal fun Drawable.toScaledBitmap(sizeDp: Dp): ImageBitmap {
     val px = with(LocalDensity.current) { sizeDp.roundToPx() }
     return remember(this, px) { toBitmap(px, px).asImageBitmap() }
+}
+
+/** Center-crop to a square, then scale. Use for album art, including small icon slots. */
+@Composable
+internal fun Drawable.toSquareScaledBitmap(sizeDp: Dp): ImageBitmap {
+    val px = with(LocalDensity.current) { sizeDp.roundToPx() }
+    return remember(this, px) { cropToSquareThenScale(px).asImageBitmap() }
+}
+
+private fun Drawable.cropToSquareThenScale(px: Int): Bitmap {
+    val w = intrinsicWidth
+    val h = intrinsicHeight
+    if (w <= 0 || h <= 0) return toBitmap(px, px)
+    val raw = (this as? BitmapDrawable)?.bitmap?.takeUnless { it.isRecycled } ?: toBitmap(w, h)
+    val src =
+        if (raw.config == Bitmap.Config.HARDWARE) {
+            raw.copy(Bitmap.Config.ARGB_8888, false) ?: return toBitmap(px, px)
+        } else {
+            raw
+        }
+    val side = min(src.width, src.height)
+    if (side <= 0) return toBitmap(px, px)
+    val square =
+        if (src.width == src.height) src
+        else Bitmap.createBitmap(src, (src.width - side) / 2, (src.height - side) / 2, side, side)
+    return if (square.width == px && square.height == px) square
+    else Bitmap.createScaledBitmap(square, px, px, true)
 }
 
 internal fun chipProgressFor(event: IslandEvent, includeMediaProgress: Boolean = false): Float? =
