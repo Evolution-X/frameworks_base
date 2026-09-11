@@ -151,7 +151,7 @@ internal fun MediaCard(event: IslandEvent.Media, interactor: IslandActions) {
                 ) {
                     event.albumArt?.let { art ->
                         Image(
-                            bitmap = art.toScaledBitmap(AlbumArtSize),
+                            bitmap = art.toSquareScaledBitmap(AlbumArtSize),
                             contentDescription = null,
                             modifier = Modifier.size(AlbumArtSize).clip(ShapeLg),
                             contentScale = ContentScale.Crop,
@@ -238,7 +238,7 @@ internal fun MediaExpanded(
         ) {
             event.albumArt?.let { art ->
                 Image(
-                    bitmap = art.toScaledBitmap(SizeAlbumSm),
+                    bitmap = art.toSquareScaledBitmap(SizeAlbumSm),
                     contentDescription = null,
                     modifier = Modifier.size(SizeAlbumSm).clip(ShapeLg),
                     contentScale = ContentScale.Crop,
@@ -688,7 +688,7 @@ internal fun RowScope.CompactMediaRow(
 ) {
     event.albumArt?.let {
         Image(
-            bitmap = it.toScaledBitmap(SizeCompactIcon),
+            bitmap = it.toSquareScaledBitmap(SizeCompactIcon),
             null,
             modifier = Modifier.size(SizeCompactIcon).clip(ShapeCompact),
             contentScale = ContentScale.Crop,

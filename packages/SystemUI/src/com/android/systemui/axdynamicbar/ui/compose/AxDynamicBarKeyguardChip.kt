@@ -452,7 +452,7 @@ private fun KeyguardChipBody(
                 ) { art ->
                     if (art != null) {
                         Image(
-                            bitmap = art.toScaledBitmap(MusicActionSize),
+                            bitmap = art.toSquareScaledBitmap(MusicActionSize),
                             contentDescription = null,
                             modifier = Modifier
                                 .size(MusicActionSize)
