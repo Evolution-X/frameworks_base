@@ -284,6 +284,15 @@ constructor(
         // Brightness slider removes blur
         shadeRadius *= (1 - brightnessMirrorSpring.ratio)
 
+        // Cap the visible blur radius to what's affordable at the shade's current refresh
+        // rate; the same radius that fits an 8.3ms (120Hz) budget from KawaseDualFilterV2/
+        // GlassBlurFilter costs identical GPU time regardless of Hz, so left unscaled this
+        // caused app-drawer-launch stutter on 120Hz panels.
+        val refreshRateCap =
+            root?.display?.refreshRate?.let { blurUtils.maxBlurRadiusForRefreshRate(it) }
+                ?: blurUtils.maxBlurRadius
+        shadeRadius = shadeRadius.coerceAtMost(refreshRateCap)
+
         var blur = shadeRadius.toInt()
 
         // If the blur comes from waking up, we don't want to zoom out the background

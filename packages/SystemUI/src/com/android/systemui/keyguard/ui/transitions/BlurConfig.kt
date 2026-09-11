@@ -52,6 +52,22 @@ class BlurConfig(
                 MAX_BLUR_RADIUS_PCT
         }
 
+    /**
+     * Scales [maxBlurRadiusPx] down as refresh rate climbs past [REFRESH_RATE_SCALE_START_HZ],
+     * reaching [HIGH_REFRESH_RATE_MIN_SCALE] at [REFRESH_RATE_SCALE_END_HZ]. The blur's
+     * per-frame GPU cost is fixed by radius alone, so a radius that fits comfortably in a
+     * 90Hz frame budget can blow a 120Hz budget; this keeps blur affordable at high refresh
+     * rates instead of relying on the user to manually lower blur intensity.
+     */
+    fun maxBlurRadiusPxForRefreshRate(refreshRateHz: Float): Float {
+        val base = maxBlurRadiusPx
+        if (refreshRateHz <= REFRESH_RATE_SCALE_START_HZ) return base
+        val t = ((refreshRateHz - REFRESH_RATE_SCALE_START_HZ) /
+            (REFRESH_RATE_SCALE_END_HZ - REFRESH_RATE_SCALE_START_HZ)).coerceIn(0f, 1f)
+        val scale = 1f - t * (1f - HIGH_REFRESH_RATE_MIN_SCALE)
+        return base * scale
+    }
+
     val maxBlurRadiusFlow: Flow<Float> = secureSettings?.let { settings ->
         settings.observerFlow(KEY_BLUR_RADIUS_PCT)
             .onStart { emit(Unit) }
@@ -60,10 +76,12 @@ class BlurConfig(
     } ?: emptyFlow()
 
     companion object {
-        const val MAX_BLUR_RADIUS_PX = 175f
         const val KEY_BLUR_RADIUS_PCT = "system_blur_radius_pct"
         private const val MIN_BLUR_RADIUS_PCT = 0f
         private const val MAX_BLUR_RADIUS_PCT = 100f
         private const val DEFAULT_BLUR_RADIUS_PCT = MAX_BLUR_RADIUS_PCT
+        private const val REFRESH_RATE_SCALE_START_HZ = 90f
+        private const val REFRESH_RATE_SCALE_END_HZ = 120f
+        private const val HIGH_REFRESH_RATE_MIN_SCALE = 0.6f
     }
 }
