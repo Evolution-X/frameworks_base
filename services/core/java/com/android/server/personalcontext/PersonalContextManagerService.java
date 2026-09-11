@@ -1266,15 +1266,15 @@ public class PersonalContextManagerService extends SystemService {
                 return;
             }
 
-            final UserHandle user = sbn.getUser();
-            final UserState userState = getUserStateSynchronized(user.getIdentifier());
+            final int userId = sbn.getNormalizedUserId();
+            final UserState userState = getUserStateSynchronized(userId);
             if (userState == null) {
-                Slog.e(TAG, "No user state for user " + user.getIdentifier());
+                Slog.e(TAG, "No user state for user " + userId);
                 return;
             }
 
             if (!isPersonalContextServiceEnabledForPackage(
-                    sbn.getPackageName(), user.getIdentifier())) {
+                    sbn.getPackageName(), userId)) {
                 Slog.i(TAG, "Personal Context disabled for package " + sbn.getPackageName());
                 return;
             }
@@ -1287,7 +1287,7 @@ public class PersonalContextManagerService extends SystemService {
             }
 
             startRefinerWorkflow(
-                    user.getIdentifier(),
+                    userId,
                     Process.myUid(),
                     Set.of(new NotificationHint.Builder(event).build()),
                     rendererTokens,
