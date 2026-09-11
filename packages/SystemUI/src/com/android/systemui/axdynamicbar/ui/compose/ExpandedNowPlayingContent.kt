@@ -45,7 +45,7 @@ import com.android.systemui.axdynamicbar.shared.OnCardSecondary
 import com.android.systemui.axdynamicbar.shared.OnCardText
 import com.android.systemui.axdynamicbar.shared.SpaceLg
 import com.android.systemui.axdynamicbar.shared.sendWithBal
-import com.android.systemui.axdynamicbar.shared.toScaledBitmap
+import com.android.systemui.axdynamicbar.shared.toSquareScaledBitmap
 import com.android.systemui.res.R
 
 @Composable
@@ -56,7 +56,7 @@ internal fun NowPlayingExpanded(event: IslandEvent.NowPlaying, interactor: Islan
         icon = {
             event.albumArt?.let { art ->
                 Image(
-                    bitmap = art.toScaledBitmap(40.dp),
+                    bitmap = art.toSquareScaledBitmap(40.dp),
                     contentDescription = null,
                     modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
                     contentScale = ContentScale.Crop,
