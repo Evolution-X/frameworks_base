@@ -923,7 +923,18 @@ public class MediaControlPanel {
             int screenWidth = bounds.width();
             int screenHeight = bounds.height();
             Drawable albumArt = getScaledBackground(artworkIcon, screenWidth, screenHeight);
-            MediaSessionManager.Companion.get().onAlbumArtChanged(albumArt);
+            // getScaledBackground() returns null when the media session has no artwork icon
+            // (e.g. a stale/backgrounded session left over from an app like YouTube).
+            // onAlbumArtChanged()'s Kotlin signature takes a non-null Drawable, so passing a
+            // null straight through here trips its runtime null-assertion and crashes SystemUI
+            // -- confirmed via a captured crash loop restarting every ~2.7s (NullPointerException:
+            // Parameter specified as non-null is null: method
+            // MediaSessionManager.onAlbumArtChanged, parameter drawable). Only notify when
+            // there's genuinely new artwork to report; skipping the call for a null result
+            // matches the no-op default already defined for this callback.
+            if (albumArt != null) {
+                MediaSessionManager.Companion.get().onAlbumArtChanged(albumArt);
+            }
             WallpaperColors wallpaperColors = getWallpaperColor(artworkIcon);
             boolean darkTheme = false;
             if (wallpaperColors != null) {
