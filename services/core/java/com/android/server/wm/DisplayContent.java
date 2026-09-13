@@ -4533,7 +4533,7 @@ class DisplayContent extends RootDisplayArea implements WindowManagerPolicy.Disp
         }
 
         if (mDisplayId == DEFAULT_DISPLAY && newFocus != null) {
-            IAxSandboxService.get().onAppFocusChanged(newFocus, newTask);
+            AxSandboxService.get().onAppFocusChanged(newFocus, newTask);
         }
 
         if (newFocus != null && isDefaultDisplay) {
