@@ -200,6 +200,7 @@ public class KeyguardIndicationController {
     protected final @Background DelayableExecutor mBackgroundExecutor;
     private final LockPatternUtils mLockPatternUtils;
     private final FalsingManager mFalsingManager;
+    private final BatteryManager mBatteryManager;
     private final KeyguardBypassController mKeyguardBypassController;
     private final AccessibilityManager mAccessibilityManager;
     private final Handler mHandler;
@@ -251,6 +252,7 @@ public class KeyguardIndicationController {
     private long mLastChargeTimeComputeMs;
     private float mChargingCurrent;
     private float mChargingVoltage;
+    private BatteryStatus mBatteryStatus;
     private float mTemperature;
     private Pair<String, BiometricSourceType> mBiometricErrorMessageToShowOnScreenOn;
     private Set<Integer> mCoExFaceAcquisitionMsgIdsToShow;
@@ -412,6 +414,7 @@ public class KeyguardIndicationController {
         mLockPatternUtils = lockPatternUtils;
         mAuthController = authController;
         mFalsingManager = falsingManager;
+        mBatteryManager = mContext.getSystemService(BatteryManager.class);
         mKeyguardBypassController = keyguardBypassController;
         mAccessibilityManager = accessibilityManager;
         mScreenLifecycle = screenLifecycle;
@@ -755,7 +758,7 @@ public class KeyguardIndicationController {
         if (mBatteryPresent && (mPowerPluggedIn || mEnableBatteryDefender)) {
             String powerIndication = computePowerIndication();
             if (DEBUG_CHARGING_SPEED) {
-                powerIndication += ",  " + (mChargingWattage / mCurrentDivider) + " mW";
+                powerIndication += ",  " + (mChargingWattage / 1000f) + " mW";
             }
 
             mKeyguardLogger.logUpdateBatteryIndication(powerIndication, mPowerPluggedIn);
@@ -1456,16 +1459,16 @@ public class KeyguardIndicationController {
             Settings.System.LOCKSCREEN_BATTERY_INFO, 1, UserHandle.USER_CURRENT) == 1;
          if (showbatteryInfo) {
             List<String> chargingDetails = new ArrayList<>();
-            if (mChargingCurrent >= mCurrentDivider * 1000) {
+            if (mChargingCurrent >= 1_000_000f) {
                 chargingDetails.add(String.format(Locale.US, "%.1f",
-                        (mChargingCurrent / (float) mCurrentDivider / 1000f)) + "A");
+                        (mChargingCurrent / 1_000_000f)) + "A");
             } else if (mChargingCurrent > 0) {
                 chargingDetails.add(String.format(Locale.US, "%.0f",
-                        (mChargingCurrent / (float) mCurrentDivider)) + "mA");
+                        (mChargingCurrent / 1000f)) + "mA");
             }
             if (mChargingWattage > 0) {
                 chargingDetails.add(String.format(Locale.US, "%.1f",
-                        (mChargingWattage / (float) mCurrentDivider / 1000f)) + "W");
+                        (mChargingWattage / 1_000_000f)) + "W");
             }
             if (mChargingVoltage > 0) {
                 chargingDetails.add(String.format(Locale.US, "%.1f",
@@ -1593,6 +1596,30 @@ public class KeyguardIndicationController {
         mRotateTextViewController.dump(pw, args);
     }
 
+    private void updateChargingMeasurements(BatteryStatus status, boolean isChargingOrFull) {
+        mChargingCurrent = status.maxChargingCurrent;
+        mChargingVoltage = status.maxChargingVoltage;
+        mChargingWattage = status.maxChargingWattage;
+        if (mBatteryManager == null || !isChargingOrFull || mCurrentDivider <= 0) {
+            return;
+        }
+
+        final int rawCurrent = mBatteryManager.getIntProperty(
+                BatteryManager.BATTERY_PROPERTY_CURRENT_NOW);
+        if (rawCurrent == Integer.MIN_VALUE) {
+            return;
+        }
+        final int voltageMillivolts = status.batteryVoltageMillivolts;
+        if (voltageMillivolts <= 0) {
+            return;
+        }
+
+        // Normalize the device's raw current units to uA before calculating power.
+        mChargingCurrent = Math.abs((float) rawCurrent) * (1000f / mCurrentDivider);
+        mChargingVoltage = voltageMillivolts * 1000f;
+        mChargingWattage = mChargingCurrent * mChargingVoltage / 1_000_000f;
+    }
+
     private final Runnable mUpdateInfo = new Runnable() {
         public void run() {
             long now = SystemClock.uptimeMillis();
@@ -1600,6 +1627,10 @@ public class KeyguardIndicationController {
             try {
                 mBatteryPropertiesRegistrar.scheduleUpdate();
             } catch (RemoteException e) {
+            }
+            if (mVisible && mPowerPluggedIn) {
+                updateChargingMeasurements(mBatteryStatus, true);
+                updateLockScreenBatteryMsg(false);
             }
             if (mHandler != null) {
                 mHandler.postAtTime(mUpdateInfo, next);
@@ -1639,6 +1670,7 @@ public class KeyguardIndicationController {
          */
         @Override
         public void onRefreshBatteryInfo(BatteryStatus status) {
+            mBatteryStatus = status;
             boolean isChargingOrFull = status.status == BatteryManager.BATTERY_STATUS_CHARGING
                     || status.isCharged();
             boolean wasPluggedIn = mPowerPluggedIn;
@@ -1647,9 +1679,7 @@ public class KeyguardIndicationController {
             mPowerPluggedInDock = status.isPluggedInDock() && isChargingOrFull;
             mPowerPluggedIn = isPowerPluggedIn(status, isChargingOrFull);
             mPowerCharged = status.isCharged();
-            mChargingCurrent = status.maxChargingCurrent;
-            mChargingVoltage = status.maxChargingVoltage;
-            mChargingWattage = status.maxChargingWattage;
+            updateChargingMeasurements(status, isChargingOrFull);
             mChargingSpeed = status.getChargingSpeed(mContext);
             mChargingStatus = status.chargingStatus;
             mBatteryLevel = status.level;
