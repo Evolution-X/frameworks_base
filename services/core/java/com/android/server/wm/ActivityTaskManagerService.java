@@ -341,6 +341,11 @@ import java.util.Set;
  */
 public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
     private static final String TAG = TAG_WITH_CLASS_NAME ? "ActivityTaskManagerService" : TAG_ATM;
+    private static final String PIXEL_SYSTEM_SERVICE_PACKAGE =
+            "com.google.android.pixelsystemservice";
+    private static final byte[] PIXEL_SYSTEM_SERVICE_CERTIFICATE = libcore.util.HexEncoding.decode(
+            "606aafa657e8dd786e7aeedd677498343e414289ffa36951342247e45337d548");
+
     static final String TAG_ROOT_TASK = TAG + POSTFIX_ROOT_TASK;
     static final String TAG_SWITCH = TAG + POSTFIX_SWITCH;
 
@@ -3555,17 +3560,39 @@ public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
     /** Sets the task stack listener that gets callbacks when a task stack changes. */
     @Override
     public void registerTaskStackListener(ITaskStackListener listener) {
-        enforceTaskPermission("registerTaskStackListener()");
+        enforceTaskStackListenerPermission("registerTaskStackListener()");
         mTaskChangeNotificationController.registerTaskStackListener(listener);
     }
 
     /** Unregister a task stack listener so that it stops receiving callbacks. */
     @Override
     public void unregisterTaskStackListener(ITaskStackListener listener) {
-        if (!PixelPropsUtils.shouldBypassTaskPermission(Binder.getCallingUid())) {
-            enforceTaskPermission("unregisterTaskStackListener()");
-        }
+        enforceTaskStackListenerPermission("unregisterTaskStackListener()");
         mTaskChangeNotificationController.unregisterTaskStackListener(listener);
+    }
+
+    private void enforceTaskStackListenerPermission(String func) {
+        if (!isCallerPixelSystemService()) {
+            enforceTaskPermission(func);
+        }
+    }
+
+    private boolean isCallerPixelSystemService() {
+        final int callingUid = Binder.getCallingUid();
+        final PackageManager pm = mContext.getPackageManager();
+        final long identity = Binder.clearCallingIdentity();
+        try {
+            final ApplicationInfo app = pm.getApplicationInfoAsUser(PIXEL_SYSTEM_SERVICE_PACKAGE,
+                    PackageManager.MATCH_SYSTEM_ONLY, UserHandle.getUserId(callingUid));
+            // Task observation must not grant the other MANAGE_ACTIVITY_TASKS operations.
+            return app.uid == callingUid && app.isSystemApp()
+                    && pm.hasSigningCertificate(PIXEL_SYSTEM_SERVICE_PACKAGE,
+                            PIXEL_SYSTEM_SERVICE_CERTIFICATE, PackageManager.CERT_INPUT_SHA256);
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        } finally {
+            Binder.restoreCallingIdentity(identity);
+        }
     }
 
     @Override
