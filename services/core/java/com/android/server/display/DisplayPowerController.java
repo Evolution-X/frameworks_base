@@ -607,7 +607,8 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
 
         DisplayWhiteBalanceSettings displayWhiteBalanceSettings = null;
         DisplayWhiteBalanceController displayWhiteBalanceController = null;
-        if (mDisplayId == Display.DEFAULT_DISPLAY) {
+        if (mDisplayId == Display.DEFAULT_DISPLAY
+                && resources.getBoolean(R.bool.config_displayWhiteBalanceAvailable)) {
             try {
                 displayWhiteBalanceController = mInjector.getDisplayWhiteBalanceController(
                         mHandler, mSensorManager, resources, mDisplayDeviceConfig);
