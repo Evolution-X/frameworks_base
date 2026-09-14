@@ -841,10 +841,9 @@ public final class BatteryService extends SystemService {
 
         if (force || translatedChargingPolicy != mLastChargingPolicy) {
             mLastChargingPolicy = translatedChargingPolicy;
+        }
 
         mOemCharger = mHasOemCharger && isOemCharger();
-
-        }
 
         if (force
                 || (mHealthInfo.batteryStatus != mLastBroadcastBatteryStatus
@@ -1365,6 +1364,7 @@ public final class BatteryService extends SystemService {
         final boolean maxChargingCurrentUpdated =
                 mLastBroadcastMaxChargingCurrent != mHealthInfo.maxChargingCurrentMicroamps;
         final boolean otherStatesUpdated = forceUpdate
+                || mOemCharger != mLastOemCharger
                 || mHealthInfo.batteryStatus != mLastBroadcastBatteryStatus
                 || mHealthInfo.batteryHealth != mLastBroadcastBatteryHealth
                 || mHealthInfo.batteryPresent != mLastBroadcastBatteryPresent
