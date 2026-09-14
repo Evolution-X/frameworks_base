@@ -31,6 +31,7 @@ import static android.os.BatteryManager.EXTRA_PLUGGED;
 import static android.os.BatteryManager.EXTRA_PRESENT;
 import static android.os.BatteryManager.EXTRA_STATUS;
 import static android.os.BatteryManager.EXTRA_TEMPERATURE;
+import static android.os.BatteryManager.EXTRA_VOLTAGE;
 import static android.os.OsProtoEnums.BATTERY_PLUGGED_NONE;
 
 import android.content.Context;
@@ -65,6 +66,7 @@ public class BatteryStatus {
     public final int chargingStatus;
     public final float maxChargingCurrent;
     public final float maxChargingVoltage;
+    public final int batteryVoltageMillivolts;
     public final float maxChargingWattage;
     public final float temperature;
     public final boolean present;
@@ -88,6 +90,7 @@ public class BatteryStatus {
         this.chargingStatus = chargingStatus;
         this.maxChargingCurrent = maxChargingCurrent;
         this.maxChargingVoltage = maxChargingVoltage;
+        this.batteryVoltageMillivolts = -1;
         this.maxChargingWattage = maxChargingWattage;
         this.oemChargeStatus = oemChargeStatus;
         this.present = present;
@@ -115,6 +118,7 @@ public class BatteryStatus {
         oemChargeStatus = batteryChangedIntent.getBooleanExtra(EXTRA_OEM_CHARGER, false);
         present = batteryChangedIntent.getBooleanExtra(EXTRA_PRESENT, true);
         temperature = batteryChangedIntent.getIntExtra(EXTRA_TEMPERATURE, -1);
+        batteryVoltageMillivolts = batteryChangedIntent.getIntExtra(EXTRA_VOLTAGE, -1);
         this.incompatibleCharger = incompatibleCharger;
 
         maxChargingWattage = calculateMaxChargingMicroWatt(batteryChangedIntent);
