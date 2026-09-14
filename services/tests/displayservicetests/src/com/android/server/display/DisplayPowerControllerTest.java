@@ -231,6 +231,8 @@ public final class DisplayPowerControllerTest {
         mContext.getOrCreateTestableResources().addOverride(
                 com.android.internal.R.bool.config_displayColorFadeDisabled, false);
         mContext.getOrCreateTestableResources().addOverride(
+                com.android.internal.R.bool.config_displayWhiteBalanceAvailable, true);
+        mContext.getOrCreateTestableResources().addOverride(
                 com.android.internal.R.fraction.config_screenAutoBrightnessDozeScaleFactor,
                 DOZE_SCALE_FACTOR);
 
@@ -1424,6 +1426,40 @@ public final class DisplayPowerControllerTest {
         inOrder.verify(mHolder.brightnessSetting).setBrightness(PowerManager.BRIGHTNESS_MAX);
         inOrder.verify(mHolder.brightnessSetting).setUserSerial(userSerial);
         inOrder.verify(mHolder.brightnessSetting).setBrightness(unclampedBrightness);
+    }
+
+    @Test
+    public void testDisplayWhiteBalanceAvailable() {
+        verify(mHolder.injector).getDisplayWhiteBalanceController(
+                any(Handler.class), eq(mSensorManagerMock), any(Resources.class), eq(mHolder.config));
+        verify(mDisplayWhiteBalanceControllerMock).setCallbacks(mHolder.dpc);
+        verify(mCdsiMock).setDisplayWhiteBalanceListener(any());
+    }
+
+    @Test
+    public void testDisplayWhiteBalanceUnavailable() {
+        mContext.getOrCreateTestableResources().addOverride(
+                com.android.internal.R.bool.config_displayWhiteBalanceAvailable, false);
+        clearInvocations(mCdsiMock, mDisplayWhiteBalanceControllerMock);
+
+        mHolder = createDisplayPowerController(DISPLAY_ID, UNIQUE_ID);
+
+        verify(mHolder.injector, never()).getDisplayWhiteBalanceController(
+                any(), any(), any(), any());
+        verify(mCdsiMock, never()).setDisplayWhiteBalanceListener(any());
+        verify(mDisplayWhiteBalanceControllerMock, never()).setCallbacks(any());
+    }
+
+    @Test
+    public void testDisplayWhiteBalanceNotCreatedForSecondaryDisplay() {
+        clearInvocations(mCdsiMock, mDisplayWhiteBalanceControllerMock);
+
+        mHolder = createDisplayPowerController(FOLLOWER_DISPLAY_ID, FOLLOWER_UNIQUE_ID);
+
+        verify(mHolder.injector, never()).getDisplayWhiteBalanceController(
+                any(), any(), any(), any());
+        verify(mCdsiMock, never()).setDisplayWhiteBalanceListener(any());
+        verify(mDisplayWhiteBalanceControllerMock, never()).setCallbacks(any());
     }
 
     @Test
