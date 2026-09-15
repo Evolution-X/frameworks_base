@@ -111,6 +111,11 @@ constructor(
     ): ConstraintSet {
         // Add constraint between rootView and clockContainer
         applyDefaultConstraints(constraintSet)
+        // Reset the date/weather row horizontal bias before the clock re-applies its own. The
+        // Words clock left-aligns the row (bias 0); without this, that bias would stick when
+        // switching back to a centred clock, since this section (unlike SmartspaceSection) is
+        // re-applied on every clock change. Clocks that want it left re-set their bias below.
+        constraintSet.setHorizontalBias(sharedR.id.date_smartspace_view_large, 0.5f)
         getNonTargetClockFace(clock).applyConstraints(constraintSet)
         getTargetClockFace(clock).applyConstraints(constraintSet)
 
