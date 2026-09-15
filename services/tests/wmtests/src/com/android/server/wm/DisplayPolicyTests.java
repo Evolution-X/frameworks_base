@@ -46,9 +46,14 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.graphics.Insets;
@@ -488,6 +493,98 @@ public class DisplayPolicyTests extends WindowTestsBase {
         assertFalse(imeSource.getFrame().isEmpty());
         assertEquals(mImeWindow.getWindowFrames().mFrame.height() - 10,
                 imeSource.getFrame().height());
+    }
+
+    @SetupWindows(addWindows = { W_ACTIVITY, W_STATUS_BAR })
+    @DisableFlags(Flags.FLAG_ENABLE_TRANSIENT_GESTURE_IN_SYSTEM_UI)
+    @Test
+    public void testStatusBarTouchTransfer_usesControlWindow() {
+        final InsetsControlTarget target = mock(InsetsControlTarget.class);
+        doReturn(mAppWindow).when(target).getWindow();
+        mAppWindow.mInputChannelToken = new Binder();
+        final DisplayPolicy policy = prepareStatusBarTouchTransfer(target);
+        doReturn(true).when(mWm.mInputManager).transferTouchGesture(
+                mAppWindow.mInputChannelToken, mStatusBarWindow.mInputChannelToken, false);
+
+        policy.requestTransientBars(mStatusBarWindow, true);
+
+        verify(target).showInsets(statusBars() | navigationBars(), null);
+        verify(mWm.mInputManager).transferTouchGesture(mAppWindow.mInputChannelToken,
+                mStatusBarWindow.mInputChannelToken, false);
+        verify(mWm.mInputManager, never()).transferTouch(any(), anyInt());
+    }
+
+    @SetupWindows(addWindows = { W_ACTIVITY, W_STATUS_BAR })
+    @DisableFlags(Flags.FLAG_ENABLE_TRANSIENT_GESTURE_IN_SYSTEM_UI)
+    @Test
+    public void testStatusBarTouchTransfer_doesNotFallBackToAnotherWindow() {
+        final InsetsControlTarget target = mock(InsetsControlTarget.class);
+        doReturn(mAppWindow).when(target).getWindow();
+        mAppWindow.mInputChannelToken = new Binder();
+        final DisplayPolicy policy = prepareStatusBarTouchTransfer(target);
+        // The control window no longer owns the gesture; the shade may already have it.
+        doReturn(false).when(mWm.mInputManager).transferTouchGesture(
+                mAppWindow.mInputChannelToken, mStatusBarWindow.mInputChannelToken, false);
+
+        policy.requestTransientBars(mStatusBarWindow, true);
+
+        verify(mWm.mInputManager).transferTouchGesture(mAppWindow.mInputChannelToken,
+                mStatusBarWindow.mInputChannelToken, false);
+        verify(mWm.mInputManager, never()).transferTouch(any(), anyInt());
+    }
+
+    @SetupWindows(addWindows = { W_STATUS_BAR })
+    @DisableFlags(Flags.FLAG_ENABLE_TRANSIENT_GESTURE_IN_SYSTEM_UI)
+    @Test
+    public void testStatusBarTouchTransfer_noControlWindow() {
+        final InsetsControlTarget target = mock(InsetsControlTarget.class);
+        final DisplayPolicy policy = prepareStatusBarTouchTransfer(target);
+
+        policy.requestTransientBars(mStatusBarWindow, true);
+
+        verify(target).showInsets(statusBars() | navigationBars(), null);
+        verify(mWm.mInputManager, never()).transferTouchGesture(any(), any(), anyBoolean());
+        verify(mWm.mInputManager, never()).transferTouch(any(), anyInt());
+    }
+
+    @SetupWindows(addWindows = { W_ACTIVITY, W_STATUS_BAR })
+    @DisableFlags(Flags.FLAG_ENABLE_TRANSIENT_GESTURE_IN_SYSTEM_UI)
+    @Test
+    public void testStatusBarTouchTransfer_noSourceInputChannel() {
+        final InsetsControlTarget target = mock(InsetsControlTarget.class);
+        doReturn(mAppWindow).when(target).getWindow();
+        mAppWindow.mInputChannelToken = null;
+        final DisplayPolicy policy = prepareStatusBarTouchTransfer(target);
+
+        policy.requestTransientBars(mStatusBarWindow, true);
+
+        verify(target).showInsets(statusBars() | navigationBars(), null);
+        verify(mWm.mInputManager, never()).transferTouchGesture(any(), any(), anyBoolean());
+        verify(mWm.mInputManager, never()).transferTouch(any(), anyInt());
+    }
+
+    @SetupWindows(addWindows = { W_STATUS_BAR, W_NOTIFICATION_SHADE })
+    @DisableFlags(Flags.FLAG_ENABLE_TRANSIENT_GESTURE_IN_SYSTEM_UI)
+    @Test
+    public void testStatusBarTouchTransfer_shadeControlsInsets() {
+        final DisplayPolicy policy = prepareStatusBarTouchTransfer(mNotificationShadeWindow);
+        policy.addWindowLw(mNotificationShadeWindow, mNotificationShadeWindow.mAttrs);
+
+        policy.requestTransientBars(mStatusBarWindow, true);
+
+        verify(mWm.mInputManager, never()).transferTouchGesture(any(), any(), anyBoolean());
+        verify(mWm.mInputManager, never()).transferTouch(any(), anyInt());
+    }
+
+    private DisplayPolicy prepareStatusBarTouchTransfer(InsetsControlTarget target) {
+        ((TestWindowManagerPolicy) mWm.mPolicy).mIsUserSetupComplete = true;
+        final DisplayPolicy policy = mDisplayContent.getDisplayPolicy();
+        policy.addWindowLw(mStatusBarWindow, mStatusBarWindow.mAttrs);
+        final InsetsSourceProvider provider = mStatusBarWindow.getControllableInsetProvider();
+        spyOn(provider);
+        doReturn(target).when(provider).getControlTarget();
+        mStatusBarWindow.mInputChannelToken = new Binder();
+        return policy;
     }
 
     @SetupWindows(addWindows = { W_ACTIVITY, W_NAVIGATION_BAR })
