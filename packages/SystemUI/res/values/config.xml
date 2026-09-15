@@ -686,6 +686,12 @@
     <!-- TODO(b/411449027): This config is deprecated. Remove with the launch of SceneContainer. -->
     <bool name="force_config_use_split_notification_shade">false</bool>
 
+    <!-- Keep the lock-screen date/weather row centred below the large
+         clock regardless of the AOSP font/display-size breaking heuristic. Clocks that
+         want the row positioned differently (e.g. the Words clock left-aligns it) override
+         it in their own layout. Set to false to restore the stock heuristic. -->
+    <bool name="config_dateWeatherAlwaysBelowLargeClock">true</bool>
+
     <!-- Whether we use large screen shade header which takes only one row compared to QS header -->
     <bool name="config_use_large_screen_shade_header">false</bool>
 
