@@ -36,7 +36,9 @@ import android.util.SparseArrayMap;
 import android.util.proto.ProtoOutputStream;
 
 import com.android.internal.annotations.GuardedBy;
+import com.android.server.LocalServices;
 import com.android.server.job.JobSchedulerService;
+import com.android.server.pm.UserManagerInternal;
 
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -49,6 +51,8 @@ public class ComponentController extends StateController {
     private static final String TAG = "JobScheduler.Component";
     private static final boolean DEBUG = JobSchedulerService.DEBUG
             || Log.isLoggable(TAG, Log.DEBUG);
+
+    private final UserManagerInternal mUserManagerInternal;
 
     private final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
 
@@ -106,6 +110,7 @@ public class ComponentController extends StateController {
 
     public ComponentController(JobSchedulerService service) {
         super(service);
+        mUserManagerInternal = LocalServices.getService(UserManagerInternal.class);
     }
 
     @Override
@@ -165,9 +170,10 @@ public class ComponentController extends StateController {
                     .getPackageManager()
                     .getServiceInfo(service, PackageManager.MATCH_DIRECT_BOOT_AUTO);
         } catch (NameNotFoundException e) {
-            if (mService.areUsersStartedLocked(jobStatus)) {
-                // User is fully unlocked but PM still says the package doesn't exist.
-                Slog.e(TAG, "Job exists for non-existent package: " + service.getPackageName());
+            if (mService.areUsersStartedLocked(jobStatus)
+                    && mUserManagerInternal.isUserUnlocked(userId)) {
+                Slog.e(TAG, "Job service unavailable: " + service.flattenToShortString()
+                        + " for user " + userId);
             }
             // Write null to the cache so we don't keep querying PM.
             si = null;
