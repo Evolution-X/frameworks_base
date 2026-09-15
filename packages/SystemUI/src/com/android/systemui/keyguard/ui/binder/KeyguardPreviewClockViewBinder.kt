@@ -18,6 +18,7 @@
 package com.android.systemui.keyguard.ui.binder
 
 import android.content.res.Resources
+import com.android.systemui.shared.R as sharedR
 import android.view.View
 import android.view.View.INVISIBLE
 import android.view.View.VISIBLE
@@ -146,6 +147,9 @@ object KeyguardPreviewClockViewBinder {
             } else {
                 clockPreviewConfig
             }
+        // Reset the date/weather bias before the clock re-applies its own (mirrors the real
+        // ClockSection), so switching the previewed clock re-centres unless it left-aligns.
+        cs.setHorizontalBias(sharedR.id.date_smartspace_view_large, 0.5f)
         previewClock.largeClock.layout.applyPreviewConstraints(configWithUpdatedLockId, cs)
         previewClock.smallClock.layout.applyPreviewConstraints(configWithUpdatedLockId, cs)
         cs.applyTo(rootView)
