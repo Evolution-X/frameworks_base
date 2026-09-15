@@ -209,13 +209,21 @@ constructor(
                 val screenWidthDp = configurationValues.screenWidthDp
                 val fontScale = configurationValues.fontScale
 
+                // FundamentalOS: centre the date/weather row under the large clock by design.
+                // Clocks that want it elsewhere (e.g. Words, which left-aligns) opt out in
+                // their own layout. config_dateWeatherAlwaysBelowLargeClock keeps it below
+                // regardless of the stock font/display-size breaking heuristic, which stays
+                // the fallback when a device overlays the flag to false.
                 var belowLargeClock =
-                    !isFontAndDisplaySizeBreaking(
-                        currentClock = currentClock,
-                        screenWidthDp = screenWidthDp,
-                        fontScale = fontScale,
-                        isFullWidthShade = isFullWidthShade,
-                    )
+                    resources.getBoolean(
+                        SysuiR.bool.config_dateWeatherAlwaysBelowLargeClock
+                    ) ||
+                        !isFontAndDisplaySizeBreaking(
+                            currentClock = currentClock,
+                            screenWidthDp = screenWidthDp,
+                            fontScale = fontScale,
+                            isFullWidthShade = isFullWidthShade,
+                        )
                 largeClockLogBuffer.log(
                     TAG,
                     LogLevel.INFO,
