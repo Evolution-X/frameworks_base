@@ -3331,11 +3331,14 @@ public class SettingsProvider extends ContentProvider {
      * Schedule the job service to make a copy of all the settings files.
      */
     public void scheduleWriteFallbackFilesJob() {
+        // SettingsProvider starts before JobSchedulerService is published.
+        if (ServiceManager.checkService(Context.JOB_SCHEDULER_SERVICE) == null) {
+            return;
+        }
         final Context context = getContext();
         JobScheduler jobScheduler =
                 (JobScheduler) context.getSystemService(Context.JOB_SCHEDULER_SERVICE);
         if (jobScheduler == null) {
-            // Might happen: SettingsProvider is created before JobSchedulerService in system server
             return;
         }
         jobScheduler = jobScheduler.forNamespace(SETTINGS_PROVIDER_JOBS_NS);
