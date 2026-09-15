@@ -145,7 +145,6 @@ object KeyguardPreviewSmartspaceViewBinder {
                                                     view.id,
                                                     ConstraintSet.CHAIN_PACKED,
                                                 )
-                                                setHorizontalBias(view.id, 0.5f)
                                                 connect(
                                                     view.id,
                                                     TOP,
