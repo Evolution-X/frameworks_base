@@ -2517,12 +2517,9 @@ public class DisplayPolicy {
             return;
         }
 
-        if (controlTarget != null) {
-            final WindowState win = controlTarget.getWindow();
-
-            if (win != null && win.isActivityTypeDream()) {
-                return;
-            }
+        final WindowState controlWindow = controlTarget.getWindow();
+        if (controlWindow != null && controlWindow.isActivityTypeDream()) {
+            return;
         }
 
         final @InsetsType int restorePositionTypes = (Type.statusBars() | Type.navigationBars())
@@ -2547,14 +2544,13 @@ public class DisplayPolicy {
             // Restore visibilities and positions of system bars.
             controlTarget.showInsets(Type.statusBars() | Type.navigationBars(),
                     null /* statsToken */);
-            // To further allow the pull-down-from-the-top gesture to pull down the notification
-            // shade as a consistent motion, we reroute the touch events here from the currently
-            // touched window to the status bar after making it visible.
-            if (swipeTarget == mStatusBar) {
-                final boolean transferred = mStatusBar.transferTouch();
-                if (!transferred) {
-                    Slog.i(TAG, "Could not transfer touch to the status bar");
-                }
+            // Only transfer the control window's gesture. The shade may already be handling
+            // a swipe while another window still controls the status bar insets.
+            if (swipeTarget == mStatusBar && controlWindow != null
+                    && controlWindow.mInputChannelToken != null
+                    && mStatusBar.mInputChannelToken != null) {
+                mService.mInputManager.transferTouchGesture(controlWindow.mInputChannelToken,
+                        mStatusBar.mInputChannelToken, false /* transferEntireGesture */);
             }
         }
         mStatusBarManagerInternal.confirmImmersivePrompt();
