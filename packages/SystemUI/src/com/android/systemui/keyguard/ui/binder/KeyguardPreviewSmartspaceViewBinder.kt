@@ -137,13 +137,22 @@ object KeyguardPreviewSmartspaceViewBinder {
                                                     largeClockViewId,
                                                     ConstraintSet.END,
                                                 )
+                                                // Match the real lock screen (SmartspaceSection):
+                                                // centre the row under the clock with a packed
+                                                // chain and the same vertical gap, so the picker
+                                                // preview is WYSIWYG.
+                                                setHorizontalChainStyle(
+                                                    view.id,
+                                                    ConstraintSet.CHAIN_PACKED,
+                                                )
+                                                setHorizontalBias(view.id, 0.5f)
                                                 connect(
                                                     view.id,
                                                     TOP,
                                                     largeClockViewId,
                                                     ConstraintSet.BOTTOM,
-                                                    viewModel.getDateWeatherEndPadding(
-                                                        view.context
+                                                    view.resources.getDimensionPixelSize(
+                                                        R.dimen.smartspace_padding_vertical
                                                     ),
                                                 )
                                             }

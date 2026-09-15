@@ -115,7 +115,7 @@
     <dimen name="below_clock_padding_end">16dp</dimen>
     <dimen name="below_clock_padding_start_icons">28dp</dimen>
     <dimen name="smartspace_padding_horizontal">16dp</dimen>
-    <dimen name="smartspace_padding_vertical">6dp</dimen>
+    <dimen name="smartspace_padding_vertical">8dp</dimen>
 
     <!-- Lockscreen upper region horizontal paddings -->
     <dimen name="upper_region_wide_horizontal_padding">24dp</dimen>
