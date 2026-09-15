@@ -245,6 +245,12 @@ constructor(
                     sharedR.id.date_smartspace_view_large,
                     ConstraintSet.CHAIN_PACKED,
                 )
+                // Reset the bias a previous clock may have pushed to the start: the constraint
+                // set is cloned from the live views, so a stale left bias (e.g. from the Words
+                // clock) would otherwise stick when switching back to a centred clock. Clocks
+                // that want the row left-aligned re-apply their bias after this in their own
+                // applyConstraints.
+                setHorizontalBias(sharedR.id.date_smartspace_view_large, 0.5f)
             } else {
                 if (dateWeatherBelowSmallClock || !dateWeatherBelowLargeClock) {
                     connect(
