@@ -35,6 +35,7 @@ import com.android.systemui.keyguard.ui.transitions.BlurConfig
 import com.android.systemui.lifecycle.HydratedActivatable
 import com.android.systemui.scene.shared.model.Overlays
 import com.android.systemui.scene.shared.model.Scenes
+import com.android.systemui.settings.DisplayTracker
 import com.android.systemui.shade.domain.interactor.ShadeInteractor
 import com.android.systemui.wallpapers.domain.interactor.WallpaperInteractor
 import com.android.systemui.window.domain.interactor.WindowRootViewBlurInteractor
@@ -65,6 +66,7 @@ constructor(
     private val shadeInteractor: ShadeInteractor,
     private val deviceEntryInteractor: DeviceEntryInteractor,
     private val logger: BlurLogger,
+    private val displayTracker: DisplayTracker,
 ) : HydratedActivatable(false) {
 
     private val ignoredSceneChanges: Set<SceneKey> = setOf(Scenes.Shade, Scenes.QuickSettings)
@@ -142,12 +144,16 @@ constructor(
     }
 
     private fun ContentKey.blurRadius(): Float {
+        val maxBlurRadiusPx =
+            blurConfig.maxBlurRadiusPxForRefreshRate(
+                displayTracker.getDisplay(displayTracker.defaultDisplayId).refreshRate
+            )
         return when (this) {
             is SceneKey -> {
                 when (this) {
                     Scenes.Communal ->
                         if (isCommunalBackgroundBlurred) {
-                            blurConfig.maxBlurRadiusPx
+                            maxBlurRadiusPx
                         } else {
                             blurConfig.minBlurRadiusPx
                         }
@@ -156,12 +162,12 @@ constructor(
                             ambientModeSupported &&
                                 keyguardTransitionInteractor.currentKeyguardState.value == AOD
                         ) {
-                            blurConfig.maxBlurRadiusPx / 2
+                            maxBlurRadiusPx / 2
                         } else {
                             blurConfig.minBlurRadiusPx
                         }
-                    Scenes.QuickSettings -> blurConfig.maxBlurRadiusPx
-                    Scenes.Shade -> blurConfig.maxBlurRadiusPx
+                    Scenes.QuickSettings -> maxBlurRadiusPx
+                    Scenes.Shade -> maxBlurRadiusPx
                     Scenes.Dream -> blurConfig.minBlurRadiusPx
                     Scenes.Gone -> blurConfig.minBlurRadiusPx
                     Scenes.Occluded -> blurConfig.minBlurRadiusPx
@@ -170,7 +176,7 @@ constructor(
             }
 
             is OverlayKey -> {
-                blurConfig.maxBlurRadiusPx
+                maxBlurRadiusPx
             }
         }
     }
