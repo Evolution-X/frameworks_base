@@ -61,6 +61,9 @@ constructor(
         bouncerHapticPlayer = bouncerHapticPlayer,
     ) {
 
+    /** The current pattern size. */
+    val patternSize: StateFlow<Byte> = interactor.patternSize
+
     /** The number of columns in the dot grid. */
     val columnCount: Byte
         get() = interactor.patternSize.value
