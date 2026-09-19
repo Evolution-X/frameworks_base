@@ -378,11 +378,13 @@ class WallpaperController {
             rawChanged = true;
         }
 
-        if (Float.compare(wallpaperWin.mWallpaperZoomOut, mLastWallpaperZoomOut) != 0) {
-            wallpaperWin.mWallpaperZoomOut = mLastWallpaperZoomOut;
+        // Keep caller requests so they can be restored when wallpaper zoom is enabled again.
+        final float zoomOut = mService.mWallpaperZoomEnabled ? mLastWallpaperZoomOut : 1f;
+        if (Float.compare(wallpaperWin.mWallpaperZoomOut, zoomOut) != 0) {
+            wallpaperWin.mWallpaperZoomOut = zoomOut;
             rawChanged = true;
         }
-        zoom = wallpaperWin.mShouldScaleWallpaper
+        zoom = wallpaperWin.mShouldScaleWallpaper && mService.mWallpaperZoomEnabled
                 ? zoomOutToScale(wallpaperWin.mWallpaperZoomOut) : 1f;
         final float totalZoom = zoom * cropZoom;
         boolean changed = wallpaperWin.setWallpaperOffset(offsetX, offsetY, totalZoom);
@@ -441,10 +443,14 @@ class WallpaperController {
         }
 
         if (Math.abs(oldMaxZoom - mLastWallpaperZoomOut) >= WALLPAPER_ZOOM_EPSILON) {
-            for (int i = mWallpaperTokens.size() - 1; i >= 0; i--) {
-                final WallpaperWindowToken token = mWallpaperTokens.get(i);
-                token.updateWallpaperOffset();
-            }
+            updateWallpaperZoom();
+        }
+    }
+
+    void updateWallpaperZoom() {
+        for (int i = mWallpaperTokens.size() - 1; i >= 0; i--) {
+            final WallpaperWindowToken token = mWallpaperTokens.get(i);
+            token.updateWallpaperOffset();
         }
     }
 
