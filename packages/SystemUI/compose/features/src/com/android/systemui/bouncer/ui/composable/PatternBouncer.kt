@@ -29,7 +29,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -41,6 +40,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -218,8 +218,6 @@ fun PatternBouncer(
     }
 
     var gridCoordinates: LayoutCoordinates? by remember { mutableStateOf(null) }
-    var offset: Offset by remember { mutableStateOf(Offset.Zero) }
-    var scale: Float by remember { mutableFloatStateOf(1f) }
 
     val maxWidth: Dp = dimensionResource(biometric_auth_pattern_view_size)
     val maxHeight: Dp = dimensionResource(biometric_auth_pattern_view_size)
@@ -245,18 +243,51 @@ fun PatternBouncer(
                 }
                 .thenIf(isInputEnabled) {
                     Modifier.pointerInput(
-                        gridCoordinates,
-                        scale,
                         isAnimationEnabled,
                         viewModel.isTouchExplorationEnabled,
                     ) {
                         coroutineScope {
                             awaitPointerEventScope {
+                                val processDrag = { change: PointerInputChange ->
+                                    val size = gridCoordinates?.size
+                                    if (size != null && size.width > 0 && size.height > 0) {
+                                        // Read the live grid size. patternSize is not a pointerInput
+                                        // key, so a size change must not restart an active drag.
+                                        val columns = viewModel.columnCount
+                                        val rows = viewModel.rowCount
+                                        val hSpacing = size.width.toFloat() / columns
+                                        val vSpacing = size.height.toFloat() / rows
+                                        val spacing = min(hSpacing, vSpacing)
+                                        val hOffset =
+                                            offset(
+                                                availableSize = size.width,
+                                                spacingPerDot = spacing,
+                                                dotCount = columns,
+                                                isCentered = true,
+                                            )
+                                        val vOffset =
+                                            offset(
+                                                availableSize = size.height,
+                                                spacingPerDot = spacing,
+                                                dotCount = rows,
+                                                isCentered = centerDotsVertically,
+                                            )
+                                        viewModel.onDrag(
+                                            xPx = change.position.x,
+                                            yPx = change.position.y,
+                                            containerSizePx = (columns * spacing).toInt(),
+                                            horizontalOffset = hOffset,
+                                            verticalOffset = vOffset,
+                                        )
+                                    }
+                                }
+
                                 val startDrag = { event: PointerEvent ->
                                     viewModel.onDown()
-                                    event.changes.firstOrNull()?.let {
-                                        it.consume()
-                                        viewModel.onDragStart(it.position)
+                                    event.changes.firstOrNull()?.let { change ->
+                                        change.consume()
+                                        viewModel.onDragStart(change.position)
+                                        processDrag(change)
                                     }
                                 }
 
@@ -287,14 +318,7 @@ fun PatternBouncer(
                                         PointerEventType.Move -> {
                                             event.changes.fastForEach { change ->
                                                 change.consume()
-                                                viewModel.onDrag(
-                                                    change.position.x,
-                                                    change.position.y,
-                                                    containerSizePx =
-                                                        (scale *
-                                                                (gridCoordinates?.size?.width ?: 0))
-                                                            .toInt(),
-                                                )
+                                                processDrag(change)
                                             }
                                         }
 
@@ -341,9 +365,6 @@ fun PatternBouncer(
                         dotCount = rowCount,
                         isCentered = centerDotsVertically,
                     )
-                offset = Offset(horizontalOffset, verticalOffset)
-                scale = (colCount * spacing) / containerSize.width
-
                 if (isAnimationEnabled) {
                     // Draw lines between dots.
                     selectedDots.forEachIndexed { index, dot ->
