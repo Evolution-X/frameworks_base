@@ -262,7 +262,8 @@ constructor(
 
     override val patternSize: StateFlow<Byte> =
         refreshingFlow(
-            initialValue = LockPatternUtils.PATTERN_SIZE_DEFAULT,
+            initialValue =
+                lockPatternUtils.getLockPatternSize(userRepository.getSelectedUserInfo().id),
             getFreshValue = lockPatternUtils::getLockPatternSize,
         )
 
