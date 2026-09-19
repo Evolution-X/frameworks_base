@@ -17,6 +17,7 @@
 package com.android.systemui.qs.panels.ui.compose
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -24,15 +25,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastMap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.compose.animation.scene.ContentScope
 import com.android.systemui.compose.modifiers.sysuiResTag
+import com.android.systemui.grid.ui.compose.GridSpan
+import com.android.systemui.grid.ui.compose.TwoDimensionalSpannedGrid
 import com.android.systemui.grid.ui.compose.VerticalSpannedGrid
+import com.android.systemui.grid.ui.compose.calculate2DPlacements
 import com.android.systemui.qs.composefragment.ui.GridAnchor
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSQsStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalQSQuadTiles
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.Tile
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSPanelStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSTileLayout
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQuadTiles
 import com.android.systemui.qs.panels.ui.viewmodel.BounceableTileViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.QuickQuickSettingsViewModel
 import com.android.systemui.qs.shared.ui.QuickSettings.Elements.toElementKey
@@ -44,6 +53,11 @@ fun ContentScope.QuickQuickSettings(
     modifier: Modifier = Modifier,
     listening: () -> Boolean,
 ) {
+    if (LocalNothingQsStyle.current) {
+        NothingQuickQuickSettings(viewModel, modifier, listening)
+        return
+    }
+
     val columns = viewModel.columns
     val sizedTiles = viewModel.tileViewModels
     val tiles = sizedTiles.fastMap { it.tile }
@@ -95,3 +109,88 @@ fun ContentScope.QuickQuickSettings(
 
     TileListener(tiles, listening)
 }
+
+/**
+ * Nothing style QQS: the first two rows of the same 2D placements as the expanded panel, on 4
+ * square columns, where tiles are circles, pills (2x1) or quads (2x2).
+ */
+@Composable
+private fun ContentScope.NothingQuickQuickSettings(
+    viewModel: QuickQuickSettingsViewModel,
+    modifier: Modifier,
+    listening: () -> Boolean,
+) {
+    val columns = NOTHING_COLUMNS
+    val squishiness by viewModel.squishinessViewModel.squishiness.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val quadTiles = rememberQuadTiles()
+    val tileLayout = rememberQSTileLayout()
+    val largeTiles by viewModel.iconTilesViewModel.largeTiles.collectAsStateWithLifecycle()
+    val noBounce = remember { BounceableInfo(BounceableTileViewModel(), null, null, false) }
+
+    val allTiles = viewModel.allTileViewModels.map { it.tile }
+    val allSpans =
+        remember(allTiles, largeTiles, quadTiles) {
+            allTiles.map {
+                when {
+                    quadTiles.contains(it.spec) -> GridSpan(colSpan = 2, rowSpan = 2)
+                    largeTiles.contains(it.spec) -> GridSpan(colSpan = 2, rowSpan = 1)
+                    else -> GridSpan(colSpan = 1, rowSpan = 1)
+                }
+            }
+        }
+    val preferredPlacements =
+        remember(allTiles, tileLayout) {
+            allTiles
+                .mapIndexedNotNull { index, tile -> tileLayout[tile.spec]?.let { index to it } }
+                .toMap()
+        }
+    val qqsPlacements =
+        remember(allSpans, preferredPlacements) {
+            calculate2DPlacements(
+                allSpans,
+                columns,
+                preferredPlacements = preferredPlacements,
+                maxRows = NOTHING_QQS_MAX_ROWS,
+            )
+        }
+    val qqsTiles = remember(qqsPlacements, allTiles) { qqsPlacements.map { allTiles[it.index] } }
+    val qqsSpans = remember(qqsPlacements, allSpans) { qqsPlacements.map { allSpans[it.index] } }
+
+    Box(modifier = modifier) {
+        GridAnchor()
+
+        TwoDimensionalSpannedGrid(
+            columns = columns,
+            columnSpacing = NOTHING_SPACING,
+            rowSpacing = NOTHING_SPACING,
+            spans = qqsSpans,
+            customPlacements = qqsPlacements.mapIndexed { idx, p -> p.copy(index = idx) },
+            useSquareCells = true,
+            keys = { qqsTiles[it].spec },
+            modifier = Modifier.sysuiResTag("qqs_tile_layout"),
+        ) { spanIndex, _ ->
+            val it = qqsTiles[spanIndex]
+            Element(it.spec.toElementKey(), Modifier) {
+                CompositionLocalProvider(LocalQSQuadTiles provides quadTiles) {
+                    Tile(
+                        tile = it,
+                        iconOnly = !largeTiles.contains(it.spec) && !quadTiles.contains(it.spec),
+                        squishiness = { squishiness },
+                        coroutineScope = scope,
+                        bounceableInfo = noBounce,
+                        tileHapticsViewModelFactory = viewModel.tileHapticsViewModelFactory,
+                        detailsViewModel = null,
+                        isVisible = listening,
+                    )
+                }
+            }
+        }
+    }
+
+    TileListener(qqsTiles, listening)
+}
+
+private const val NOTHING_COLUMNS = 4
+private const val NOTHING_QQS_MAX_ROWS = 2
+private val NOTHING_SPACING = 16.dp
