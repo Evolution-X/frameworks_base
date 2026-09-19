@@ -163,8 +163,10 @@ import com.android.systemui.qs.panels.ui.compose.TileGrid
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSBackdrop
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.InfiniteGridLayout
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSQsStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSColorOSMediaArtFill
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSColorOSStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSNothingStyle
 import com.android.systemui.qs.shared.ui.QuickSettings.Elements
 import com.android.systemui.qs.ui.composable.QuickSettingsShade
 import com.android.systemui.qs.ui.composable.QuickSettingsShade.systemGestureExclusionInShade
@@ -286,7 +288,11 @@ constructor(
                         setContent {
                             val colorOSStyle = rememberQSColorOSStyle()
                             SideEffect { colorOSQsStyle = colorOSStyle }
-                            CompositionLocalProvider(LocalColorOSQsStyle provides colorOSStyle) {
+                            val nothingStyle = rememberQSNothingStyle()
+                            CompositionLocalProvider(
+                                LocalColorOSQsStyle provides colorOSStyle,
+                                LocalNothingQsStyle provides nothingStyle,
+                            ) {
                                 this@QSFragmentCompose.Content(Modifier.sysUiResTagContainer())
                             }
                         }
