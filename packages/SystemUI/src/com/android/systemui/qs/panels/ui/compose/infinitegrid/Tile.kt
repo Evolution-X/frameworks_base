@@ -21,6 +21,8 @@ package com.android.systemui.qs.panels.ui.compose.infinitegrid
 import android.content.Context
 import android.content.res.Resources
 import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
 import android.os.Trace
 import android.os.UserHandle
 import android.provider.Settings
@@ -120,6 +122,7 @@ import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.ToggleTargetSize
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.longPressLabelMoreDetails
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.longPressLabelSettings
+import com.android.systemui.qs.tiles.impl.ringer.QSTileRingerSlider
 import com.android.systemui.qs.panels.ui.viewmodel.AccessibilityUiState
 import com.android.systemui.qs.panels.ui.viewmodel.DetailsViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.IconProvider
@@ -133,6 +136,7 @@ import com.android.systemui.qs.ui.composable.QuickSettingsShade
 import com.android.systemui.qs.ui.compose.borderOnFocus
 import com.android.systemui.res.R
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
 import platform.test.motion.compose.values.MotionTestValueKey
@@ -144,6 +148,15 @@ private val TileViewModel.traceName
 /** Values of [Settings.System.QS_PANEL_STYLE]; 0 is the default card style. */
 private const val QS_PANEL_STYLE_CLASSIC = 1
 private const val QS_PANEL_STYLE_COLOROS = 2
+private const val QS_PANEL_STYLE_NOTHING = 3
+
+/** Nothing-style Quick Settings (monochrome pills, circles and 2x2 quad tiles on a 4 column grid). */
+internal val LocalNothingQsStyle = compositionLocalOf { false }
+
+/** Tiles that the Nothing style draws as a 2x2 quad tile. */
+internal val LocalQSQuadTiles = compositionLocalOf { emptySet<TileSpec>() }
+
+private val NothingSurface = Color(0xFF262626)
 
 /** ColorOS-style Quick Settings (glass tiles, round icon tiles with labels below). */
 internal val LocalColorOSQsStyle = compositionLocalOf { false }
@@ -236,9 +249,13 @@ fun ContentScope.Tile(
             }
 
         val colorOSStyle = LocalColorOSQsStyle.current
+        val nothingStyle = LocalNothingQsStyle.current
+        val isQuadTile = nothingStyle && LocalQSQuadTiles.current.contains(tile.spec)
         val tileGradient = rememberQSTileGradient()
         val colors =
-            if (colorOSStyle) {
+            if (nothingStyle) {
+                TileDefaults.nothingColorsForState(uiState, isQuadTile)
+            } else if (colorOSStyle) {
                 TileDefaults.colorOSColorsForState(uiState, iconOnly, tile.spec.spec)
             } else {
                 TileDefaults.getColorForState(uiState, iconOnly, tileGradient)
@@ -255,9 +272,10 @@ fun ContentScope.Tile(
         // The ColorOS style draws its icon tiles with the classic circle and label below, and
         // keeps the regular layout for the wide tiles.
         val userClassicStyle = rememberQSPanelStyle()
-        val classicStyle = if (colorOSStyle) iconOnly else userClassicStyle
+        val classicStyle = if (nothingStyle) false else if (colorOSStyle) iconOnly else userClassicStyle
         val userIconShapeKey = rememberQSTileIconShapeKey()
-        val iconShapeKey = if (colorOSStyle) QSTileIconShapes.DEFAULT_KEY else userIconShapeKey
+        val iconShapeKey =
+            if (colorOSStyle || nothingStyle) QSTileIconShapes.DEFAULT_KEY else userIconShapeKey
         // The label below an icon tile follows the user setting in every panel style, and the
         // ColorOS style also drops it where the caller asks for it (QQS).
         val userLabelHide = rememberQSTileLabelHide()
@@ -269,12 +287,21 @@ fun ContentScope.Tile(
         }
 
         val userShapeMode = rememberTileShapeMode()
-        val shapeMode = if (colorOSStyle) 0 else userShapeMode
+        val shapeMode = if (colorOSStyle || nothingStyle) 0 else userShapeMode
         val animationStyle = rememberQSTileAnimationStyle()
         val wantCircle = shapeMode == 4 && iconOnly
         val tileShape =
-            if (wantCircle && !classicStyle) CircleShape
-            else TileDefaults.animateTileShapeAsState(uiState, shapeMode).value
+            if (nothingStyle) {
+                when {
+                    isQuadTile -> RoundedCornerShape(28.dp)
+                    iconOnly -> CircleShape
+                    else -> RoundedCornerShape(50)
+                }
+            } else if (wantCircle && !classicStyle) {
+                CircleShape
+            } else {
+                TileDefaults.animateTileShapeAsState(uiState, shapeMode).value
+            }
         val animatedColor by animateColorAsState(colors.background, label = "QSTileBackgroundColor")
         val isDualTarget = uiState.handlesToggleClick
         val interactionSource = remember { MutableInteractionSource() }
@@ -306,6 +333,15 @@ fun ContentScope.Tile(
         } else {
             surfaceRevealModifier = Modifier
             contentRevealModifier = Modifier
+        }
+
+        // The Nothing style swaps the wide sound tile for the ringer slider.
+        if (nothingStyle && tile.spec.spec == "sound" && !iconOnly) {
+            QSTileRingerSlider(
+                modifier = modifier.then(surfaceRevealModifier).fillMaxSize().verticalSquish(squishiness),
+                isNothing = true,
+            )
+            return@trace
         }
 
         // Where SurfaceFlinger can blur behind the shade, the glass of the wide ColorOS tiles and
@@ -341,7 +377,7 @@ fun ContentScope.Tile(
                 expandable = expandable,
                 color = outerColor,
                 shape = outerShape,
-                squishiness = squishiness,
+                squishiness = if (nothingStyle && iconOnly) { { 1f } } else squishiness,
                 hapticsViewModel = hapticsViewModel,
                 classicStyle = classicStyle,
                 modifier =
@@ -381,8 +417,14 @@ fun ContentScope.Tile(
                             )
                         }
                         .sysuiResTag("tile_expandable")
-                        .fillMaxWidth()
-                        .height(tileHeight)
+                        .then(
+                            if (nothingStyle) {
+                                // The Nothing grid hands each tile a fixed cell to fill.
+                                Modifier.fillMaxSize()
+                            } else {
+                                Modifier.fillMaxWidth().height(tileHeight)
+                            }
+                        )
                         .tileToggleAnimation(animationStyle, uiState.visualState)
                         .bounceable(
                             currentBounceableInfo.bounceable,
@@ -550,9 +592,36 @@ fun ContentScope.Tile(
                         isDualTarget = isDualTarget,
                         modifier = contentRevealModifier,
                         gradient = colors.backgroundGradient,
+                        fillCell = nothingStyle,
                     ) {
                         val iconProvider: Context.() -> Icon = { getTileIcon(icon = icon) }
-                        if (iconOnly) {
+                        if (nothingStyle) {
+                            if (isQuadTile) {
+                                NothingQuadTileContent(
+                                    tileSpec = tile.spec.spec,
+                                    label = uiState.label,
+                                    secondaryLabel = uiState.secondaryLabel,
+                                    iconProvider = iconProvider,
+                                    visualState = uiState.visualState,
+                                    onClick = { tile.toggleClick() },
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            } else if (!iconOnly) {
+                                NothingPillTileContent(
+                                    label = uiState.label,
+                                    secondaryLabel = uiState.secondaryLabel,
+                                    iconProvider = iconProvider,
+                                    visualState = uiState.visualState,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            } else {
+                                NothingCircleTileContent(
+                                    iconProvider = iconProvider,
+                                    visualState = uiState.visualState,
+                                    modifier = Modifier.align(Alignment.Center),
+                                )
+                            }
+                        } else if (iconOnly) {
                             SmallTileContent(
                                 iconProvider = iconProvider,
                                 color = colors.icon,
@@ -651,13 +720,13 @@ fun TileContainer(
     interactionSource: MutableInteractionSource?,
     modifier: Modifier = Modifier,
     gradient: Brush? = null,
+    fillCell: Boolean = false,
     content: @Composable BoxScope.() -> Unit,
 ) {
     Box(
         modifier =
             modifier
-                .height(TileHeight)
-                .fillMaxWidth()
+                .then(if (fillCell) Modifier.fillMaxSize() else Modifier.height(TileHeight).fillMaxWidth())
                 .thenIf(gradient != null && (!isDualTarget || iconOnly)) {
                     Modifier.drawBehind { drawRect(brush = gradient!!) }
                 }
@@ -924,6 +993,112 @@ fun rememberQSPanelStyle(): Boolean {
     }
 
     return classicStyleEnabled
+}
+
+@Composable
+fun rememberQSNothingStyle(): Boolean {
+    val context = LocalContext.current
+    val contentResolver = context.contentResolver
+
+    fun readNothingStyleEnabled(): Boolean {
+        return try {
+            Settings.System.getIntForUser(
+                contentResolver, Settings.System.QS_PANEL_STYLE, 0,
+                UserHandle.USER_CURRENT
+            ) == QS_PANEL_STYLE_NOTHING
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    var nothingStyleEnabled by remember { mutableStateOf(readNothingStyleEnabled()) }
+
+    DisposableEffect(contentResolver) {
+        val observer = object : ContentObserver(null) {
+            override fun onChange(selfChange: Boolean) {
+                context.mainExecutor.execute {
+                    nothingStyleEnabled = readNothingStyleEnabled()
+                }
+            }
+        }
+
+        contentResolver.registerContentObserver(
+            Settings.System.getUriFor(Settings.System.QS_PANEL_STYLE),
+            false, observer, UserHandle.USER_ALL
+        )
+
+        onDispose {
+            contentResolver.unregisterContentObserver(observer)
+        }
+    }
+
+    return nothingStyleEnabled
+}
+
+@Composable
+private fun rememberSecureStringSetting(key: String, defaultValue: String = ""): String {
+    val context = LocalContext.current
+    val value by produceState(
+        initialValue = Settings.Secure.getStringForUser(
+            context.contentResolver, key, UserHandle.USER_CURRENT
+        ) ?: defaultValue
+    ) {
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                value = Settings.Secure.getStringForUser(
+                    context.contentResolver, key, UserHandle.USER_CURRENT
+                ) ?: defaultValue
+            }
+        }
+        context.contentResolver.registerContentObserver(
+            Settings.Secure.getUriFor(key), false, observer, UserHandle.USER_ALL
+        )
+        awaitCancellation()
+    }
+    return value
+}
+
+/** Specs the Nothing style draws as a 2x2 quad tile, Bluetooth by default. */
+@Composable
+fun rememberQuadTiles(): Set<TileSpec> {
+    val raw = rememberSecureStringSetting("qs_tile_quad_specs", "bt")
+    return remember(raw) {
+        if (raw.isBlank()) emptySet()
+        else raw.split(",").mapNotNull { it.trim().takeIf(String::isNotEmpty)?.let(TileSpec::create) }.toSet()
+    }
+}
+
+/** Saved row and column of every tile in the Nothing style grid. */
+@Composable
+fun rememberQSTileLayout(): Map<TileSpec, Pair<Int, Int>> {
+    val raw = rememberSecureStringSetting("qs_tile_layout", "")
+    return remember(raw) {
+        if (raw.isBlank()) {
+            emptyMap()
+        } else {
+            raw.split(",")
+                .mapNotNull { item ->
+                    val parts = item.trim().split(":")
+                    if (parts.size == 3) {
+                        val row = parts[1].toIntOrNull()
+                        val col = parts[2].toIntOrNull()
+                        if (row != null && col != null) TileSpec.create(parts[0]) to (row to col)
+                        else null
+                    } else {
+                        null
+                    }
+                }
+                .toMap()
+        }
+    }
+}
+
+fun saveQSTileLayout(
+    resolver: android.content.ContentResolver,
+    layout: Map<TileSpec, Pair<Int, Int>>,
+) {
+    val serialized = layout.entries.joinToString(",") { "${it.key.spec}:${it.value.first}:${it.value.second}" }
+    Settings.Secure.putStringForUser(resolver, "qs_tile_layout", serialized, UserHandle.USER_CURRENT)
 }
 
 @Composable
@@ -1243,6 +1418,25 @@ private object TileDefaults {
                 if (iconOnly) inactive
                 else unavailableTileColors().copy(iconBackground = bubbleOff)
         }
+    }
+
+    /** Monochrome colors of the Nothing style: white when on, a dark grey surface otherwise. */
+    @Composable
+    @ReadOnlyComposable
+    fun nothingColorsForState(uiState: TileUiState, isQuad: Boolean): TileColors {
+        val active = uiState.visualState == STATE_ACTIVE && !isQuad
+        val background = if (active) Color.White else NothingSurface
+        val content = if (active) Color.Black else Color.White
+        return TileColors(
+            background = background,
+            iconBackground = background,
+            label = content,
+            secondaryLabel = content.copy(alpha = 0.7f),
+            icon = content,
+            outline = content,
+            classicLabel = content,
+            classicSecondaryLabel = content.copy(alpha = 0.7f),
+        )
     }
 
     @Composable
