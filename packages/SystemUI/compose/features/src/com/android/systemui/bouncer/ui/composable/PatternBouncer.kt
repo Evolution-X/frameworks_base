@@ -94,8 +94,9 @@ fun PatternBouncer(
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
 
-    val colCount = viewModel.columnCount
-    val rowCount = viewModel.rowCount
+    val patternSize: Byte by viewModel.patternSize.collectAsStateWithLifecycle()
+    val colCount = patternSize
+    val rowCount = patternSize
 
     val idleDotColor = MaterialTheme.colorScheme.onSurface
     val activeDotColor = MaterialTheme.colorScheme.onPrimary
