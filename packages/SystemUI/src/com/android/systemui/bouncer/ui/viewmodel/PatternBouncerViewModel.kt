@@ -32,6 +32,7 @@ import com.android.systemui.res.R
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
@@ -143,27 +144,37 @@ constructor(
      * @param yPx The vertical coordinate of the position of the user's pointer, in pixels.
      * @param containerSizePx The size of the container of the dot grid, in pixels. It's assumed
      *   that the dot grid is perfectly square such that width and height are equal.
+     * @param horizontalOffset The horizontal offset of the dot grid within the container, in pixels.
+     * @param verticalOffset The vertical offset of the dot grid within the container, in pixels.
      */
-    fun onDrag(xPx: Float, yPx: Float, containerSizePx: Int) {
+    fun onDrag(
+        xPx: Float,
+        yPx: Float,
+        containerSizePx: Int,
+        horizontalOffset: Float = 0f,
+        verticalOffset: Float = 0f,
+    ) {
         inputPosition = Offset(xPx, yPx)
-        val cellWidthPx = containerSizePx / columnCount
-        val cellHeightPx = containerSizePx / rowCount
+        val localX = xPx - horizontalOffset
+        val localY = yPx - verticalOffset
+        val cellWidthPx = containerSizePx.toFloat() / columnCount
+        val cellHeightPx = containerSizePx.toFloat() / rowCount
 
-        if (xPx < 0 || yPx < 0) {
+        if (localX < 0 || localY < 0) {
             return
         }
 
-        val dotColumn = (xPx / cellWidthPx).toInt()
-        val dotRow = (yPx / cellHeightPx).toInt()
+        val dotColumn = (localX / cellWidthPx).toInt()
+        val dotRow = (localY / cellHeightPx).toInt()
         if (dotColumn > columnCount - 1 || dotRow > rowCount - 1) {
             return
         }
 
-        val dotPixelX = dotColumn * cellWidthPx + cellWidthPx / 2
-        val dotPixelY = dotRow * cellHeightPx + cellHeightPx / 2
+        val dotPixelX = dotColumn * cellWidthPx + cellWidthPx / 2f
+        val dotPixelY = dotRow * cellHeightPx + cellHeightPx / 2f
 
-        val distance = sqrt((xPx - dotPixelX).pow(2) + (yPx - dotPixelY).pow(2))
-        val hitRadius = hitFactor * min(cellWidthPx, cellHeightPx) / 2
+        val distance = sqrt((localX - dotPixelX).pow(2) + (localY - dotPixelY).pow(2))
+        val hitRadius = hitFactor * min(cellWidthPx, cellHeightPx) / 2f
         if (distance > hitRadius) {
             return
         }
@@ -172,36 +183,38 @@ constructor(
         if (hitDot != null && !selectedDotSet.value.contains(hitDot)) {
             val skippedOverDots =
                 currentDot.value?.let { previousDot ->
-                    buildList {
-                        var dot = previousDot
-                        while (dot != hitDot) {
-                            // Move along the direction of the line connecting the previously
-                            // selected dot and current hit dot, and see if they were skipped over
-                            // but fall on that line.
-                            if (dot.isOnLineSegment(previousDot, hitDot)) {
-                                add(dot)
+                    val dRow = hitDot.y - previousDot.y
+                    val dColumn = hitDot.x - previousDot.x
+                    if (dRow == 0 || dColumn == 0 || abs(dRow) == abs(dColumn)) {
+                        buildList {
+                            var fillInRow = previousDot.y
+                            var fillInColumn = previousDot.x
+                            val stepRow = if (dRow > 0) 1 else if (dRow < 0) -1 else 0
+                            val stepCol = if (dColumn > 0) 1 else if (dColumn < 0) -1 else 0
+                            while (true) {
+                                fillInRow += stepRow
+                                fillInColumn += stepCol
+                                if (fillInRow == hitDot.y && fillInColumn == hitDot.x) break
+                                val gapDot = PatternDotViewModel(x = fillInColumn, y = fillInRow)
+                                if (!selectedDotSet.value.contains(gapDot)) {
+                                    add(gapDot)
+                                }
                             }
-                            dot =
-                                PatternDotViewModel(
-                                    x =
-                                        if (hitDot.x > dot.x) {
-                                            dot.x + 1
-                                        } else if (hitDot.x < dot.x) dot.x - 1 else dot.x,
-                                    y =
-                                        if (hitDot.y > dot.y) {
-                                            dot.y + 1
-                                        } else if (hitDot.y < dot.y) dot.y - 1 else dot.y,
-                                )
                         }
+                    } else {
+                        emptyList()
                     }
                 } ?: emptyList()
 
-            selectedDotSet.value =
+            val newSet =
                 linkedSetOf<PatternDotViewModel>().apply {
                     addAll(selectedDotSet.value)
                     addAll(skippedOverDots)
                     add(hitDot)
                 }
+            selectedDotSet.value = newSet
+            selectedDotList.value = newSet.toList()
+            _readyToTryAuthenticate.value = (newSet.size > 1)
             patternAreaContentDescription =
                 applicationContext.resources.getString(
                     com.android.internal.R.string.lockscreen_access_pattern_cell_added_verbose,
@@ -228,6 +241,8 @@ constructor(
         _dots.value = defaultDots()
         _currentDot.value = null
         selectedDotSet.value = linkedSetOf()
+        selectedDotList.value = emptyList()
+        _readyToTryAuthenticate.value = false
     }
 
     override fun getInput(): List<Any> {
@@ -266,34 +281,6 @@ constructor(
     companion object {
         private const val MIN_DOT_HIT_FACTOR = 0.2f
     }
-}
-
-/**
- * Determines whether [this] dot is present on the line segment connecting [first] and [second]
- * dots.
- */
-private fun PatternDotViewModel.isOnLineSegment(
-    first: PatternDotViewModel,
-    second: PatternDotViewModel,
-): Boolean {
-    val anotherPoint = this
-    // No need to consider any points outside the bounds of two end points
-    val isWithinBounds =
-        anotherPoint.x.isBetween(first.x, second.x) && anotherPoint.y.isBetween(first.y, second.y)
-    if (!isWithinBounds) {
-        return false
-    }
-
-    // Uses the 2 point line equation: (y-y1)/(x-x1) = (y2-y1)/(x2-x1)
-    // which can be rewritten as:      (y-y1)*(x2-x1) = (x-x1)*(y2-y1)
-    // This is true for any point on the line passing through these two points
-    return (anotherPoint.y - first.y) * (second.x - first.x) ==
-        (anotherPoint.x - first.x) * (second.y - first.y)
-}
-
-/** Is [this] Int between [a] and [b] */
-private fun Int.isBetween(a: Int, b: Int): Boolean {
-    return (this in a..b) || (this in b..a)
 }
 
 data class PatternDotViewModel(val x: Int, val y: Int) {
