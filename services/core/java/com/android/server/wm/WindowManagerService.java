@@ -814,6 +814,10 @@ public class WindowManagerService extends IWindowManager.Stub
             mDisplaySecureContentListeners = new ArraySet<>();
 
     SettingsObserver mSettingsObserver;
+
+    @GuardedBy("mGlobalLock")
+    boolean mWallpaperZoomEnabled = true;
+
     final EmbeddedWindowController mEmbeddedWindowController;
     final AnrController mAnrController;
 
@@ -847,6 +851,8 @@ public class WindowManagerService extends IWindowManager.Stub
                 Settings.Global.getUriFor(Settings.Global.TRANSITION_ANIMATION_SCALE);
         private final Uri mAnimationDurationScaleUri =
                 Settings.Global.getUriFor(Settings.Global.ANIMATOR_DURATION_SCALE);
+        private final Uri mWallpaperZoomEnabledUri =
+                Settings.System.getUriFor(Settings.System.WALLPAPER_ZOOM_ENABLED);
         private final Uri mImmersiveModeConfirmationsUri =
                 Settings.Secure.getUriFor(Settings.Secure.IMMERSIVE_MODE_CONFIRMATIONS);
         private final Uri mDisableSecureWindowsUri =
@@ -888,6 +894,8 @@ public class WindowManagerService extends IWindowManager.Stub
             resolver.registerContentObserver(mTransitionAnimationScaleUri, false, this,
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(mAnimationDurationScaleUri, false, this,
+                    UserHandle.USER_ALL);
+            resolver.registerContentObserver(mWallpaperZoomEnabledUri, false, this,
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(mImmersiveModeConfirmationsUri, false, this,
                     UserHandle.USER_ALL);
@@ -958,6 +966,11 @@ public class WindowManagerService extends IWindowManager.Stub
                 return;
             }
 
+            if (mWallpaperZoomEnabledUri.equals(uri)) {
+                updateWallpaperZoomEnabled();
+                return;
+            }
+
             if (mMagnifyImeEnabledUri.equals(uri)) {
                 updateMagnifyIme();
             }
@@ -993,6 +1006,20 @@ public class WindowManagerService extends IWindowManager.Stub
             updateDisableSecureWindows();
             updateMagnifyIme();
             updateEvolutionBlockScreenshotDetection();
+            updateWallpaperZoomEnabled();
+        }
+
+        void updateWallpaperZoomEnabled() {
+            synchronized (mGlobalLock) {
+                final boolean enabled = Settings.System.getIntForUser(
+                        mContext.getContentResolver(), Settings.System.WALLPAPER_ZOOM_ENABLED,
+                        1, mCurrentUserId) != 0;
+                if (mWallpaperZoomEnabled == enabled) {
+                    return;
+                }
+                mWallpaperZoomEnabled = enabled;
+                mRoot.forAllDisplays(display -> display.mWallpaperController.updateWallpaperZoom());
+            }
         }
 
         void updateMaximumObscuringOpacityForTouch() {
@@ -4218,6 +4245,7 @@ public class WindowManagerService extends IWindowManager.Stub
             // This call is crucial on user switch to ensure the Magnify IME state
             // is correctly re-evaluated and applied for the new user.
             mSettingsObserver.updateMagnifyIme();
+            mSettingsObserver.updateWallpaperZoomEnabled();
         }
     }
 
