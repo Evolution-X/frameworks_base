@@ -18,6 +18,7 @@ package com.android.systemui.qs.panels.ui.compose.infinitegrid
 
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
@@ -36,10 +37,13 @@ import androidx.compose.ui.util.fastMap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.compose.animation.scene.ContentScope
 import com.android.systemui.dagger.SysUISingleton
+import com.android.systemui.grid.ui.compose.GridSpan
+import com.android.systemui.grid.ui.compose.TwoDimensionalSpannedGrid
 import com.android.systemui.grid.ui.compose.VerticalSpannedGrid
 import com.android.systemui.haptics.msdl.qs.TileHapticsViewModel
 import com.android.systemui.lifecycle.rememberViewModel
 import com.android.systemui.qs.panels.shared.model.SizedTileImpl
+import com.android.systemui.qs.panels.shared.model.autoArrangeTiles
 import com.android.systemui.qs.panels.ui.compose.BounceableInfo
 import com.android.systemui.qs.panels.ui.compose.EditTileListState
 import com.android.systemui.qs.panels.ui.compose.PaginatableGridLayout
@@ -133,6 +137,21 @@ constructor(
         val largeTilesSpan = viewModel.columnsWithMediaViewModel.largeSpan
         val largeTiles by viewModel.iconTilesViewModel.largeTilesState
         val colorOSStyle = LocalColorOSQsStyle.current
+        val nothingStyle = LocalNothingQsStyle.current
+
+        if (nothingStyle) {
+            NothingTileGrid(
+                tiles = tiles,
+                largeTiles = largeTiles,
+                viewModel = viewModel,
+                textFeedbackViewModel = textFeedbackViewModel,
+                modifier = modifier,
+                listening = listening,
+                enableRevealEffect = enableRevealEffect,
+            )
+            return
+        }
+
         // Tiles or largeTiles may be updated while this is composed, so listen to any changes
         val sizedTiles =
             remember(tiles, largeTiles, largeTilesSpan, colorOSStyle) {
@@ -149,10 +168,19 @@ constructor(
 
         val classicStyle = rememberQSPanelStyle()
         val labelsHidden = rememberQSTileLabelHide()
+        // Fill the rows cleanly instead of leaving single column holes next to wide tiles.
+        val arrangedTiles =
+            remember(sizedTiles, columns, largeTilesSpan, classicStyle, colorOSStyle) {
+                if (!classicStyle && !colorOSStyle) {
+                    autoArrangeTiles(sizedTiles, columns, largeTilesSpan)
+                } else {
+                    sizedTiles
+                }
+            }
 
         val bounceables =
-            remember(sizedTiles) { List(sizedTiles.size) { BounceableTileViewModel() } }
-        val spans by remember(sizedTiles) { derivedStateOf { sizedTiles.fastMap { it.width } } }
+            remember(arrangedTiles) { List(arrangedTiles.size) { BounceableTileViewModel() } }
+        val spans by remember(arrangedTiles) { derivedStateOf { arrangedTiles.fastMap { it.width } } }
         VerticalSpannedGrid(
             columns = columns,
             columnSpacing =
@@ -162,10 +190,10 @@ constructor(
                 if (colorOSStyle) colorOSIconRowGap(labelsHidden)
                 else dimensionResource(R.dimen.qs_tile_margin_vertical),
             spans = spans,
-            keys = { sizedTiles[it].tile.spec },
+            keys = { arrangedTiles[it].tile.spec },
             modifier = modifier,
         ) { spanIndex, column, isFirstInColumn, isLastInColumn ->
-            val it = sizedTiles[spanIndex]
+            val it = arrangedTiles[spanIndex]
 
             Element(it.tile.spec.toElementKey(), Modifier) {
                 Tile(
@@ -191,6 +219,78 @@ constructor(
                     requestToggleTextFeedback = textFeedbackViewModel::requestShowFeedback,
                     enableRevealEffect = enableRevealEffect,
                 )
+            }
+        }
+
+        TileListener(tiles, listening)
+    }
+
+    /**
+     * Nothing style: places the tiles of a page on a 4 column grid of square cells. A tile is a
+     * circle (1x1), a pill (2x1) or a quad (2x2), at the saved row and column when it has one.
+     */
+    @Composable
+    private fun ContentScope.NothingTileGrid(
+        tiles: List<TileViewModel>,
+        largeTiles: Set<TileSpec>,
+        viewModel: com.android.systemui.qs.panels.ui.viewmodel.InfiniteGridViewModel,
+        textFeedbackViewModel: TextFeedbackContentViewModel,
+        modifier: Modifier,
+        listening: () -> Boolean,
+        enableRevealEffect: Boolean,
+    ) {
+        val squishiness by viewModel.squishinessViewModel.squishiness.collectAsStateWithLifecycle()
+        val scope = rememberCoroutineScope()
+        val quadTiles = rememberQuadTiles()
+        val tileLayout = rememberQSTileLayout()
+        val noBounce = remember { BounceableInfo(BounceableTileViewModel(), null, null, false) }
+
+        val nothingSpans =
+            remember(tiles, largeTiles, quadTiles) {
+                tiles.map {
+                    when {
+                        quadTiles.contains(it.spec) -> GridSpan(colSpan = 2, rowSpan = 2)
+                        largeTiles.contains(it.spec) -> GridSpan(colSpan = 2, rowSpan = 1)
+                        else -> GridSpan(colSpan = 1, rowSpan = 1)
+                    }
+                }
+            }
+        val preferredPlacements =
+            remember(tiles, tileLayout) {
+                tiles
+                    .mapIndexedNotNull { index, tile ->
+                        tileLayout[tile.spec]?.let { (r, c) -> index to (r % NOTHING_ROWS to c) }
+                    }
+                    .toMap()
+            }
+
+        TwoDimensionalSpannedGrid(
+            columns = NOTHING_COLUMNS,
+            columnSpacing = NOTHING_SPACING,
+            rowSpacing = NOTHING_SPACING,
+            preferredPlacements = preferredPlacements,
+            spans = nothingSpans,
+            maxRows = NOTHING_ROWS,
+            useSquareCells = true,
+            keys = { tiles[it].spec },
+            modifier = modifier,
+        ) { spanIndex, _ ->
+            val it = tiles[spanIndex]
+            Element(it.spec.toElementKey(), Modifier) {
+                CompositionLocalProvider(LocalQSQuadTiles provides quadTiles) {
+                    Tile(
+                        tile = it,
+                        iconOnly = !largeTiles.contains(it.spec) && !quadTiles.contains(it.spec),
+                        squishiness = { squishiness },
+                        coroutineScope = scope,
+                        bounceableInfo = noBounce,
+                        tileHapticsViewModelFactory = tileHapticsViewModelFactory,
+                        detailsViewModel = detailsViewModel,
+                        isVisible = listening,
+                        requestToggleTextFeedback = textFeedbackViewModel::requestShowFeedback,
+                        enableRevealEffect = enableRevealEffect,
+                    )
+                }
             }
         }
 
@@ -283,21 +383,34 @@ constructor(
             remember(topBarActionsViewModel, showDualShadeSetting) {
                 topBarActionsViewModel.actions(showDualShadeSetting).toMutableStateList()
             }
-        val columns = columnsViewModel.columns
+        val context = LocalContext.current
+        val isNothingStyle = LocalNothingQsStyle.current
+        val quadTiles = if (isNothingStyle) rememberQuadTiles() else emptySet()
+        val tileLayout = if (isNothingStyle) rememberQSTileLayout() else emptyMap()
+        val columns = if (isNothingStyle) 4 else columnsViewModel.columns
         val largeTilesSpan = columnsViewModel.largeSpan
         val largeTiles by viewModel.iconTilesViewModel.largeTilesState
 
         val currentTiles by rememberUpdatedState(tiles.filter { it.isCurrent })
         val listState =
-            remember(columns, largeTilesSpan) {
+            remember(columns, largeTilesSpan, isNothingStyle) {
                 EditTileListState(
                     currentTiles,
                     largeTiles,
                     columns = columns,
                     largeTilesSpan = largeTilesSpan,
+                    isNothingStyle = isNothingStyle,
+                    initialQuadTiles = quadTiles,
+                    initialPositions = tileLayout,
                 )
             }
-        LaunchedEffect(currentTiles, largeTiles) { listState.updateTiles(currentTiles, largeTiles) }
+        LaunchedEffect(currentTiles, largeTiles, quadTiles, isNothingStyle) {
+            if (isNothingStyle) {
+                listState.updateTiles(currentTiles, largeTiles, quadTiles, tileLayout)
+            } else {
+                listState.updateTiles(currentTiles, largeTiles, emptySet(), emptyMap())
+            }
+        }
 
         DefaultEditTileGrid(
             listState = listState,
@@ -327,12 +440,35 @@ constructor(
                     dialogDelegate.showDialog()
                 }
                 is EditAction.ResizeTile -> {
-                    iconTilesViewModel.resize(action.tileSpec, action.toIcon)
+                    if (isNothingStyle) {
+                        listState.resizeTile(action.tileSpec, action.toIcon, action.toQuad)
+                    } else {
+                        iconTilesViewModel.resize(action.tileSpec, action.toIcon)
+                    }
                 }
                 is EditAction.SetTiles -> {
+                    if (isNothingStyle) {
+                        val resolver = context.contentResolver
+                        if (action.tilePositions != null) {
+                            saveQSTileLayout(resolver, action.tilePositions)
+                        }
+                        val newQuads = listState.quadTilesSpecs.map { it.spec }.joinToString(",")
+                        android.provider.Settings.Secure.putStringForUser(
+                            resolver, "qs_tile_quad_specs", newQuads,
+                            android.os.UserHandle.USER_CURRENT,
+                        )
+                        for (spec in listState.tileSpecs()) {
+                            val isLarge = listState.largeTilesSpecs.contains(spec) || listState.quadTilesSpecs.contains(spec)
+                            iconTilesViewModel.resize(spec, toIcon = !isLarge)
+                        }
+                    }
                     onSetTiles(action.tileSpecs)
                 }
             }
         }
     }
 }
+
+private const val NOTHING_COLUMNS = 4
+private const val NOTHING_ROWS = 4
+private val NOTHING_SPACING = 16.dp

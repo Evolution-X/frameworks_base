@@ -7833,7 +7833,7 @@ public final class Settings {
 
         /**
          * QS panel style: 0 for the default card style, 1 for the classic
-         * style and 2 for the ColorOS style
+         * style, 2 for the ColorOS style and 3 for the Nothing style
          * @hide
          */
         public static final String QS_PANEL_STYLE = "qs_panel_style";
