@@ -499,10 +499,16 @@ constructor(
         sourceUri: Uri,
     ): ActiveClipboardLease? {
         return try {
+            val extension =
+                sourceUri.lastPathSegment
+                    ?.substringAfterLast('.', "")
+                    ?.lowercase()
+                    ?.takeIf { it.matches(Regex("[a-z0-9]{1,5}")) }
+                    ?: "bin"
             val file =
                 File(
                     activeClipboardDir(state),
-                    "active_${System.currentTimeMillis()}.img",
+                    "active_${System.currentTimeMillis()}.$extension",
                 )
             val input = state.context.contentResolver.openInputStream(sourceUri) ?: return null
             input.use { src ->
