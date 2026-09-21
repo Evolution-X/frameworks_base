@@ -1252,6 +1252,12 @@ public class ComputerEngine implements Computer {
         return null;
     }
 
+    @Nullable
+    @Override
+    public final String getDefaultHome(@UserIdInt int userId) {
+        return mDefaultAppProvider.getDefaultHome(userId);
+    }
+
     /**
      * Report the 'Home' activity which is currently set as "always use this one". If non is set
      * then reports the most likely home activity or null if there are more than one.
