@@ -150,6 +150,9 @@ constructor(
 
             if (!clipboardManager.hasPrimaryClip()) {
                 cleanupActiveClipboardLeases(state)
+                lastClipboardToken = null
+                invalidatePendingClipboardWorkAndPersist(state)
+                _clipboardEvent.value = null
                 return@OnPrimaryClipChangedListener
             }
 
@@ -343,10 +346,11 @@ constructor(
                     imageUri = imageUri,
                     items = historySnapshot,
                 )
+            // Keep publication atomic with generation invalidation paths using the same lock.
+            _clipboardEvent.value = event
         }
 
         persistClipboardHistory(state, historySnapshot, generation)
-        _clipboardEvent.value = event
 
         if (callbackOnMainThread) {
             mainHandler.post {
