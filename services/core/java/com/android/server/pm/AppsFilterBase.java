@@ -25,12 +25,7 @@ import static com.android.server.pm.AppsFilterUtils.requestsQueryAllPackages;
 import android.annotation.NonNull;
 import java.util.Set;
 import android.annotation.Nullable;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.SigningDetails;
-import com.android.internal.pm.pkg.component.ParsedActivity;
-import com.android.internal.pm.pkg.component.ParsedIntentInfo;
-import com.android.server.pm.pkg.AndroidPackage;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.Process;
@@ -48,8 +43,6 @@ import com.android.server.om.OverlayReferenceMapper;
 import com.android.server.pm.pkg.AndroidPackage;
 import com.android.server.pm.pkg.PackageStateInternal;
 import com.android.server.pm.pkg.SharedUserApi;
-import com.android.internal.pm.pkg.component.ParsedActivity;
-import com.android.internal.pm.pkg.component.ParsedIntentInfo;
 import com.android.server.pm.snapshot.PackageDataSnapshot;
 import com.android.server.utils.SnapshotCache;
 import com.android.server.utils.Watched;
@@ -377,12 +370,14 @@ public abstract class AppsFilterBase implements AppsFilterSnapshot {
             "cc.madkite.freedom",
             "com.ramdroid.appquarantine",
             "com.ramdroid.appquarantinepro",
-            "com.zachspong.temprootremovejb",
-            "org.lineageos.lineageparts",
-            "org.lineageos.settings",
-            "org.lineageos.setupwizard",
-            "org.lineageos.updater"
+            "com.zachspong.temprootremovejb"
     );
+
+    private static final String PACKAGE_SYSTEMUI = "com.android.systemui";
+
+    private static boolean isHiddenPackage(@NonNull String pkg) {
+        return ROOT_PACKAGES.contains(pkg) || isRomPackage(pkg);
+    }
 
     private static boolean isRomPackage(String pkg) {
         return pkg.startsWith("org.lineageos.")
@@ -390,27 +385,55 @@ public abstract class AppsFilterBase implements AppsFilterSnapshot {
                 || pkg.startsWith("org.protonaosp.");
     }
 
-    private static boolean isCallerSystemApp(Object callingSetting) {
-        if (callingSetting instanceof PackageStateInternal) {
-            return ((PackageStateInternal) callingSetting).isSystem();
+    private static boolean canAccessHiddenPackages(@NonNull Computer snapshot, int callingUid,
+            @Nullable Object callingSetting) {
+        final int callingAppId = UserHandle.getAppId(callingUid);
+        if (callingAppId < Process.FIRST_APPLICATION_UID) {
+            return true;
         }
-        return true;
+        if (callingSetting == null) {
+            return false;
+        }
+        final int userId = UserHandle.getUserId(callingUid);
+        if (callingSetting instanceof PackageStateInternal) {
+            final PackageStateInternal ps = (PackageStateInternal) callingSetting;
+            if (isPackagePrivileged(ps, snapshot, userId)) {
+                return true;
+            }
+            if (!ps.hasSharedUser()) {
+                return false;
+            }
+            final SharedUserApi sharedUser = snapshot.getSharedUser(ps.getSharedUserAppId());
+            return sharedUser != null && isSharedUserPrivileged(sharedUser, snapshot, userId);
+        }
+        if (callingSetting instanceof SharedUserApi) {
+            return isSharedUserPrivileged((SharedUserApi) callingSetting, snapshot, userId);
+        }
+        return false;
     }
 
-    private static boolean isCallerLauncher(Object callingSetting) {
-        if (!(callingSetting instanceof PackageStateInternal)) {
-            return false;
+    private static boolean isPackagePrivileged(@NonNull PackageStateInternal ps,
+            @NonNull Computer snapshot, int userId) {
+        if (ps.isSystem()
+                || ps.isPrivileged()
+                || ps.isUpdatedSystemApp()
+                || PACKAGE_SYSTEMUI.equals(ps.getPackageName())) {
+            return true;
         }
-        AndroidPackage pkg = ((PackageStateInternal) callingSetting).getAndroidPackage();
-        if (pkg == null) {
-            return false;
+        final String defaultHome = snapshot.getDefaultHome(userId);
+        return defaultHome != null && defaultHome.equals(ps.getPackageName());
+    }
+
+    private static boolean isSharedUserPrivileged(@NonNull SharedUserApi sharedUser,
+            @NonNull Computer snapshot, int userId) {
+        if (sharedUser.isPrivileged() || sharedUser.getName().startsWith("android.uid.")) {
+            return true;
         }
-        for (ParsedActivity activity : pkg.getActivities()) {
-            for (ParsedIntentInfo intentInfo : activity.getIntents()) {
-                IntentFilter filter = intentInfo.getIntentFilter();
-                if (filter != null && filter.hasCategory(Intent.CATEGORY_HOME)) {
-                    return true;
-                }
+        final ArraySet<? extends PackageStateInternal> packageStates =
+                sharedUser.getPackageStates();
+        for (int i = packageStates.size() - 1; i >= 0; i--) {
+            if (isPackagePrivileged(packageStates.valueAt(i), snapshot, userId)) {
+                return true;
             }
         }
         return false;
@@ -426,9 +449,8 @@ public abstract class AppsFilterBase implements AppsFilterSnapshot {
             int callingAppId = UserHandle.getAppId(callingUid);
             String targetPkg = targetPkgSetting.getPackageName();
             if (callingAppId >= Process.FIRST_APPLICATION_UID
-                    && !isCallerSystemApp(callingSetting)
-                    && (ROOT_PACKAGES.contains(targetPkg) || isRomPackage(targetPkg))
-                    && !isCallerLauncher(callingSetting)) {
+                    && isHiddenPackage(targetPkg)
+                    && !canAccessHiddenPackages((Computer) snapshot, callingUid, callingSetting)) {
                 return true;
             }
             if (callingAppId < Process.FIRST_APPLICATION_UID
