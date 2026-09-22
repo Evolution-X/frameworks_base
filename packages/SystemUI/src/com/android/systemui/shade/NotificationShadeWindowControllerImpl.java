@@ -984,7 +984,6 @@ public class NotificationShadeWindowControllerImpl
             return;
         }
         mCurrentState.backgroundBlurRadius = backgroundBlurRadius;
-        apply(mCurrentState);
     }
 
     @Override
