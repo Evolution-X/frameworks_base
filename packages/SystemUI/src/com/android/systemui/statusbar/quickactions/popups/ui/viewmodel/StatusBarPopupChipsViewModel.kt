@@ -31,6 +31,7 @@ import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.keyguard.domain.interactor.KeyguardTransitionInteractor
 import com.android.systemui.keyguard.shared.model.KeyguardState
 import com.android.systemui.lifecycle.HydratedActivatable
+import com.android.systemui.shade.domain.interactor.ShadeInteractor
 import com.android.systemui.statusbar.pipeline.shared.domain.interactor.StatusBarVisibilityInteractor
 import com.android.systemui.statusbar.quickactions.alarm.ui.viewmodel.AlarmPopupChipViewModel
 import com.android.systemui.statusbar.quickactions.assistant.StatusBarAssistantIcon
@@ -55,6 +56,8 @@ import dagger.assisted.AssistedInject
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 
@@ -68,6 +71,7 @@ constructor(
     @Assisted private val displayId: Int,
     @Application private val context: Context,
     private val keyguardTransitionInteractor: KeyguardTransitionInteractor,
+    private val shadeInteractor: ShadeInteractor,
     private val quickActionsInteractor: QuickActionsInteractor,
     private val statusBarVisibilityInteractor: StatusBarVisibilityInteractor,
     mediaControlChipFactory: MediaControlChipViewModel.Factory,
@@ -110,6 +114,14 @@ constructor(
 
     private var isOnLockscreen by mutableStateOf(false)
 
+    /** Whether the notification shade or QS is expanding, expanded, or being dragged. */
+    private var isShadeVisible by
+        mutableStateOf(
+            shadeInteractor.isAnyExpanded.value ||
+                shadeInteractor.anyExpansion.value > 0f ||
+                shadeInteractor.isUserInteracting.value
+        )
+
     /** The ID of the current chip that is currently active, or `null` if no chip is active. */
     private val currentActiveQuickActionId: QuickActionChipId?
         get() = quickActionsInteractor.activePanel?.chipId.takeIf { isShadeWindowOnThisDisplay }
@@ -137,8 +149,12 @@ constructor(
         )
     }
 
+    /** The island sits under the shade, so it is hidden only where the shade window is. */
+    private val isShadeCoveringIsland: Boolean
+        get() = isShadeVisible && isShadeWindowOnThisDisplay
+
     val shownQuickActionChips: List<QuickActionChipModel> by derivedStateOf {
-        if (!isDynamicIslandEnabled || isOnLockscreen) {
+        if (!isDynamicIslandEnabled || isOnLockscreen || isShadeCoveringIsland) {
             return@derivedStateOf emptyList()
         }
 
@@ -225,6 +241,22 @@ constructor(
             launch {
                 keyguardTransitionInteractor.isFinishedIn(KeyguardState.LOCKSCREEN)
                     .collectLatest { isOnLockscreen = it }
+            }
+
+            launch {
+                combine(
+                        shadeInteractor.isAnyExpanded,
+                        shadeInteractor.anyExpansion,
+                        shadeInteractor.isUserInteracting,
+                    ) { expanded, expansion, interacting ->
+                        expanded || expansion > 0f || interacting
+                    }
+                    .distinctUntilChanged()
+                    .collect { visible ->
+                        isShadeVisible = visible
+                        // Drop an open island popup so it is not left behind once the shade closes.
+                        if (visible) currentShownPopupChipId = null
+                    }
             }
 
             launch { avControlsChip.activate() }
