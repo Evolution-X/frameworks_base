@@ -96,6 +96,10 @@ public class KeyBoxManager {
             boolean inPrivateKey = false;
             boolean inCertificateChain = false;
             boolean inCertificate = false;
+            boolean inNumberOfKeyboxes = false;
+            StringBuilder numberOfKeyboxesBuilder = null;
+            Integer declaredKeyboxCount = null;
+            int parsedKeyCount = 0;
 
             int eventType = parser.getEventType();
             while (eventType != XmlPullParser.END_DOCUMENT) {
@@ -119,6 +123,9 @@ public class KeyBoxManager {
                         } else if ("Certificate".equals(tagName) && inCertificateChain) {
                             inCertificate = true;
                             certBuilder = new StringBuilder();
+                        } else if ("NumberOfKeyboxes".equals(tagName) && !inKey) {
+                            inNumberOfKeyboxes = true;
+                            numberOfKeyboxesBuilder = new StringBuilder();
                         }
                         break;
 
@@ -129,6 +136,8 @@ public class KeyBoxManager {
                                 privateKeyBuilder.append(text);
                             } else if (inCertificate && certBuilder != null) {
                                 certBuilder.append(text);
+                            } else if (inNumberOfKeyboxes && numberOfKeyboxesBuilder != null) {
+                                numberOfKeyboxesBuilder.append(text);
                             }
                         }
                         break;
@@ -154,16 +163,37 @@ public class KeyBoxManager {
                             inCertificate = false;
                         } else if ("CertificateChain".equals(tagName)) {
                             inCertificateChain = false;
+                        } else if ("NumberOfKeyboxes".equals(tagName)) {
+                            if (numberOfKeyboxesBuilder != null) {
+                                try {
+                                    declaredKeyboxCount =
+                                            Integer.parseInt(numberOfKeyboxesBuilder.toString().trim());
+                                } catch (NumberFormatException ignored) {
+                                }
+                                numberOfKeyboxesBuilder = null;
+                            }
+                            inNumberOfKeyboxes = false;
                         } else if ("Key".equals(tagName)) {
                             inKey = false;
                             if (currentAlgorithm != null && privateKeyPem != null && !certificatePems.isEmpty()) {
                                 processKeybox(currentAlgorithm, privateKeyPem, certificatePems);
+                                parsedKeyCount++;
                             }
                         }
                         break;
                 }
 
                 eventType = parser.next();
+            }
+
+            // Guards against a truncated or partially-fetched keybox.xml (network hiccup
+            // mid auto-refresh, or a bad KEYBOX_SOURCE_USER paste) silently taking effect
+            // with fewer keys than the document itself declares it has.
+            if (declaredKeyboxCount != null && declaredKeyboxCount != parsedKeyCount) {
+                Log.e(TAG, "Keybox XML declares " + declaredKeyboxCount + " keybox(es) but only "
+                        + parsedKeyCount + " parsed successfully — rejecting as incomplete");
+                mKeyboxes.clear();
+                return;
             }
 
             Log.i(TAG, "Parsed " + mKeyboxes.size() + " keyboxes");

@@ -42,9 +42,62 @@ public final class AttestationUtils {
 
     public static byte[] getBootKey() {
         if (sBootKey == null) {
-            sBootKey = loadOrCreatePersisted(BOOT_KEY_FILE);
+            sBootKey = getBootKeyFromProp();
+            if (sBootKey == null) {
+                sBootKey = getBootKeyFromKeybox();
+            }
+            if (sBootKey == null) {
+                sBootKey = loadOrCreatePersisted(BOOT_KEY_FILE);
+            }
         }
         return sBootKey;
+    }
+
+    /**
+     * Derives a fallback verified-boot key from the active keybox's issuer certificate,
+     * so that when the real vbmeta property is unavailable the attested key is at least
+     * deterministic and tied to whatever keybox is actually signing the chain, rather than
+     * an arbitrary persisted random value with no relation to anything else we attest.
+     * Returns null if no keybox is currently loaded.
+     */
+    private static byte[] getBootKeyFromKeybox() {
+        try {
+            KeyBoxManager keyBoxManager = TrickyStoreService.getInstance().getKeyBoxManager();
+            if (keyBoxManager == null || !keyBoxManager.hasKeyboxes()) {
+                return null;
+            }
+            KeyBoxManager.KeyBox keybox = keyBoxManager.getKeybox("EC");
+            if (keybox == null) {
+                keybox = keyBoxManager.getKeybox("RSA");
+            }
+            if (keybox == null || keybox.certificates == null || keybox.certificates.isEmpty()) {
+                return null;
+            }
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return digest.digest(keybox.certificates.get(0).getEncoded());
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to derive boot key from keybox issuer", e);
+            return null;
+        }
+    }
+
+    /**
+     * Reads the real verified-boot public key digest from the bootloader property, so the
+     * RootOfTrust key we attest matches the device's actual verified-boot chain instead of a
+     * value with no relation to it. Falls back to the persisted random value only when the
+     * property is unavailable.
+     */
+    private static byte[] getBootKeyFromProp() {
+        String digest = SystemProperties.get("ro.boot.vbmeta.public_key_digest", null);
+        if (digest == null || digest.isEmpty() || digest.length() != 64) {
+            return null;
+        }
+        try {
+            return hexStringToByteArray(digest);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to parse vbmeta.public_key_digest", e);
+            return null;
+        }
     }
 
     public static byte[] getBootHash() {
