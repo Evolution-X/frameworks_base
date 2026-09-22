@@ -549,6 +549,17 @@ public final class PlayIntegritySpoofService {
         return mConfigLoaded;
     }
 
+    /**
+     * Whether DroidGuard-facing Build field spoofing (FINGERPRINT, BRAND,
+     * DEVICE, PRODUCT, MANUFACTURER, MODEL, ...) is currently enabled for
+     * this process, independent of whether a config has actually loaded.
+     * Callers that also need config presence should check
+     * {@link #isConfigLoaded()} as well.
+     */
+    public boolean isSpoofBuildEnabled() {
+        return mSpoofBuild && mConfigLoaded;
+    }
+
     public byte[] getRomSignatureBytes() {
         return Base64.decode(ROM_SIGNATURE_DATA, Base64.DEFAULT);
     }
