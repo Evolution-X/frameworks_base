@@ -35,7 +35,6 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.database.ContentObserver;
-import android.net.Uri;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.Process;
@@ -321,13 +320,11 @@ public final class AxSandboxService extends SystemService implements IAxSandboxS
     @Override
     public void setPackageHidden(String packageName, boolean hidden) {
         mAppControlController.setPackageHidden(packageName, hidden);
-        broadcastPackageChanged(packageName);
     }
 
     @Override
     public void setPackageHiddenFromLauncher(String packageName, boolean hidden) {
         mAppControlController.setPackageHiddenFromLauncher(packageName, hidden);
-        broadcastPackageChanged(packageName);
     }
 
     @Override
@@ -441,13 +438,11 @@ public final class AxSandboxService extends SystemService implements IAxSandboxS
     @Override
     public void addSandboxedPackage(String packageName) {
         mAppControlController.setPackageSandboxed(packageName, true);
-        broadcastPackageChanged(packageName);
     }
 
     @Override
     public void removeSandboxedPackage(String packageName) {
         mAppControlController.setPackageSandboxed(packageName, false);
-        broadcastPackageChanged(packageName);
     }
 
     @Override
@@ -1219,28 +1214,6 @@ public final class AxSandboxService extends SystemService implements IAxSandboxS
             mAtms.mH.removeCallbacks(r);
         }
         mTimeoutRunnables.clear();
-    }
-
-    private void broadcastPackageChanged(String packageName) {
-        final long token = Binder.clearCallingIdentity();
-        try {
-            int uid = getPackageUid(packageName);
-            int userId = uid >= 0 ? UserHandle.getUserId(uid) : mCurrentUserId;
-
-            Intent intent = new Intent(Intent.ACTION_PACKAGE_CHANGED);
-            intent.setData(Uri.fromParts("package", packageName, null));
-            intent.putExtra(Intent.EXTRA_UID, uid);
-            intent.putExtra(Intent.EXTRA_USER_HANDLE, userId);
-            String[] components = { packageName };
-            intent.putExtra(Intent.EXTRA_CHANGED_COMPONENT_NAME_LIST, components);
-
-            mContext.sendBroadcastAsUser(intent, UserHandle.of(userId));
-            Slog.d(TAG, "broadcastPackageChanged: " + packageName);
-        } catch (Exception e) {
-            Slog.w(TAG, "Failed to broadcast package change for " + packageName, e);
-        } finally {
-            Binder.restoreCallingIdentity(token);
-        }
     }
 
     private void notifyAppLockStateChanged(String packageName, boolean locked) {
