@@ -40,6 +40,7 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -58,6 +59,8 @@ public class AppControlController {
     private static final String KEY_SPOOF_SETTINGS_MAP = "spoof_settings_map";
     private static final String KEY_DATA_ISOLATION = "data_isolation_pkgs";
 
+    private static final long PACKAGE_CHANGED_FLUSH_MS = 400;
+
     private final Context mContext;
     private final ContentResolver mContentResolver;
     private final LauncherApps mLauncherApps;
@@ -72,6 +75,10 @@ public class AppControlController {
     private final Map<String, int[]> mGidRestrictions = new HashMap<>();
     private final Map<String, Set<String>> mSpoofSettingsMap = new HashMap<>();
     private final Set<String> mDataIsolationPackages = new HashSet<>();
+
+    // Launchers reload their whole model per broadcast; flush once per burst of changes.
+    private final Map<String, Integer> mPendingPackageBroadcasts = new LinkedHashMap<>();
+    private final Runnable mFlushPackageBroadcasts = this::flushPackageBroadcasts;
 
     private ContentObserver mConfigObserver;
 
@@ -102,8 +109,7 @@ public class AppControlController {
         mConfigObserver = new ContentObserver(mHandler) {
             @Override
             public void onChange(boolean selfChange) {
-                loadConfigFromSettings();
-                broadcastPackageChanges();
+                reloadConfigAndBroadcastChanges();
                 notifyUpdate();
             }
         };
@@ -188,18 +194,47 @@ public class AppControlController {
         }
     }
 
-    private void broadcastPackageChanges() {
-        Set<String> allPackages = new HashSet<>();
+    private void reloadConfigAndBroadcastChanges() {
+        final Set<String> before = new HashSet<>();
         synchronized (this) {
-            allPackages.addAll(mHiddenPackages);
-            allPackages.addAll(mLauncherHiddenPackages);
+            before.addAll(mHiddenPackages);
+            before.addAll(mLauncherHiddenPackages);
         }
-
-        for (String packageName : allPackages) {
-            int uid = getPackageUid(packageName);
-            if (uid >= 0) {
-                broadcastPackageChange(packageName, uid);
+        loadConfigFromSettings();
+        final Set<String> changed = new HashSet<>(before);
+        synchronized (this) {
+            for (String pkg : mHiddenPackages) {
+                if (!changed.remove(pkg)) changed.add(pkg);
             }
+            for (String pkg : mLauncherHiddenPackages) {
+                if (!changed.remove(pkg)) changed.add(pkg);
+            }
+        }
+        for (String pkg : changed) {
+            int uid = getPackageUid(pkg);
+            if (uid >= 0) {
+                queuePackageChangedBroadcast(pkg, uid);
+            }
+        }
+    }
+
+    private void queuePackageChangedBroadcast(String packageName, int uid) {
+        synchronized (this) {
+            mPendingPackageBroadcasts.put(packageName, uid);
+        }
+        mHandler.removeCallbacks(mFlushPackageBroadcasts);
+        mHandler.postDelayed(mFlushPackageBroadcasts, PACKAGE_CHANGED_FLUSH_MS);
+    }
+
+    private void flushPackageBroadcasts() {
+        final Map<String, Integer> pending;
+        synchronized (this) {
+            if (mPendingPackageBroadcasts.isEmpty()) return;
+            pending = new LinkedHashMap<>(mPendingPackageBroadcasts);
+            mPendingPackageBroadcasts.clear();
+        }
+        for (Map.Entry<String, Integer> e : pending.entrySet()) {
+            broadcastPackageChange(e.getKey(), e.getValue());
         }
     }
 
@@ -277,7 +312,7 @@ public class AppControlController {
             if (mLockedPackages.add(packageName)) {
                 saveConfigToSettings();
                 if (uid >= 0) {
-                    broadcastPackageChange(packageName, uid);
+                    queuePackageChangedBroadcast(packageName, uid);
                 }
             }
         }
@@ -291,7 +326,7 @@ public class AppControlController {
             if (mLockedPackages.remove(packageName)) {
                 saveConfigToSettings();
                 if (uid >= 0) {
-                    broadcastPackageChange(packageName, uid);
+                    queuePackageChangedBroadcast(packageName, uid);
                 }
             }
         }
@@ -311,7 +346,7 @@ public class AppControlController {
             if (changed) {
                 saveConfigToSettings();
                 if (uid >= 0) {
-                    broadcastPackageChange(packageName, uid);
+                    queuePackageChangedBroadcast(packageName, uid);
                 }
             }
         }
@@ -331,7 +366,7 @@ public class AppControlController {
             if (changed) {
                 saveConfigToSettings();
                 if (uid >= 0) {
-                    broadcastPackageChange(packageName, uid);
+                    queuePackageChangedBroadcast(packageName, uid);
                 }
             }
         }
@@ -340,11 +375,15 @@ public class AppControlController {
 
     public void setPackageSandboxed(String packageName, boolean sandboxed) {
         if (TextUtils.isEmpty(packageName)) return;
+        int uid = getPackageUid(packageName);
         synchronized (this) {
             boolean changed = sandboxed ? mSandboxedPackages.add(packageName)
                                        : mSandboxedPackages.remove(packageName);
             if (changed) {
                 saveConfigToSettings();
+                if (uid >= 0) {
+                    queuePackageChangedBroadcast(packageName, uid);
+                }
             }
         }
         Slog.d(TAG, "setPackageSandboxed: " + packageName + " sandboxed=" + sandboxed);
