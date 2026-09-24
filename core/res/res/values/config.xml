@@ -8099,4 +8099,8 @@
 
     <!-- Whether to explicitly disable the Video capability over IWLAN when Wi-Fi Calling is turned off. -->
     <bool name="config_disable_video_capability_when_wfc_off">false</bool>
+    <!-- Legacy vendor displays may define 0/0/0 HBM timing as no time quota.
+         Enable only where the display stack independently enforces safe operation. -->
+    <bool name="config_allowHbmWithoutTimeLimit">false</bool>
+
 </resources>
