@@ -126,6 +126,56 @@ public class HighBrightnessModeControllerTest {
     /////////////////
 
     @Test
+    public void testZeroTimingOptInDoesNotCreateSessions() {
+        final HighBrightnessModeController hbmc = createZeroTimingHbm(true);
+        hbmc.setAutoBrightnessEnabled(AUTO_BRIGHTNESS_ENABLED);
+        hbmc.onAmbientLuxChange(MINIMUM_LUX + 1);
+        hbmcOnBrightnessChanged(hbmc, TRANSITION_POINT + 0.01f);
+        advanceTime(TIME_WINDOW_MILLIS * 2);
+        assertState(hbmc, DEFAULT_MIN, DEFAULT_MAX, HIGH_BRIGHTNESS_MODE_SUNLIGHT);
+        assertEquals(-1, mHighBrightnessModeMetadata.getRunningStartTimeMillis());
+        assertTrue(mHighBrightnessModeMetadata.getHbmEventQueue().isEmpty());
+    }
+
+    @Test
+    public void testZeroTimingWithoutOptInRetainsAccounting() {
+        final HighBrightnessModeController hbmc = createZeroTimingHbm(false);
+        hbmc.setAutoBrightnessEnabled(AUTO_BRIGHTNESS_ENABLED);
+        hbmc.onAmbientLuxChange(MINIMUM_LUX + 1);
+        hbmcOnBrightnessChanged(hbmc, TRANSITION_POINT + 0.01f);
+        assertTrue(mHighBrightnessModeMetadata.getRunningStartTimeMillis() >= 0);
+    }
+
+    @Test
+    public void testUnlimitedOptInPreservesNonzeroTimeQuota() {
+        Resources resources = mock(Resources.class);
+        when(resources.getBoolean(
+                com.android.internal.R.bool.config_allowHbmWithoutTimeLimit)).thenReturn(true);
+        when(mContextSpy.getResources()).thenReturn(resources);
+        final HighBrightnessModeController hbmc = createDefaultHbm();
+        hbmc.setAutoBrightnessEnabled(AUTO_BRIGHTNESS_ENABLED);
+        hbmc.onAmbientLuxChange(MINIMUM_LUX + 1);
+        hbmcOnBrightnessChanged(hbmc, TRANSITION_POINT + 0.01f);
+        advanceTime(TIME_ALLOWED_IN_WINDOW_MILLIS + 1);
+        assertState(hbmc, DEFAULT_MIN, TRANSITION_POINT, HIGH_BRIGHTNESS_MODE_OFF);
+    }
+
+    private HighBrightnessModeController createZeroTimingHbm(boolean enabled) {
+        Resources resources = mock(Resources.class);
+        when(resources.getBoolean(
+                com.android.internal.R.bool.config_allowHbmWithoutTimeLimit)).thenReturn(enabled);
+        when(mContextSpy.getResources()).thenReturn(resources);
+        initHandler(null);
+        mHighBrightnessModeMetadata = new HighBrightnessModeMetadata();
+        HighBrightnessModeData data = new HighBrightnessModeData(MINIMUM_LUX,
+                TRANSITION_POINT, 0, 0, 0, ALLOW_IN_LOW_POWER_MODE,
+                HDR_PERCENT_OF_SCREEN_REQUIRED_DEFAULT, null, null, true);
+        return new HighBrightnessModeController(mInjectorMock, mHandler, DISPLAY_WIDTH,
+                DISPLAY_HEIGHT, mDisplayToken, mDisplayUniqueId, DEFAULT_MIN, DEFAULT_MAX,
+                data, null, () -> {}, mHighBrightnessModeMetadata, mContextSpy);
+    }
+
+    @Test
     public void testNoHbmData() {
         initHandler(null);
         final HighBrightnessModeController hbmc = new HighBrightnessModeController(
