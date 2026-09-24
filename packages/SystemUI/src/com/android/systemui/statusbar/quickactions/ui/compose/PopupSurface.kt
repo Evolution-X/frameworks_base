@@ -62,7 +62,9 @@ fun PopupSurface(
                 cornerRadius = 32.dp,
                 highlight = AxBlurSurfaceDefaults.highlightBrush(),
             ) {
-                CompositionLocalProvider(LocalContentColor provides Color.White) {
+                CompositionLocalProvider(
+                    LocalContentColor provides MaterialTheme.colorScheme.onSurface
+                ) {
                     content()
                 }
             }
