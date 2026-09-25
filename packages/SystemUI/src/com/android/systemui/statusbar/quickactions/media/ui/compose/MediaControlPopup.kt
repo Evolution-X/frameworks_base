@@ -300,7 +300,7 @@ private fun MediaProgressSection(
         val startWallClockMs = System.currentTimeMillis()
         val startPositionMs = displayedPositionMs
         while (!isScrubbing) {
-            delay(16L)
+            delay(250L)
             val elapsedMs = System.currentTimeMillis() - startWallClockMs
             displayedPositionMs = (startPositionMs + elapsedMs).coerceAtMost(durationMs)
             if (displayedPositionMs >= durationMs) {
