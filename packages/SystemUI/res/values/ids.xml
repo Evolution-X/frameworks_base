@@ -324,4 +324,9 @@
     <item type="id" name="original_text_color" />
     <item type="id" name="original_typeface" />
     <item type="id" name="original_alpha" />
+
+    <!-- Google smartspace view IDs (view doesn't exist on non-GMS builds) -->
+    <item type="id" name="bc_smartspace_view" />
+    <item type="id" name="smartspace_card_pager" />
+    <item type="id" name="smartspace_page_indicator" />
 </resources>
