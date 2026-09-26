@@ -26,7 +26,11 @@ public final class CircleRingRenderer implements RingViewRenderer {
 
     @Override
     public void updateBounds(RectF bounds) {
-        mBounds.set(bounds);
+        if (bounds == null || bounds.isEmpty()) {
+            mBounds.setEmpty();
+        } else {
+            mBounds.set(bounds);
+        }
     }
 
     @Override
@@ -43,18 +47,54 @@ public final class CircleRingRenderer implements RingViewRenderer {
     }
 
     @Override
+    public void drawSymmetricProgress(Canvas canvas, float sweepFraction, Paint paint) {
+        float fraction = Math.max(0f, Math.min(1f, sweepFraction));
+        if (fraction <= 0f) return;
+        float sweep = fraction * 180f;
+        canvas.drawArc(mBounds, 90f - sweep, sweep, false, paint);
+        canvas.drawArc(mBounds, 90f, sweep, false, paint);
+    }
+
+    @Override
+    public boolean getPointAndOutwardNormal(float fraction, float[] position, float[] normal) {
+        if (position == null || position.length < 2 || normal == null || normal.length < 2
+                || mBounds.isEmpty()) return false;
+        float f = fraction - (float) Math.floor(fraction);
+        double angle = -Math.PI / 2.0 + Math.PI * 2.0 * f;
+        float cos = (float) Math.cos(angle);
+        float sin = (float) Math.sin(angle);
+        float a = mBounds.width() / 2f;
+        float b = mBounds.height() / 2f;
+        if (a <= 0f || b <= 0f) return false;
+        position[0] = mBounds.centerX() + a * cos;
+        position[1] = mBounds.centerY() + b * sin;
+        float nx = cos / a;
+        float ny = sin / b;
+        float len = (float) Math.hypot(nx, ny);
+        if (len <= 0f) return false;
+        normal[0] = nx / len;
+        normal[1] = ny / len;
+        return true;
+    }
+
+    @Override
     public void drawSegmented(Canvas canvas,
                               int segments, float gapDeg, float arcDeg,
                               int highlight,
                               Paint basePaint, Paint shinePaint, float alpha) {
+        if (mBounds.isEmpty() || segments <= 0) return;
+        float safeArcDeg = Math.max(0f, arcDeg);
+        float safeGapDeg = Math.max(0f, gapDeg);
+        if (safeArcDeg + safeGapDeg <= 0f) return;
+
         for (int i = 0; i < segments; i++) {
-            float startAngle = -90f + i * (arcDeg + gapDeg);
+            float startAngle = -90f + i * (safeArcDeg + safeGapDeg);
             if (i == highlight || i == highlight - 1) {
                 Paint tmp = new Paint(shinePaint);
-                tmp.setAlpha((int)(255 * alpha));
-                canvas.drawArc(mBounds, startAngle, arcDeg, false, tmp);
+                tmp.setAlpha((int)(255 * Math.max(0f, Math.min(1f, alpha))));
+                canvas.drawArc(mBounds, startAngle, safeArcDeg, false, tmp);
             } else {
-                canvas.drawArc(mBounds, startAngle, arcDeg, false, basePaint);
+                canvas.drawArc(mBounds, startAngle, safeArcDeg, false, basePaint);
             }
         }
     }

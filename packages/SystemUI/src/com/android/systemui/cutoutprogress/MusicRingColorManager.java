@@ -21,7 +21,7 @@ import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.drawable.BitmapDrawable;
+import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.util.TypedValue;
@@ -29,8 +29,10 @@ import android.util.TypedValue;
 import androidx.core.graphics.ColorUtils;
 import androidx.palette.graphics.Palette;
 
-import java.util.concurrent.Executor;
+import java.util.Objects;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 
 public final class MusicRingColorManager {
 
@@ -54,7 +56,7 @@ public final class MusicRingColorManager {
     private final Context mContext;
     private final Handler mMainHandler;
 
-    private final Executor mBgExecutor = Executors.newSingleThreadExecutor(r -> {
+    private final ExecutorService mBgExecutor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "MusicRingPalette");
         t.setPriority(Thread.MIN_PRIORITY);
         return t;
@@ -67,9 +69,11 @@ public final class MusicRingColorManager {
     private String mCachedTrackId = null;
     private int mCachedColor = DEFAULT_FALLBACK;
     private Drawable mLastArt = null;
-
-    private int mCachedAccent = DEFAULT_FALLBACK;
-    private int mLastUiMode = -1;
+    private Drawable mLastResolvedArt = null;
+    private volatile int mResolveGeneration = 0;
+    private volatile boolean mDestroyed = false;
+    private final Object mPaletteTaskLock = new Object();
+    private PaletteTask mPendingPaletteTask;
 
     private int mCurrentColor = DEFAULT_FALLBACK;
 
@@ -78,9 +82,13 @@ public final class MusicRingColorManager {
         mMainHandler = mainHandler;
     }
 
-    public void setCallback(ColorCallback cb) { mCallback = cb; }
+    public void setCallback(ColorCallback cb) {
+        if (!mDestroyed) mCallback = cb;
+    }
 
     public void setMode(int mode) {
+        if (mDestroyed) return;
+        mode = Math.max(MODE_ALBUM_ICON, Math.min(MODE_CUSTOM, mode));
         if (mMode == mode) return;
         mMode = mode;
         invalidateCache();
@@ -88,6 +96,7 @@ public final class MusicRingColorManager {
     }
 
     public void setCustomColor(int argb) {
+        if (mDestroyed) return;
         mCustomColor = argb;
         if (mMode == MODE_CUSTOM) emit(argb);
     }
@@ -100,38 +109,79 @@ public final class MusicRingColorManager {
         return mCurrentColor;
     }
 
-    public void onTrackChanged(String trackId, Drawable art) {
-        boolean sameTrack = trackId.equals(mCachedTrackId);
-        boolean sameArt = (art == mLastArt);
-        if (sameTrack && sameArt) return;
+    public void onThemeChanged() {
+        if (mDestroyed) return;
+        // Album colors are visibility-adjusted against light/dark backgrounds as well, so a
+        // theme change must invalidate more than just MODE_ACCENT.
+        mLastResolvedArt = null;
+        resolve(mLastArt, mCachedTrackId);
+    }
 
-        if (!sameTrack) {
+    public void destroy() {
+        if (mDestroyed) return;
+        mDestroyed = true;
+        mResolveGeneration++;
+        mCallback = null;
+        synchronized (mPaletteTaskLock) {
+            if (mPendingPaletteTask != null) {
+                mPendingPaletteTask.cancel();
+                mPendingPaletteTask = null;
+            }
+        }
+        mBgExecutor.shutdownNow();
+    }
+
+    public void onTrackChanged(String trackId, Drawable art) {
+        if (mDestroyed) return;
+        if (Objects.equals(trackId, mCachedTrackId) && art == mLastArt) return;
+
+        if (!Objects.equals(trackId, mCachedTrackId)) {
             mCachedTrackId = trackId;
             mCachedColor = DEFAULT_FALLBACK;
+            mLastResolvedArt = null;
+            // Do not reuse artwork from the previous track while metadata for the new track is
+            // still arriving.
+            mLastArt = art;
+        } else if (art != null && art != mLastArt) {
+            mLastArt = art;
+            mCachedColor = DEFAULT_FALLBACK;
+            mLastResolvedArt = null;
         }
-        if (art != null) mLastArt = art;
         resolve(mLastArt, mCachedTrackId);
     }
 
     public void onAlbumArtChanged(Drawable art) {
+        if (mDestroyed) return;
         if (art == mLastArt) return;
         mLastArt = art;
+        mCachedColor = DEFAULT_FALLBACK;
+        mLastResolvedArt = null;
         resolve(art, mCachedTrackId);
     }
 
     private void resolve(Drawable art, String trackId) {
+        if (mDestroyed) return;
+        final int generation = ++mResolveGeneration;
+        // Cancel obsolete queued palette work immediately. Generation checks still guard
+        // already-running work, while cancellation recycles samples that have not started.
+        synchronized (mPaletteTaskLock) {
+            if (mPendingPaletteTask != null) {
+                mPendingPaletteTask.cancel();
+                mPendingPaletteTask = null;
+            }
+        }
         switch (mMode) {
-            case MODE_CUSTOM: 
-                emit(mCustomColor); 
+            case MODE_CUSTOM:
+                emitIfCurrent(generation, mCustomColor);
                 break;
-            case MODE_ACCENT: 
-                emit(resolveAccent()); 
+            case MODE_ACCENT:
+                emitIfCurrent(generation, resolveAccent());
                 break;
-            case MODE_ALBUM_ICON: 
-                resolveAlbumIcon(art, trackId); 
+            case MODE_ALBUM_ICON:
+                resolveAlbumIcon(art, trackId, generation);
                 break;
-            case MODE_ALBUM_ART: 
-                resolveFullPalette(art, trackId); 
+            case MODE_ALBUM_ART:
+                resolveFullPalette(art, trackId, generation);
                 break;
         }
     }
@@ -139,83 +189,186 @@ public final class MusicRingColorManager {
     private int resolveAccent() {
         int curMode = mContext.getResources().getConfiguration().uiMode
                 & Configuration.UI_MODE_NIGHT_MASK;
-        if (curMode == mLastUiMode) return mCachedAccent;
-        mLastUiMode = curMode;
         TypedValue tv = new TypedValue();
         boolean ok = mContext.getTheme()
                 .resolveAttribute(android.R.attr.colorAccent, tv, true);
-        int accent = ok ? tv.data : DEFAULT_FALLBACK;
-        mCachedAccent = ensureVisible(accent,
-                curMode == Configuration.UI_MODE_NIGHT_YES);
-        return mCachedAccent;
+        int accent = DEFAULT_FALLBACK;
+        if (ok) {
+            if (tv.resourceId != 0) {
+                try {
+                    accent = mContext.getColor(tv.resourceId);
+                } catch (android.content.res.Resources.NotFoundException ignored) {
+                    accent = tv.data;
+                }
+            } else {
+                accent = tv.data;
+            }
+        }
+        return ensureVisible(accent, curMode == Configuration.UI_MODE_NIGHT_YES);
     }
 
-    private void resolveAlbumIcon(Drawable art, String trackId) {
-        if (art == null) { emitFallback(); return; }
+    private void resolveAlbumIcon(Drawable art, String trackId, int generation) {
+        if (art == null) {
+            emitFallback(generation);
+            return;
+        }
 
-        if (art == mLastArt
-                && trackId != null && trackId.equals(mCachedTrackId)
+        if (art == mLastResolvedArt
+                && Objects.equals(trackId, mCachedTrackId)
                 && mCachedColor != DEFAULT_FALLBACK) {
-            emit(mCachedColor);
+            emitIfCurrent(generation, mCachedColor);
             return;
         }
 
         Bitmap bmp = drawableToBitmap(art, ICON_SAMPLE_DIM);
-        if (bmp == null) { emitFallback(); return; }
+        if (bmp == null) {
+            emitFallback(generation);
+            return;
+        }
 
         int dominant = dominantColor(bmp);
         bmp.recycle();
-
-        boolean dark = isDarkMode();
-        int finalColor = ensureVisible(dominant, dark);
+        int finalColor = ensureVisible(dominant, isDarkMode());
+        if (generation != mResolveGeneration) return;
+        mLastResolvedArt = art;
         if (trackId != null) mCachedColor = finalColor;
         emit(finalColor);
     }
 
-    private void resolveFullPalette(Drawable art, String trackId) {
-        if (art == null) { emitFallback(); return; }
+    private void resolveFullPalette(Drawable art, String trackId, int generation) {
+        if (art == null) {
+            emitFallback(generation);
+            return;
+        }
 
-        if (art == mLastArt
-                && trackId != null && trackId.equals(mCachedTrackId)
+        if (art == mLastResolvedArt
+                && Objects.equals(trackId, mCachedTrackId)
                 && mCachedColor != DEFAULT_FALLBACK) {
-            emit(mCachedColor);
+            emitIfCurrent(generation, mCachedColor);
             return;
         }
 
         Bitmap sampled = drawableToBitmap(art, ART_SAMPLE_DIM);
-        if (sampled == null) { emitFallback(); return; }
+        if (sampled == null) {
+            emitFallback(generation);
+            return;
+        }
 
-        final String capturedId = trackId;
-        final boolean dark = isDarkMode();
-
-        mBgExecutor.execute(() -> {
-            int color;
-            try {
-                Palette palette = Palette.from(sampled).maximumColorCount(16).generate();
-                color = pickBestSwatch(palette);
-            } finally {
-                sampled.recycle();
+        final PaletteTask task = new PaletteTask(sampled, generation, trackId, art, isDarkMode());
+        synchronized (mPaletteTaskLock) {
+            if (mPendingPaletteTask != null) {
+                mPendingPaletteTask.cancel();
             }
-            int finalColor = ensureVisible(color, dark);
+            mPendingPaletteTask = task;
+        }
+        try {
+            mBgExecutor.execute(task);
+        } catch (RejectedExecutionException ignored) {
+            task.cancel();
+            clearPaletteTask(task);
+        }
+    }
+
+    private final class PaletteTask implements Runnable {
+        private Bitmap mSample;
+        private final int mGeneration;
+        private final String mTrackId;
+        private final Drawable mArt;
+        private final boolean mDark;
+        private boolean mStarted;
+        private volatile boolean mCancelled;
+
+        PaletteTask(Bitmap sample, int generation, String trackId, Drawable art, boolean dark) {
+            mSample = sample;
+            mGeneration = generation;
+            mTrackId = trackId;
+            mArt = art;
+            mDark = dark;
+        }
+
+        synchronized void cancel() {
+            mCancelled = true;
+            if (!mStarted) recycleSampleLocked();
+        }
+
+        @Override
+        public void run() {
+            final Bitmap sample;
+            final boolean skip;
+            synchronized (this) {
+                skip = mCancelled || mSample == null;
+                if (!skip) {
+                    mStarted = true;
+                }
+                sample = mSample;
+            }
+            // Never acquire mPaletteTaskLock while holding this task's monitor; cancellation
+            // takes the locks in the opposite direction.
+            if (skip) {
+                clearPaletteTask(this);
+                return;
+            }
+
+            int color = DEFAULT_FALLBACK;
+            try {
+                if (!mDestroyed && mGeneration == mResolveGeneration) {
+                    Palette palette = Palette.from(sample).maximumColorCount(16).generate();
+                    color = pickBestSwatch(palette);
+                }
+            } catch (RuntimeException ignored) {
+                color = DEFAULT_FALLBACK;
+            } finally {
+                synchronized (this) {
+                    recycleSampleLocked();
+                }
+                clearPaletteTask(this);
+            }
+
+            final int finalColor = ensureVisible(color, mDark);
             mMainHandler.post(() -> {
-                if (capturedId != null) mCachedColor = finalColor;
+                if (mDestroyed || mCancelled
+                        || mGeneration != mResolveGeneration
+                        || !Objects.equals(mTrackId, mCachedTrackId)
+                        || mArt != mLastArt) {
+                    return;
+                }
+                mLastResolvedArt = mArt;
+                if (mTrackId != null) mCachedColor = finalColor;
                 emit(finalColor);
             });
-        });
+        }
+
+        private void recycleSampleLocked() {
+            if (mSample != null && !mSample.isRecycled()) {
+                mSample.recycle();
+            }
+            mSample = null;
+        }
+    }
+
+    private void clearPaletteTask(PaletteTask task) {
+        synchronized (mPaletteTaskLock) {
+            if (mPendingPaletteTask == task) mPendingPaletteTask = null;
+        }
+    }
+
+    private void emitIfCurrent(int generation, int argb) {
+        if (!mDestroyed && generation == mResolveGeneration) emit(argb);
     }
 
     private void emit(int argb) {
+        if (mDestroyed) return;
         mCurrentColor = argb;
         if (mCallback != null) mCallback.onMusicRingColorChanged(argb);
     }
 
-    private void emitFallback() {
-        emit(resolveAccent());
+    private void emitFallback(int generation) {
+        emitIfCurrent(generation, resolveAccent());
     }
 
     private void invalidateCache() {
         mCachedColor = DEFAULT_FALLBACK;
-        mLastArt = null;
+        mLastResolvedArt = null;
     }
 
     private boolean isDarkMode() {
@@ -249,25 +402,41 @@ public final class MusicRingColorManager {
         if (n == 0) return DEFAULT_FALLBACK;
         int[] pixels = new int[n];
         bmp.getPixels(pixels, 0, bmp.getWidth(), 0, 0, bmp.getWidth(), bmp.getHeight());
-        long r = 0, g = 0, b = 0;
-        for (int px : pixels) { r += Color.red(px); g += Color.green(px); b += Color.blue(px); }
-        return Color.rgb((int)(r/n), (int)(g/n), (int)(b/n));
+        long r = 0;
+        long g = 0;
+        long b = 0;
+        long weight = 0;
+        for (int px : pixels) {
+            int a = Color.alpha(px);
+            if (a < 32) continue;
+            r += (long) Color.red(px) * a;
+            g += (long) Color.green(px) * a;
+            b += (long) Color.blue(px) * a;
+            weight += a;
+        }
+        if (weight == 0) return DEFAULT_FALLBACK;
+        return Color.rgb((int) (r / weight), (int) (g / weight), (int) (b / weight));
     }
 
     private static Bitmap drawableToBitmap(Drawable d, int dim) {
-        if (d instanceof BitmapDrawable) {
-            Bitmap src = ((BitmapDrawable) d).getBitmap();
-            if (src != null && !src.isRecycled())
-                return Bitmap.createScaledBitmap(src, dim, dim, false);
+        if (d == null || dim <= 0) return null;
+        Bitmap bmp = null;
+        Rect oldBounds = d.copyBounds();
+        try {
+            bmp = Bitmap.createBitmap(dim, dim, Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(bmp);
+            d.setBounds(0, 0, dim, dim);
+            d.draw(canvas);
+            return bmp;
+        } catch (RuntimeException | OutOfMemoryError ignored) {
+            if (bmp != null && !bmp.isRecycled()) bmp.recycle();
+            return null;
+        } finally {
+            try {
+                d.setBounds(oldBounds);
+            } catch (RuntimeException ignored) {
+            }
         }
-        int w = d.getIntrinsicWidth();
-        int h = d.getIntrinsicHeight();
-        if (w <= 0 || h <= 0) return null;
-        Bitmap bmp = Bitmap.createBitmap(dim, dim, Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bmp);
-        d.setBounds(0, 0, dim, dim);
-        d.draw(canvas);
-        return bmp;
     }
 
     private static int ensureVisible(int color, boolean darkBackground) {

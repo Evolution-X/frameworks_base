@@ -49,7 +49,8 @@ public final class OverlayAnimationHelper {
     public boolean isDynamicPreviewActive() { return previewMode == PreviewMode.DYNAMIC; }
     public boolean isGeometryPreviewActive() { return previewMode == PreviewMode.GEOMETRY; }
 
-    private static final int MAX_ANIM_MS = 800;
+    private static final long POP_IN_DURATION_MS = 180L;
+    private static final long SEGMENT_CASCADE_DURATION_MS = 320L;
     private static final float INTENSITY_POP = 1.5f;
     private static final float POP_SCALE_FACTOR = 0.08f;
     private static final float SEGMENT_SHINE_BLEND = 0.4f;
@@ -66,6 +67,8 @@ public final class OverlayAnimationHelper {
     private ValueAnimator mPreviewAnim;
     private Runnable mPreviewDebounce;
     private Runnable mGeometryHideTask;
+    private Runnable mFinishHoldTask;
+    private Runnable mPreviewResetTask;
 
     public OverlayAnimationHelper(View host) {
         mHost = host;
@@ -104,51 +107,76 @@ public final class OverlayAnimationHelper {
     }
 
     private void animatePop(int holdMs, int exitMs, float intensity, Runnable onComplete) {
-        int total = Math.min(holdMs + exitMs, MAX_ANIM_MS);
-        long scaleDuration = (long)(total * 0.4f);
-        long fadeDuration = total - scaleDuration;
-
-        mFinishAnim = animate(0f, 1f, scaleDuration, new OvershootInterpolator(2f * intensity),
+        mFinishAnim = animate(0f, 1f, POP_IN_DURATION_MS,
+                new OvershootInterpolator(2f * intensity),
                 f -> displayScale = 1f + POP_SCALE_FACTOR * intensity * f,
-                () -> mFinishAnim = animate(0f, 1f, fadeDuration,
-                        new AccelerateDecelerateInterpolator(),
-                        f -> {
-                            displayScale = 1f + POP_SCALE_FACTOR * intensity * (1f - f * 0.5f);
-                            displayAlpha = 1f - f;
-                        },
-                        () -> endFinish(onComplete)));
+                () -> holdThenExit(Math.max(0, holdMs), Math.max(0, exitMs),
+                        intensity, onComplete));
     }
 
     private void animateSegmented(int holdMs, int exitMs, float intensity, Runnable onComplete) {
-        int total = Math.min(holdMs + exitMs, MAX_ANIM_MS);
-        long cascadeDuration = (long)(total * 0.6f);
-        long fadeDuration = total - cascadeDuration;
-
-        mFinishAnim = animateInt(0, SEGMENT_COUNT + 2, cascadeDuration,
+        mFinishAnim = animateInt(0, SEGMENT_COUNT + 2, SEGMENT_CASCADE_DURATION_MS,
                 new LinearInterpolator(),
                 seg -> {
-                    segmentHighlight  = seg;
+                    segmentHighlight = seg;
                     successColorBlend = intensity * SEGMENT_SHINE_BLEND;
                 },
                 () -> {
                     segmentHighlight = -1;
-                    mFinishAnim = animate(1f, 0f, fadeDuration,
-                            new AccelerateDecelerateInterpolator(),
-                            f -> displayAlpha = f,
-                            () -> endFinish(onComplete));
+                    holdThenExit(Math.max(0, holdMs), Math.max(0, exitMs),
+                            0f, onComplete);
                 });
     }
 
+    private void holdThenExit(int holdMs, int exitMs, float popIntensity,
+                              Runnable onComplete) {
+        cancelFinishHold();
+        mFinishHoldTask = () -> {
+            mFinishHoldTask = null;
+            float startScale = displayScale;
+            mFinishAnim = animate(0f, 1f, Math.max(1, exitMs),
+                    new AccelerateDecelerateInterpolator(),
+                    f -> {
+                        if (popIntensity > 0f) {
+                            displayScale = startScale
+                                    - (startScale - 1f) * Math.min(1f, f);
+                        }
+                        displayAlpha = 1f - f;
+                    },
+                    () -> endFinish(onComplete));
+        };
+        if (holdMs <= 0) {
+            mFinishHoldTask.run();
+        } else {
+            mHost.postDelayed(mFinishHoldTask, holdMs);
+        }
+    }
+
+    private void cancelFinishHold() {
+        if (mFinishHoldTask != null) {
+            mHost.removeCallbacks(mFinishHoldTask);
+            mFinishHoldTask = null;
+        }
+    }
+
     private void animatePulse(Runnable then) {
-        if (mPulseAnim != null) mPulseAnim.cancel();
-        mPulseAnim = animate(1f, PULSE_MIN_ALPHA, PULSE_DURATION_MS,
-                new AccelerateDecelerateInterpolator(),
-                f -> completionPulseAlpha = f, null);
-        ValueAnimator second = animate(PULSE_MIN_ALPHA, 1f, PULSE_DURATION_MS,
-                new AccelerateDecelerateInterpolator(),
-                f -> completionPulseAlpha = f, then);
+        cancel(mPulseAnim);
+        mPulseAnim = ValueAnimator.ofFloat(1f, PULSE_MIN_ALPHA, 1f);
+        mPulseAnim.setDuration(PULSE_DURATION_MS * 2L);
+        mPulseAnim.setInterpolator(new AccelerateDecelerateInterpolator());
+        mPulseAnim.addUpdateListener(a -> {
+            completionPulseAlpha = (float) a.getAnimatedValue();
+            mHost.invalidate();
+        });
         mPulseAnim.addListener(new AnimatorListenerAdapter() {
-            @Override public void onAnimationEnd(Animator a) { second.start(); }
+            private boolean mCancelled;
+            @Override public void onAnimationCancel(Animator a) { mCancelled = true; }
+            @Override public void onAnimationEnd(Animator a) {
+                if (mCancelled) return;
+                mPulseAnim = null;
+                completionPulseAlpha = 1f;
+                then.run();
+            }
         });
         mPulseAnim.start();
     }
@@ -161,6 +189,7 @@ public final class OverlayAnimationHelper {
     }
 
     public void cancelFinish() {
+        cancelFinishHold();
         cancel(mFinishAnim); mFinishAnim = null;
         cancel(mPulseAnim);  mPulseAnim  = null;
         isFinishAnimating = false;
@@ -188,10 +217,12 @@ public final class OverlayAnimationHelper {
             mHost.invalidate();
         });
         mErrorAnim.addListener(new AnimatorListenerAdapter() {
+            private boolean mCancelled;
+            @Override public void onAnimationCancel(Animator a) { mCancelled = true; }
             @Override public void onAnimationEnd(Animator a) {
                 isErrorAnimating = false;
                 errorAlpha = 0f;
-                if (onComplete != null) onComplete.run();
+                if (!mCancelled && onComplete != null) onComplete.run();
                 mHost.invalidate();
             }
         });
@@ -202,10 +233,14 @@ public final class OverlayAnimationHelper {
         cancel(mErrorAnim); mErrorAnim = null;
         isErrorAnimating = false;
         errorAlpha = 0f;
+        mHost.invalidate();
     }
 
     public void startDynamicPreview(String finishStyle, int holdMs,
                                     int exitMs, boolean pulse) {
+        // Preview modes are mutually exclusive. A stale geometry auto-hide runnable must never
+        // clear a dynamic preview that started later.
+        cancelGeometryPreview();
         mHost.removeCallbacks(mPreviewDebounce);
         mPreviewDebounce = () -> runDynamicPreview(finishStyle, holdMs, exitMs, pulse);
         mHost.postDelayed(mPreviewDebounce, PREVIEW_DEBOUNCE_MS);
@@ -213,6 +248,7 @@ public final class OverlayAnimationHelper {
 
     private void runDynamicPreview(String finishStyle, int holdMs,
                                    int exitMs, boolean pulse) {
+        cancelGeometryPreview();
         cancelDynamicPreview();
         previewMode = PreviewMode.DYNAMIC;
         previewProgress = 0;
@@ -222,24 +258,39 @@ public final class OverlayAnimationHelper {
                 p -> previewProgress = p,
                 () -> {
                     previewProgress = 100;
-                    startFinish(finishStyle, holdMs, exitMs, pulse, () ->
-                            mHost.postDelayed(() -> {
-                                previewMode     = PreviewMode.NONE;
-                                previewProgress = 0;
-                                mHost.invalidate();
-                            }, 200));
+                    startFinish(finishStyle, holdMs, exitMs, pulse, () -> {
+                        if (mPreviewResetTask != null) {
+                            mHost.removeCallbacks(mPreviewResetTask);
+                        }
+                        mPreviewResetTask = () -> {
+                            previewMode = PreviewMode.NONE;
+                            previewProgress = 0;
+                            mPreviewResetTask = null;
+                            mHost.invalidate();
+                        };
+                        mHost.postDelayed(mPreviewResetTask, 200);
+                    });
                 });
     }
 
     public void cancelDynamicPreview() {
         mHost.removeCallbacks(mPreviewDebounce);
+        if (mPreviewResetTask != null) {
+            mHost.removeCallbacks(mPreviewResetTask);
+            mPreviewResetTask = null;
+        }
         mPreviewDebounce = null;
         cancel(mPreviewAnim); mPreviewAnim = null;
+        if (previewMode == PreviewMode.DYNAMIC && isFinishAnimating) {
+            cancelFinish();
+        }
         previewMode = PreviewMode.NONE;
         previewProgress = 0;
     }
 
     public void showGeometryPreview(boolean autoHide) {
+        // Cancel dynamic animations/debounces before geometry takes ownership of previewMode.
+        cancelDynamicPreview();
         mHost.removeCallbacks(mGeometryHideTask);
         mGeometryHideTask = null;
         previewMode = PreviewMode.GEOMETRY;
@@ -268,6 +319,8 @@ public final class OverlayAnimationHelper {
         cancelError();
         cancelDynamicPreview();
         cancelGeometryPreview();
+        // Ensure reset animation fields are reflected immediately.
+        mHost.invalidate();
     }
 
     private interface FloatConsumer { void accept(float v); }
@@ -276,21 +329,19 @@ public final class OverlayAnimationHelper {
     private ValueAnimator animate(float from, float to, long durationMs,
                                   TimeInterpolator interp,
                                   FloatConsumer onUpdate, Runnable onEnd) {
-        if (durationMs <= 0) {
-            onUpdate.accept(to);
-            mHost.invalidate();
-            if (onEnd != null) onEnd.run();
-            return new ValueAnimator();
-        }
         ValueAnimator va = ValueAnimator.ofFloat(from, to);
-        va.setDuration(durationMs);
+        va.setDuration(Math.max(1L, durationMs));
         va.setInterpolator(interp);
         va.addUpdateListener(a -> {
             onUpdate.accept((float) a.getAnimatedValue());
             mHost.invalidate();
         });
         if (onEnd != null) va.addListener(new AnimatorListenerAdapter() {
-            @Override public void onAnimationEnd(Animator a) { onEnd.run(); }
+            private boolean mCancelled;
+            @Override public void onAnimationCancel(Animator a) { mCancelled = true; }
+            @Override public void onAnimationEnd(Animator a) {
+                if (!mCancelled) onEnd.run();
+            }
         });
         va.start();
         return va;
@@ -299,21 +350,19 @@ public final class OverlayAnimationHelper {
     private ValueAnimator animateInt(int from, int to, long durationMs,
                                      TimeInterpolator interp,
                                      IntConsumer onUpdate, Runnable onEnd) {
-        if (durationMs <= 0) {
-            onUpdate.accept(to);
-            mHost.invalidate();
-            if (onEnd != null) onEnd.run();
-            return new ValueAnimator();
-        }
         ValueAnimator va = ValueAnimator.ofInt(from, to);
-        va.setDuration(durationMs);
+        va.setDuration(Math.max(1L, durationMs));
         va.setInterpolator(interp);
         va.addUpdateListener(a -> {
             onUpdate.accept((int) a.getAnimatedValue());
             mHost.invalidate();
         });
         if (onEnd != null) va.addListener(new AnimatorListenerAdapter() {
-            @Override public void onAnimationEnd(Animator a) { onEnd.run(); }
+            private boolean mCancelled;
+            @Override public void onAnimationCancel(Animator a) { mCancelled = true; }
+            @Override public void onAnimationEnd(Animator a) {
+                if (!mCancelled) onEnd.run();
+            }
         });
         va.start();
         return va;
