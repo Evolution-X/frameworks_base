@@ -63,6 +63,14 @@
     <string name="accessibility_quick_settings_ambient_display_on">Ambient display on.</string>
 
     <!-- AOD QS tile -->
+    <string name="quick_settings_state_on">On</string>
+    <string name="quick_settings_state_off">Off</string>
+    <string name="quick_settings_edge_light_label">Edge lighting</string>
+    <string name="quick_settings_charging_schedule_label">Charging schedule</string>
+    <string name="quick_settings_charging_schedule_range">%1$s–%2$s</string>
+    <string name="quick_settings_charging_schedule_control_off">Charging control off</string>
+    <string name="quick_settings_charging_schedule_limit_required">Limit mode required</string>
+    <string name="quick_settings_charging_schedule_unavailable">Unavailable</string>
     <string name="quick_settings_aod_label">AOD</string>
     <string name="quick_settings_aod_off_powersave_label">AOD off\nBattery saver</string>
 
