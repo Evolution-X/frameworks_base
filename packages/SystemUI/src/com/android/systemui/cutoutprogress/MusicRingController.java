@@ -28,7 +28,7 @@ public final class MusicRingController {
     private final Context mContext;
     private final Handler mMainHandler;
     private final CutoutRingView mRingView;
-    private final MediaSessionManagerHelper mHelper;
+    private MediaSessionManagerHelper mHelper;
 
     private MusicProgressTracker mTracker;
     private MusicRingColorManager mColorManager;
@@ -45,14 +45,13 @@ public final class MusicRingController {
         mContext = context;
         mMainHandler = mainHandler;
         mRingView = ringView;
-        mHelper = MediaSessionManagerHelper.Companion.getInstance(context);
     }
 
     public void applySettings(CutoutProgressSettings settings) {
         mSettings = settings;
         if (mColorManager != null) {
-            mColorManager.setMode(settings.getMusicColorMode());
             mColorManager.setCustomColor(settings.getMusicCustomColor());
+            mColorManager.setMode(settings.getMusicColorMode());
         }
         mRingView.applyMusicSettings(
                 settings.getMusicOpacity(),
@@ -65,17 +64,23 @@ public final class MusicRingController {
         if (mRunning) return;
         mRunning = true;
 
+        if (mHelper == null) {
+            // Avoid starting MediaSessionManagerHelper's polling until music-ring functionality
+            // is actually enabled at least once.
+            mHelper = MediaSessionManagerHelper.Companion.getInstance(mContext);
+        }
+
         mColorManager = new MusicRingColorManager(mContext, mMainHandler);
         mColorManager.setCallback(color -> {
             mColor = color;
             mRingView.setMusicRingColor(color);
         });
         if (mSettings != null) {
-            mColorManager.setMode(mSettings.getMusicColorMode());
             mColorManager.setCustomColor(mSettings.getMusicCustomColor());
+            mColorManager.setMode(mSettings.getMusicColorMode());
         }
 
-        mTracker = new MusicProgressTracker(mHelper, new MusicProgressTracker.Callbacks() {
+        mTracker = new MusicProgressTracker(mContext, mHelper, new MusicProgressTracker.Callbacks() {
 
             @Override
             public void onMusicProgress(float fraction) {
@@ -93,11 +98,11 @@ public final class MusicRingController {
             }
 
             @Override
-            public void onTrackChanged(String title, String artist, long durationMs) {
+            public void onTrackChanged(String trackId, String title, String artist, long durationMs) {
                 mFraction = 0f;
                 mRingView.setMusicProgress(0f);
 
-                mTrackId = title + "|" + artist;
+                mTrackId = trackId != null ? trackId : "";
                 mColorManager.onTrackChanged(mTrackId, null);
             }
 
@@ -118,10 +123,22 @@ public final class MusicRingController {
             mTracker.stop();
             mTracker = null;
         }
-        mColorManager = null;
+        if (mColorManager != null) {
+            mColorManager.destroy();
+            mColorManager = null;
+        }
 
+        mIsPlaying = false;
+        mFraction = 0f;
+        mTrackId = "";
         mRingView.setMusicPlaying(false);
         mRingView.setMusicProgress(0f);
+    }
+
+    public void onThemeChanged() {
+        if (mColorManager != null) {
+            mColorManager.onThemeChanged();
+        }
     }
 
     public boolean isPlaying() {

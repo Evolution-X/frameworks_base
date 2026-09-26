@@ -16,32 +16,39 @@
 
 package com.android.systemui.cutoutprogress;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.media.MediaMetadata;
 import android.media.session.PlaybackState;
 import android.os.Handler;
+import android.os.Looper;
+import android.os.PowerManager;
 import android.os.SystemClock;
-import android.view.Choreographer;
 
 import com.android.systemui.util.MediaSessionManagerHelper;
+
+import java.util.Objects;
 
 public final class MusicProgressTracker {
 
     public interface Callbacks {
         void onMusicProgress(float fraction);
         void onMusicPlayingChanged(boolean isPlaying);
-        void onTrackChanged(String title, String artist, long durationMs);
+        void onTrackChanged(String trackId, String title, String artist, long durationMs);
         void onAlbumArtChanged(Drawable art);
     }
 
     private static final long RESYNC_INTERVAL_MS = 2_000L;
+    private static final long UPDATE_INTERVAL_INTERACTIVE_MS = 33L; // ~30 Hz
+    private static final long UPDATE_INTERVAL_AMBIENT_MS = 1000L;
     private static final float MIN_SPEED = 0.01f;
 
     private final MediaSessionManagerHelper mHelper;
     private final Callbacks mCallbacks;
-    private final Choreographer mChoreographer;
+    private final Handler mMainHandler = new Handler(Looper.getMainLooper());
+    private final PowerManager mPowerManager;
 
     private boolean mIsPlaying = false;
     private long mPositionAtSync = 0L;
@@ -54,6 +61,7 @@ public final class MusicProgressTracker {
     private Bitmap mLastArtBitmap = null;
 
     private boolean mFrameScheduled = false;
+    private boolean mStarted = false;
 
     private final MediaSessionManagerHelper.MediaMetadataListener mListener =
             new MediaSessionManagerHelper.MediaMetadataListener() {
@@ -68,27 +76,35 @@ public final class MusicProgressTracker {
                 }
             };
 
-    private final Choreographer.FrameCallback mFrameCallback = frameTimeNs -> {
-        mFrameScheduled = false;
-        if (mIsPlaying && mDurationMs > 0) {
-            dispatchInterpolatedProgress();
-            scheduleFrame();
+    private final Runnable mProgressTick = new Runnable() {
+        @Override
+        public void run() {
+            mFrameScheduled = false;
+            if (mStarted && mIsPlaying && mDurationMs > 0) {
+                dispatchInterpolatedProgress();
+                scheduleFrame();
+            }
         }
     };
 
-    public MusicProgressTracker(MediaSessionManagerHelper helper, Callbacks callbacks) {
+    public MusicProgressTracker(Context context, MediaSessionManagerHelper helper,
+                                Callbacks callbacks) {
         mHelper = helper;
         mCallbacks = callbacks;
-        mChoreographer = Choreographer.getInstance();
+        mPowerManager = context.getSystemService(PowerManager.class);
     }
 
     public void start() {
+        if (mStarted) return;
+        mStarted = true;
+        // MediaSessionManagerHelper immediately dispatches the current metadata/playback state
+        // from addMediaMetadataListener(); do not process both snapshots twice.
         mHelper.addMediaMetadataListener(mListener);
-        handleMetadataChanged();
-        handlePlaybackStateChanged();
     }
 
     public void stop() {
+        if (!mStarted) return;
+        mStarted = false;
         mHelper.removeMediaMetadataListener(mListener);
         stopFrames();
         mIsPlaying = false;
@@ -97,17 +113,30 @@ public final class MusicProgressTracker {
     }
 
     private void handleMetadataChanged() {
+        if (!mStarted) return;
         MediaMetadata md = mHelper.getCurrentMediaMetadata();
 
         long dur  = md != null ? md.getLong(MediaMetadata.METADATA_KEY_DURATION) : -1L;
         mDurationMs = dur > 0 ? dur : -1L;
 
-        String title = strOrEmpty(md != null ? md.getString(MediaMetadata.METADATA_KEY_TITLE)  : null);
+        String title = strOrEmpty(md != null ? md.getString(MediaMetadata.METADATA_KEY_TITLE) : null);
         String artist = strOrEmpty(md != null ? md.getString(MediaMetadata.METADATA_KEY_ARTIST) : null);
-        String newId = title + "|" + artist;
-        if (!newId.equals(mLastTrackId)) {
+        String newId = buildTrackId(md, title, artist);
+        boolean trackChanged = !Objects.equals(newId, mLastTrackId);
+        if (trackChanged) {
             mLastTrackId = newId;
-            mCallbacks.onTrackChanged(title, artist, mDurationMs);
+            // Some media apps reuse the same mutable Bitmap object across tracks. Force artwork
+            // re-evaluation when track identity changes even if object identity does not.
+            mLastArtBitmap = null;
+            mCallbacks.onTrackChanged(newId, title, artist, mDurationMs);
+        }
+
+        // Playback state may arrive before metadata/duration. If the duration becomes known later,
+        // recover the progress scheduler without waiting for another playback-state callback.
+        if (mIsPlaying && mDurationMs > 0) {
+            scheduleFrame();
+        } else if (mDurationMs <= 0) {
+            stopFrames();
         }
 
         Bitmap art = mHelper.getMediaBitmap();
@@ -119,6 +148,7 @@ public final class MusicProgressTracker {
     }
 
     private void handlePlaybackStateChanged() {
+        if (!mStarted) return;
         PlaybackState ps = mHelper.getMediaControllerPlaybackState();
         boolean nowPlaying = mHelper.isMediaPlaying();
 
@@ -127,8 +157,8 @@ public final class MusicProgressTracker {
             if (!mIsPlaying) {
                 mIsPlaying = true;
                 mCallbacks.onMusicPlayingChanged(true);
-                scheduleFrame();
             }
+            scheduleFrame();
         } else {
             if (mDurationMs > 0 && ps != null) {
                 mCallbacks.onMusicProgress(fraction(ps.getPosition(), mDurationMs));
@@ -146,7 +176,13 @@ public final class MusicProgressTracker {
         long psTime = ps.getLastPositionUpdateTime();
         mElapsedAtSync = psTime > 0 ? psTime : SystemClock.elapsedRealtime();
         float speed = ps.getPlaybackSpeed();
-        mPlaybackSpeed = speed > MIN_SPEED ? speed : 1f;
+        if (!Float.isFinite(speed)) {
+            mPlaybackSpeed = 1f;
+        } else if (Math.abs(speed) < MIN_SPEED) {
+            mPlaybackSpeed = 0f;
+        } else {
+            mPlaybackSpeed = Math.max(-8f, Math.min(8f, speed));
+        }
         mLastResyncMs = SystemClock.elapsedRealtime();
     }
 
@@ -168,15 +204,34 @@ public final class MusicProgressTracker {
     }
 
     private void scheduleFrame() {
-        if (!mFrameScheduled && mIsPlaying && mDurationMs > 0) {
+        if (!mFrameScheduled && mStarted && mIsPlaying && mDurationMs > 0) {
             mFrameScheduled = true;
-            mChoreographer.postFrameCallback(mFrameCallback);
+            long delay = mPowerManager != null && !mPowerManager.isInteractive()
+                    ? UPDATE_INTERVAL_AMBIENT_MS
+                    : UPDATE_INTERVAL_INTERACTIVE_MS;
+            mMainHandler.postDelayed(mProgressTick, delay);
         }
     }
 
     private void stopFrames() {
-        mChoreographer.removeFrameCallback(mFrameCallback);
+        mMainHandler.removeCallbacks(mProgressTick);
         mFrameScheduled = false;
+    }
+
+    private static String buildTrackId(MediaMetadata md, String title, String artist) {
+        if (md == null) return null;
+        String mediaId = strOrEmpty(md.getString(MediaMetadata.METADATA_KEY_MEDIA_ID));
+        if (!mediaId.isEmpty()) return "id:" + mediaId;
+
+        String mediaUri = strOrEmpty(md.getString(MediaMetadata.METADATA_KEY_MEDIA_URI));
+        if (!mediaUri.isEmpty()) return "uri:" + mediaUri;
+
+        String album = strOrEmpty(md.getString(MediaMetadata.METADATA_KEY_ALBUM));
+        String albumArtist = strOrEmpty(md.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST));
+        long disc = md.getLong(MediaMetadata.METADATA_KEY_DISC_NUMBER);
+        long track = md.getLong(MediaMetadata.METADATA_KEY_TRACK_NUMBER);
+        return "meta:" + title + "|" + artist + "|" + album + "|" + albumArtist
+                + "|" + disc + "|" + track;
     }
 
     private static float fraction(long posMs, long durMs) {
