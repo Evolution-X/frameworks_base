@@ -63,6 +63,13 @@
     <string name="accessibility_quick_settings_ambient_display_on">Ambient display on.</string>
 
     <!-- AOD QS tile -->
+    <string name="quick_settings_wifi_auto_off_label">Wi-Fi auto-off</string>
+    <string name="quick_settings_bluetooth_auto_off_label">Bluetooth auto-off</string>
+    <string name="quick_settings_connectivity_auto_off_off">Off</string>
+    <string name="accessibility_quick_settings_wifi_auto_off_on">Wi-Fi auto-off on.</string>
+    <string name="accessibility_quick_settings_wifi_auto_off_off">Wi-Fi auto-off off.</string>
+    <string name="accessibility_quick_settings_bluetooth_auto_off_on">Bluetooth auto-off on.</string>
+    <string name="accessibility_quick_settings_bluetooth_auto_off_off">Bluetooth auto-off off.</string>
     <string name="quick_settings_aod_label">AOD</string>
     <string name="quick_settings_aod_off_powersave_label">AOD off\nBattery saver</string>
 

@@ -23,6 +23,7 @@ import com.android.systemui.qs.tileimpl.QSTileImpl
 import com.android.systemui.qs.tiles.AmbientDisplayTile
 import com.android.systemui.qs.tiles.AODTile
 import com.android.systemui.qs.tiles.AutoBrightnessTile
+import com.android.systemui.qs.tiles.BluetoothAutoOffTile
 import com.android.systemui.qs.tiles.CPUInfoTile
 import com.android.systemui.qs.tiles.CaffeineTile
 import com.android.systemui.qs.tiles.CompassTile
@@ -44,6 +45,7 @@ import com.android.systemui.qs.tiles.VPNTetheringTile
 import com.android.systemui.qs.tiles.VolumeTile
 import com.android.systemui.qs.tiles.VpnTile
 import com.android.systemui.qs.tiles.WeatherTile
+import com.android.systemui.qs.tiles.WifiAutoOffTile
 import com.android.systemui.qs.tiles.base.shared.model.QSTileConfig
 import com.android.systemui.qs.tiles.base.shared.model.QSTileUIConfig
 import com.android.systemui.res.R
@@ -80,6 +82,18 @@ interface LineageModule {
     @IntoMap
     @StringKey(CPUInfoTile.TILE_SPEC)
     fun bindCPUInfoTile(cpuInfoTile: CPUInfoTile): QSTileImpl<*>
+
+    /** Inject BluetoothAutoOffTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(BluetoothAutoOffTile.TILE_SPEC)
+    fun bindBluetoothAutoOffTile(bluetoothAutoOffTile: BluetoothAutoOffTile): QSTileImpl<*>
+
+    /** Inject WifiAutoOffTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(WifiAutoOffTile.TILE_SPEC)
+    fun bindWifiAutoOffTile(wifiAutoOffTile: WifiAutoOffTile): QSTileImpl<*>
 
     /** Inject CaffeineTile into tileMap in QSModule */
     @Binds
@@ -275,6 +289,34 @@ interface LineageModule {
                     ),
                 instanceId = uiEventLogger.getNewInstanceId(),
                 category = TileCategory.DISPLAY,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(BluetoothAutoOffTile.TILE_SPEC)
+        fun provideBluetoothAutoOffTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(BluetoothAutoOffTile.TILE_SPEC),
+                uiConfig = QSTileUIConfig.Resource(
+                    iconRes = R.drawable.ic_qs_bluetooth_auto_off,
+                    labelRes = R.string.quick_settings_bluetooth_auto_off_label
+                ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.CONNECTIVITY,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(WifiAutoOffTile.TILE_SPEC)
+        fun provideWifiAutoOffTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(WifiAutoOffTile.TILE_SPEC),
+                uiConfig = QSTileUIConfig.Resource(
+                    iconRes = R.drawable.ic_qs_wifi_auto_off,
+                    labelRes = R.string.quick_settings_wifi_auto_off_label
+                ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.CONNECTIVITY,
             )
 
         @Provides
