@@ -20,9 +20,9 @@ package com.android.systemui.qs.tiles;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.Settings;
 import android.provider.Settings.Secure;
 import android.service.quicksettings.Tile;
+import android.widget.Switch;
 
 import androidx.annotation.Nullable;
 
@@ -72,6 +72,7 @@ public class CPUInfoTile extends QSTileImpl<BooleanState> {
         mSetting = new SettingObserver(secureSettings, mHandler, Secure.SHOW_CPU_OVERLAY, getHost().getUserId()) {
             @Override
             protected void handleValueChanged(int value, boolean observedChange) {
+                setOverlayServiceEnabled(value != 0);
                 handleRefreshState(value);
             }
         };
@@ -86,19 +87,19 @@ public class CPUInfoTile extends QSTileImpl<BooleanState> {
 
     @Override
     protected void handleClick(@Nullable Expandable expandable) {
-        mSetting.setValue(mState.value ? 0 : 1);
-        refreshState();
-        toggleState();
+        final boolean enabled = !mState.value;
+        mSetting.setValue(enabled ? 1 : 0);
+        setOverlayServiceEnabled(enabled);
+        refreshState(enabled ? 1 : 0);
     }
 
-    protected void toggleState() {
-        Intent service = (new Intent())
-                .setClassName("com.android.systemui",
-                "com.android.systemui.CPUInfoService");
-        if (mSetting.getValue() == 0) {
-            mContext.stopService(service);
-        } else {
+    private void setOverlayServiceEnabled(boolean enabled) {
+        final Intent service = new Intent().setClassName(
+                "com.android.systemui", "com.android.systemui.CPUInfoService");
+        if (enabled) {
             mContext.startService(service);
+        } else {
+            mContext.stopService(service);
         }
     }
 
@@ -115,13 +116,13 @@ public class CPUInfoTile extends QSTileImpl<BooleanState> {
         state.value = cpuInfoEnabled;
         state.label = mContext.getString(R.string.quick_settings_cpuinfo_label);
         state.icon = mIcon;
-        state.contentDescription =  mContext.getString(
-                R.string.quick_settings_cpuinfo_label);
-        if (cpuInfoEnabled) {
-            state.state = Tile.STATE_ACTIVE;
-        } else {
-            state.state = Tile.STATE_INACTIVE;
-        }
+        state.secondaryLabel = mContext.getString(cpuInfoEnabled
+                ? R.string.quick_settings_state_on
+                : R.string.quick_settings_state_off);
+        state.stateDescription = state.secondaryLabel;
+        state.contentDescription = state.label + ", " + state.secondaryLabel;
+        state.expandedAccessibilityClassName = Switch.class.getName();
+        state.state = cpuInfoEnabled ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
     }
 
     @Override
@@ -136,6 +137,24 @@ public class CPUInfoTile extends QSTileImpl<BooleanState> {
 
     @Override
     public void handleSetListening(boolean listening) {
-        // Do nothing
+        super.handleSetListening(listening);
+        mSetting.setListening(listening);
+        if (listening) {
+            setOverlayServiceEnabled(mSetting.getValue() != 0);
+            refreshState();
+        }
+    }
+
+    @Override
+    protected void handleUserSwitch(int newUserId) {
+        mSetting.setUserId(newUserId);
+        setOverlayServiceEnabled(mSetting.getValue() != 0);
+        refreshState();
+    }
+
+    @Override
+    protected void handleDestroy() {
+        mSetting.setListening(false);
+        super.handleDestroy();
     }
 }

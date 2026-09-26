@@ -26,6 +26,7 @@ import android.os.Handler;
 import android.os.LocaleList;
 import android.os.Looper;
 import android.service.quicksettings.Tile;
+import android.widget.Button;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
@@ -154,10 +155,15 @@ public class LocaleTile extends QSTileImpl<State> {
                         R.drawable.ic_qs_locale_pending);
         state.label = mContext.getString(R.string.quick_settings_locale_label);
         state.secondaryLabel = mLocaleList.get(0).getDisplayLanguage();
+        state.stateDescription = state.secondaryLabel;
+        state.contentDescription = state.label + ", " + state.secondaryLabel;
+        state.expandedAccessibilityClassName = Button.class.getName();
+        state.state = Tile.STATE_ACTIVE;
     }
 
     @Override
     public void handleSetListening(boolean listening) {
+        super.handleSetListening(listening);
         if (mListening == listening) return;
         mListening = listening;
         if (listening) {
@@ -169,10 +175,23 @@ public class LocaleTile extends QSTileImpl<State> {
         }
     }
 
+    @Override
+    protected void handleDestroy() {
+        if (mListening) {
+            mContext.unregisterReceiver(mReceiver);
+            mListening = false;
+        }
+        mHandler.removeCallbacks(applyLocale);
+        currentLocaleBackup = null;
+        super.handleDestroy();
+    }
+
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (Intent.ACTION_LOCALE_CHANGED.equals(intent.getAction())) {
+                mHandler.removeCallbacks(applyLocale);
+                currentLocaleBackup = null;
                 updateLocaleList();
                 refreshState();
             }
