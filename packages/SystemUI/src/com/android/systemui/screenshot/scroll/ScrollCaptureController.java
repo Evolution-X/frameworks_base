@@ -21,6 +21,7 @@ import android.graphics.Bitmap;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.BitmapDrawable;
+import android.os.UserHandle;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.ScrollCaptureResponse;
@@ -54,6 +55,7 @@ public class ScrollCaptureController {
     private static final float MAX_PAGES_DEFAULT = 3f;
 
     private static final String SETTING_KEY_MAX_PAGES = "screenshot.scroll_max_pages";
+    private static final String SETTING_KEY_FULL_PAGE_CAPTURE = "screenshot_full_page_capture";
     // Portion of the tiles to be acquired above the starting position in infinite scroll
     // situations. 1.0 means maximize the area above, 0 means just go down.
     private static final float IDEAL_PORTION_ABOVE = 0.4f;
@@ -246,6 +248,8 @@ public class ScrollCaptureController {
      */
     public ListenableFuture<LongScreenshot> run(ScrollCaptureResponse response) {
         mCancelled = false;
+        mScrollingUp = true;
+        mFinishOnBoundary = false;
         return CallbackToFutureAdapter.getFuture(completer -> {
             mCaptureCompleter = completer;
             mWindowOwner = response.getPackageName();
@@ -253,11 +257,26 @@ public class ScrollCaptureController {
             mBgExecutor.execute(() -> {
                 float maxPages = Settings.Secure.getFloat(mContext.getContentResolver(),
                         SETTING_KEY_MAX_PAGES, MAX_PAGES_DEFAULT);
+
+                if (isFullPageCaptureEnabled()) {
+                    Rect bounds = response.getBoundsInWindow();
+                    if (bounds != null && bounds.height() > 0) {
+                        maxPages = Math.max(1f, MAX_HEIGHT / (float) bounds.height());
+                    }
+                    mScrollingUp = false;
+                    mFinishOnBoundary = true;
+                }
+
                 mSessionFuture = mClient.start(response, maxPages);
                 mSessionFuture.addListener(this::onStartComplete, mContext.getMainExecutor());
             });
             return "<batch scroll capture>";
         });
+    }
+
+    private boolean isFullPageCaptureEnabled() {
+        return Settings.System.getIntForUser(mContext.getContentResolver(),
+                SETTING_KEY_FULL_PAGE_CAPTURE, 0, UserHandle.USER_CURRENT) != 0;
     }
 
     /**
