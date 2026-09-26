@@ -18,7 +18,13 @@ package com.android.systemui.statusbar.pipeline.mobile.ui.view
 
 import android.content.Context
 import android.content.res.Configuration
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
+import android.os.UserHandle
+import android.provider.Settings
 import android.util.AttributeSet
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -45,6 +51,18 @@ class ModernStatusBarMobileView(context: Context, attrs: AttributeSet?) :
 
     var subId: Int = -1
 
+    private var mobileTypeCustomizationEnabled = false
+    private var mobileTypeSettingsRegistered = false
+    private var hideMobileType = false
+    private var compactMobileType = false
+
+    private val mobileTypeSettingsObserver =
+        object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                refreshMobileTypeSettings()
+            }
+        }
+
     override fun toString(): String {
         return "ModernStatusBarMobileView(" +
             "slot='$slot', " +
@@ -55,7 +73,11 @@ class ModernStatusBarMobileView(context: Context, attrs: AttributeSet?) :
     }
 
     public override fun onConfigurationChanged(newConfig: Configuration?) {
-        configureLayoutForNewStatusBarIcons()
+        if (NewStatusBarIcons.isEnabled) {
+            configureLayoutForNewStatusBarIcons()
+        } else {
+            applyMobileTypePresentation()
+        }
     }
 
     /**
@@ -103,7 +125,151 @@ class ModernStatusBarMobileView(context: Context, attrs: AttributeSet?) :
             layoutParams.height =
                 context.resources.getDimensionPixelSize(R.dimen.status_bar_mobile_type_size_updated)
         }
+
+        applyMobileTypePresentation()
     }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        if (mobileTypeCustomizationEnabled) {
+            registerMobileTypeSettings()
+        } else {
+            applyMobileTypePresentation()
+        }
+    }
+
+    override fun onDetachedFromWindow() {
+        unregisterMobileTypeSettings()
+        super.onDetachedFromWindow()
+    }
+
+    private fun setMobileTypeCustomizationEnabled(enabled: Boolean) {
+        mobileTypeCustomizationEnabled = enabled
+        if (isAttachedToWindow) {
+            if (enabled) {
+                registerMobileTypeSettings()
+            } else {
+                unregisterMobileTypeSettings()
+            }
+        }
+        refreshMobileTypeSettings()
+    }
+
+    private fun registerMobileTypeSettings() {
+        if (mobileTypeSettingsRegistered) return
+
+        val resolver = context.contentResolver
+        resolver.registerContentObserver(
+            Settings.System.getUriFor(STATUS_BAR_MOBILE_TYPE_HIDDEN),
+            false,
+            mobileTypeSettingsObserver,
+            UserHandle.USER_ALL,
+        )
+        resolver.registerContentObserver(
+            Settings.System.getUriFor(STATUS_BAR_MOBILE_TYPE_COMPACT),
+            false,
+            mobileTypeSettingsObserver,
+            UserHandle.USER_ALL,
+        )
+        mobileTypeSettingsRegistered = true
+        refreshMobileTypeSettings()
+    }
+
+    private fun unregisterMobileTypeSettings() {
+        if (!mobileTypeSettingsRegistered) return
+        context.contentResolver.unregisterContentObserver(mobileTypeSettingsObserver)
+        mobileTypeSettingsRegistered = false
+    }
+
+    private fun refreshMobileTypeSettings() {
+        if (!mobileTypeCustomizationEnabled) {
+            hideMobileType = false
+            compactMobileType = false
+            applyMobileTypePresentation()
+            return
+        }
+
+        val resolver = context.contentResolver
+        hideMobileType =
+            Settings.System.getIntForUser(
+                resolver,
+                STATUS_BAR_MOBILE_TYPE_HIDDEN,
+                0,
+                UserHandle.USER_CURRENT,
+            ) != 0
+        compactMobileType =
+            !hideMobileType &&
+                Settings.System.getIntForUser(
+                    resolver,
+                    STATUS_BAR_MOBILE_TYPE_COMPACT,
+                    0,
+                    UserHandle.USER_CURRENT,
+                ) != 0
+        applyMobileTypePresentation()
+    }
+
+    private fun applyMobileTypePresentation() {
+        val presentation =
+            requireViewById<FrameLayout>(R.id.mobile_type_presentation_container)
+        val typeView = requireViewById<ImageView>(R.id.mobile_type)
+
+        val compact = mobileTypeCustomizationEnabled && compactMobileType && !hideMobileType
+        val params = presentation.layoutParams as MarginLayoutParams
+        params.height = mobileTypeContainerHeight()
+        params.marginStart =
+            if (compact) 0 else if (NewStatusBarIcons.isEnabled) 0 else spToPx(2.5f)
+        params.marginEnd =
+            if (compact) {
+                0
+            } else if (NewStatusBarIcons.isEnabled) {
+                resources.getDimensionPixelSize(
+                    R.dimen.status_bar_mobile_type_container_margin_end
+                )
+            } else {
+                spToPx(1f)
+            }
+        presentation.layoutParams = params
+
+        typeView.layoutParams =
+            typeView.layoutParams.apply {
+                height =
+                    if (compact) {
+                        (standardMobileTypeHeight() * COMPACT_TYPE_SCALE).toInt().coerceAtLeast(1)
+                    } else {
+                        standardMobileTypeHeight()
+                    }
+            }
+
+        presentation.visibility =
+            if (mobileTypeCustomizationEnabled && hideMobileType) GONE else VISIBLE
+        presentation.requestLayout()
+    }
+
+    private fun mobileTypeContainerHeight(): Int =
+        resources.getDimensionPixelSize(
+            if (NewStatusBarIcons.isEnabled) {
+                R.dimen.status_bar_mobile_container_height_updated
+            } else {
+                R.dimen.status_bar_mobile_container_height
+            }
+        )
+
+    private fun standardMobileTypeHeight(): Int =
+        resources.getDimensionPixelSize(
+            if (NewStatusBarIcons.isEnabled) {
+                R.dimen.status_bar_mobile_type_size_updated
+            } else {
+                R.dimen.status_bar_mobile_type_size
+            }
+        )
+
+    private fun spToPx(value: Float): Int =
+        TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_SP,
+                value,
+                resources.displayMetrics,
+            )
+            .toInt()
 
     override fun initView(slot: String, bindingCreator: () -> ModernStatusBarViewBinding) {
         super.initView(slot, bindingCreator)
@@ -122,6 +288,9 @@ class ModernStatusBarMobileView(context: Context, attrs: AttributeSet?) :
     }
 
     companion object {
+        private const val STATUS_BAR_MOBILE_TYPE_HIDDEN = "status_bar_mobile_type_hidden"
+        private const val STATUS_BAR_MOBILE_TYPE_COMPACT = "status_bar_mobile_type_compact"
+        private const val COMPACT_TYPE_SCALE = 0.65f
 
         /**
          * Inflates a new instance of [ModernStatusBarMobileView], binds it to [viewModel], and
@@ -138,6 +307,8 @@ class ModernStatusBarMobileView(context: Context, attrs: AttributeSet?) :
                     .inflate(R.layout.status_bar_mobile_signal_group_new, null)
                     as ModernStatusBarMobileView)
                 .apply {
+                    setMobileTypeCustomizationEnabled(viewModel.location == StatusBarLocation.HOME)
+
                     // Flag-specific configuration
                     if (NewStatusBarIcons.isEnabled) {
                         configureLayoutForNewStatusBarIcons()
@@ -171,6 +342,8 @@ class ModernStatusBarMobileView(context: Context, attrs: AttributeSet?) :
                         .inflate(R.layout.status_bar_mobile_signal_group_new, null)
                         as ModernStatusBarMobileView)
                     .apply {
+                        setMobileTypeCustomizationEnabled(location == StatusBarLocation.HOME)
+
                         // Flag-specific configuration
                         if (NewStatusBarIcons.isEnabled) {
                             configureLayoutForNewStatusBarIcons()
