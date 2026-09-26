@@ -17,29 +17,18 @@
 
 package com.android.systemui.qs.tiles;
 
-import static com.android.internal.logging.MetricsLogger.VIEW_UNKNOWN;
+import static android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE;
+import static android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC;
+import static android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL;
 
 import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.Settings;
 import android.service.quicksettings.Tile;
+import android.widget.Switch;
 
-import android.content.ComponentName;
-import android.content.Context;
-import android.content.ServiceConnection;
-import android.os.Handler;
-import android.os.IBinder;
-import android.os.Message;
-import android.os.Messenger;
-import android.os.RemoteException;
-
-import com.android.systemui.Dependency;
-
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.android.systemui.statusbar.NotificationLockscreenUserManager;
 import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.systemui.animation.Expandable;
@@ -51,31 +40,25 @@ import com.android.systemui.plugins.qs.QSTile.BooleanState;
 import com.android.systemui.plugins.statusbar.StatusBarStateController;
 import com.android.systemui.qs.QSHost;
 import com.android.systemui.qs.QsEventLogger;
+import com.android.systemui.qs.UserSettingObserver;
 import com.android.systemui.qs.logging.QSLogger;
 import com.android.systemui.qs.tileimpl.QSTileImpl;
 import com.android.systemui.res.R;
-import com.android.systemui.statusbar.policy.KeyguardStateController;
-import com.android.systemui.util.settings.SecureSettings;
-
-import static android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE;
-import static android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC;
-import static android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL;
+import com.android.systemui.settings.UserTracker;
+import com.android.systemui.util.settings.SystemSettings;
 
 import javax.inject.Inject;
 
-/** Quick settings tile: AutoBrightness **/
+/** Quick settings tile: Auto brightness. */
 public class AutoBrightnessTile extends QSTileImpl<BooleanState> {
 
     public static final String TILE_SPEC = "autobrightness";
 
-    private static final Intent DISPLAY_SETTINGS = new Intent("android.settings.DISPLAY_SETTINGS");
+    private static final Intent DISPLAY_SETTINGS =
+            new Intent("android.settings.DISPLAY_SETTINGS");
 
     private final Icon mIcon = ResourceIcon.get(R.drawable.ic_qs_autobrightness);
-
-    private boolean mListening;
-
-    private final String SYSTEM_KEY = SCREEN_BRIGHTNESS_MODE;
-    private final int DEFAULT_VALUE = SCREEN_BRIGHTNESS_MODE_MANUAL;
+    private final UserSettingObserver mSetting;
 
     @Inject
     public AutoBrightnessTile(
@@ -88,14 +71,35 @@ public class AutoBrightnessTile extends QSTileImpl<BooleanState> {
             StatusBarStateController statusBarStateController,
             ActivityStarter activityStarter,
             QSLogger qsLogger,
-            KeyguardStateController keyguardStateController) {
+            SystemSettings systemSettings,
+            UserTracker userTracker
+    ) {
         super(host, uiEventLogger, backgroundLooper, mainHandler, falsingManager, metricsLogger,
                 statusBarStateController, activityStarter, qsLogger);
+
+        mSetting = new UserSettingObserver(
+                systemSettings,
+                mHandler,
+                SCREEN_BRIGHTNESS_MODE,
+                userTracker.getUserId(),
+                SCREEN_BRIGHTNESS_MODE_MANUAL
+        ) {
+            @Override
+            protected void handleValueChanged(int value, boolean observedChange) {
+                handleRefreshState(value);
+            }
+        };
     }
 
     @Override
     public BooleanState newTileState() {
         return new BooleanState();
+    }
+
+    @Override
+    public boolean isAvailable() {
+        return mContext.getResources().getBoolean(
+                com.android.internal.R.bool.config_automatic_brightness_available);
     }
 
     @Override
@@ -105,38 +109,45 @@ public class AutoBrightnessTile extends QSTileImpl<BooleanState> {
 
     @Override
     public void handleSetListening(boolean listening) {
-        if (mListening == listening) return;
-        mListening = listening;
+        super.handleSetListening(listening);
+        mSetting.setListening(listening);
+    }
+
+    @Override
+    protected void handleUserSwitch(int newUserId) {
+        mSetting.setUserId(newUserId);
+        refreshState();
+    }
+
+    @Override
+    protected void handleDestroy() {
+        mSetting.setListening(false);
+        super.handleDestroy();
     }
 
     @Override
     protected void handleClick(@Nullable Expandable expandable) {
-        setEnabled(!mState.value);
+        mSetting.setValue(mState.value
+                ? SCREEN_BRIGHTNESS_MODE_MANUAL
+                : SCREEN_BRIGHTNESS_MODE_AUTOMATIC);
         refreshState();
-    }
-
-    private void setEnabled(boolean enabled) {
-        Settings.System.putInt(mContext.getContentResolver(), SYSTEM_KEY,
-                enabled ? SCREEN_BRIGHTNESS_MODE_AUTOMATIC : DEFAULT_VALUE);
-    }
-
-    private boolean isChecked() {
-        return Settings.System.getInt(mContext.getContentResolver(),
-                SYSTEM_KEY, DEFAULT_VALUE) != DEFAULT_VALUE;
     }
 
     @Override
     protected void handleUpdateState(BooleanState state, Object arg) {
-        state.value = isChecked();
-        state.label = mContext.getString(R.string.quick_settings_autobrightness_label);
-        state.icon = ResourceIcon.get(R.drawable.ic_qs_autobrightness);
-        state.contentDescription =  mContext.getString(
-                   R.string.quick_settings_autobrightness_label);
-        if (state.value) {
-            state.state = Tile.STATE_ACTIVE;
-        } else {
-            state.state = Tile.STATE_INACTIVE;
-        }
+        final int value = arg instanceof Integer ? (Integer) arg : mSetting.getValue();
+        final boolean enabled = value == SCREEN_BRIGHTNESS_MODE_AUTOMATIC;
+
+        state.value = enabled;
+        state.label = getTileLabel();
+        state.icon = mIcon;
+        state.secondaryLabel = mContext.getString(enabled
+                ? R.string.quick_settings_autobrightness_on
+                : R.string.quick_settings_autobrightness_off);
+        state.stateDescription = state.secondaryLabel;
+        state.contentDescription = state.label + ", " + state.secondaryLabel;
+        state.expandedAccessibilityClassName = Switch.class.getName();
+        state.state = enabled ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
     }
 
     @Override

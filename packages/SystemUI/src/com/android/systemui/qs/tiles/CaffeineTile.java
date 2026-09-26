@@ -29,6 +29,7 @@ import android.os.Looper;
 import android.os.PowerManager;
 import android.os.SystemClock;
 import android.service.quicksettings.Tile;
+import android.widget.Button;
 
 import androidx.annotation.Nullable;
 
@@ -96,16 +97,17 @@ public class CaffeineTile extends QSTileImpl<BooleanState> {
 
     @Override
     protected void handleDestroy() {
-        super.handleDestroy();
         stopCountDown();
         mReceiver.destroy();
         if (mWakeLock.isHeld()) {
             mWakeLock.release();
         }
+        super.handleDestroy();
     }
 
     @Override
     public void handleSetListening(boolean listening) {
+        super.handleSetListening(listening);
     }
 
     @Override
@@ -223,14 +225,16 @@ public class CaffeineTile extends QSTileImpl<BooleanState> {
         state.icon = mIcon;
         state.label = mContext.getString(R.string.quick_settings_caffeine_label);
         state.hasLongClickEffect = false;
+        state.expandedAccessibilityClassName = Button.class.getName();
         if (state.value) {
             state.secondaryLabel = formatValueWithRemainingTime();
-            state.contentDescription =  mContext.getString(
-                    R.string.accessibility_quick_settings_caffeine_on);
+            state.stateDescription = state.secondaryLabel;
+            state.contentDescription = state.label + ", " + state.secondaryLabel;
             state.state = Tile.STATE_ACTIVE;
         } else {
             state.secondaryLabel = null;
-            state.contentDescription =  mContext.getString(
+            state.stateDescription = null;
+            state.contentDescription = mContext.getString(
                     R.string.accessibility_quick_settings_caffeine_off);
             state.state = Tile.STATE_INACTIVE;
         }

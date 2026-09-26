@@ -19,7 +19,6 @@ package com.android.systemui.smartpixel.ui
 import android.content.Intent
 import android.os.Handler
 import android.os.Looper
-import android.os.UserHandle
 import android.service.quicksettings.Tile
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.android.internal.jank.InteractionJankMonitor
@@ -37,10 +36,12 @@ import com.android.systemui.plugins.qs.QSTile.BooleanState
 import com.android.systemui.plugins.statusbar.StatusBarStateController
 import com.android.systemui.qs.QSHost
 import com.android.systemui.qs.QsEventLogger
+import com.android.systemui.qs.UserSettingObserver
 import com.android.systemui.qs.logging.QSLogger
 import com.android.systemui.qs.tileimpl.QSTileImpl
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.phone.SystemUIDialog
+import com.android.systemui.settings.UserTracker
 import com.android.systemui.statusbar.policy.KeyguardStateController
 import com.android.systemui.util.settings.SecureSettings
 import java.util.concurrent.Executor
@@ -62,6 +63,7 @@ class SmartPixelTile @Inject constructor(
     private val dialogTransitionAnimator: DialogTransitionAnimator,
     private val dialogDelegateProvider: Provider<SmartPixelDialogDelegate>,
     @Main private val mainExecutor: Executor,
+    userTracker: UserTracker,
 ) : QSTileImpl<BooleanState>(
     host, uiEventLogger, backgroundLooper, mainHandler, falsingManager,
     metricsLogger, statusBarStateController, activityStarter, qsLogger,
@@ -71,6 +73,18 @@ class SmartPixelTile @Inject constructor(
         private const val INTERACTION_JANK_TAG = "smart_pixels"
     }
 
+    private val setting = object : UserSettingObserver(
+        secureSettings,
+        mHandler,
+        SmartPixelSettings.KEY_ENABLED,
+        userTracker.userId,
+    ) {
+        override fun handleValueChanged(value: Int, observedChange: Boolean) {
+            refreshState(value != 0)
+        }
+    }
+
+
     override fun newTileState(): BooleanState {
         val state = BooleanState()
         state.handlesLongClick = true
@@ -79,11 +93,7 @@ class SmartPixelTile @Inject constructor(
 
     override fun handleClick(expandable: Expandable?) {
         val newState = !mState.value
-        secureSettings.putIntForUser(
-            SmartPixelSettings.KEY_ENABLED,
-            if (newState) 1 else 0,
-            UserHandle.USER_CURRENT,
-        )
+        setting.setValue(if (newState) 1 else 0)
         refreshState(newState)
     }
 
@@ -125,9 +135,7 @@ class SmartPixelTile @Inject constructor(
         val enabled = if (arg is Boolean) {
             arg
         } else {
-            secureSettings.getIntForUser(
-                SmartPixelSettings.KEY_ENABLED, 0, UserHandle.USER_CURRENT,
-            ) == 1
+            setting.value != 0
         }
         state.value = enabled
         state.label = mContext.getString(R.string.quick_settings_smart_pixels_label)
@@ -135,13 +143,29 @@ class SmartPixelTile @Inject constructor(
             if (enabled) R.string.quick_settings_smart_pixels_on
             else R.string.quick_settings_smart_pixels_off,
         )
-        state.contentDescription = state.label
+        state.stateDescription = state.secondaryLabel
+        state.contentDescription = "${state.label}, ${state.secondaryLabel}"
         state.expandedAccessibilityClassName = MaterialSwitch::class.java.name
         state.state = if (enabled) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         state.icon = ResourceIcon.get(
             if (enabled) R.drawable.qs_smart_pixels_icon_on
             else R.drawable.qs_smart_pixels_icon_off
         )
+    }
+
+    override fun handleSetListening(listening: Boolean) {
+        super.handleSetListening(listening)
+        setting.setListening(listening)
+    }
+
+    override fun handleUserSwitch(newUserId: Int) {
+        setting.setUserId(newUserId)
+        refreshState()
+    }
+
+    override fun handleDestroy() {
+        setting.setListening(false)
+        super.handleDestroy()
     }
 
     override fun isAvailable(): Boolean = true

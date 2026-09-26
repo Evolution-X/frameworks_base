@@ -17,6 +17,7 @@ import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyDisplayInfo;
 import android.telephony.TelephonyManager;
 import android.util.Log;
+import android.widget.Button;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -128,40 +129,72 @@ public class PreferredNetworkTile extends QSTileImpl<State> {
         updateSimCount();
         state.icon = ResourceIcon.get(R.drawable.ic_preferred_network);
         state.label = mContext.getString(R.string.quick_settings_preferred_network_label);
+        state.expandedAccessibilityClassName = Button.class.getName();
 
         if (mSimCount == 0) {
-            state.state = Tile.STATE_UNAVAILABLE;
-            state.secondaryLabel = mContext.getString(
-                    R.string.quick_settings_preferred_network_unsupported);
+            setUnavailableState(
+                    state, mContext.getString(R.string.quick_settings_preferred_network_unsupported));
             return;
         }
 
-        int subId = SubscriptionManager.getDefaultDataSubscriptionId();
-        TelephonyManager tm = mTelephonyManager.createForSubscriptionId(subId);
-        
-        int current = getCurrentType(tm);
-        state.state = current == TYPE_UNKNOWN ? Tile.STATE_UNAVAILABLE : Tile.STATE_ACTIVE;
+        final int subId = SubscriptionManager.getDefaultDataSubscriptionId();
+        if (subId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+            setUnavailableState(
+                    state, mContext.getString(R.string.quick_settings_preferred_network_no_data_sim));
+            return;
+        }
+
+        final TelephonyManager tm = mTelephonyManager.createForSubscriptionId(subId);
+        final int current = getCurrentType(tm);
+        final CharSequence networkLabel = getNetworkLabel(current);
+
+        if (current == TYPE_UNKNOWN) {
+            setUnavailableState(
+                    state, mContext.getString(R.string.quick_settings_preferred_network_unsupported));
+            return;
+        }
+
+        if (!mCanSwitch) {
+            state.state = Tile.STATE_UNAVAILABLE;
+            state.secondaryLabel = mContext.getString(
+                    R.string.quick_settings_preferred_network_in_call, networkLabel);
+        } else {
+            state.state = Tile.STATE_ACTIVE;
+            state.secondaryLabel = networkLabel;
+        }
+        state.stateDescription = state.secondaryLabel;
+        state.contentDescription = state.label + ", " + state.secondaryLabel;
+    }
+
+    private CharSequence getNetworkLabel(int current) {
         switch (current) {
-            case TYPE_2G: state.secondaryLabel = "2G"; break;
-            case TYPE_3G: state.secondaryLabel = "3G"; break;
+            case TYPE_2G:
+                return "2G";
+            case TYPE_3G:
+                return "3G";
             case TYPE_4G:
                 if (mTelephonyDisplayInfo != null) {
                     switch (mTelephonyDisplayInfo.getOverrideNetworkType()) {
                         case TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NR_NSA:
                         case TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NR_ADVANCED:
-                            state.secondaryLabel = "5G";
+                            return "5G";
+                        default:
                             break;
-                        default: state.secondaryLabel = "4G";
                     }
-                } else {
-                   state.secondaryLabel = "4G";
                 }
-                break;
-            case TYPE_5G: state.secondaryLabel = "5G"; break;
+                return "4G";
+            case TYPE_5G:
+                return "5G";
             default:
-                state.secondaryLabel = mContext.getString(
-                        R.string.quick_settings_preferred_network_unsupported);
+                return mContext.getString(R.string.quick_settings_preferred_network_unsupported);
         }
+    }
+
+    private void setUnavailableState(State state, CharSequence reason) {
+        state.state = Tile.STATE_UNAVAILABLE;
+        state.secondaryLabel = reason;
+        state.stateDescription = reason;
+        state.contentDescription = state.label + ", " + reason;
     }
 
     @Override
@@ -176,12 +209,19 @@ public class PreferredNetworkTile extends QSTileImpl<State> {
 
     @Override
     public void handleSetListening(boolean listening) {
+        super.handleSetListening(listening);
         if (listening) {
             mTelephonyManager.listen(mPhoneStateListener,
                     PhoneStateListener.LISTEN_CALL_STATE | PhoneStateListener.LISTEN_DISPLAY_INFO_CHANGED);
         } else {
             mTelephonyManager.listen(mPhoneStateListener, PhoneStateListener.LISTEN_NONE);
         }
+    }
+
+    @Override
+    protected void handleDestroy() {
+        mTelephonyManager.listen(mPhoneStateListener, PhoneStateListener.LISTEN_NONE);
+        super.handleDestroy();
     }
 
     private final PhoneStateListener mPhoneStateListener = new PhoneStateListener() {
