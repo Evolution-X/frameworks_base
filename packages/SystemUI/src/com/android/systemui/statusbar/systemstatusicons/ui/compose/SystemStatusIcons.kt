@@ -25,12 +25,13 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.dimensionResource
 import com.android.internal.statusbar.StatusBarIcon
 import com.android.systemui.common.shared.model.ContentDescription
 import com.android.systemui.common.shared.model.Icon as IconModel
 import com.android.systemui.compose.modifiers.sysuiResTag
 import com.android.systemui.lifecycle.rememberViewModel
+import com.android.systemui.res.R
 import com.android.systemui.statusbar.icons.ui.compose.EllipsizingRow
 import com.android.systemui.statusbar.systemstatusicons.domain.interactor.SystemStatusIconBlocklistInteractor
 import com.android.systemui.statusbar.pipeline.mobile.ui.compose.MobileIcons
@@ -57,7 +58,8 @@ fun SystemStatusIcons(
         }
 
     CompositionLocalProvider(LocalContentColor provides tint) {
-        EllipsizingRow(spacing = 6.dp, modifier = modifier.sysuiResTag("statusIcons")) {
+        val iconSpacing = dimensionResource(R.dimen.status_bar_system_icon_spacing)
+        EllipsizingRow(spacing = iconSpacing, modifier = modifier.sysuiResTag("statusIcons")) {
             viewModel.iconViewModels
                 .filter { it.visible }
                 .forEach { iconViewModel ->

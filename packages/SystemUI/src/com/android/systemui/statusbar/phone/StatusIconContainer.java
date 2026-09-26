@@ -477,11 +477,11 @@ public class StatusIconContainer extends AlphaOptimizedLinearLayout {
     }
 
     private static int getViewTotalMeasuredWidth(View child) {
-        return child.getMeasuredWidth() + child.getPaddingStart() + child.getPaddingEnd();
+        return child.getMeasuredWidth();
     }
 
     private static int getViewTotalWidth(View child) {
-        return child.getWidth() + child.getPaddingStart() + child.getPaddingEnd();
+        return child.getWidth();
     }
 
     /** A {@link ViewState} that also stores the icon's visibility state. */

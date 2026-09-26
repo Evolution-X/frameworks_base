@@ -23,7 +23,6 @@ import android.util.AttributeSet
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.ImageView
-import com.android.keyguard.AlphaOptimizedLinearLayout
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.StatusBarIconView
 import com.android.systemui.statusbar.core.NewStatusBarIcons
@@ -84,17 +83,7 @@ class ModernStatusBarWifiView(context: Context, attrs: AttributeSet?) :
             lp.height =
                 resources.getDimensionPixelSize(R.dimen.status_bar_wifi_signal_height_updated)
 
-            // New status bar icons have a single 3sp spacing defined
-            (requireViewById<AlphaOptimizedLinearLayout>(R.id.wifi_group).layoutParams
-                    as MarginLayoutParams)
-                .apply {
-                    val margin =
-                        context.resources.getDimensionPixelSize(
-                            R.dimen.status_bar_wifi_signal_horizontal_margin
-                        )
-                    marginStart = margin
-                    marginEnd = margin
-                }
+            // Top-level spacing is owned by StatusIconContainer.
         }
     }
 }
