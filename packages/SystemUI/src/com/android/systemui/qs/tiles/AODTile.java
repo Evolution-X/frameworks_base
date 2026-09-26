@@ -19,11 +19,13 @@ package com.android.systemui.qs.tiles;
 
 import static com.android.internal.logging.MetricsLogger.VIEW_UNKNOWN;
 
+import android.content.ComponentName;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import android.service.quicksettings.Tile;
+import android.widget.Switch;
 
 import androidx.annotation.Nullable;
 
@@ -51,6 +53,10 @@ public class AODTile extends QSTileImpl<BooleanState> implements
         BatteryController.BatteryStateChangeCallback {
 
     public static final String TILE_SPEC = "aod";
+
+    private static final Intent AOD_SETTINGS = new Intent().setComponent(
+            new ComponentName("com.android.settings",
+                    "com.android.settings.display.AmbientDisplayAlwaysOnActivity"));
 
     @Nullable
     private Icon mIcon = null;
@@ -108,9 +114,7 @@ public class AODTile extends QSTileImpl<BooleanState> implements
 
     @Override
     public BooleanState newTileState() {
-        BooleanState state = new BooleanState();
-        state.handlesLongClick = false;
-        return state;
+        return new BooleanState();
     }
 
     @Override
@@ -127,38 +131,46 @@ public class AODTile extends QSTileImpl<BooleanState> implements
 
     @Override
     protected void handleClick(@Nullable Expandable expandable) {
+        if (mBatteryController.isAodPowerSave()) {
+            return;
+        }
         mSetting.setValue(mState.value ? 0 : 1);
     }
 
     @Override
     public Intent getLongClickIntent() {
-        return null;
+        return AOD_SETTINGS;
     }
 
     @Override
     public CharSequence getTileLabel() {
-        if (mBatteryController.isAodPowerSave()) {
-            return mContext.getString(R.string.quick_settings_aod_off_powersave_label);
-        }
         return mContext.getString(R.string.quick_settings_aod_label);
     }
 
     @Override
     protected void handleUpdateState(BooleanState state, Object arg) {
         final int value = arg instanceof Integer ? (Integer) arg : mSetting.getValue();
-        final boolean enable = value != 0;
+        final boolean enabled = value != 0;
+        final boolean blockedByPowerSave = mBatteryController.isAodPowerSave();
+
         if (mIcon == null) {
             mIcon = maybeLoadResourceIcon(R.drawable.ic_qs_aod);
         }
+
         state.icon = mIcon;
-        state.value = enable;
-        state.label = mContext.getString(R.string.quick_settings_aod_label);
-        state.hasLongClickEffect = false;
-        if (mBatteryController.isAodPowerSave()) {
-            state.state = Tile.STATE_UNAVAILABLE;
-        } else {
-            state.state = enable ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
-        }
+        state.value = enabled;
+        state.label = getTileLabel();
+        state.expandedAccessibilityClassName = Switch.class.getName();
+        state.state = blockedByPowerSave
+                ? Tile.STATE_UNAVAILABLE
+                : enabled ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
+        state.secondaryLabel = blockedByPowerSave
+                ? mContext.getString(R.string.quick_settings_aod_battery_saver)
+                : mContext.getString(enabled
+                        ? R.string.quick_settings_aod_on
+                        : R.string.quick_settings_aod_off);
+        state.stateDescription = state.secondaryLabel;
+        state.contentDescription = state.label + ", " + state.secondaryLabel;
     }
 
     @Override
