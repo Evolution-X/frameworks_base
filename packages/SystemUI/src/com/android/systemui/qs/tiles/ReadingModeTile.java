@@ -22,6 +22,7 @@ import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
 import android.service.quicksettings.Tile;
+import android.widget.Switch;
 
 import androidx.annotation.Nullable;
 
@@ -39,11 +40,7 @@ import com.android.systemui.qs.logging.QSLogger;
 import com.android.systemui.qs.tileimpl.QSTileImpl;
 import com.android.systemui.res.R;
 
-import org.lineageos.internal.util.PackageManagerUtils;
-
 import lineageos.hardware.LineageHardwareManager;
-import lineageos.providers.LineageSettings;
-
 import javax.inject.Inject;
 
 public class ReadingModeTile extends QSTileImpl<BooleanState> {
@@ -55,7 +52,7 @@ public class ReadingModeTile extends QSTileImpl<BooleanState> {
 
     private static final Intent DISPLAY_SETTINGS = new Intent("android.settings.DISPLAY_SETTINGS");
 
-    private LineageHardwareManager mHardware;
+    private final LineageHardwareManager mHardware;
 
     @Inject
     public ReadingModeTile(
@@ -81,7 +78,10 @@ public class ReadingModeTile extends QSTileImpl<BooleanState> {
 
     @Override
     protected void handleClick(@Nullable Expandable expandable) {
-        boolean newStatus = !isReadingModeEnabled();
+        if (!isAvailable()) {
+            return;
+        }
+        final boolean newStatus = !isReadingModeEnabled();
         mHardware.set(LineageHardwareManager.FEATURE_READING_ENHANCEMENT, newStatus);
         refreshState();
     }
@@ -103,16 +103,16 @@ public class ReadingModeTile extends QSTileImpl<BooleanState> {
             mIcon = maybeLoadResourceIcon(R.drawable.ic_qs_reader);
         }
         state.icon = mIcon;
-        if (state.value) {
-            state.contentDescription = mContext.getString(
-                    R.string.accessibility_quick_settings_reading_mode_on);
-            state.state = Tile.STATE_ACTIVE;
-        } else {
-            state.contentDescription = mContext.getString(
-                    R.string.accessibility_quick_settings_reading_mode_off);
-            state.state = Tile.STATE_INACTIVE;
-        }
         state.label = getTileLabel();
+        state.secondaryLabel = mContext.getString(state.value
+                ? R.string.quick_settings_state_on
+                : R.string.quick_settings_state_off);
+        state.stateDescription = state.secondaryLabel;
+        state.contentDescription = mContext.getString(state.value
+                ? R.string.accessibility_quick_settings_reading_mode_on
+                : R.string.accessibility_quick_settings_reading_mode_off);
+        state.expandedAccessibilityClassName = Switch.class.getName();
+        state.state = state.value ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
     }
 
     @Override
@@ -127,7 +127,10 @@ public class ReadingModeTile extends QSTileImpl<BooleanState> {
 
     @Override
     public void handleSetListening(boolean listening) {
-        // Do nothing
+        super.handleSetListening(listening);
+        if (listening) {
+            refreshState();
+        }
     }
 
     private boolean isReadingModeEnabled() {

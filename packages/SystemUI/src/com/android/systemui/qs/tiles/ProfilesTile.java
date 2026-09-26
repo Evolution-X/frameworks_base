@@ -171,14 +171,16 @@ public class ProfilesTile extends QSTileImpl<State> {
         if (profilesEnabled()) {
             state.secondaryLabel = mProfileManager.getActiveProfile().getName();
             state.contentDescription = mContext.getString(
-                    R.string.accessibility_quick_settings_profiles, state.label);
+                    R.string.accessibility_quick_settings_profiles, state.secondaryLabel);
             state.state = Tile.STATE_ACTIVE;
         } else {
-            state.secondaryLabel = null;
+            state.secondaryLabel = mContext.getString(R.string.quick_settings_state_off);
             state.contentDescription = mContext.getString(
                     R.string.accessibility_quick_settings_profiles_off);
             state.state = Tile.STATE_INACTIVE;
         }
+        state.stateDescription = state.secondaryLabel;
+        state.expandedAccessibilityClassName = Button.class.getName();
         state.dualTarget = true;
     }
 
@@ -199,6 +201,7 @@ public class ProfilesTile extends QSTileImpl<State> {
 
     @Override
     public void handleSetListening(boolean listening) {
+        super.handleSetListening(listening);
         if (mListening == listening) return;
         mListening = listening;
         if (listening) {
@@ -214,6 +217,17 @@ public class ProfilesTile extends QSTileImpl<State> {
             mContext.unregisterReceiver(mReceiver);
             mKeyguardStateController.removeCallback(mCallback);
         }
+    }
+
+    @Override
+    protected void handleDestroy() {
+        if (mListening) {
+            mObserver.endObserving();
+            mContext.unregisterReceiver(mReceiver);
+            mKeyguardStateController.removeCallback(mCallback);
+            mListening = false;
+        }
+        super.handleDestroy();
     }
 
     private final class Callback implements KeyguardStateController.Callback {

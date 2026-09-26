@@ -17,13 +17,13 @@
 
 package com.android.systemui.qs.tiles;
 
-import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
 import android.media.AudioManager;
 import android.provider.Settings;
 import android.service.quicksettings.Tile;
+import android.widget.Button;
 
 import androidx.annotation.Nullable;
 
@@ -48,7 +48,7 @@ public class VolumeTile extends QSTileImpl<BooleanState> {
 
     public static final String TILE_SPEC = "volume_panel";
 
-    private static final Intent SOUND_SETTINGS = new Intent(Settings.Panel.ACTION_VOLUME);
+    private static final Intent SOUND_SETTINGS = new Intent(Settings.ACTION_SOUND_SETTINGS);
 
     @Inject
     public VolumeTile(
@@ -80,7 +80,9 @@ public class VolumeTile extends QSTileImpl<BooleanState> {
     @Override
     protected void handleUpdateState(BooleanState state, Object arg) {
         state.label = mContext.getString(R.string.quick_settings_volume_panel_label);
-        state.icon = ResourceIcon.get(R.drawable.ic_qs_volume_panel); // TODO needs own icon
+        state.icon = ResourceIcon.get(R.drawable.ic_qs_volume_panel);
+        state.contentDescription = state.label;
+        state.expandedAccessibilityClassName = Button.class.getName();
         state.state = Tile.STATE_ACTIVE;
     }
 
@@ -101,6 +103,6 @@ public class VolumeTile extends QSTileImpl<BooleanState> {
 
     @Override
     public void handleSetListening(boolean listening) {
-        // Do nothing
+        super.handleSetListening(listening);
     }
 }
