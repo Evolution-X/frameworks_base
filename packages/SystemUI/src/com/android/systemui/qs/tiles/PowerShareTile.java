@@ -22,6 +22,7 @@ import android.app.NotificationManager;
 import android.content.Intent;
 import android.os.BatteryManager;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Looper;
 import android.os.ServiceManager;
 import android.service.quicksettings.Tile;
@@ -80,13 +81,9 @@ public class PowerShareTile extends QSTileImpl<BooleanState>
     ) {
         super(host, uiEventLogger, backgroundLooper, mainHandler, falsingManager, metricsLogger,
                 statusBarStateController, activityStarter, qsLogger);
-        mPowerShare = getPowerShare();
-        if (mPowerShare == null) {
-            return;
-        }
-
         mBatteryController = batteryController;
         mNotificationManager = mContext.getSystemService(NotificationManager.class);
+        mPowerShare = getPowerShare();
 
         NotificationChannel notificationChannel = new NotificationChannel(CHANNEL_ID,
                 mContext.getString(R.string.quick_settings_powershare_label),
@@ -118,38 +115,36 @@ public class PowerShareTile extends QSTileImpl<BooleanState>
     }
 
     private void updatePowerShareState() {
-        if (!isAvailable()) {
+        final IPowerShare powerShare = getPowerShare();
+        if (powerShare == null) {
             return;
         }
 
         if (mBatteryController.isPowerSave()) {
             try {
-                mPowerShare.setEnabled(false);
+                powerShare.setEnabled(false);
             } catch (Exception ex) {
-                ex.printStackTrace();
+                clearPowerShare(powerShare);
+                Log.w(TAG, "Unable to disable PowerShare for Battery Saver", ex);
+                return;
             }
         }
 
         try {
-            if (mPowerShare.isEnabled()) {
+            if (powerShare.isEnabled()) {
                 mNotificationManager.notify(NOTIFICATION_ID, mNotification);
             } else {
                 mNotificationManager.cancel(NOTIFICATION_ID);
             }
         } catch (Exception ex) {
-            ex.printStackTrace();
+            clearPowerShare(powerShare);
+            Log.w(TAG, "Unable to update PowerShare state", ex);
         }
     }
 
     @Override
     public boolean isAvailable() {
-        try {
-            // Will throw NPE or some other exception if HAL is either missing or broken.
-            mPowerShare.isEnabled();
-            return true;
-        } catch (Exception ex) {
-            return false;
-        }
+        return getPowerShare() != null;
     }
 
     @Override
@@ -161,11 +156,18 @@ public class PowerShareTile extends QSTileImpl<BooleanState>
 
     @Override
     public void handleClick(@Nullable Expandable expandable) {
+        final IPowerShare powerShare = getPowerShare();
+        if (powerShare == null) {
+            refreshState();
+            return;
+        }
+
         try {
-            mPowerShare.setEnabled(!mPowerShare.isEnabled());
+            powerShare.setEnabled(!powerShare.isEnabled());
             refreshState();
         } catch (Exception ex) {
-            ex.printStackTrace();
+            clearPowerShare(powerShare);
+            Log.w(TAG, "Unable to change PowerShare state", ex);
         }
     }
 
@@ -198,11 +200,17 @@ public class PowerShareTile extends QSTileImpl<BooleanState>
         }
         state.icon = mIcon;
         state.hasLongClickEffect = false;
+        final IPowerShare powerShare = getPowerShare();
+        if (powerShare == null) {
+            return;
+        }
+
         try {
-            state.value = mPowerShare.isEnabled();
+            state.value = powerShare.isEnabled();
         } catch (Exception ex) {
             state.value = false;
-            ex.printStackTrace();
+            clearPowerShare(powerShare);
+            Log.w(TAG, "Unable to read PowerShare state", ex);
         }
         state.label = mContext.getString(R.string.quick_settings_powershare_label);
 
@@ -225,10 +233,21 @@ public class PowerShareTile extends QSTileImpl<BooleanState>
     }
 
     private synchronized IPowerShare getPowerShare() {
+        if (isPowerShareAlive(mPowerShare)) {
+            return mPowerShare;
+        }
+
+        mPowerShare = null;
         final String fqName = IPowerShare.DESCRIPTOR + "/default";
 
         try {
-            return IPowerShare.Stub.asInterface(ServiceManager.getService(fqName));
+            final IBinder binder = ServiceManager.getService(fqName);
+            final IPowerShare powerShare = IPowerShare.Stub.asInterface(binder);
+            if (!isPowerShareAlive(powerShare)) {
+                return null;
+            }
+            mPowerShare = powerShare;
+            return mPowerShare;
         } catch (Exception e) {
             // Handle both RemoteException and ServiceNotFoundException
             Log.e(TAG, "Failed to get PowerShare service", e);
@@ -236,11 +255,31 @@ public class PowerShareTile extends QSTileImpl<BooleanState>
         }
     }
 
+    static boolean isPowerShareAlive(@Nullable IPowerShare powerShare) {
+        if (powerShare == null) {
+            return false;
+        }
+        final IBinder binder = powerShare.asBinder();
+        return binder != null && binder.isBinderAlive();
+    }
+
+    private synchronized void clearPowerShare(IPowerShare powerShare) {
+        if (mPowerShare == powerShare) {
+            mPowerShare = null;
+        }
+    }
+
     private int getMinBatteryLevel() {
+        final IPowerShare powerShare = getPowerShare();
+        if (powerShare == null) {
+            return 0;
+        }
+
         try {
-            return mPowerShare.getMinBattery();
+            return powerShare.getMinBattery();
         } catch (Exception ex) {
-            ex.printStackTrace();
+            clearPowerShare(powerShare);
+            Log.w(TAG, "Unable to read PowerShare minimum battery level", ex);
         }
 
         return 0;
