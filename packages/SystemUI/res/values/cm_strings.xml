@@ -63,6 +63,14 @@
     <string name="accessibility_quick_settings_ambient_display_on">Ambient display on.</string>
 
     <!-- AOD QS tile -->
+    <string name="quick_settings_charging_control_label">Charging control</string>
+    <string name="quick_settings_charging_control_off">Off</string>
+    <string name="quick_settings_charging_control_on">On</string>
+    <string name="quick_settings_charging_control_auto">Automatic</string>
+    <string name="quick_settings_charging_control_custom">Custom</string>
+    <string name="quick_settings_charging_control_limit">Limit %d%%</string>
+    <string name="accessibility_quick_settings_charging_control_off">Charging control off.</string>
+    <string name="accessibility_quick_settings_charging_control_on">Charging control on.</string>
     <string name="quick_settings_aod_label">AOD</string>
     <string name="quick_settings_aod_off_powersave_label">AOD off\nBattery saver</string>
 
