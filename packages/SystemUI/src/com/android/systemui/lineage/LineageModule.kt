@@ -37,6 +37,7 @@ import com.android.systemui.qs.tiles.ProfilesTile
 import com.android.systemui.qs.tiles.ReadingModeTile
 import com.android.systemui.qs.tiles.RefreshRateTile
 import com.android.systemui.qs.tiles.ScreenshotTile
+import com.android.systemui.qs.tiles.ScreenTimeoutTile
 import com.android.systemui.qs.tiles.SoundTile
 import com.android.systemui.qs.tiles.SyncTile
 import com.android.systemui.qs.tiles.UsbTetherTile
@@ -158,6 +159,12 @@ interface LineageModule {
     @IntoMap
     @StringKey(ScreenshotTile.TILE_SPEC)
     fun bindScreenshotTile(screenshotTile: ScreenshotTile): QSTileImpl<*>
+
+    /** Inject ScreenTimeoutTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(ScreenTimeoutTile.TILE_SPEC)
+    fun bindScreenTimeoutTile(screenTimeoutTile: ScreenTimeoutTile): QSTileImpl<*>
 
     /** Inject SmartPixelTile into tileMap in QSModule */
     @Binds
@@ -348,6 +355,20 @@ interface LineageModule {
                         iconRes = R.drawable.ic_qs_reader,
                         labelRes = R.string.quick_settings_reading_mode
                     ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.DISPLAY,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(ScreenTimeoutTile.TILE_SPEC)
+        fun provideScreenTimeoutTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(ScreenTimeoutTile.TILE_SPEC),
+                uiConfig = QSTileUIConfig.Resource(
+                    iconRes = R.drawable.ic_qs_screen_timeout,
+                    labelRes = R.string.quick_settings_screen_timeout_label
+                ),
                 instanceId = uiEventLogger.getNewInstanceId(),
                 category = TileCategory.DISPLAY,
             )
