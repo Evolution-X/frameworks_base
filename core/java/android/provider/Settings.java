@@ -12731,6 +12731,15 @@ public final class Settings {
         public static final String DOUBLE_TAP_TO_SLEEP = "double_tap_to_sleep";
 
         /**
+         * Controls whether double tap to sleep is enabled on an empty area of the Home screen.
+         *
+         * <p>This is intentionally separate from {@link #DOUBLE_TAP_TO_SLEEP}, which is consumed
+         * by SystemUI for keyguard double-tap handling.</p>
+         * @hide
+         */
+        public static final String HOME_DOUBLE_TAP_TO_SLEEP = "home_double_tap_to_sleep";
+
+        /**
          * The current assistant component. It could be a voice interaction service,
          * or an activity that handles ACTION_ASSIST, or empty which means using the default
          * handling.
