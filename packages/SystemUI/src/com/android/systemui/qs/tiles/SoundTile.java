@@ -22,14 +22,15 @@ import android.content.IntentFilter;
 import android.media.AudioManager;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
 import android.service.quicksettings.Tile;
+import android.widget.Button;
 
 import androidx.annotation.Nullable;
 
 import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.systemui.animation.Expandable;
-import com.android.systemui.broadcast.BroadcastDispatcher;
 import com.android.systemui.dagger.qualifiers.Background;
 import com.android.systemui.dagger.qualifiers.Main;
 import com.android.systemui.plugins.ActivityStarter;
@@ -52,8 +53,7 @@ public class SoundTile extends QSTileImpl<BooleanState> {
 
     private boolean mListening = false;
 
-    private BroadcastReceiver mReceiver;
-    private IntentFilter mFilter;
+    private final BroadcastReceiver mReceiver;
 
     @Inject
     public SoundTile(
@@ -65,8 +65,7 @@ public class SoundTile extends QSTileImpl<BooleanState> {
             MetricsLogger metricsLogger,
             StatusBarStateController statusBarStateController,
             ActivityStarter activityStarter,
-            QSLogger qsLogger,
-            BroadcastDispatcher broadcastDispatcher
+            QSLogger qsLogger
     ) {
         super(host, uiEventLogger, backgroundLooper, mainHandler, falsingManager, metricsLogger,
                 statusBarStateController, activityStarter, qsLogger);
@@ -86,10 +85,10 @@ public class SoundTile extends QSTileImpl<BooleanState> {
 
     @Override
     public void handleSetListening(boolean listening) {
-        if (mAudioManager == null) {
+        super.handleSetListening(listening);
+        if (mAudioManager == null || mListening == listening) {
             return;
         }
-        if (mListening == listening) return;
         mListening = listening;
         if (listening) {
             final IntentFilter filter = new IntentFilter();
@@ -101,18 +100,23 @@ public class SoundTile extends QSTileImpl<BooleanState> {
     }
 
     @Override
-    protected void handleClick(@Nullable Expandable expandable) {
-        updateState();
+    protected void handleDestroy() {
+        if (mListening) {
+            mContext.unregisterReceiver(mReceiver);
+            mListening = false;
+        }
+        super.handleDestroy();
     }
 
     @Override
-    protected void handleLongClick(@Nullable Expandable expandable) {
-        mAudioManager.adjustVolume(AudioManager.ADJUST_SAME, AudioManager.FLAG_SHOW_UI);
+    protected void handleClick(@Nullable Expandable expandable) {
+        updateState();
+        refreshState();
     }
 
     @Override
     public Intent getLongClickIntent() {
-        return null;
+        return new Intent(Settings.ACTION_SOUND_SETTINGS);
     }
 
     private void updateState() {
@@ -143,34 +147,52 @@ public class SoundTile extends QSTileImpl<BooleanState> {
 
     @Override
     protected void handleUpdateState(BooleanState state, Object arg) {
+        state.label = getTileLabel();
+        state.expandedAccessibilityClassName = Button.class.getName();
+
         if (mAudioManager == null) {
+            state.value = false;
+            state.secondaryLabel = null;
+            state.contentDescription = state.label;
+            state.stateDescription = null;
+            state.state = Tile.STATE_UNAVAILABLE;
             return;
         }
-        switch (mAudioManager.getRingerModeInternal()) {
+
+        final int mode = mAudioManager.getRingerModeInternal();
+        final CharSequence modeLabel;
+        switch (mode) {
             case AudioManager.RINGER_MODE_NORMAL:
                 state.icon = ResourceIcon.get(R.drawable.ic_qs_ringer_audible);
-                state.label = mContext.getString(R.string.quick_settings_sound_ring);
-                state.contentDescription =  mContext.getString(
-                        R.string.quick_settings_sound_ring);
+                modeLabel = mContext.getString(R.string.quick_settings_sound_ring);
                 state.state = Tile.STATE_ACTIVE;
+                state.value = true;
                 break;
             case AudioManager.RINGER_MODE_VIBRATE:
                 state.icon = ResourceIcon.get(R.drawable.ic_qs_ringer_vibrate);
-                state.label = mContext.getString(R.string.quick_settings_sound_vibrate);
-                state.contentDescription =  mContext.getString(
-                        R.string.quick_settings_sound_vibrate);
+                modeLabel = mContext.getString(R.string.quick_settings_sound_vibrate);
                 state.state = Tile.STATE_INACTIVE;
+                state.value = false;
                 break;
             case AudioManager.RINGER_MODE_SILENT:
                 state.icon = ResourceIcon.get(R.drawable.ic_qs_ringer_silent);
-                state.label = mContext.getString(R.string.quick_settings_sound_mute);
-                state.contentDescription =  mContext.getString(
-                        R.string.quick_settings_sound_mute);
+                modeLabel = mContext.getString(R.string.quick_settings_sound_mute);
                 state.state = Tile.STATE_INACTIVE;
+                state.value = false;
                 break;
             default:
+                state.icon = ResourceIcon.get(R.drawable.ic_qs_ringer_audible);
+                modeLabel = null;
+                state.state = Tile.STATE_UNAVAILABLE;
+                state.value = false;
                 break;
         }
+
+        state.secondaryLabel = modeLabel;
+        state.stateDescription = modeLabel;
+        state.contentDescription = modeLabel == null
+                ? state.label
+                : state.label + ", " + modeLabel;
     }
 
     @Override

@@ -30,6 +30,7 @@ import android.provider.Settings.System.PEAK_REFRESH_RATE
 import android.service.quicksettings.Tile
 import android.util.Log
 import android.view.Display
+import android.widget.Button
 
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent
 import com.android.internal.logging.MetricsLogger
@@ -79,7 +80,9 @@ class RefreshRateTile @Inject constructor(
     private val defaultPeakRefreshRate: Float
 
     private var ignoreSettingsChange = false
+    private var listening = false
     private var refreshRateMode = Mode.MIN
+    private var fixedRefreshRate = DEFAULT_REFRESH_RATE
     private var peakRefreshRate = DEFAULT_REFRESH_RATE
 
     init {
@@ -126,7 +129,26 @@ class RefreshRateTile @Inject constructor(
     override protected fun handleInitialize() {
         logD("handleInitialize")
         updateMode()
-        settingsObserver.observe()
+    }
+
+    override fun handleSetListening(listening: Boolean) {
+        super.handleSetListening(listening)
+        if (this.listening == listening) return
+        this.listening = listening
+        if (listening) {
+            updateMode()
+            settingsObserver.observe()
+            refreshState()
+        } else {
+            settingsObserver.unobserve()
+        }
+    }
+
+    override protected fun handleUserSwitch(newUserId: Int) {
+        settingsObserver.unobserve()
+        updateMode()
+        if (listening) settingsObserver.observe()
+        refreshState()
     }
 
     override protected fun handleClick(expandable: Expandable?) {
@@ -138,12 +160,13 @@ class RefreshRateTile @Inject constructor(
     }
 
     override protected fun handleUpdateState(state: State, arg: Any?) {
-        if (state.label == null) {
-            state.label = tileLabel
-            state.contentDescription = tileLabel
-        }
-        logD("handleUpdateState, state = $state")
+        state.label = tileLabel
+        state.state = Tile.STATE_ACTIVE
+        state.expandedAccessibilityClassName = Button::class.java.name
         state.secondaryLabel = getTitleForMode(refreshRateMode)
+        state.stateDescription = state.secondaryLabel
+        state.contentDescription = "$tileLabel, ${state.secondaryLabel}"
+        logD("handleUpdateState, state = $state")
         logD("secondaryLabel = ${state.secondaryLabel}")
     }
 
@@ -160,8 +183,12 @@ class RefreshRateTile @Inject constructor(
         logD("minRate = $minRate, maxRate = $maxRate")
 
         if (minRate == maxRate) {
-            if (minRate == DEFAULT_REFRESH_RATE) refreshRateMode = Mode.MIN
-            else refreshRateMode = Mode.MAX
+            fixedRefreshRate = minRate
+            refreshRateMode = when (minRate) {
+                DEFAULT_REFRESH_RATE -> Mode.MIN
+                peakRefreshRate -> Mode.MAX
+                else -> Mode.FIXED
+            }
         } else {
             refreshRateMode = Mode.AUTO
         }
@@ -178,6 +205,7 @@ class RefreshRateTile @Inject constructor(
             Mode.AUTO -> Mode.MIN
             Mode.MIN -> Mode.MAX
             Mode.MAX -> Mode.AUTO
+            Mode.FIXED -> Mode.AUTO
         }
 
     private fun updateRefreshRateForMode(mode: Mode) {
@@ -196,6 +224,7 @@ class RefreshRateTile @Inject constructor(
                 minRate = DEFAULT_REFRESH_RATE
                 maxRate = DEFAULT_REFRESH_RATE
             }
+            Mode.FIXED -> return
         }
         ignoreSettingsChange = true
         systemSettings.putFloat(MIN_REFRESH_RATE, minRate)
@@ -206,21 +235,26 @@ class RefreshRateTile @Inject constructor(
     private fun getTitleForMode(mode: Mode) =
         when (mode) {
             Mode.AUTO -> autoModeLabel
-            Mode.MAX -> peakRefreshRate.toInt().toString() + "Hz"
-            Mode.MIN -> DEFAULT_REFRESH_RATE.toInt().toString() + "Hz"
+            Mode.MAX -> Math.round(peakRefreshRate).toString() + "Hz"
+            Mode.MIN -> Math.round(DEFAULT_REFRESH_RATE).toString() + "Hz"
+            Mode.FIXED -> Math.round(fixedRefreshRate).toString() + "Hz"
         }
 
     private enum class Mode {
         MIN,
         MAX,
         AUTO,
+        FIXED,
     }
 
     private inner class SettingsObserver: ContentObserver(mainHandler) {
         private var isObserving = false
 
         override fun onChange(selfChange: Boolean, uri: Uri?) {
-            if (!ignoreSettingsChange) updateMode()
+            if (!ignoreSettingsChange) {
+                updateMode()
+                refreshState()
+            }
         }
 
         fun observe() {

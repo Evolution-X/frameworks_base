@@ -55,7 +55,7 @@ public class BatterySaverTile extends SecureQSTile<BooleanState> implements
     @VisibleForTesting
     protected final UserSettingObserver mSetting;
 
-    private int mLevel;
+    private int mLevel = -1;
     private boolean mPowerSave;
     private boolean mCharging;
     private boolean mPluggedIn;
@@ -155,10 +155,39 @@ public class BatterySaverTile extends SecureQSTile<BooleanState> implements
         state.icon = maybeLoadResourceIcon(mPowerSave
                 ? R.drawable.qs_battery_saver_icon_on : R.drawable.qs_battery_saver_icon_off);
         state.label = mContext.getString(R.string.battery_detail_switch_title);
-        state.secondaryLabel = "";
-        state.contentDescription = state.label;
+        state.secondaryLabel = getSecondaryLabel();
+        state.stateDescription = state.secondaryLabel;
+        state.contentDescription = state.secondaryLabel.length() == 0
+                ? state.label
+                : state.label + ", " + state.secondaryLabel;
         state.value = mPowerSave;
         state.expandedAccessibilityClassName = Switch.class.getName();
+    }
+
+    private CharSequence getSecondaryLabel() {
+        if (mLevel < 0) {
+            return "";
+        }
+
+        if (mPluggedIn) {
+            return mContext.getString(
+                    R.string.quick_settings_battery_saver_status_with_level,
+                    mContext.getString(mCharging
+                            ? R.string.quick_settings_battery_saver_charging
+                            : R.string.quick_settings_battery_saver_plugged_in),
+                    mLevel);
+        }
+
+        if (mPowerSave) {
+            return mContext.getString(
+                    R.string.quick_settings_battery_saver_status_with_level,
+                    mContext.getString(mBatteryController.isExtremeSaverOn()
+                            ? R.string.extreme_battery_saver_text
+                            : R.string.standard_battery_saver_text),
+                    mLevel);
+        }
+
+        return mContext.getString(R.string.quick_settings_battery_saver_level, mLevel);
     }
 
     @Override
