@@ -25,6 +25,7 @@ import android.content.SyncStatusObserver;
 import android.os.Handler;
 import android.os.Looper;
 import android.service.quicksettings.Tile;
+import android.widget.Switch;
 
 import androidx.annotation.Nullable;
 
@@ -97,15 +98,15 @@ public class SyncTile extends QSTileImpl<BooleanState> {
             mIcon = maybeLoadResourceIcon(R.drawable.ic_qs_sync);
         }
         state.icon = mIcon;
-        if (state.value) {
-            state.contentDescription =  mContext.getString(
-                    R.string.accessibility_quick_settings_sync_on);
-            state.state = Tile.STATE_ACTIVE;
-        } else {
-            state.contentDescription =  mContext.getString(
-                    R.string.accessibility_quick_settings_sync_off);
-            state.state = Tile.STATE_INACTIVE;
-        }
+        state.secondaryLabel = mContext.getString(state.value
+                ? R.string.quick_settings_state_on
+                : R.string.quick_settings_state_off);
+        state.stateDescription = state.secondaryLabel;
+        state.contentDescription = mContext.getString(state.value
+                ? R.string.accessibility_quick_settings_sync_on
+                : R.string.accessibility_quick_settings_sync_off);
+        state.expandedAccessibilityClassName = Switch.class.getName();
+        state.state = state.value ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
     }
 
     @Override
@@ -120,19 +121,30 @@ public class SyncTile extends QSTileImpl<BooleanState> {
 
     @Override
     public void handleSetListening(boolean listening) {
+        super.handleSetListening(listening);
         if (mListening == listening) return;
         mListening = listening;
 
         if (listening) {
             mSyncObserverHandle = ContentResolver.addStatusChangeListener(
                     ContentResolver.SYNC_OBSERVER_TYPE_SETTINGS, mSyncObserver);
-        } else {
+        } else if (mSyncObserverHandle != null) {
             ContentResolver.removeStatusChangeListener(mSyncObserverHandle);
             mSyncObserverHandle = null;
         }
     }
 
-    private SyncStatusObserver mSyncObserver = new SyncStatusObserver() {
+    @Override
+    protected void handleDestroy() {
+        if (mSyncObserverHandle != null) {
+            ContentResolver.removeStatusChangeListener(mSyncObserverHandle);
+            mSyncObserverHandle = null;
+        }
+        mListening = false;
+        super.handleDestroy();
+    }
+
+    private final SyncStatusObserver mSyncObserver = new SyncStatusObserver() {
         public void onStatusChanged(int which) {
             mHandler.post(new Runnable() {
                 @Override

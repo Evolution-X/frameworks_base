@@ -25,6 +25,7 @@ import android.os.Looper;
 import android.provider.Settings;
 import android.provider.Settings.Global;
 import android.service.quicksettings.Tile;
+import android.widget.Switch;
 
 import androidx.annotation.Nullable;
 
@@ -118,15 +119,15 @@ public class HeadsUpTile extends QSTileImpl<BooleanState> {
             mIcon = maybeLoadResourceIcon(R.drawable.ic_qs_heads_up);
         }
         state.icon = mIcon;
-        if (headsUp) {
-            state.contentDescription =  mContext.getString(
-                    R.string.accessibility_quick_settings_heads_up_on);
-            state.state = Tile.STATE_ACTIVE;
-        } else {
-            state.contentDescription =  mContext.getString(
-                    R.string.accessibility_quick_settings_heads_up_off);
-            state.state = Tile.STATE_INACTIVE;
-        }
+        state.secondaryLabel = mContext.getString(headsUp
+                ? R.string.quick_settings_state_on
+                : R.string.quick_settings_state_off);
+        state.stateDescription = state.secondaryLabel;
+        state.contentDescription = mContext.getString(headsUp
+                ? R.string.accessibility_quick_settings_heads_up_on
+                : R.string.accessibility_quick_settings_heads_up_off);
+        state.expandedAccessibilityClassName = Switch.class.getName();
+        state.state = headsUp ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
     }
 
     @Override
@@ -141,6 +142,13 @@ public class HeadsUpTile extends QSTileImpl<BooleanState> {
 
     @Override
     public void handleSetListening(boolean listening) {
-        // Do nothing
+        super.handleSetListening(listening);
+        mSetting.setListening(listening);
+    }
+
+    @Override
+    protected void handleDestroy() {
+        mSetting.setListening(false);
+        super.handleDestroy();
     }
 }
