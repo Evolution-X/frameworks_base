@@ -19,7 +19,6 @@ package com.android.systemui.statusbar.pipeline.mobile.ui.compose
 import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
@@ -52,15 +51,13 @@ fun MobileIcons(
         )
     } else {
         val mobileSubViewModels = state.mobileSubViewModels
-        val iconPaddingSp = 4.sp
         val iconSpacingSp = 2.sp
-        val padding = with(LocalDensity.current) { iconPaddingSp.toDp() }
         val spacing = with(LocalDensity.current) { iconSpacingSp.toDp() }
 
         Row(
             horizontalArrangement = spacedBy(spacing),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = modifier.height(iconHeightDp).padding(horizontal = padding),
+            modifier = modifier.height(iconHeightDp),
         ) {
             mobileSubViewModels.forEach { mobileViewModel ->
                 val id = mobileViewModel.subscriptionId

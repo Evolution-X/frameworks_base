@@ -29,7 +29,7 @@
         android:layout_width="0dp"
         android:layout_weight="1"
         android:layout_height="wrap_content"
-        android:paddingEnd="@dimen/signal_cluster_battery_padding"
+        android:paddingEnd="@dimen/status_bar_system_icon_spacing"
         android:gravity="center_vertical"
         android:orientation="horizontal"/>
 

@@ -517,6 +517,7 @@ public class NetworkTraffic extends TextView implements TunerService.Tunable,
         super.onRtlPropertiesChanged(layoutDirection);
         if (mAttached && mDrawable != null) {
             setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, mDrawable, null);
+            requestLayout();
         }
     }
 
@@ -527,20 +528,18 @@ public class NetworkTraffic extends TextView implements TunerService.Tunable,
 
         if (visible != mVisible) {
             mVisible = visible;
-            setFixedWidth();
+            updateLayoutWidth();
             setVisibility(mVisible ? View.VISIBLE : View.GONE);
         }
     }
 
-    private void setFixedWidth() {
-        int requiredWidth = 0;
-        if (mVisible && !mHideArrows) {
-            requiredWidth = (int) (30 * getResources().getDisplayMetrics().density);
-        } else if (mVisible) {
-            requiredWidth = (int) (18 * getResources().getDisplayMetrics().density);
-        }
+    private void updateLayoutWidth() {
+        final int requiredWidth = mVisible
+                ? ViewGroup.LayoutParams.WRAP_CONTENT
+                : 0;
         if (requiredWidth == mCurrentWidth) return;
-        ViewGroup.LayoutParams lp = getLayoutParams();
+
+        final ViewGroup.LayoutParams lp = getLayoutParams();
         if (lp != null) {
             mCurrentWidth = requiredWidth;
             lp.width = requiredWidth;
@@ -562,8 +561,8 @@ public class NetworkTraffic extends TextView implements TunerService.Tunable,
                     setLineSpacing(0f, 0.95f);
                     setLayoutDirection(View.LAYOUT_DIRECTION_LOCALE);
                     setTextDirection(View.TEXT_DIRECTION_LOCALE);
-                    setTextAlignment(View.TEXT_ALIGNMENT_VIEW_END);
-                    setGravity(Gravity.END|Gravity.CENTER_VERTICAL);
+                    setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
+                    setGravity(Gravity.CENTER);
                     setElegantTextHeight(false);
                     setIncludeFontPadding(false);
                 }
@@ -600,7 +599,7 @@ public class NetworkTraffic extends TextView implements TunerService.Tunable,
                 mHideArrows =
                         TunerService.parseIntegerSwitch(newValue, false);
                 setTrafficDrawable();
-                setFixedWidth();
+                updateLayoutWidth();
                 break;
             default:
                 break;
