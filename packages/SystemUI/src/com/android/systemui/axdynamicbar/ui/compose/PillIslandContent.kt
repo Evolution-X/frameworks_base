@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -172,7 +173,9 @@ internal fun PillEventIcon(
         is IslandEvent.PromotedOngoing -> PromotedOngoingPillIcon(event, tint)
         is IslandEvent.Sports -> SportsPillIcon(event)
         is IslandEvent.NowPlaying -> NowPlayingPillIcon(event, tint ?: MintAccent)
-        is IslandEvent.Bluetooth -> AnimatedBluetoothIcon(tint ?: BlueAccent)
+        is IslandEvent.Bluetooth ->
+            event.deviceImage?.let { BluetoothArtworkIcon(it) }
+                ?: AnimatedBluetoothIcon(tint ?: BlueAccent)
         is IslandEvent.Hotspot -> AnimatedHotspotIcon(tint ?: TealAccent)
         is IslandEvent.Charging -> AnimatedBoltIcon(tint ?: GreenAccent)
         is IslandEvent.Alarm -> AnimatedBellIcon(tint ?: OrangeAccent, isAnimating = event.isRinging)
@@ -195,6 +198,14 @@ internal fun PillEventIcon(
 @Composable
 private fun StaticPillEventIcon(event: IslandEvent, tint: Color? = null) {
     when (event) {
+        is IslandEvent.Bluetooth ->
+            event.deviceImage?.let { BluetoothArtworkIcon(it) }
+                ?: Icon(
+                    Icons.Filled.Bluetooth,
+                    null,
+                    tint = tint ?: BlueAccent,
+                    modifier = Modifier.size(SizeBadge),
+                )
         is IslandEvent.Media -> MediaPillIcon(event, animated = false)
         is IslandEvent.Notification -> NotificationPillIcon(event)
         is IslandEvent.AppSwitch -> AppSwitchPillIcon(event)
@@ -1393,11 +1404,22 @@ private fun MediaTitleText(event: IslandEvent.Media, modifier: Modifier, overrid
 }
 
 @Composable
+private fun BluetoothArtworkIcon(image: Drawable) {
+    Image(
+        bitmap = image.toScaledBitmap(16.dp),
+        contentDescription = null,
+        modifier = Modifier.size(16.dp).clip(CircleShape),
+        contentScale = ContentScale.Fit,
+    )
+}
+
+@Composable
 private fun BtText(event: IslandEvent.Bluetooth, modifier: Modifier, overrideColor: Color? = null) {
     val color = overrideColor ?: BlueAccent
-    if (event.batteryLevel >= 0) {
+    val summary = event.batterySummary()
+    if (summary != null) {
         Text(
-            "${event.deviceName.take(8)} ${event.batteryLevel}%",
+            "${event.deviceName.take(8)} $summary",
             color = color,
             style = MaterialTheme.typography.labelSmall,
             maxLines = 1,
