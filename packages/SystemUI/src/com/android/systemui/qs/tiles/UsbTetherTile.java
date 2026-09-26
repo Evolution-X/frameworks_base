@@ -30,6 +30,7 @@ import android.os.Looper;
 import android.provider.Settings;
 import android.net.TetheringManager;
 import android.service.quicksettings.Tile;
+import android.widget.Switch;
 
 import androidx.annotation.Nullable;
 
@@ -92,22 +93,39 @@ public class UsbTetherTile extends QSTileImpl<BooleanState> {
 
     @Override
     public void handleSetListening(boolean listening) {
+        super.handleSetListening(listening);
         if (mListening == listening) {
             return;
         }
+
         mListening = listening;
         if (listening) {
-            final IntentFilter filter = new IntentFilter();
-            filter.addAction(UsbManager.ACTION_USB_STATE);
-            mContext.registerReceiver(mReceiver, filter);
+            final IntentFilter filter = new IntentFilter(UsbManager.ACTION_USB_STATE);
+            final Intent sticky = mContext.registerReceiver(
+                    mReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+            if (sticky != null) {
+                updateUsbState(sticky);
+            } else {
+                refreshState();
+            }
         } else {
             mContext.unregisterReceiver(mReceiver);
         }
     }
 
     @Override
+    protected void handleDestroy() {
+        if (mListening) {
+            mContext.unregisterReceiver(mReceiver);
+            mListening = false;
+        }
+        super.handleDestroy();
+    }
+
+    @Override
     protected void handleClick(@Nullable Expandable expandable) {
-        if (mUsbConnected) {
+        if (mUsbConnected && mTetheringManager != null
+                && mTetheringManager.isTetheringSupported()) {
             mTetheringManager.setUsbTethering(!mUsbTetherEnabled);
         }
     }
@@ -120,16 +138,19 @@ public class UsbTetherTile extends QSTileImpl<BooleanState> {
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            mUsbConnected = intent.getBooleanExtra(UsbManager.USB_CONNECTED, false);
-            if (mUsbConnected && mTetheringManager.isTetheringSupported()) {
-                mUsbTetherEnabled = intent.getBooleanExtra(UsbManager.USB_FUNCTION_RNDIS, false) ||
-                        intent.getBooleanExtra(UsbManager.USB_FUNCTION_NCM, false);
-            } else {
-                mUsbTetherEnabled = false;
-            }
-            refreshState();
+            updateUsbState(intent);
         }
     };
+
+    private void updateUsbState(Intent intent) {
+        mUsbConnected = intent.getBooleanExtra(UsbManager.USB_CONNECTED, false);
+        final boolean tetheringSupported =
+                mTetheringManager != null && mTetheringManager.isTetheringSupported();
+        mUsbTetherEnabled = mUsbConnected && tetheringSupported
+                && (intent.getBooleanExtra(UsbManager.USB_FUNCTION_RNDIS, false)
+                || intent.getBooleanExtra(UsbManager.USB_FUNCTION_NCM, false));
+        refreshState();
+    }
 
     @Override
     protected void handleUpdateState(BooleanState state, Object arg) {
@@ -139,8 +160,26 @@ public class UsbTetherTile extends QSTileImpl<BooleanState> {
             mIcon = maybeLoadResourceIcon(R.drawable.ic_qs_usb_tether);
         }
         state.icon = mIcon;
-        state.state = !mUsbConnected ? Tile.STATE_UNAVAILABLE
-                : mUsbTetherEnabled ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
+        state.expandedAccessibilityClassName = Switch.class.getName();
+
+        final boolean tetheringSupported =
+                mTetheringManager != null && mTetheringManager.isTetheringSupported();
+        if (!mUsbConnected) {
+            state.state = Tile.STATE_UNAVAILABLE;
+            state.secondaryLabel = mContext.getString(
+                    R.string.quick_settings_usb_tether_disconnected);
+        } else if (!tetheringSupported) {
+            state.state = Tile.STATE_UNAVAILABLE;
+            state.secondaryLabel = mContext.getString(
+                    R.string.quick_settings_usb_tether_unsupported);
+        } else {
+            state.state = mUsbTetherEnabled ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
+            state.secondaryLabel = mContext.getString(mUsbTetherEnabled
+                    ? R.string.quick_settings_state_on
+                    : R.string.quick_settings_state_off);
+        }
+        state.stateDescription = state.secondaryLabel;
+        state.contentDescription = state.label + ", " + state.secondaryLabel;
     }
 
     @Override

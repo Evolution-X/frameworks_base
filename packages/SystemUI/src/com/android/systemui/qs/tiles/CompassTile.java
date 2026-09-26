@@ -18,18 +18,15 @@ package com.android.systemui.qs.tiles;
 
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Matrix;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.service.quicksettings.Tile;
+import android.widget.Button;
 
 import androidx.annotation.Nullable;
 
@@ -42,8 +39,8 @@ import com.android.systemui.plugins.ActivityStarter;
 import com.android.systemui.plugins.FalsingManager;
 import com.android.systemui.plugins.qs.QSTile.BooleanState;
 import com.android.systemui.plugins.statusbar.StatusBarStateController;
-import com.android.systemui.qs.QsEventLogger;
 import com.android.systemui.qs.QSHost;
+import com.android.systemui.qs.QsEventLogger;
 import com.android.systemui.qs.logging.QSLogger;
 import com.android.systemui.qs.tileimpl.QSTileImpl;
 import com.android.systemui.res.R;
@@ -54,21 +51,25 @@ public class CompassTile extends QSTileImpl<BooleanState> implements SensorEvent
 
     public static final String TILE_SPEC = "compass";
 
-    private final static float ALPHA = 0.97f;
+    private static final float ALPHA = 0.97f;
+    private static final long UI_UPDATE_INTERVAL_MS = 100L;
 
-    private boolean mActive = false;
+    private final SensorManager mSensorManager;
+    @Nullable
+    private final Sensor mAccelerationSensor;
+    @Nullable
+    private final Sensor mGeomagneticFieldSensor;
+    private final Icon mIcon = ResourceIcon.get(R.drawable.ic_qs_compass);
 
-    private SensorManager mSensorManager;
-    private Sensor mAccelerationSensor;
-    private Sensor mGeomagneticFieldSensor;
-
+    private boolean mActive;
+    private boolean mListeningSensors;
     private float[] mAcceleration;
     private float[] mGeomagnetic;
-
-    private boolean mListeningSensors;
+    private long mLastUiUpdateElapsed;
 
     @Inject
-    public CompassTile(QSHost host,
+    public CompassTile(
+            QSHost host,
             QsEventLogger uiEventLogger,
             @Background Looper backgroundLooper,
             @Main Handler mainHandler,
@@ -82,34 +83,39 @@ public class CompassTile extends QSTileImpl<BooleanState> implements SensorEvent
                 statusBarStateController, activityStarter, qsLogger);
 
         mSensorManager = (SensorManager) mContext.getSystemService(Context.SENSOR_SERVICE);
-        mAccelerationSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        mGeomagneticFieldSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+        mAccelerationSensor = mSensorManager != null
+                ? mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) : null;
+        mGeomagneticFieldSensor = mSensorManager != null
+                ? mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD) : null;
     }
 
     @Override
     public BooleanState newTileState() {
-        BooleanState state = new BooleanState();
+        final BooleanState state = new BooleanState();
         state.handlesLongClick = false;
         return state;
     }
 
     @Override
     protected void handleDestroy() {
-        super.handleDestroy();
         setListeningSensors(false);
-        mSensorManager = null;
+        super.handleDestroy();
     }
 
     @Override
     protected void handleClick(@Nullable Expandable expandable) {
-        mActive = !mActive;
-        refreshState();
-        setListeningSensors(mActive);
-    }
+        if (!isAvailable()) {
+            return;
+        }
 
-    @Override
-    public void handleLongClick(@Nullable Expandable expandable) {
-        handleClick(expandable);
+        mActive = !mActive;
+        if (mActive) {
+            mAcceleration = null;
+            mGeomagnetic = null;
+            mLastUiUpdateElapsed = 0L;
+        }
+        setListeningSensors(mActive);
+        refreshState();
     }
 
     @Override
@@ -118,13 +124,16 @@ public class CompassTile extends QSTileImpl<BooleanState> implements SensorEvent
     }
 
     private void setListeningSensors(boolean listening) {
-        if (listening == mListeningSensors) return;
+        if (listening == mListeningSensors || mSensorManager == null) {
+            return;
+        }
+
         mListeningSensors = listening;
-        if (mListeningSensors) {
+        if (listening && mAccelerationSensor != null && mGeomagneticFieldSensor != null) {
             mSensorManager.registerListener(
-                    this, mAccelerationSensor, SensorManager.SENSOR_DELAY_GAME);
+                    this, mAccelerationSensor, SensorManager.SENSOR_DELAY_UI);
             mSensorManager.registerListener(
-                    this, mGeomagneticFieldSensor, SensorManager.SENSOR_DELAY_GAME);
+                    this, mGeomagneticFieldSensor, SensorManager.SENSOR_DELAY_UI);
         } else {
             mSensorManager.unregisterListener(this);
         }
@@ -135,53 +144,27 @@ public class CompassTile extends QSTileImpl<BooleanState> implements SensorEvent
         return mContext.getString(R.string.quick_settings_compass_label);
     }
 
-    private Drawable rotateDrawable(Drawable drawable, float degrees) {
-        // Convert drawable to bitmap
-        Bitmap bitmap = drawableToBitmap(drawable);
-
-        // Create matrix for rotation
-        Matrix matrix = new Matrix();
-        matrix.postRotate(degrees);
-
-        // Create rotated bitmap
-        Bitmap rotatedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
-
-        // Convert rotated bitmap back to drawable
-        return new BitmapDrawable(mContext.getResources(), rotatedBitmap);
-    }
-
-    private Bitmap drawableToBitmap(Drawable drawable) {
-        if (drawable instanceof BitmapDrawable) {
-            return ((BitmapDrawable) drawable).getBitmap();
-        }
-
-        // If the drawable is not a BitmapDrawable, create a new bitmap and draw the drawable on a canvas
-        Bitmap bitmap = Bitmap.createBitmap(drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bitmap);
-        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
-        drawable.draw(canvas);
-        return bitmap;
-    }
-
     @Override
     protected void handleUpdateState(BooleanState state, Object arg) {
-        final Float degrees = arg == null ? 0 : (Float) arg;
+        final Float degrees = arg instanceof Float ? (Float) arg : null;
 
         state.value = mActive;
+        state.icon = mIcon;
+        state.label = getTileLabel();
+        state.expandedAccessibilityClassName = Button.class.getName();
 
-        if (state.value) {
+        if (mActive) {
             state.state = Tile.STATE_ACTIVE;
-            if (arg != null) {
-                state.label = formatValueWithCardinalDirection(degrees);
-            } else {
-                state.label = mContext.getString(R.string.quick_settings_compass_init);
-            }
+            state.secondaryLabel = degrees != null
+                    ? formatValueWithCardinalDirection(degrees)
+                    : mContext.getString(R.string.quick_settings_compass_init);
         } else {
-            state.label = mContext.getString(R.string.quick_settings_compass_label);
             state.state = Tile.STATE_INACTIVE;
+            state.secondaryLabel = mContext.getString(R.string.quick_settings_state_off);
         }
-        state.icon = new DrawableIcon(rotateDrawable(
-                mContext.getResources().getDrawable(R.drawable.ic_qs_compass), degrees));
+
+        state.stateDescription = state.secondaryLabel;
+        state.contentDescription = state.label + ", " + state.secondaryLabel;
     }
 
     @Override
@@ -191,43 +174,49 @@ public class CompassTile extends QSTileImpl<BooleanState> implements SensorEvent
 
     @Override
     public boolean isAvailable() {
-        return mSensorManager != null && mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null
-                && mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD) != null;
+        return mSensorManager != null
+                && mAccelerationSensor != null
+                && mGeomagneticFieldSensor != null;
     }
 
     @Override
     public void handleSetListening(boolean listening) {
+        super.handleSetListening(listening);
         if (!listening) {
             setListeningSensors(false);
             mActive = false;
+        } else {
+            refreshState();
         }
     }
 
     private String formatValueWithCardinalDirection(float degree) {
-        int cardinalDirectionIndex = (int) (Math.floor(((degree - 22.5) % 360) / 45) + 1) % 8;
-        String[] cardinalDirections = mContext.getResources().getStringArray(
+        final int cardinalDirectionIndex =
+                (int) (Math.floor(((degree - 22.5f) % 360f) / 45f) + 1) % 8;
+        final String[] cardinalDirections = mContext.getResources().getStringArray(
                 R.array.cardinal_directions);
 
-        return mContext.getString(R.string.quick_settings_compass_value, degree,
+        return mContext.getString(
+                R.string.quick_settings_compass_value,
+                degree,
                 cardinalDirections[cardinalDirectionIndex]);
     }
 
     @Override
     public void onSensorChanged(SensorEvent event) {
-        float[] values;
+        final float[] values;
         if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
             if (mAcceleration == null) {
                 mAcceleration = event.values.clone();
             }
-
             values = mAcceleration;
-        } else {
-            // Magnetic field sensor
+        } else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
             if (mGeomagnetic == null) {
                 mGeomagnetic = event.values.clone();
             }
-
             values = mGeomagnetic;
+        } else {
+            return;
         }
 
         for (int i = 0; i < 3; i++) {
@@ -235,33 +224,32 @@ public class CompassTile extends QSTileImpl<BooleanState> implements SensorEvent
         }
 
         if (!mActive || !mListeningSensors || mAcceleration == null || mGeomagnetic == null) {
-            // Nothing to do at this moment
             return;
         }
 
-        float R[] = new float[9];
-        float I[] = new float[9];
-        if (!SensorManager.getRotationMatrix(R, I, mAcceleration, mGeomagnetic)) {
-            // Rotation matrix couldn't be calculated
+        final float[] rotation = new float[9];
+        final float[] inclination = new float[9];
+        if (!SensorManager.getRotationMatrix(rotation, inclination, mAcceleration, mGeomagnetic)) {
             return;
         }
 
-        // Get the current orientation
-        float[] orientation = new float[3];
-        SensorManager.getOrientation(R, orientation);
+        final long now = SystemClock.elapsedRealtime();
+        if (now - mLastUiUpdateElapsed < UI_UPDATE_INTERVAL_MS) {
+            return;
+        }
+        mLastUiUpdateElapsed = now;
 
-        // Convert azimuth to degrees
-        Float newDegree = Float.valueOf((float) Math.toDegrees(orientation[0]));
-        newDegree = (newDegree + 360) % 360;
+        final float[] orientation = new float[3];
+        SensorManager.getOrientation(rotation, orientation);
+        float degree = (float) Math.toDegrees(orientation[0]);
+        degree = (degree + 360f) % 360f;
+        degree = (-degree + 360f) % 360f;
 
-        // Convert the angle to one that points north relative to the device
-        newDegree = -newDegree + 360;
-
-        refreshState(newDegree);
+        refreshState(Float.valueOf(degree));
     }
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
-        // noop
+        // No-op.
     }
 }

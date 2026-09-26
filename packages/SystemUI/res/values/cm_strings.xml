@@ -60,7 +60,7 @@
     <!-- Ambient display QS tile -->
     <string name="quick_settings_ambient_display_label">Ambient display</string>
     <string name="accessibility_quick_settings_ambient_display_off">Ambient display off.</string>
-    <string name="accessibility_quick_settings_ambient_display_on">Ambient display on.</string>
+    <string name="accessibility_quick_settings_ambient_display_on">Ambient display on.</string>\n\n    <!-- Shared QS state labels -->\n    <string name="quick_settings_state_on">On</string>\n    <string name="quick_settings_state_off">Off</string>
 
     <!-- AOD QS tile -->
     <string name="quick_settings_aod_label">AOD</string>
@@ -98,7 +98,7 @@
     <string name="accessibility_quick_settings_profiles">Profile: <xliff:g id="profile" example="Default">%s</xliff:g>.</string>
 
     <!-- USB tethering QS tile -->
-    <string name="quick_settings_usb_tether_label">USB tethering</string>
+    <string name="quick_settings_usb_tether_label">USB tethering</string>\n    <string name="quick_settings_usb_tether_disconnected">USB disconnected</string>\n    <string name="quick_settings_usb_tether_unsupported">Tethering unavailable</string>
 
     <!-- VPN QS tile -->
     <string name="quick_settings_vpn_label">VPN</string>

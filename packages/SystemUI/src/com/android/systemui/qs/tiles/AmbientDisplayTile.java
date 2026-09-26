@@ -28,6 +28,7 @@ import android.provider.Settings;
 import android.provider.Settings.Secure;
 import android.service.quicksettings.Tile;
 import android.text.TextUtils;
+import android.widget.Switch;
 
 import androidx.annotation.Nullable;
 
@@ -88,8 +89,8 @@ public class AmbientDisplayTile extends QSTileImpl<BooleanState> {
 
     @Override
     protected void handleDestroy() {
-        super.handleDestroy();
         mSetting.setListening(false);
+        super.handleDestroy();
     }
 
     @Override
@@ -120,7 +121,9 @@ public class AmbientDisplayTile extends QSTileImpl<BooleanState> {
 
     @Override
     protected void handleClick(@Nullable Expandable expandable) {
-        mSetting.setValue(mState.value ? 0 : 1);
+        final int value = mState.value ? 0 : 1;
+        mSetting.setValue(value);
+        refreshState(value);
     }
 
     @Override
@@ -138,15 +141,15 @@ public class AmbientDisplayTile extends QSTileImpl<BooleanState> {
             mIcon = maybeLoadResourceIcon(R.drawable.ic_qs_ambient_display);
         }
         state.icon = mIcon;
-        if (enable) {
-            state.contentDescription =  mContext.getString(
-                    R.string.accessibility_quick_settings_ambient_display_on);
-            state.state = Tile.STATE_ACTIVE;
-        } else {
-            state.contentDescription =  mContext.getString(
-                    R.string.accessibility_quick_settings_ambient_display_off);
-            state.state = Tile.STATE_INACTIVE;
-        }
+        state.secondaryLabel = mContext.getString(enable
+                ? R.string.quick_settings_state_on
+                : R.string.quick_settings_state_off);
+        state.stateDescription = state.secondaryLabel;
+        state.contentDescription = mContext.getString(enable
+                ? R.string.accessibility_quick_settings_ambient_display_on
+                : R.string.accessibility_quick_settings_ambient_display_off);
+        state.expandedAccessibilityClassName = Switch.class.getName();
+        state.state = enable ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
     }
 
     @Override

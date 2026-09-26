@@ -20,17 +20,13 @@ package com.android.systemui.qs.tiles;
 
 import static com.android.internal.logging.MetricsLogger.VIEW_UNKNOWN;
 
-import android.app.ActivityManager;
 import android.content.ComponentName;
 import android.content.Intent;
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.SystemProperties;
 import android.provider.Settings;
-import android.provider.Settings.Secure;
 import android.service.quicksettings.Tile;
-import android.text.TextUtils;
+import android.widget.Switch;
 import com.android.systemui.animation.Expandable;
 
 import androidx.annotation.Nullable;
@@ -92,8 +88,8 @@ public class VPNTetheringTile extends QSTileImpl<BooleanState> {
 
     @Override
     protected void handleDestroy() {
-        super.handleDestroy();
         mSetting.setListening(false);
+        super.handleDestroy();
     }
 
     @Override
@@ -115,7 +111,9 @@ public class VPNTetheringTile extends QSTileImpl<BooleanState> {
 
     @Override
     protected void handleClick(@Nullable Expandable expandable) {
-        mSetting.setValue(mState.value ? 0 : 1);
+        final int value = mState.value ? 0 : 1;
+        mSetting.setValue(value);
+        refreshState(value);
     }
 
     @Override
@@ -130,15 +128,15 @@ public class VPNTetheringTile extends QSTileImpl<BooleanState> {
         state.value = enable;
         state.label = mContext.getString(R.string.vpn_tethering_label);
         state.icon = mIcon;
-        if (enable) {
-            state.contentDescription =  mContext.getString(
-                    R.string.vpn_tethering_changed_on);
-            state.state = Tile.STATE_ACTIVE;
-        } else {
-            state.contentDescription =  mContext.getString(
-                    R.string.vpn_tethering_changed_off);
-            state.state = Tile.STATE_INACTIVE;
-        }
+        state.secondaryLabel = mContext.getString(enable
+                ? R.string.quick_settings_state_on
+                : R.string.quick_settings_state_off);
+        state.stateDescription = state.secondaryLabel;
+        state.contentDescription = mContext.getString(enable
+                ? R.string.vpn_tethering_changed_on
+                : R.string.vpn_tethering_changed_off);
+        state.expandedAccessibilityClassName = Switch.class.getName();
+        state.state = enable ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
     }
 
     @Override

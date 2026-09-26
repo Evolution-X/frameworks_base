@@ -21,6 +21,7 @@ import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
 import android.service.quicksettings.Tile;
+import android.widget.Switch;
 
 import androidx.annotation.Nullable;
 
@@ -51,7 +52,6 @@ public class OnTheGoTile extends QSTileImpl<BooleanState> {
 
     @Nullable
     private Icon mIcon = null;
-    private boolean mIsEnabled;
 
     @Inject
     public OnTheGoTile(
@@ -67,8 +67,6 @@ public class OnTheGoTile extends QSTileImpl<BooleanState> {
     ) {
         super(host, uiEventLogger, backgroundLooper, mainHandler, falsingManager, metricsLogger,
                 statusBarStateController, activityStarter, qsLogger);
-
-        mIsEnabled = isOnTheGoEnabled();
     }
 
     @Override
@@ -80,7 +78,10 @@ public class OnTheGoTile extends QSTileImpl<BooleanState> {
 
     @Override
     public void handleSetListening(boolean listening) {
-        // nothing
+        super.handleSetListening(listening);
+        if (listening) {
+            refreshState();
+        }
     }
 
     @Override
@@ -96,10 +97,8 @@ public class OnTheGoTile extends QSTileImpl<BooleanState> {
         startIntent.setComponent(cn);
         if (isOnTheGoEnabled()) {
             startIntent.setAction("stop");
-            mIsEnabled = false;
         } else {
             startIntent.setAction("start");
-            mIsEnabled = true;
         }
         mContext.startService(startIntent);
         refreshState();
@@ -117,14 +116,19 @@ public class OnTheGoTile extends QSTileImpl<BooleanState> {
 
     @Override
     protected void handleUpdateState(BooleanState state, Object arg) {
-        state.value = mIsEnabled;
+        state.value = isOnTheGoEnabled();
         state.state = state.value ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
         state.label = mContext.getString(R.string.global_action_onthego);
         if (mIcon == null) {
             mIcon = maybeLoadResourceIcon(R.drawable.ic_qs_onthego);
         }
         state.icon = mIcon;
-        state.contentDescription = state.label;
+        state.secondaryLabel = mContext.getString(state.value
+                ? R.string.quick_settings_state_on
+                : R.string.quick_settings_state_off);
+        state.stateDescription = state.secondaryLabel;
+        state.contentDescription = state.label + ", " + state.secondaryLabel;
+        state.expandedAccessibilityClassName = Switch.class.getName();
     }
 
     @Override
