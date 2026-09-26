@@ -26,6 +26,7 @@ import static android.Manifest.permission.START_TASKS_FROM_RECENTS;
 import static android.Manifest.permission.STATUS_BAR_SERVICE;
 import static android.Manifest.permission.SYSTEM_APPLICATION_OVERLAY;
 import static android.app.ActivityTaskManager.INVALID_TASK_ID;
+import static android.app.WindowConfiguration.ACTIVITY_TYPE_HOME;
 import static android.content.ClipDescription.MIMETYPE_APPLICATION_ACTIVITY;
 import static android.content.ClipDescription.MIMETYPE_APPLICATION_SHORTCUT;
 import static android.content.ClipDescription.MIMETYPE_APPLICATION_TASK;
@@ -34,6 +35,7 @@ import static android.content.Intent.EXTRA_SHORTCUT_ID;
 import static android.content.Intent.EXTRA_TASK_ID;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 import static android.os.Trace.TRACE_TAG_WINDOW_MANAGER;
+import static android.view.Display.DEFAULT_DISPLAY;
 import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
 import static android.view.WindowManager.LayoutParams.TYPE_SYSTEM_DIALOG;
 import static android.view.WindowManager.LayoutParams.isSystemAlertWindowType;
@@ -46,6 +48,7 @@ import android.Manifest;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.app.PendingIntent;
+import android.app.WallpaperManager;
 import android.content.AttributionSource;
 import android.content.ClipData;
 import android.content.ClipDescription;
@@ -61,8 +64,10 @@ import android.os.Parcel;
 import android.os.Process;
 import android.os.RemoteCallback;
 import android.os.RemoteException;
+import android.os.SystemClock;
 import android.os.Trace;
 import android.os.UserHandle;
+import android.provider.Settings;
 import android.permission.PermissionManager;
 import android.text.TextUtils;
 import android.util.ArrayMap;
@@ -76,6 +81,7 @@ import android.view.InputChannel;
 import android.view.SurfaceControl;
 import android.view.View;
 import android.view.View.FocusDirection;
+import android.view.ViewConfiguration;
 import android.view.WindowInputChannelParams;
 import android.view.WindowInsets;
 import android.view.WindowInsets.Type.InsetsType;
@@ -103,6 +109,9 @@ import java.util.function.BiConsumer;
  * Session object per process that is interacting with the window manager.
  */
 class Session extends IWindowSession.Stub implements IBinder.DeathRecipient {
+    private static final long DOUBLE_TAP_TIMEOUT_MS = ViewConfiguration.getDoubleTapTimeout();
+    private static final long DOUBLE_TAP_MIN_TIME_MS = ViewConfiguration.getDoubleTapMinTime();
+
     final WindowManagerService mService;
     final IWindowSessionCallback mCallback;
     final int mUid;
@@ -132,6 +141,11 @@ class Session extends IWindowSession.Stub implements IBinder.DeathRecipient {
     private final ArrayMap<IBinder, Float> mPendingWallpaperZoomOut = new ArrayMap<>();
     private final Runnable mApplyPendingWallpaperZoomOut = this::applyPendingWallpaperZoomOut;
     private boolean mApplyWallpaperZoomOutPending;
+
+    private final long mDoubleTapSlopSquared;
+    private long mLastWallpaperTapUptime;
+    private int mLastWallpaperTapX;
+    private int mLastWallpaperTapY;
 
     public Session(WindowManagerService service, IWindowSessionCallback callback) {
         this(service, callback, Binder.getCallingPid(), Binder.getCallingUid());
@@ -174,6 +188,9 @@ class Session extends IWindowSession.Stub implements IBinder.DeathRecipient {
                         == PERMISSION_GRANTED;
         mShowingAlertWindowNotificationAllowed = mService.mShowAlertWindowNotifications;
         mDragDropController = mService.mDragDropController;
+        final int doubleTapSlop =
+                ViewConfiguration.get(service.mContext).getScaledDoubleTapSlop();
+        mDoubleTapSlopSquared = (long) doubleTapSlop * doubleTapSlop;
         StringBuilder sb = new StringBuilder();
         sb.append("Session{");
         sb.append(Integer.toHexString(System.identityHashCode(this)));
@@ -690,6 +707,22 @@ class Session extends IWindowSession.Stub implements IBinder.DeathRecipient {
     @Override
     public void sendWallpaperCommand(IBinder window, String action, int x, int y,
             int z, Bundle extras) {
+        final boolean isWallpaperTap = WallpaperManager.COMMAND_TAP.equals(action);
+        boolean doubleTapToSleepEnabled = false;
+        if (isWallpaperTap) {
+            final long ident = Binder.clearCallingIdentity();
+            try {
+                doubleTapToSleepEnabled = Settings.Secure.getIntForUser(
+                        mService.mContext.getContentResolver(),
+                        Settings.Secure.HOME_DOUBLE_TAP_TO_SLEEP,
+                        0,
+                        UserHandle.getUserId(mUid)) != 0;
+            } finally {
+                Binder.restoreCallingIdentity(ident);
+            }
+        }
+
+        boolean shouldSleep = false;
         synchronized (mService.mGlobalLock) {
             final long ident = Binder.clearCallingIdentity();
             try {
@@ -699,6 +732,10 @@ class Session extends IWindowSession.Stub implements IBinder.DeathRecipient {
                         windowState.getDisplayContent().mWallpaperController;
                 if (mCanAlwaysUpdateWallpaper
                         || windowState == wallpaperController.getWallpaperTarget()) {
+                    if (isWallpaperTap) {
+                        shouldSleep = shouldSleepOnWallpaperTap(
+                                windowState, doubleTapToSleepEnabled, x, y);
+                    }
                     wallpaperController.sendWindowWallpaperCommandUnchecked(
                             windowState, action, x, y, z, extras);
                 }
@@ -706,6 +743,54 @@ class Session extends IWindowSession.Stub implements IBinder.DeathRecipient {
                 Binder.restoreCallingIdentity(ident);
             }
         }
+
+        if (shouldSleep) {
+            final long ident = Binder.clearCallingIdentity();
+            try {
+                mService.mPowerManager.goToSleep(SystemClock.uptimeMillis());
+            } finally {
+                Binder.restoreCallingIdentity(ident);
+            }
+        }
+    }
+
+    /**
+     * Detects a double tap reported by the current HOME wallpaper target.
+     *
+     * <p>{@link WallpaperManager#COMMAND_TAP} is only sent by a wallpaper host for taps on an
+     * empty area, so this deliberately avoids monitoring raw input or interfering with icons,
+     * widgets, app gestures, or the proprietary Pixel Launcher package.</p>
+     */
+    private boolean shouldSleepOnWallpaperTap(WindowState windowState, boolean enabled,
+            int x, int y) {
+        if (!enabled
+                || windowState.getDisplayId() != DEFAULT_DISPLAY
+                || windowState.getActivityType() != ACTIVITY_TYPE_HOME
+                || !mService.mPowerManager.isInteractive()
+                || mService.mAtmService.mKeyguardController.isKeyguardShowing(DEFAULT_DISPLAY)) {
+            mLastWallpaperTapUptime = 0;
+            return false;
+        }
+
+        final long now = SystemClock.uptimeMillis();
+        final long elapsed = now - mLastWallpaperTapUptime;
+        final long deltaX = (long) x - mLastWallpaperTapX;
+        final long deltaY = (long) y - mLastWallpaperTapY;
+        final boolean withinTimeout = mLastWallpaperTapUptime != 0
+                && elapsed >= DOUBLE_TAP_MIN_TIME_MS
+                && elapsed <= DOUBLE_TAP_TIMEOUT_MS;
+        final boolean withinSlop =
+                deltaX * deltaX + deltaY * deltaY <= mDoubleTapSlopSquared;
+
+        if (withinTimeout && withinSlop) {
+            mLastWallpaperTapUptime = 0;
+            return true;
+        }
+
+        mLastWallpaperTapUptime = now;
+        mLastWallpaperTapX = x;
+        mLastWallpaperTapY = y;
+        return false;
     }
 
     @Override
