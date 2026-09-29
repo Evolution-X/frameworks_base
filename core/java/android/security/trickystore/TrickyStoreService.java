@@ -591,7 +591,10 @@ public class TrickyStoreService {
                         (java.security.cert.X509Certificate)
                         factory.generateCertificate(
                                 new java.io.ByteArrayInputStream(der));
-                serials.add(cert.getSerialNumber().toString(16).toUpperCase(java.util.Locale.US));
+                // Google's revocation list spells 128-bit serials as lowercase hex without
+                // leading zeros and the old 64-bit ones as decimal, so look up both.
+                serials.add(cert.getSerialNumber().toString(16));
+                serials.add(cert.getSerialNumber().toString());
             } catch (Exception ignored) {}
         }
         return serials;
