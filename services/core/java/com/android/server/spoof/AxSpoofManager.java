@@ -123,6 +123,10 @@ public class AxSpoofManager implements IAxSpoofManager {
     private static final String PIF_BUILD_ID_PROP = "persist.sys.pif.build.id";
     private static final String PIF_SECURITY_PATCH_PROP = "persist.sys.pif.security_patch";
     private static final String PIF_API_LEVEL_PROP = "persist.sys.pif.api_level";
+    private static final String PIF_BUILD_TYPE_PROP = "persist.sys.pif.build.type";
+    private static final String PIF_BUILD_TAGS_PROP = "persist.sys.pif.build.tags";
+    private static final String PIF_BUILD_DESCRIPTION_PROP = "persist.sys.pif.build.description";
+    private static final String PIF_BUILD_FLAVOR_PROP = "persist.sys.pif.build.flavor";
     // Config entries the fixed props above don't cover. Slot i holds "name=value", or
     // "*suffix=value" for a leading-* wildcard; the count says how many slots are live.
     // bionic's custom_rom_hide.cpp reads these with the same names and limits.
@@ -337,6 +341,10 @@ public class AxSpoofManager implements IAxSpoofManager {
         setStagedProp(PIF_BUILD_ID_PROP, null);
         setStagedProp(PIF_SECURITY_PATCH_PROP, null);
         setStagedProp(PIF_API_LEVEL_PROP, null);
+        setStagedProp(PIF_BUILD_TYPE_PROP, null);
+        setStagedProp(PIF_BUILD_TAGS_PROP, null);
+        setStagedProp(PIF_BUILD_DESCRIPTION_PROP, null);
+        setStagedProp(PIF_BUILD_FLAVOR_PROP, null);
         stageCustomProps(null);
     }
 
@@ -717,9 +725,35 @@ public class AxSpoofManager implements IAxSpoofManager {
                 fields.get("DEVICE"), head != null ? head[2] : null));
         setStagedProp(PIF_PRODUCT_PROP_PREFIX + "name", firstNonEmpty(
                 fields.get("PRODUCT"), head != null ? head[1] : null));
-        setStagedProp(PIF_BUILD_ID_PROP, firstNonEmpty(
+        final String[] tail = fingerprintTail(fields.get("FINGERPRINT"));
+        final String buildId = firstNonEmpty(
                 fields.get("*.build.id"), fields.get("ID"),
-                buildIdFromFingerprint(fields.get("FINGERPRINT"))));
+                buildIdFromFingerprint(fields.get("FINGERPRINT")));
+        setStagedProp(PIF_BUILD_ID_PROP, buildId);
+        // ro.*.build.type/tags for every partition and ro.build.description/flavor, so they
+        // agree with the spoofed fingerprint. An unofficial ROM reports test-keys on the
+        // partitions bionic doesn't pin, and its own description everywhere.
+        final String type = firstNonEmpty(fields.get("*.build.type"), fields.get("TYPE"),
+                tail != null ? tail[3] : null);
+        final String tags = firstNonEmpty(fields.get("*.build.tags"), fields.get("TAGS"),
+                tail != null ? tail[4] : null);
+        setStagedProp(PIF_BUILD_TYPE_PROP, type);
+        setStagedProp(PIF_BUILD_TAGS_PROP, tags);
+        final String product = firstNonEmpty(
+                fields.get("PRODUCT"), head != null ? head[1] : null);
+        final String release = firstNonEmpty(
+                fields.get("RELEASE"), tail != null ? tail[0] : null);
+        final String incremental = firstNonEmpty(
+                fields.get("INCREMENTAL"), tail != null ? tail[2] : null);
+        final boolean haveDescription = product != null && type != null && release != null
+                && buildId != null && incremental != null && tags != null;
+        // Same layout as a stock build: product-type release id incremental tags
+        setStagedProp(PIF_BUILD_DESCRIPTION_PROP, haveDescription
+                ? product + "-" + type + " " + release + " " + buildId + " "
+                        + incremental + " " + tags
+                : null);
+        setStagedProp(PIF_BUILD_FLAVOR_PROP,
+                product != null && type != null ? product + "-" + type : null);
         setStagedProp(PIF_SECURITY_PATCH_PROP, firstNonEmpty(
                 fields.get("*.security_patch"), fields.get("SECURITY_PATCH")));
         setStagedProp(PIF_API_LEVEL_PROP, firstNonEmpty(
@@ -743,7 +777,8 @@ public class AxSpoofManager implements IAxSpoofManager {
                 if (key.indexOf('.') < 0 && key.indexOf('*') < 0) continue;
                 if (key.equals("*") || key.startsWith("persist.sys.pif.")) continue;
                 if (key.equals("*.build.id") || key.equals("*.security_patch")
-                        || key.equals("*api_level")) continue;
+                        || key.equals("*api_level") || key.equals("*.build.type")
+                        || key.equals("*.build.tags")) continue;
                 if (value == null || value.isEmpty()) continue;
                 final String entry = key + "=" + value;
                 if (entry.length() > PROP_VALUE_MAX_CHARS) {
@@ -812,6 +847,18 @@ public class AxSpoofManager implements IAxSpoofManager {
         if (colon < 0) return null;
         final String[] head = fingerprint.substring(0, colon).split("/");
         return head.length == 3 ? head : null;
+    }
+
+    /** {release, id, incremental, type, tags} from brand/product/device:release/id/incremental:type/tags. */
+    private static String[] fingerprintTail(String fingerprint) {
+        if (fingerprint == null) return null;
+        final int first = fingerprint.indexOf(':');
+        final int second = first < 0 ? -1 : fingerprint.indexOf(':', first + 1);
+        if (second < 0) return null;
+        final String[] mid = fingerprint.substring(first + 1, second).split("/");
+        final String[] end = fingerprint.substring(second + 1).split("/");
+        if (mid.length != 3 || end.length != 2) return null;
+        return new String[] {mid[0], mid[1], mid[2], end[0], end[1]};
     }
 
     /** Format: brand/product/device:release/id/incremental:type/tags */
