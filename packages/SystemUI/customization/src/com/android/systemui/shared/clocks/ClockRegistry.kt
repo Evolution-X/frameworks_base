@@ -60,14 +60,14 @@ private val KNOWN_PLUGINS: Map<String, List<ClockMetadata>> =
             listOf(ClockMetadata("DIGITAL_CLOCK_CALLIGRAPHY")),
         "com.android.systemui.clocks.flex" to listOf(ClockMetadata("DIGITAL_CLOCK_FLEX")),
         "com.android.systemui.clocks.growth" to listOf(ClockMetadata("DIGITAL_CLOCK_GROWTH")),
-        "com.android.systemui.clocks.handwritten" to
-            listOf(ClockMetadata("DIGITAL_CLOCK_HANDWRITTEN")),
+        // The Words clock ships under the stock handwritten package id so that Google's
+        // Wallpaper & style picker, which only allows the stock clock packages, can load it.
+        "com.android.systemui.clocks.handwritten" to listOf(ClockMetadata("DIGITAL_CLOCK_WORDS")),
         "com.android.systemui.clocks.inflate" to listOf(ClockMetadata("DIGITAL_CLOCK_INFLATE")),
         "com.android.systemui.clocks.metro" to listOf(ClockMetadata("DIGITAL_CLOCK_METRO")),
         "com.android.systemui.clocks.numoverlap" to
             listOf(ClockMetadata("DIGITAL_CLOCK_NUMBEROVERLAP")),
         "com.android.systemui.clocks.weather" to listOf(ClockMetadata("DIGITAL_CLOCK_WEATHER")),
-        "com.android.systemui.clocks.words" to listOf(ClockMetadata("DIGITAL_CLOCK_WORDS")),
     )
 private const val TRACE_CLOCK_CHANGE = "LOCKSCREEN_CLOCK_CHANGE"
 private const val TRACE_STYLE_CHANGE = "LOCKSCREEN_CLOCK_STYLE_CHANGE"
