@@ -8,6 +8,10 @@ import android.widget.SeekBar
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -32,14 +36,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -51,11 +55,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
@@ -64,7 +65,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.android.systemui.axdynamicbar.shared.IslandActions
 import com.android.systemui.axdynamicbar.model.IslandEvent
 import com.android.systemui.axdynamicbar.shared.*
 import com.android.systemui.media.controls.ui.drawable.SquigglyProgress
@@ -77,15 +77,20 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
 
-private val AlbumArtSize = 80.dp
-private val PlayPauseSize = 56.dp
-private val ControlButtonSize = 44.dp
+private val AlbumArtSize = 64.dp
+private val PlayPauseSize = 48.dp
+private val ControlButtonSize = 40.dp
 private val ControlIconSize = 22.dp
-private val SeekBarHeight = 28.dp
+private val SeekBarHeight = 24.dp
 
-private val AlbumNameColor = Color.White
-private val ArtistNameColor = Color.White.copy(alpha = 0.8f)
-
+/**
+ * The expanded media tile: art, track and the primary transport on one row, with a slim seek row
+ * underneath. It draws its own frosted surface (it is routed around [PrimaryCard]).
+ *
+ * Custom actions (shuffle, like, …) are left to the keyguard media panel, which has room for them;
+ * the status-bar tile keeps the controls people reach for from the top of the screen.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun MediaCard(event: IslandEvent.Media, interactor: IslandActions) {
     val colors = rememberMediaColors(event)
@@ -95,292 +100,210 @@ internal fun MediaCard(event: IslandEvent.Media, interactor: IslandActions) {
     } else {
         false
     }
+    val motionScheme = MaterialTheme.motionScheme
 
-    Surface(
-        modifier = Modifier.fillMaxWidth().border(1.dp, CardBorderBrush, ShapeCard),
-        shape = ShapeCard,
-        color = CardBg,
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(ShapeCard)
+            .border(1.dp, CardBorderBrush, ShapeCard)
+            .islandBlur(RadiusCard, CardBg)
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-
-            event.albumArt?.let { art ->
-                Image(
-                    bitmap = art.toScaledBitmap(350.dp),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .matchParentSize()
-                        .blur(40.dp),
-                    contentScale = ContentScale.Crop,
-                )
-            } ?: Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(CardBg),
-            )
-
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colorStops = arrayOf(
-                                0.00f to Color.Black.copy(alpha = 0.40f),
-                                0.15f to Color.Black.copy(alpha = 0.44f),
-                                0.30f to Color.Black.copy(alpha = 0.50f),
-                                0.45f to Color.Black.copy(alpha = 0.58f),
-                                0.60f to Color.Black.copy(alpha = 0.68f),
-                                0.75f to Color.Black.copy(alpha = 0.80f),
-                                0.90f to Color.Black.copy(alpha = 0.92f),
-                                1.00f to Color.Black.copy(alpha = 1.00f),
-                            )
-                        )
-                    )
-            )
-
-            Column(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(SpaceXxl),
+            verticalArrangement = Arrangement.spacedBy(SpaceMd),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(SpaceLg),
+            ) {
+                // Art + titles open the app; the transport to the right stays its own target.
                 Row(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .weight(1f)
+                        .clip(ShapeLg)
                         .clickable {
                             interactor.openMediaApp()
                             interactor.collapseIsland()
-                        }
-                        .padding(SpaceXxl),
+                        },
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(SpaceXxl),
+                    horizontalArrangement = Arrangement.spacedBy(SpaceLg),
                 ) {
-                    event.albumArt?.let { art ->
-                        Image(
-                            bitmap = art.toSquareScaledBitmap(AlbumArtSize),
-                            contentDescription = null,
-                            modifier = Modifier.size(AlbumArtSize).clip(ShapeLg),
-                            contentScale = ContentScale.Crop,
-                        )
-                    } ?: Box(
-                        modifier = Modifier
-                            .size(AlbumArtSize)
-                            .clip(ShapeLg)
-                            .background(accent.copy(alpha = AlphaFaint)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(Icons.Filled.MusicNote, null, tint = accent, modifier = Modifier.size(36.dp))
+                    AnimatedContent(
+                        targetState = event.albumArt,
+                        transitionSpec = {
+                            fadeIn(motionScheme.defaultEffectsSpec()) togetherWith
+                                fadeOut(motionScheme.fastEffectsSpec())
+                        },
+                        contentKey = { it?.hashCode() ?: 0 },
+                        label = "media_card_art",
+                    ) { art ->
+                        if (art != null) {
+                            Image(
+                                bitmap = art.toSquareScaledBitmap(AlbumArtSize),
+                                contentDescription = null,
+                                modifier = Modifier.size(AlbumArtSize).clip(ShapeLg),
+                                contentScale = ContentScale.Crop,
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(AlbumArtSize)
+                                    .clip(ShapeLg)
+                                    .background(accent.copy(alpha = AlphaFaint)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(Icons.Filled.MusicNote, null, tint = accent, modifier = Modifier.size(28.dp))
+                            }
+                        }
                     }
 
                     Column(
                         modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(SpaceXs),
+                        verticalArrangement = Arrangement.spacedBy(SpaceXxs),
                     ) {
                         Text(
                             event.track.ifEmpty { stringResource(R.string.ax_dynamic_bar_now_playing) },
-                            color = AlbumNameColor,
-                            style = MaterialTheme.typography.titleMedium,
+                            color = OnCardText,
+                            style = MaterialTheme.typography.titleSmall,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
                         if (event.artist.isNotEmpty()) {
                             Text(
                                 event.artist,
-                                color = accent,
-                                style = MaterialTheme.typography.bodyMedium,
+                                color = OnCardSecondary,
+                                style = MaterialTheme.typography.bodySmall,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
-                    event.appIcon?.let { icon ->
-                        Image(
-                            bitmap = icon.toScaledBitmap(SizeIconSm),
-                            contentDescription = null,
-                            modifier = Modifier.size(SizeIconSm).clip(ShapeXs),
-                            colorFilter = ColorFilter.tint(OnCardText),
-                        )
-                    }
                 }
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = SpaceXxl, vertical = SpaceLg),
-                    verticalArrangement = Arrangement.spacedBy(SpaceLg),
+                MediaTransport(event, interactor, accent)
+            }
+
+            if (event.duration > 0L) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(SpaceSm),
                 ) {
-                    if (event.duration > 0L) {
-                        MediaSeekBar(event, interactor, accent, useWaveform)
-                    }
-                    MediaControls(event, interactor, accent)
+                    MediaSeekBar(event, interactor, accent, Modifier.weight(1f), useWaveform)
+                    OutputSwitcherButton(event, interactor, accent)
                 }
-            }
-        }
-    }
-}
-
-@Composable
-internal fun MediaExpanded(
-    event: IslandEvent.Media,
-    interactor: IslandActions,
-    modifier: Modifier = Modifier,
-) {
-    val useWaveform = if (interactor is com.android.systemui.axdynamicbar.domain.AxDynamicBarInteractor) {
-        interactor.mediaUseWaveform.collectAsStateWithLifecycle().value
-    } else {
-        false
-    }
-    val colors = rememberMediaColors(event)
-    val accent = colors.accent
-
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(SpaceXxl)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().clickable {
-                interactor.openMediaApp()
-                interactor.collapseIsland()
-            },
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(SpaceXxl),
-        ) {
-            event.albumArt?.let { art ->
-                Image(
-                    bitmap = art.toSquareScaledBitmap(SizeAlbumSm),
-                    contentDescription = null,
-                    modifier = Modifier.size(SizeAlbumSm).clip(ShapeLg),
-                    contentScale = ContentScale.Crop,
-                )
-            } ?: Surface(
-                modifier = Modifier.size(SizeAlbumSm),
-                shape = ShapeLg,
-                color = accent.copy(alpha = AlphaSubtle),
-            ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                    Icon(
-                        Icons.Filled.MusicNote, null,
-                        tint = accent,
-                        modifier = Modifier.size(SpacePanel),
-                    )
-                }
-            }
-
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(SpaceXs),
-            ) {
-                Text(
-                    event.track.ifEmpty { stringResource(R.string.ax_dynamic_bar_now_playing) },
-                    color = AlbumNameColor,
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (event.artist.isNotEmpty()) {
+            } else {
+                // No duration (live stream, some podcasts apps): keep the output switcher reachable.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Text(
-                        event.artist,
-                        color = ArtistNameColor,
-                        style = MaterialTheme.typography.bodySmall,
+                        event.outputDeviceName,
+                        color = SubtleGray,
+                        style = MaterialTheme.typography.labelSmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
                     )
+                    OutputSwitcherButton(event, interactor, accent)
                 }
             }
-
-            event.appIcon?.let { icon ->
-                Image(
-                    bitmap = icon.toScaledBitmap(SizeIconSm),
-                    contentDescription = null,
-                    modifier = Modifier.size(SizeIconSm).clip(ShapeXs),
-                    colorFilter = ColorFilter.tint(OnCardText),
-                )
-            }
-        }
-
-        MediaControls(event, interactor, accent)
-        if (event.duration > 0L) {
-            MediaSeekBar(event, interactor, accent, useWaveform)
         }
     }
 }
 
+/**
+ * Previous, play/pause, next — one treatment for all three: an accent wash with the accent as the
+ * glyph. Play/pause leads with the stronger wash. (The old solid disc paired the tint with a
+ * luminance-guessed content colour; washes keep the glyph legible on its own colour by design.)
+ */
 @Composable
-private fun MediaControls(
+private fun MediaTransport(
     event: IslandEvent.Media,
     interactor: IslandActions,
     accent: Color,
 ) {
-    val onAccent = chipContentColorOn(accent)
     val tonalBg = accent.copy(alpha = AlphaSubtle)
-    var prevToggleCount by remember { mutableIntStateOf(0) }
-    var playPauseToggleCount by remember { mutableIntStateOf(0) }
-    var nextToggleCount by remember { mutableIntStateOf(0) }
-
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(SpaceXs),
     ) {
-        MediaCustomActionButton(event, interactor, accent, tonalBg)
-
-        Surface(
-            onClick = {
-                interactor.skipPrev()
-                prevToggleCount++
-            },
-            shape = CircleShape,
-            color = tonalBg,
-            modifier = Modifier
-                .size(ControlButtonSize)
-                .squishAnimation(prevToggleCount),
-        ) {
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                Icon(
-                    Icons.Filled.SkipPrevious, null,
-                    tint = accent,
-                    modifier = Modifier.size(ControlIconSize),
-                )
-            }
-        }
-
-        Surface(
-            onClick = {
-                interactor.togglePlayPause()
-                playPauseToggleCount++
-            },
-            shape = CircleShape,
-            color = accent,
-            modifier = Modifier
-                .size(PlayPauseSize)
-                .squishAnimation(playPauseToggleCount),
-        ) {
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                Icon(
-                    if (event.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    if (event.isPlaying)
-                        stringResource(R.string.ax_dynamic_bar_pause)
-                    else
-                        stringResource(R.string.ax_dynamic_bar_play),
-                    tint = onAccent,
-                    modifier = Modifier.size(26.dp),
-                )
-            }
-        }
-
-        Surface(
-            onClick = {
-                interactor.skipNext()
-                nextToggleCount++
-            },
-            shape = CircleShape,
-            color = tonalBg,
-            modifier = Modifier
-                .size(ControlButtonSize)
-                .squishAnimation(nextToggleCount),
-        ) {
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                Icon(
-                    Icons.Filled.SkipNext, null,
-                    tint = accent,
-                    modifier = Modifier.size(ControlIconSize),
-                )
-            }
-        }
-
-        MediaEndActionButton(event, interactor, accent, tonalBg)
+        TransportButton(
+            icon = Icons.Filled.SkipPrevious,
+            contentDescription = stringResource(R.string.ax_dynamic_bar_previous),
+            tint = accent,
+            bg = tonalBg,
+            size = ControlButtonSize,
+            onClick = { interactor.skipPrev() },
+        )
+        TransportButton(
+            icon = if (event.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+            contentDescription = stringResource(
+                if (event.isPlaying) R.string.ax_dynamic_bar_pause else R.string.ax_dynamic_bar_play
+            ),
+            tint = accent,
+            bg = accent.copy(alpha = AlphaAccent),
+            size = PlayPauseSize,
+            onClick = { interactor.togglePlayPause() },
+        )
+        TransportButton(
+            icon = Icons.Filled.SkipNext,
+            contentDescription = stringResource(R.string.ax_dynamic_bar_next),
+            tint = accent,
+            bg = tonalBg,
+            size = ControlButtonSize,
+            onClick = { interactor.skipNext() },
+        )
     }
+}
+
+@Composable
+private fun TransportButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    tint: Color,
+    bg: Color,
+    size: androidx.compose.ui.unit.Dp,
+    onClick: () -> Unit,
+) {
+    var toggleCount by remember { mutableIntStateOf(0) }
+    Surface(
+        onClick = {
+            onClick()
+            toggleCount++
+        },
+        shape = CircleShape,
+        color = bg,
+        modifier = Modifier.size(size).squishAnimation(toggleCount),
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+            Icon(icon, contentDescription, tint = tint, modifier = Modifier.size(ControlIconSize))
+        }
+    }
+}
+
+@Composable
+private fun OutputSwitcherButton(
+    event: IslandEvent.Media,
+    interactor: IslandActions,
+    accent: Color,
+) {
+    ActionIconButton(
+        icon = Icons.Filled.VolumeUp,
+        tint = accent,
+        bg = accent.copy(alpha = AlphaIconBg),
+        contentDescription = event.outputDeviceName.ifBlank {
+            stringResource(R.string.ax_dynamic_bar_output)
+        },
+        size = 32.dp,
+        onClick = {
+            interactor.openMediaOutputSwitcher()
+            interactor.collapseIsland()
+        },
+    )
 }
 
 @Composable
@@ -388,6 +311,7 @@ private fun MediaSeekBar(
     event: IslandEvent.Media,
     interactor: IslandActions,
     accent: Color,
+    modifier: Modifier = Modifier,
     useWaveform: Boolean = false,
 ) {
     val mediaProgress = rememberMediaProgress(event)
@@ -422,15 +346,16 @@ private fun MediaSeekBar(
     val accentArgb = accent.toArgb()
     val trackAlphaArgb = accent.copy(alpha = AlphaSubtle).toArgb()
 
+    // Times flank the bar on one line instead of taking a row of their own above it.
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(SpaceXs),
+        horizontalArrangement = Arrangement.spacedBy(SpaceSm),
     ) {
         Text(
             formatElapsedTime(displayMs),
-            color = ArtistNameColor,
-            style = MaterialTheme.typography.labelSmall,
+            color = SubtleGray,
+            style = PillMono,
         )
 
         Box(
@@ -576,8 +501,8 @@ private fun MediaSeekBar(
 
         Text(
             formatElapsedTime(durationMs),
-            color = ArtistNameColor,
-            style = MaterialTheme.typography.labelSmall,
+            color = SubtleGray,
+            style = PillMono,
         )
     }
 }
@@ -600,84 +525,6 @@ private fun createSeekBarThumb(context: android.content.Context, tintColor: Int)
         setSize(wPx, hPx)
         cornerRadius = radiusPx
         setColor(tintColor)
-    }
-}
-
-@Composable
-private fun MediaCustomActionButton(
-    event: IslandEvent.Media,
-    interactor: IslandActions,
-    accent: Color,
-    tonalBg: Color,
-) {
-    if (event.customActions.isNotEmpty()) {
-        val ca = event.customActions.first()
-        Surface(
-            onClick = { interactor.sendCustomAction(ca.action) },
-            shape = CircleShape,
-            color = tonalBg,
-            modifier = Modifier.size(ControlButtonSize),
-        ) {
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                CustomActionIcon(ca, tint = accent, modifier = Modifier.size(ControlIconSize))
-            }
-        }
-    } else {
-        Surface(
-            onClick = { },
-            shape = CircleShape,
-            color = tonalBg.copy(alpha = AlphaSubtle),
-            modifier = Modifier.size(ControlButtonSize),
-            enabled = false,
-        ) {
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                Icon(
-                    Icons.Filled.Shuffle, null,
-                    tint = accent.copy(alpha = AlphaDisabled),
-                    modifier = Modifier.size(ControlIconSize),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun MediaEndActionButton(
-    event: IslandEvent.Media,
-    interactor: IslandActions,
-    accent: Color,
-    tonalBg: Color,
-) {
-    if (event.customActions.size > 1) {
-        val ca = event.customActions[1]
-        Surface(
-            onClick = { interactor.sendCustomAction(ca.action) },
-            shape = CircleShape,
-            color = tonalBg,
-            modifier = Modifier.size(ControlButtonSize),
-        ) {
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                CustomActionIcon(ca, tint = accent, modifier = Modifier.size(ControlIconSize))
-            }
-        }
-    } else {
-        Surface(
-            onClick = {
-                interactor.openMediaOutputSwitcher()
-                interactor.collapseIsland()
-            },
-            shape = CircleShape,
-            color = tonalBg,
-            modifier = Modifier.size(ControlButtonSize),
-        ) {
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                Icon(
-                    Icons.Filled.VolumeUp, null,
-                    tint = accent,
-                    modifier = Modifier.size(ControlIconSize),
-                )
-            }
-        }
     }
 }
 
@@ -708,7 +555,7 @@ internal fun RowScope.CompactMediaRow(
     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(SpaceXxs)) {
         Text(
             event.track.ifEmpty { stringResource(R.string.ax_dynamic_bar_music) },
-            color = AlbumNameColor,
+            color = OnCardText,
             style = MaterialTheme.typography.bodySmall,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -716,7 +563,7 @@ internal fun RowScope.CompactMediaRow(
         if (event.artist.isNotEmpty())
             Text(
                 event.artist,
-                color = ArtistNameColor,
+                color = SubtleGray,
                 style = MaterialTheme.typography.labelSmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -726,14 +573,14 @@ internal fun RowScope.CompactMediaRow(
     Surface(
         onClick = { interactor.togglePlayPause() },
         shape = CircleShape,
-        color = ActionBg,
+        color = rememberMediaColors(event).accent.copy(alpha = AlphaAccent),
         modifier = Modifier.size(36.dp),
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
                 if (event.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                 null,
-                tint = OnActionText,
+                tint = rememberMediaColors(event).accent,
                 modifier = Modifier.size(18.dp),
             )
         }
