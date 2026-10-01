@@ -604,8 +604,8 @@ constructor(
         applicationScope.launch {
             combine(
                     sceneInteractor.transitionStateFlow
-                        .mapNotNull { it as? ObservableTransitionState.Idle }
-                        .distinctUntilChanged(),
+                        // Reconcile even when a cancelled transition returns to the same Idle.
+                        .mapNotNull { it as? ObservableTransitionState.Idle },
                     sceneInteractor.isVisibleFlow,
                     shadePendingDisplayId,
                     sceneBackInteractor.backStack,
@@ -626,7 +626,8 @@ constructor(
                             flag to evaluator(sceneContainerPluginState)
                         }
                 }
-                .distinctUntilChanged()
+                // The Scene plugin can override these computed values at setFlag time.
+                // Deduplicate actual committed flags in SysUiState, not this expected flag map.
                 .collect { (displayId: Int, flagMap: List<Pair<Long, Boolean>>) ->
                     sysuiStateInteractor.setFlagsExclusivelyToDisplay(
                         targetDisplayId = displayId,

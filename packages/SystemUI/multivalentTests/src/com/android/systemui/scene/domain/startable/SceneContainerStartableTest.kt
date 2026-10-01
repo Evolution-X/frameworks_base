@@ -107,7 +107,10 @@ import com.android.systemui.kosmos.collectLastValue
 import com.android.systemui.kosmos.runCurrent
 import com.android.systemui.kosmos.runTest
 import com.android.systemui.kosmos.testScope
+import com.android.systemui.model.SysUiState
+import com.android.systemui.model.SysUiStateImpl
 import com.android.systemui.model.fakeSysUIStatePerDisplayRepository
+import com.android.systemui.model.sceneContainerPluginImpl
 import com.android.systemui.plugins.statusbar.statusBarStateController
 import com.android.systemui.power.data.repository.fakePowerRepository
 import com.android.systemui.power.data.repository.powerRepository
@@ -193,19 +196,20 @@ class SceneContainerStartableTest(flags: FlagsParameterization) : SysuiTestCase(
     private val mockVibratorHelper = mock<VibratorHelper>().also { kosmos.vibratorHelper = it }
     private val mockActivityTransitionAnimator =
         mock<ActivityTransitionAnimator>().also { kosmos.activityTransitionAnimator = it }
-    private val mockSysUiState =
+    private val mockSysUiState by lazy {
         kosmos.fakeSysUIStatePerDisplayRepository[Display.DEFAULT_DISPLAY]!!
-    private val secondaryDisplaySysUIState =
+    }
+    private val secondaryDisplaySysUIState by lazy {
         kosmos.fakeSysUIStatePerDisplayRepository[SECONDARY_DISPLAY]!!
+    }
 
-    private lateinit var underTest: SceneContainerStartable
+    private val underTest by lazy { kosmos.sceneContainerStartable }
 
     @Before
     fun setUp() {
         MockitoAnnotations.initMocks(this)
         whenever(kosmos.keyguardUpdateMonitor.isUnlockingWithBiometricAllowed(anyBoolean()))
             .thenReturn(true)
-        underTest = kosmos.sceneContainerStartable
     }
 
     @Test
@@ -1200,6 +1204,182 @@ class SceneContainerStartableTest(flags: FlagsParameterization) : SysuiTestCase(
             assertThat(fakeMSDLPlayer.latestTokenPlayed).isNull()
             assertThat(fakeMSDLPlayer.latestPropertiesPlayed).isNull()
         }
+
+    @Test
+    @EnableFlags(FLAG_DUAL_SHADE)
+    fun hydrateSystemUiState_cancelledNotificationOverlay_clearsPluginOverride() =
+        kosmos.runTest {
+            val state = installRealSceneSysUiState()
+            enableDualShade()
+            prepareState(isDeviceUnlocked = true, initialSceneKey = Scenes.Gone)
+            sceneInteractor.onIdleSceneEnteredComposition(Scenes.Gone)
+            underTest.start()
+            runCurrent()
+            val notifications = mutableListOf<Long>()
+            state.addCallback { flags, displayId ->
+                if (displayId == Display.DEFAULT_DISPLAY) notifications.add(flags)
+            }
+            val expanded = QuickStepContract.SYSUI_STATE_NOTIFICATION_PANEL_EXPANDED
+            assertThat(state.isFlagEnabled(expanded)).isFalse()
+            assertThat(sceneInteractor.isVisibleFlow.value).isFalse()
+            val backStackBefore = sceneBackInteractor.backStack.value
+
+            setSceneTransition(
+                ObservableTransitionState.Transition.ShowOrHideOverlay(
+                    overlay = Overlays.NotificationsShade,
+                    fromContent = Scenes.Gone,
+                    toContent = Overlays.NotificationsShade,
+                    currentScene = Scenes.Gone,
+                    currentOverlays = flowOf(emptySet<OverlayKey>()),
+                    progress = flowOf(0.1f),
+                    isInitiatedByUserInput = true,
+                    isUserInputOngoing = flowOf(true),
+                    previewProgress = flowOf(0f),
+                    isInPreviewStage = flowOf(false),
+                ),
+                // Keep snapshot visibility fixed while advancing its independently collected Flow.
+                skipChangeScene = true,
+            )
+            assertThat(sceneInteractor.isVisibleFlow.value).isFalse()
+            assertThat(sceneBackInteractor.backStack.value).isEqualTo(backStackBefore)
+            // A legacy writer requests false, but the real plugin protects shade opening.
+            state.setFlag(expanded, false).commitUpdate()
+            assertThat(state.isFlagEnabled(expanded)).isTrue()
+            notifications.clear()
+
+            // Cancellation returns to the same Idle and expected flag map as before.
+            setSceneTransition(
+                ObservableTransitionState.Idle(Scenes.Gone),
+                skipChangeScene = true,
+            )
+            runCurrent()
+            assertThat(state.isFlagEnabled(expanded)).isFalse()
+            assertThat(sceneInteractor.transitionStateFlow.value)
+                .isEqualTo(ObservableTransitionState.Idle(Scenes.Gone))
+            assertThat(sceneInteractor.isVisibleFlow.value).isFalse()
+            assertThat(sceneBackInteractor.backStack.value).isEqualTo(backStackBefore)
+            assertThat(notifications).containsExactly(state.flags)
+        }
+
+    @Test
+    @EnableFlags(FLAG_DUAL_SHADE)
+    fun hydrateSystemUiState_qsToNotifications_visibilityFalseBeforeIdle_clearsPluginOverride() =
+        kosmos.runTest {
+            val state = installRealSceneSysUiState()
+            enableDualShade()
+            prepareState(isDeviceUnlocked = true, initialSceneKey = Scenes.Gone)
+            sceneInteractor.onIdleSceneEnteredComposition(Scenes.Gone)
+            underTest.start()
+            runCurrent()
+            // Drain startup's SIM-unlock Gone request before opening the test overlay.
+            setSceneTransition(
+                ObservableTransitionState.Idle(
+                    currentScene = Scenes.Gone,
+                    currentOverlays = setOf(Overlays.QuickSettingsShade),
+                )
+            )
+            runCurrent()
+            assertThat(sceneInteractor.isVisibleFlow.value).isTrue()
+
+            val expanded = QuickStepContract.SYSUI_STATE_NOTIFICATION_PANEL_EXPANDED
+            val visible = QuickStepContract.SYSUI_STATE_NOTIFICATION_PANEL_VISIBLE
+            val qsExpanded = QuickStepContract.SYSUI_STATE_QUICK_SETTINGS_EXPANDED
+            assertThat(state.isFlagEnabled(expanded)).isFalse()
+            assertThat(state.isFlagEnabled(visible)).isTrue()
+            assertThat(state.isFlagEnabled(qsExpanded)).isTrue()
+            val backStackBefore = sceneBackInteractor.backStack.value
+            val notifications = mutableListOf<Long>()
+            state.addCallback { flags, displayId ->
+                if (displayId == Display.DEFAULT_DISPLAY) notifications.add(flags)
+            }
+
+            setSceneTransition(
+                ObservableTransitionState.Transition.ReplaceOverlay(
+                    fromOverlay = Overlays.QuickSettingsShade,
+                    toOverlay = Overlays.NotificationsShade,
+                    currentScene = Scenes.Gone,
+                    currentOverlays = flowOf(setOf(Overlays.QuickSettingsShade)),
+                    progress = flowOf(0.5f),
+                    isInitiatedByUserInput = true,
+                    isUserInputOngoing = flowOf(true),
+                    previewProgress = flowOf(0f),
+                    isInPreviewStage = flowOf(false),
+                ),
+                skipChangeScene = true,
+            )
+            assertThat(sceneInteractor.isVisibleFlow.value).isTrue()
+
+            // Deliver snapshot visibility first while its independent Flow remains in transition.
+            fakeSceneDataSource.transitionState = TransitionState.Idle(Scenes.Gone)
+            runCurrent()
+            assertThat(sceneInteractor.transitionStateFlow.value)
+                .isInstanceOf(ObservableTransitionState.Transition.ReplaceOverlay::class.java)
+            assertThat(sceneInteractor.isVisibleFlow.value).isFalse()
+            assertThat(sceneBackInteractor.backStack.value).isEqualTo(backStackBefore)
+            // Hydration requests false; the real transition override still commits expanded=true.
+            assertThat(state.isFlagEnabled(expanded)).isTrue()
+            assertThat(state.isFlagEnabled(visible)).isFalse()
+            assertThat(state.isFlagEnabled(qsExpanded)).isFalse()
+            notifications.clear()
+
+            // This new Idle computes the same all-false shade flags as the visibility update.
+            setSceneTransition(
+                ObservableTransitionState.Idle(Scenes.Gone),
+                skipChangeScene = true,
+            )
+            runCurrent()
+            assertThat(sceneInteractor.transitionStateFlow.value)
+                .isEqualTo(ObservableTransitionState.Idle(Scenes.Gone))
+            assertThat(sceneInteractor.isVisibleFlow.value).isFalse()
+            assertThat(state.isFlagEnabled(expanded)).isFalse()
+            assertThat(state.isFlagEnabled(visible)).isFalse()
+            assertThat(state.isFlagEnabled(qsExpanded)).isFalse()
+            assertThat(notifications).containsExactly(state.flags)
+        }
+
+    @Test
+    @EnableFlags(FLAG_DUAL_SHADE)
+    fun hydrateSystemUiState_realNotificationOverlay_retainsProtectionUntilGone() =
+        kosmos.runTest {
+            val state = installRealSceneSysUiState()
+            enableDualShade()
+            prepareState(isDeviceUnlocked = true, initialSceneKey = Scenes.Gone)
+            sceneInteractor.onIdleSceneEnteredComposition(Scenes.Gone)
+            underTest.start()
+            runCurrent()
+            // Startup may hide overlays while handling the initial unlocked SIM state.
+            setSceneTransition(
+                ObservableTransitionState.Idle(
+                    currentScene = Scenes.Gone,
+                    currentOverlays = setOf(Overlays.NotificationsShade),
+                )
+            )
+            runCurrent()
+            assertThat(sceneInteractor.isVisibleFlow.value).isTrue()
+            val expanded = QuickStepContract.SYSUI_STATE_NOTIFICATION_PANEL_EXPANDED
+            assertThat(state.isFlagEnabled(expanded)).isTrue()
+            // The fix must not bypass the genuine expanded shade's gesture protection.
+            state.setFlag(expanded, false).commitUpdate()
+            assertThat(state.isFlagEnabled(expanded)).isTrue()
+
+            setSceneTransition(ObservableTransitionState.Idle(Scenes.Gone))
+            runCurrent()
+            assertThat(state.isFlagEnabled(expanded)).isFalse()
+            assertThat(
+                    state.isFlagEnabled(
+                        QuickStepContract.SYSUI_STATE_NOTIFICATION_PANEL_VISIBLE
+                    )
+                )
+                .isFalse()
+        }
+
+    private fun Kosmos.installRealSceneSysUiState(): SysUiState {
+        // Replace the default fake before either SysUiState or the startable reads this fixture.
+        set("sceneContainerPlugin", sceneContainerPluginImpl)
+        return fakeSysUIStatePerDisplayRepository[Display.DEFAULT_DISPLAY]!!.also {
+            assertThat(it).isInstanceOf(SysUiStateImpl::class.java)
+        }
+    }
 
     @Test
     fun hydrateSystemUiState_onLockscreen_basedOnOcclusion() =
