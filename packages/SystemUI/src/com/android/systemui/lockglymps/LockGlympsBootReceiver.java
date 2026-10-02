@@ -7,30 +7,34 @@ import android.provider.Settings;
 import android.util.Log;
 
 /**
- * Boot receiver to start LockGlympsService on device boot
- * Place in: frameworks/base/packages/SystemUI/src/com/android/systemui/lockglymps/
+ * Starts {@link LockGlympsService} after boot when Wallpaper Glymps is enabled.
  */
 public class LockGlympsBootReceiver extends BroadcastReceiver {
     private static final String TAG = "LockGlympsBootReceiver";
-    
+
     @Override
     public void onReceive(Context context, Intent intent) {
-        if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction()) ||
-            Intent.ACTION_LOCKED_BOOT_COMPLETED.equals(intent.getAction())) {
-            
-            Log.d(TAG, "Boot completed, checking if should start LockGlympsService");
-            
-            // Check if feature is enabled
-            int enabled = Settings.System.getInt(context.getContentResolver(),
-                    Settings.System.LOCK_GLYMPS_ENABLED, 0);
-            
-            if (enabled == 1) {
-                Intent serviceIntent = new Intent(context, LockGlympsService.class);
-                context.startService(serviceIntent);
-                Log.d(TAG, "LockGlympsService started");
-            } else {
-                Log.d(TAG, "LockGlymps disabled, not starting service");
-            }
+        if (context == null || intent == null
+                || !Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
+            return;
+        }
+
+        int enabled = Settings.System.getInt(
+                context.getContentResolver(),
+                Settings.System.LOCK_GLYMPS_ENABLED,
+                0);
+        if (enabled != 1) {
+            Log.d(TAG, "Wallpaper Glymps disabled; service will not start");
+            return;
+        }
+
+        try {
+            Intent serviceIntent = new Intent(context, LockGlympsService.class);
+            context.startService(serviceIntent);
+            Log.d(TAG, "Wallpaper Glymps service started after boot");
+        } catch (RuntimeException e) {
+            // Never let an optional wallpaper feature destabilize SystemUI boot.
+            Log.e(TAG, "Unable to start Wallpaper Glymps service after boot", e);
         }
     }
 }
