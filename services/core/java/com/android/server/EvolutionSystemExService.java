@@ -11,6 +11,7 @@ import static android.content.Intent.ACTION_USER_PRESENT;
 import static android.os.Process.THREAD_PRIORITY_DEFAULT;
 import static android.os.UserManager.USER_TYPE_PROFILE_CLONE;
 
+import android.app.ActivityManager;
 import android.app.KeyguardManager;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
@@ -21,10 +22,14 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManagerInternal;
 import android.content.pm.LauncherApps;
 import android.content.pm.UserInfo;
+import android.database.ContentObserver;
+import android.net.Uri;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.PowerManager;
 import android.os.UserHandle;
+import android.provider.Settings;
+import android.util.Slog;
 
 import com.android.internal.util.evolution.FullscreenTaskStackChangeListener;
 import com.android.internal.util.evolution.Utils;
@@ -42,10 +47,13 @@ public class EvolutionSystemExService extends SystemService {
 
     private static final String TAG = "EvolutionSystemExService";
 
+    private static final String PACK_THEME_FEATURE_ENABLED = "pack_theme_feature_enabled";
+
     private final ContentResolver mResolver;
 
     private Handler mHandler;
     private ServiceThread mWorker;
+    private ContentObserver mPackThemeObserver;
 
     private PackageManagerInternal mPackageManagerInternal;
     private UserManagerInternal mUserManagerInternal;
@@ -80,6 +88,7 @@ public class EvolutionSystemExService extends SystemService {
             mFullscreenTaskStackChangeListener.setListening(true);
             mPackageRemovedListener.register();
             mScreenStateListener.register();
+            registerPackThemeObserver();
             return;
         }
     }
@@ -97,6 +106,34 @@ public class EvolutionSystemExService extends SystemService {
     public void onUserSwitching(TargetUser from, TargetUser to) {
         final int newUserId = to.getUserIdentifier();
         DisplayRefreshRateController.getInstance().onUserSwitching(newUserId);
+        ensurePackThemeFeatureEnabled(newUserId);
+    }
+
+    private void registerPackThemeObserver() {
+        mPackThemeObserver = new ContentObserver(mHandler) {
+            @Override
+            public void onChange(boolean selfChange, Uri uri, int userId) {
+                ensurePackThemeFeatureEnabled(userId);
+            }
+        };
+        mResolver.registerContentObserver(
+                Settings.Secure.getUriFor(PACK_THEME_FEATURE_ENABLED),
+                false, mPackThemeObserver, UserHandle.USER_ALL);
+        ensurePackThemeFeatureEnabled(ActivityManager.getCurrentUser());
+    }
+
+    private void ensurePackThemeFeatureEnabled(int userId) {
+        if (userId < 0) return;
+        try {
+            if (Settings.Secure.getIntForUser(
+                    mResolver, PACK_THEME_FEATURE_ENABLED, 0, userId) != 1) {
+                Settings.Secure.putIntForUser(
+                        mResolver, PACK_THEME_FEATURE_ENABLED, 1, userId);
+            }
+        } catch (Exception e) {
+            Slog.w(TAG, "Failed to enable " + PACK_THEME_FEATURE_ENABLED
+                    + " for user " + userId, e);
+        }
     }
 
     private void onPackageRemoved(String packageName) {
