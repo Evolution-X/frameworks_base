@@ -138,6 +138,23 @@ public class SystemProperties {
     private static native void native_report_sysprop_change();
 
     /**
+     * Process-local override for ro.boot.hardware.color, set by PixelPropsUtils for
+     * apps that gate features on the Pixel hardware color.
+     * @hide
+     */
+    private static volatile String sHardwareColorOverride;
+
+    /** @hide */
+    public static void setHardwareColorOverride(@Nullable String color) {
+        sHardwareColorOverride = color;
+    }
+
+    private static String getHardwareColorOverride(String key) {
+        final String color = sHardwareColorOverride;
+        return (color != null && "ro.boot.hardware.color".equals(key)) ? color : null;
+    }
+
+    /**
      * Get the String value for the given {@code key}.
      *
      * @param key the key to lookup
@@ -148,6 +165,8 @@ public class SystemProperties {
     @SystemApi
     public static String get(@NonNull String key) {
         if (TRACK_KEY_ACCESS) onKeyAccess(key);
+        final String override = getHardwareColorOverride(key);
+        if (override != null) return override;
         return native_get(key);
     }
 
@@ -164,6 +183,8 @@ public class SystemProperties {
     @SystemApi
     public static String get(@NonNull String key, @Nullable String def) {
         if (TRACK_KEY_ACCESS) onKeyAccess(key);
+        final String override = getHardwareColorOverride(key);
+        if (override != null) return override;
         return native_get(key, def);
     }
 

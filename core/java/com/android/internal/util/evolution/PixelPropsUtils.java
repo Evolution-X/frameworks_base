@@ -96,6 +96,20 @@ public final class PixelPropsUtils {
     // for Mosey / Quick Share — Phenotype gates key on the exact model.
     private static final String MOSEY_PIXEL_CODENAME = "mustang";
 
+    // Theme packs (Wallpaper & style, Customization Bundle, AI icons) run checks that are
+    // specific to those apps, so they are spoofed on their own condition instead of through
+    // the pi_pp_targets list. The bundle gates on Build.DEVICE + ro.boot.hardware.color,
+    // which have to be a real pair; the colors come from getprop dumps of retail devices.
+    private static final Set<String> THEME_PACK_PACKAGES = Set.of(
+            "com.google.android.apps.wallpaper",
+            "com.google.android.apps.pixel.customizationbundle",
+            "com.google.android.apps.ai.icons");
+    // Used when the selected Pixel model has no known hardware color (Pixel 10 Pro XL)
+    private static final String THEME_PACK_FALLBACK_CODENAME = "mustang";
+    private static final Map<String, String> THEME_PACK_HARDWARE_COLORS = Map.of(
+            "mustang", "BLK",
+            "frankel", "BUE");
+
     private static volatile Set<String> mLauncherPkgs;
     private static volatile Set<String> mExemptedUidPkgs;
 
@@ -285,8 +299,10 @@ public final class PixelPropsUtils {
         }
         ppTargets = sPpTargets;
 
+        final boolean isThemePackApp = THEME_PACK_PACKAGES.contains(packageName);
+
         if (!sIsExcluded
-                && ppTargets.contains(packageName)
+                && (isThemePackApp || ppTargets.contains(packageName))
                 && !sIsMainlineDevice
                 && sPixelPropsSpoofEnabled) {
 
@@ -301,9 +317,11 @@ public final class PixelPropsUtils {
                         ? "tangorpro" : PixelDeviceRepository.getDefaultPhoneCodename();
                 final String codename = (packageName.equals(PACKAGE_GMS) && moseySpoofEnabled)
                         ? MOSEY_PIXEL_CODENAME
-                        : (sPpModel != null && !sPpModel.isEmpty()
-                                ? sPpModel
-                                : defaultCodename);
+                        : isThemePackApp
+                                ? getThemePackCodename(defaultCodename)
+                                : (sPpModel != null && !sPpModel.isEmpty()
+                                        ? sPpModel
+                                        : defaultCodename);
                 final PixelDeviceRepository.PixelProfile profile =
                         PixelDeviceRepository.getProfileByCodename(
                                 context, codename, isTablet);
@@ -351,6 +369,17 @@ public final class PixelPropsUtils {
 
             propsToChange.putAll(resolvedProps);
 
+            // Only pair a color with a profile it belongs to; if the codename fell back to
+            // something else, leave the real (empty) property alone.
+            if (isThemePackApp) {
+                final Object device = resolvedProps.get("DEVICE");
+                final String color = device instanceof String
+                        ? THEME_PACK_HARDWARE_COLORS.get(device) : null;
+                if (color != null) {
+                    SystemProperties.setHardwareColorOverride(color);
+                }
+            }
+
             dlog("Defining props for: " + packageName);
             for (Map.Entry<String, Object> prop : propsToChange.entrySet()) {
                 String key = prop.getKey();
@@ -374,6 +403,13 @@ public final class PixelPropsUtils {
             return;
         }
         applyAppSpecificProps(packageName);
+    }
+
+    private static String getThemePackCodename(String defaultCodename) {
+        final String model = sPpModel;
+        final String selected = model != null && !model.isEmpty() ? model : defaultCodename;
+        return THEME_PACK_HARDWARE_COLORS.containsKey(selected)
+                ? selected : THEME_PACK_FALLBACK_CODENAME;
     }
 
     private static boolean isDeviceTablet(Context context) {
