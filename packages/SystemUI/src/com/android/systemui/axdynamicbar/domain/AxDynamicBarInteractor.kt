@@ -244,12 +244,6 @@ constructor(
         }
 
         applicationScope.launch {
-            settings.isHeadsUpEnabled.collect { enabled ->
-                if (!enabled) dismissNotificationAlert()
-            }
-        }
-
-        applicationScope.launch {
             combine(
                 repository.events,
                 settings.disabledEventTypes,
@@ -460,7 +454,6 @@ constructor(
 
     private fun shouldSuppressForDndOrRinger(notification: IslandEvent.Notification): Boolean {
         if (notification.isActiveCall()) return false
-        if (!settings.isHeadsUpEnabled.value) return true
         val category = notification.sbn.notification?.category
         if (category == Notification.CATEGORY_CALL || category == Notification.CATEGORY_ALARM) return false
         val zenMode = zenModeController.zen
