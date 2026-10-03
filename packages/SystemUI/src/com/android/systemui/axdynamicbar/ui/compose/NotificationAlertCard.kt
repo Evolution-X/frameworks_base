@@ -45,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -192,6 +193,19 @@ fun NotificationAlertCard(
     val hasExpandableContent = !isCall && (hasTitleAndBody || hasExtraActions)
     val accent = chipAccentColorFor(notification)
     var showReply by remember(notification.sbn.key) { mutableStateOf(false) }
+    var gesturePressed by remember { mutableStateOf(false) }
+    var replyFocused by remember(notification.sbn.key) { mutableStateOf(false) }
+    val currentInteractor by rememberUpdatedState(interactor)
+
+    // Card is held while a finger is down OR the reply field has focus.
+    val holding = gesturePressed || replyFocused
+    val lastHolding = remember { booleanArrayOf(false) }
+    LaunchedEffect(holding) {
+        if (holding == lastHolding[0]) return@LaunchedEffect
+        lastHolding[0] = holding
+        if (holding) currentInteractor.onNotificationAlertInteractionStart()
+        else currentInteractor.onNotificationAlertInteractionEnd()
+    }
     val scope = rememberCoroutineScope()
 
     val initialScene = if (initiallyCompact && !isCall) AlertCardScenes.Compact
@@ -217,8 +231,8 @@ fun NotificationAlertCard(
             modifier = Modifier.fillMaxWidth()
                 .pointerInput(Unit) {
                     detectInteractionGesture(
-                        onStart = interactor::onNotificationAlertInteractionStart,
-                        onEnd = interactor::onNotificationAlertInteractionEnd,
+                        onStart = { gesturePressed = true },
+                        onEnd = { gesturePressed = false },
                     )
                 }
                 .clip(ShapeCard)
@@ -255,6 +269,7 @@ fun NotificationAlertCard(
                         },
                         onShowReply = { showReply = true },
                         onSentReply = { showReply = false; onDismiss() },
+                        onReplyFocusChange = { replyFocused = it },
                     )
                 }
                 scene(AlertCardScenes.Expanded) {
@@ -279,6 +294,7 @@ fun NotificationAlertCard(
                         },
                         onShowReply = { showReply = true },
                         onSentReply = { showReply = false; onDismiss() },
+                        onReplyFocusChange = { replyFocused = it },
                     )
                 }
             }
@@ -372,6 +388,7 @@ private fun ContentScope.CardScene(
     onCollapseToCompact: () -> Unit,
     onShowReply: () -> Unit,
     onSentReply: () -> Unit,
+    onReplyFocusChange: (Boolean) -> Unit,
 ) {
     val context = LocalContext.current
     val title = notification.title
@@ -542,6 +559,7 @@ private fun ContentScope.CardScene(
                 accent = accent,
                 interactor = interactor,
                 onSent = onSentReply,
+                onFocusChange = onReplyFocusChange,
             )
         }
     }
@@ -794,14 +812,25 @@ private fun ReplyField(
     accent: Color,
     interactor: IslandActions,
     onSent: () -> Unit,
+    onFocusChange: (Boolean) -> Unit,
 ) {
     var replyText by remember { mutableStateOf("") }
     val context = LocalContext.current
     val focusRequester = remember { FocusRequester() }
+    val currentOnFocusChange by rememberUpdatedState(onFocusChange)
+    val currentInteractor by rememberUpdatedState(interactor)
 
     LaunchedEffect(Unit) {
+        interactor.onAlertReplyActiveChanged(true)
         interactor.onFocusableRequested?.invoke(true)
         focusRequester.requestFocus()
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            currentOnFocusChange(false)
+            currentInteractor.onAlertReplyActiveChanged(false)
+        }
     }
 
     Row(
@@ -818,7 +847,10 @@ private fun ReplyField(
             modifier = Modifier.weight(1f)
                 .padding(horizontal = SpaceLg)
                 .focusRequester(focusRequester)
-                .onFocusChanged { interactor.onFocusableRequested?.invoke(it.isFocused) },
+                .onFocusChanged {
+                    interactor.onFocusableRequested?.invoke(it.isFocused)
+                    onFocusChange(it.isFocused)
+                },
             textStyle = MaterialTheme.typography.bodySmall.copy(color = OnCardText),
             singleLine = true,
             cursorBrush = SolidColor(accent),
