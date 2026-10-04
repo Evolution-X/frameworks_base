@@ -16,6 +16,7 @@
 
 package com.android.systemui.biometrics.ui.view
 
+import android.content.Context
 import android.view.View
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityManager
@@ -47,6 +48,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.android.systemui.bouncer.ui.viewmodel.ActionButtonAppearance
 import kotlinx.coroutines.launch
+import lineageos.providers.LineageSettings
 
 @Composable
 fun CredentialPinView(
@@ -55,6 +57,7 @@ fun CredentialPinView(
     onPinPress: () -> Unit,
     isVisible: Boolean,
     error: String = "",
+    userId: Int,
 ) {
     var pinText by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
@@ -64,8 +67,15 @@ fun CredentialPinView(
     val context = LocalContext.current
     val accessibilityManager = remember(context) { AccessibilityManager.getInstance(context) }
 
-    LaunchedEffect(isVisible) {
+    var scrambledDigits by remember(userId) { mutableStateOf(scrambledPinDigits(context, userId)) }
+    var hasAppeared by remember(userId) { mutableStateOf(false) }
+
+    LaunchedEffect(isVisible, userId) {
         if (isVisible) {
+            if (hasAppeared) {
+                scrambledDigits = scrambledPinDigits(context, userId)
+            }
+            hasAppeared = true
             focusRequester.requestFocus()
         } else {
             pinText = ""
@@ -163,6 +173,7 @@ fun CredentialPinView(
             },
             isInputEnabled = isVisible,
             deleteButtonAppearance = ActionButtonAppearance.Shown,
+            scrambledDigits = scrambledDigits,
         )
     }
 }
@@ -183,6 +194,19 @@ private fun KeyEvent.isEnter(): Boolean {
 private fun KeyEvent.isBackspace(): Boolean {
     if (type != KeyEventType.KeyDown) return false
     return key == Key.Backspace || key == Key.Delete
+}
+
+private fun scrambledPinDigits(context: Context, userId: Int): List<Int> {
+    val digits = mutableListOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)
+    val isEnabled =
+        LineageSettings.System.getIntForUser(
+            context.contentResolver,
+            LineageSettings.System.LOCKSCREEN_PIN_SCRAMBLE_LAYOUT,
+            0,
+            userId,
+        ) == 1
+    if (isEnabled) digits.shuffle()
+    return digits
 }
 
 private const val PIN_BULLET = "\u2022"
