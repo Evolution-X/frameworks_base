@@ -53,6 +53,7 @@ fun CredentialPinPad(
     deleteButtonAppearance: ActionButtonAppearance,
     verticalSpacing: Dp = 8.dp,
     horizontalSpacing: Dp = 14.dp,
+    scrambledDigits: List<Int> = listOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 0),
 ) {
     val pinPadContent =
         @Composable {
@@ -65,7 +66,7 @@ fun CredentialPinPad(
                     for (i in 0 until 3) {
                         Row(horizontalArrangement = Arrangement.spacedBy(horizontalSpacing)) {
                             for (j in 1..3) {
-                                val digit = (i * 3) + j
+                                val digit = scrambledDigits[i * 3 + j - 1]
                                 DigitButton(
                                     digit = digit,
                                     isInputEnabled = isInputEnabled,
@@ -101,9 +102,9 @@ fun CredentialPinPad(
                         )
 
                         DigitButton(
-                            digit = 0,
+                            digit = scrambledDigits[9],
                             isInputEnabled = isInputEnabled,
-                            onClicked = { onDigitClick("0") },
+                            onClicked = { onDigitClick(scrambledDigits[9].toString()) },
                             onPointerDown = {},
                             scaling = { 1f },
                             isAnimationEnabled = true,
