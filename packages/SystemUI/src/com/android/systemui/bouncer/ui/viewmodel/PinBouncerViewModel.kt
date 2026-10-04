@@ -35,6 +35,8 @@ import com.android.systemui.bouncer.domain.interactor.BouncerInteractor
 import com.android.systemui.bouncer.domain.interactor.SimBouncerInteractor
 import com.android.systemui.bouncer.ui.helper.BouncerHapticPlayer
 import com.android.systemui.res.R
+import com.android.systemui.user.domain.interactor.SelectedUserInteractor
+import lineageos.providers.LineageSettings
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -54,8 +56,9 @@ import kotlinx.coroutines.flow.receiveAsFlow
 class PinBouncerViewModel
 @AssistedInject
 constructor(
-    applicationContext: Context,
+    private val applicationContext: Context,
     interactor: BouncerInteractor,
+    private val selectedUserInteractor: SelectedUserInteractor,
     private val simBouncerInteractor: SimBouncerInteractor,
     keyguardKeyboardInteractor: KeyguardKeyboardInteractor,
     @Assisted bouncerHapticPlayer: BouncerHapticPlayer,
@@ -69,6 +72,26 @@ constructor(
         traceName = "PinBouncerViewModel",
         bouncerHapticPlayer = bouncerHapticPlayer,
     ) {
+    /** Whether PIN scrambling is enabled, and the shuffled digit order to display. */
+    private val _scrambledDigits = MutableStateFlow(computeScrambledDigits())
+    val scrambledDigits: StateFlow<List<Int>> = _scrambledDigits.asStateFlow()
+
+    private fun computeScrambledDigits(): List<Int> {
+        val digits = mutableListOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)
+        if (authenticationMethod == AuthenticationMethodModel.Sim) {
+            return digits
+        }
+        val isEnabled =
+            LineageSettings.System.getIntForUser(
+                applicationContext.contentResolver,
+                LineageSettings.System.LOCKSCREEN_PIN_SCRAMBLE_LAYOUT,
+                0,
+                selectedUserInteractor.getSelectedUserId(),
+            ) == 1
+        if (isEnabled) digits.shuffle()
+        return digits
+    }
+
     /**
      * Whether the sim-related UI in the pin view is showing.
      *
@@ -170,6 +193,12 @@ constructor(
                 interactor.isPinEnhancedPrivacyEnabled
                     .map { !it }
                     .collect { _isDigitButtonAnimationEnabled.value = it }
+            }
+            launch {
+                // New order each time this bouncer is shown, and when the user changes.
+                selectedUserInteractor.selectedUser.collect {
+                    _scrambledDigits.value = computeScrambledDigits()
+                }
             }
             launch {
                 // This re-requests focus when input becomes re-enabled, or if focus gets lost, e.g.
