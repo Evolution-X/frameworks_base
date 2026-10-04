@@ -113,6 +113,11 @@ constructor(
                         selectedDotList.value = it.toList()
                     }
             }
+            launch {
+                interactor.patternSize.collect {
+                    clearInput()
+                }
+            }
             awaitCancellation()
         }
     }
