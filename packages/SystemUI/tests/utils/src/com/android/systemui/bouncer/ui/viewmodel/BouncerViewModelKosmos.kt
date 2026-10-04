@@ -95,6 +95,7 @@ val Kosmos.pinBouncerViewModelFactory by Fixture {
             return PinBouncerViewModel(
                 applicationContext = applicationContext,
                 interactor = bouncerInteractor,
+                selectedUserInteractor = selectedUserInteractor,
                 simBouncerInteractor = simBouncerInteractor,
                 keyguardKeyboardInteractor = keyguardKeyboardInteractor,
                 isInputEnabled = isInputEnabled,
