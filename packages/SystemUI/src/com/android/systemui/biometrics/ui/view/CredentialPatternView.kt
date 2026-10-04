@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.android.internal.widget.LockPatternUtils
 import com.android.internal.widget.LockPatternView
 import com.android.internal.widget.LockPatternView.Cell
 import com.android.internal.widget.LockPatternView.DisplayMode
@@ -41,6 +42,7 @@ fun CredentialPatternView(
     stealthMode: Boolean,
     isVisible: Boolean,
     error: String,
+    userId: Int,
 ) {
     val scope = rememberCoroutineScope()
 
@@ -59,6 +61,10 @@ fun CredentialPatternView(
                     .fillMaxWidth(),
             factory = { context ->
                 LockPatternView(context).apply {
+                    val lockPatternUtils = LockPatternUtils(context)
+                    setLockPatternSize(lockPatternUtils.getLockPatternSize(userId))
+                    setVisibleDots(lockPatternUtils.isVisibleDotsEnabled(userId))
+                    setShowErrorPath(lockPatternUtils.isShowErrorPath(userId))
                     setOnPatternListener(
                         object : LockPatternView.OnPatternListener {
                             // TODO: These will likely need to be updated for mouse
@@ -104,3 +110,4 @@ fun CredentialPatternView(
         )
     }
 }
+
