@@ -131,7 +131,7 @@ fun PatternBouncer(
         }
 
     var entryAnimationCompleted by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(dots) {
         showEntryAnimation(dotAppearFadeInAnimatables, dotAppearMoveUpAnimatables)
         entryAnimationCompleted = true
     }
