@@ -124,6 +124,8 @@ fun PinPad(viewModel: PinBouncerViewModel, verticalSpacing: Dp, modifier: Modifi
     val context = LocalContext.current
     val accessibilityManager = remember(context) { AccessibilityManager.getInstance(context) }
 
+    val scrambledDigits by viewModel.scrambledDigits.collectAsStateWithLifecycle()
+
     VerticalGrid(
         columns = columns,
         verticalSpacing = verticalSpacing,
@@ -138,7 +140,7 @@ fun PinPad(viewModel: PinBouncerViewModel, verticalSpacing: Dp, modifier: Modifi
     ) {
         repeat(9) { index ->
             DigitButton(
-                digit = index + 1,
+                digit = scrambledDigits[index],
                 isInputEnabled = isInputEnabled,
                 onClicked = { digit ->
                     sendAccessibilityEvent(
@@ -198,16 +200,16 @@ fun PinPad(viewModel: PinBouncerViewModel, verticalSpacing: Dp, modifier: Modifi
         )
 
         DigitButton(
-            digit = 0,
+            digit = scrambledDigits[9],
             isInputEnabled = isInputEnabled,
             onClicked = {
                 sendAccessibilityEvent(view = view, accessibilityManager = accessibilityManager) {
                     PinAccessibilityEvent.DigitAdded(
                         pinLengthBeforeChange = viewModel.enteredPinLength,
-                        digitAdded = 0,
+                        digitAdded = scrambledDigits[9],
                     )
                 }
-                viewModel.onPinButtonClicked(0)
+                viewModel.onPinButtonClicked(scrambledDigits[9])
             },
             scaling = buttonScaleAnimatables[10]::value,
             isAnimationEnabled = isDigitButtonAnimationEnabled,
