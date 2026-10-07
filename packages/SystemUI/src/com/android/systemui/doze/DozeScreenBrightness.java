@@ -359,7 +359,7 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
 
     private void resetBrightnessToDefault() {
         mDozeService.setDozeScreenBrightness(clampToDimBrightnessForScreenOff(
-                clampToUserSettingOrAutoBrightness(getDozeBrightnessValue())));
+                clampToUserSetting(getDozeBrightnessValue())));
         mDozeHost.setAodDimmingScrim(0f);
         mDozeHost.setAodWallpaperDimmingScrim(0f);
     }
@@ -401,16 +401,6 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
                 Settings.System.SCREEN_BRIGHTNESS_MODE,
                 Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL, UserHandle.USER_CURRENT);
         if (screenBrightnessModeSetting == Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC) {
-            return brightness;
-        }
-
-        return Math.min(brightness, getScreenBrightness());
-    }
-
-    private float clampToUserSettingOrAutoBrightness(float brightness) {
-        boolean forceCustomBrightness = mSystemSettings.getIntForUser(
-                DOZE_BRIGHTNESS_FORCE, 0, UserHandle.USER_CURRENT) == 1;
-        if (forceCustomBrightness) {
             return brightness;
         }
 
