@@ -1657,6 +1657,9 @@ public final class PowerManagerService extends SystemService
         resolver.registerContentObserver(Settings.Secure.getUriFor(
                 Settings.Secure.DOUBLE_TAP_TO_WAKE),
                 false, mSettingsObserver, UserHandle.USER_ALL);
+        resolver.registerContentObserver(Settings.System.getUriFor(
+                Settings.System.DOZE_TRIGGER_DOUBLETAP),
+                false, mSettingsObserver, UserHandle.USER_ALL);
         resolver.registerContentObserver(Settings.Global.getUriFor(
                 Settings.Global.DEVICE_DEMO_MODE),
                 false, mSettingsObserver, UserHandle.USER_SYSTEM);
@@ -1808,8 +1811,13 @@ public final class PowerManagerService extends SystemService
                     UserHandle.USER_CURRENT);
 
         if (mSupportsDoubleTapWakeConfig) {
+            // The ambient pulse toggle routes the wake gesture to doze instead, but the
+            // hardware gesture must be armed for it either way.
             boolean doubleTapWakeEnabled = Settings.Secure.getIntForUser(resolver,
                     Settings.Secure.DOUBLE_TAP_TO_WAKE, DEFAULT_DOUBLE_TAP_TO_WAKE,
+                            UserHandle.USER_CURRENT) != 0
+                    || Settings.System.getIntForUser(resolver,
+                            Settings.System.DOZE_TRIGGER_DOUBLETAP, 0,
                             UserHandle.USER_CURRENT) != 0;
             if (doubleTapWakeEnabled != mDoubleTapWakeEnabled) {
                 mDoubleTapWakeEnabled = doubleTapWakeEnabled;
