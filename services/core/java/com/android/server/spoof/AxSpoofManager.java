@@ -509,7 +509,7 @@ public class AxSpoofManager implements IAxSpoofManager {
         PixelDeviceRepository.PixelProfile matched = runBounded(mFingerprintExecutor, () -> {
             List<PixelDeviceRepository.PixelProfile> profiles =
                     PixelDeviceRepository.getProfiles(mContext, true);
-            String defaultCodename = PixelDeviceRepository.getDefaultPhoneCodename(profiles);
+            String defaultCodename = PixelDeviceRepository.getDefaultPifCodename(profiles);
             return PixelDeviceRepository.getProfileByCodename(mContext, defaultCodename, false);
         });
         if (matched == null || !PixelDeviceRepository.isValidFingerprint(matched.fingerprint)) {
