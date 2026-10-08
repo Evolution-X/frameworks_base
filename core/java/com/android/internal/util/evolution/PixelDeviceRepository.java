@@ -159,42 +159,44 @@ public final class PixelDeviceRepository {
                     "tangorpro"
             ));
 
-    // Codenames of 'a' series devices, newest-first. These are prioritized in
-    // device-picker sort order and used to compute a generation-relative
-    // default pick, since 'a' series Play Integrity prints have been observed
-    // to hold a working <A13 PI DEVICE verdict for meaningfully longer than
-    // flagship canary/beta prints, which per community tooling are now largely
-    // STRONG-integrity-only. This is a display/default-selection signal only;
-    // it never filters what fetchFromNetwork() returns.
-    public static final List<String> A_SERIES_ORDER = Collections.unmodifiableList(
+    // Device picker order, newest generation first (Pro XL, Pro, Fold, base, then a-series
+    // within a generation). Display order only: it never filters what fetchFromNetwork()
+    // returns, and a codename missing here is simply listed after the ranked ones.
+    public static final List<String> PICKER_ORDER = Collections.unmodifiableList(
             Arrays.asList(
-                    "formosan", // Pixel 11a
-                    "stallion", // Pixel 10a
-                    "tegu",     // Pixel 9a
-                    "akita",    // Pixel 8a
-                    "lynx",     // Pixel 7a
-                    "bluejay"   // Pixel 6a
+                    // Pixel 12 series
+                    "silverback", "sasquatch", "capuchin", "galago",
+                    // Pixel 11 series
+                    "kodiak", "grizzly", "yogi", "cubs", "formosan",
+                    // Pixel 10 series
+                    "mustang", "rango", "blazer", "frankel", "stallion",
+                    // Pixel 9 series
+                    "komodo", "caiman", "comet", "tokay", "tegu",
+                    // Tablet
+                    "tangorpro",
+                    // Pixel 8 series and Fold
+                    "husky", "felix", "shiba", "akita",
+                    // Pixel 7 series
+                    "cheetah", "panther", "lynx",
+                    // Pixel 6 series
+                    "raven", "oriole", "bluejay"
             ));
 
+    // The one device Play Integrity spoofing targets by default (and the only one
+    // Evolver marks as recommended). The Pixel 6a canary print is reported to keep
+    // RCS working, unlike the flagship canary prints. This is deliberately separate
+    // from GENERATION_ORDER, which still drives the Pixel props spoof for other apps.
+    public static final String PIF_DEFAULT_CODENAME = "bluejay";
+
     /**
-     * Returns the 'a' series codename one generation behind the newest one
-     * present in [available], or the newest available if only one exists.
-     * Returns null if no 'a' series device is present at all.
+     * Returns the codename Play Integrity spoofing should use: the Pixel 6a when it
+     * is in [available], otherwise the newest ranked phone per GENERATION_ORDER.
      */
-    public static String getPreferredASeriesCodename(List<PixelProfile> available) {
-        Set<String> present = new HashSet<>();
-        for (PixelProfile p : available) present.add(p.codename);
-        int newestIndex = -1;
-        for (int i = 0; i < A_SERIES_ORDER.size(); i++) {
-            if (present.contains(A_SERIES_ORDER.get(i))) { newestIndex = i; break; }
+    public static String getDefaultPifCodename(List<PixelProfile> available) {
+        for (PixelProfile p : available) {
+            if (PIF_DEFAULT_CODENAME.equals(p.codename)) return PIF_DEFAULT_CODENAME;
         }
-        if (newestIndex < 0) return null;
-        int preferredIndex = newestIndex + 1;
-        if (preferredIndex < A_SERIES_ORDER.size()
-                && present.contains(A_SERIES_ORDER.get(preferredIndex))) {
-            return A_SERIES_ORDER.get(preferredIndex);
-        }
-        return A_SERIES_ORDER.get(newestIndex);
+        return getDefaultPhoneCodename(available);
     }
 
     // Shared default spoof target packages — single source of truth used by both
@@ -268,6 +270,9 @@ public final class PixelDeviceRepository {
         f.add(new PixelProfile("tangorpro", "Pixel Tablet",      "google", "tangorpro", "tangorpro",
                 "google/tangorpro/tangorpro:17/CP3A.261005.002.A1/16269273:user/release-keys",
                 "CP3A.261005.002.A1", "2026-10-05", 0L, null, false));
+        f.add(new PixelProfile("bluejay",   "Pixel 6a",          "google", "bluejay",   "bluejay_beta",
+                "google/bluejay_beta/bluejay:CANARY/ZP11.260918.007/16484274:user/release-keys",
+                "ZP11.260918.007", "2026-10-05", 0L, null, true));
         FALLBACK_PROFILES = Collections.unmodifiableList(f);
     }
 
