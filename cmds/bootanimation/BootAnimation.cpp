@@ -90,7 +90,6 @@ static const char* const BOOT_ANIMATION_FILES[] = {
     "/product/media/bootanimation_cyberpunk.zip",
     "/product/media/bootanimation_du.zip",
     "/product/media/bootanimation_google.zip",
-    "/product/media/bootanimation_google_monet.zip",
     "/product/media/bootanimation_pac.zip",
     "/product/media/bootanimation_rr.zip",
     "/product/media/bootanimation_slim.zip",
