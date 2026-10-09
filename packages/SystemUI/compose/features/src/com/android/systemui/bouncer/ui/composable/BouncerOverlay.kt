@@ -28,7 +28,9 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.overscroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
@@ -46,6 +48,7 @@ import com.android.systemui.bouncer.ui.viewmodel.BouncerOverlayContentViewModel
 import com.android.systemui.bouncer.ui.viewmodel.BouncerUserActionsViewModel
 import com.android.systemui.compose.modifiers.sysuiResTag
 import com.android.systemui.dagger.SysUISingleton
+import com.android.systemui.qs.shared.style.LocalGlassBlurAllowed
 import com.android.systemui.lifecycle.rememberViewModel
 import com.android.systemui.res.R
 import com.android.systemui.scene.shared.model.Overlays
@@ -90,12 +93,25 @@ constructor(
     }
 
     @Composable
-    override fun ContentScope.Content(modifier: Modifier) =
-        BouncerOverlay(
-            viewModel = rememberViewModel("BouncerOverlay") { contentViewModelFactory.create() },
-            dialogFactory = dialogFactory,
-            modifier = modifier.element(Bouncer.Elements.Root),
-        )
+    override fun ContentScope.Content(modifier: Modifier) {
+        val settled = remember(layoutState) {
+            {
+                val transition = layoutState.currentTransition
+                transition == null ||
+                    (transition.toContent == contentKey &&
+                        !transition.isUserInputOngoing &&
+                        transition.progress >= 0.97f)
+            }
+        }
+        CompositionLocalProvider(LocalGlassBlurAllowed provides settled) {
+            BouncerOverlay(
+                viewModel =
+                    rememberViewModel("BouncerOverlay") { contentViewModelFactory.create() },
+                dialogFactory = dialogFactory,
+                modifier = modifier.element(Bouncer.Elements.Root),
+            )
+        }
+    }
 }
 
 @Composable
