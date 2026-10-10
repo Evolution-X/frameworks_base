@@ -37,7 +37,6 @@ import com.android.systemui.qs.QSHost
 import com.android.systemui.qs.QsEventLogger
 import com.android.systemui.qs.asQSTileIcon
 import com.android.systemui.qs.logging.QSLogger
-import com.android.systemui.qs.tileimpl.QSTileImpl
 import com.android.systemui.qs.tiles.base.shared.model.QSTileConfigProvider
 import com.android.systemui.qs.tiles.base.shared.model.QSTileState
 import com.android.systemui.qs.tiles.dialog.InternetDetailsViewModel
@@ -45,6 +44,7 @@ import com.android.systemui.qs.tiles.impl.cell.domain.interactor.MobileDataTileD
 import com.android.systemui.qs.tiles.impl.cell.domain.interactor.MobileDataTileUserActionInteractor
 import com.android.systemui.qs.tiles.impl.cell.domain.model.MobileDataTileModel
 import com.android.systemui.qs.tiles.impl.cell.ui.mapper.MobileDataTileMapper
+import com.android.systemui.statusbar.policy.KeyguardStateController
 import com.android.systemui.user.data.repository.UserRepository
 import javax.inject.Inject
 import kotlinx.coroutines.launch
@@ -54,6 +54,7 @@ class MobileDataTile
 @Inject
 constructor(
     private val host: QSHost,
+    keyguardStateController: KeyguardStateController,
     private val uiEventLogger: QsEventLogger,
     @Background private val backgroundLooper: Looper,
     @Main private val mainHandler: Handler,
@@ -69,7 +70,7 @@ constructor(
     private val userActionInteractor: MobileDataTileUserActionInteractor,
     private val internetDetailsViewModelFactory: InternetDetailsViewModel.Factory,
 ) :
-    QSTileImpl<QSTile.State?>(
+    SecureQSTile<QSTile.State?>(
         host,
         uiEventLogger,
         backgroundLooper,
@@ -79,6 +80,7 @@ constructor(
         statusBarStateController,
         activityStarter,
         qsLogger,
+        keyguardStateController,
     ) {
 
     private lateinit var tileState: QSTileState
@@ -98,11 +100,13 @@ constructor(
         return QSTile.State().apply { state = Tile.STATE_INACTIVE }
     }
 
-    override fun handleClick(expandable: Expandable?) {
+    override fun handleClick(expandable: Expandable?, keyguardShowing: Boolean) {
+        if (checkKeyguard(expandable, keyguardShowing)) return
         lifecycle.coroutineScope.launch { userActionInteractor.handleClick(expandable) }
     }
 
-    override fun handleSecondaryClick(expandable: Expandable?) {
+    override fun handleSecondaryClick(expandable: Expandable?, keyguardShowing: Boolean) {
+        if (checkKeyguardSecondary(expandable, keyguardShowing)) return
         lifecycle.coroutineScope.launch { userActionInteractor.handleSecondaryClick(expandable) }
     }
 
