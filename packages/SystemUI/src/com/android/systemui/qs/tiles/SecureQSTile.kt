@@ -30,7 +30,7 @@ import com.android.systemui.qs.tileimpl.QSTileImpl
 import com.android.systemui.qs.QsEventLogger;
 import com.android.systemui.statusbar.policy.KeyguardStateController
 
-abstract class SecureQSTile<TState : QSTile.State> protected constructor(
+abstract class SecureQSTile<TState : QSTile.State?> protected constructor(
     host: QSHost, uiEventLogger: QsEventLogger, backgroundLooper: Looper, mainHandler: Handler,
     falsingManager: FalsingManager, metricsLogger: MetricsLogger, statusBarStateController: StatusBarStateController,
     activityStarter: ActivityStarter, qsLogger: QSLogger,
@@ -43,20 +43,35 @@ abstract class SecureQSTile<TState : QSTile.State> protected constructor(
 
     protected abstract fun handleClick(expandable: Expandable?, keyguardShowing: Boolean)
 
-    override fun handleClick(expandable: Expandable?) {
-        val enabled: Boolean = Settings.Secure.getInt(mContext.getContentResolver(),
-            Settings.Secure.QSTILE_REQUIRES_UNLOCKING, 1) == 1
-        handleClick(expandable, keyguardController.isMethodSecure && keyguardController.isShowing && enabled)
+    protected open fun handleSecondaryClick(expandable: Expandable?, keyguardShowing: Boolean) {
+        super.handleSecondaryClick(expandable)
     }
 
-    protected fun checkKeyguard(expandable: Expandable?, keyguardShowing: Boolean): Boolean {
-        return if (keyguardShowing) {
-            mActivityStarter.postQSRunnableDismissingKeyguard {
-                handleClick(expandable, false)
-            }
-            true
-        } else {
-            false
-        }
+    override fun handleClick(expandable: Expandable?) {
+        handleClick(expandable, isKeyguardSecureAndShowing())
+    }
+
+    override fun handleSecondaryClick(expandable: Expandable?) {
+        handleSecondaryClick(expandable, isKeyguardSecureAndShowing())
+    }
+
+    private fun isKeyguardSecureAndShowing(): Boolean {
+        val enabled: Boolean = Settings.Secure.getInt(mContext.getContentResolver(),
+            Settings.Secure.QSTILE_REQUIRES_UNLOCKING, 1) == 1
+        return enabled && keyguardController.isMethodSecure && keyguardController.isShowing
+    }
+
+    protected fun checkKeyguard(expandable: Expandable?, keyguardShowing: Boolean): Boolean =
+        dismissKeyguardThenRun(keyguardShowing) { handleClick(expandable, false) }
+
+    protected fun checkKeyguardSecondary(
+        expandable: Expandable?,
+        keyguardShowing: Boolean,
+    ): Boolean = dismissKeyguardThenRun(keyguardShowing) { handleSecondaryClick(expandable, false) }
+
+    private fun dismissKeyguardThenRun(keyguardShowing: Boolean, action: () -> Unit): Boolean {
+        if (!keyguardShowing) return false
+        mActivityStarter.postQSRunnableDismissingKeyguard { action() }
+        return true
     }
 }
