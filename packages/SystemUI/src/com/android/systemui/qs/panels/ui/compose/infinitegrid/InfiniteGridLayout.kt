@@ -272,6 +272,7 @@ constructor(
             spans = nothingSpans,
             maxRows = NOTHING_ROWS,
             useSquareCells = true,
+            maxCellSize = rememberNothingQSMaxCellSize(),
             keys = { tiles[it].spec },
             modifier = modifier,
         ) { spanIndex, _ ->
