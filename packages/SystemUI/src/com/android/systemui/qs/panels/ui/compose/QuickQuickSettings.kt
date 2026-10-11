@@ -40,6 +40,7 @@ import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsStyl
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalQSQuadTiles
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.Tile
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSPanelStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingQSMaxCellSize
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSTileLayout
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQuadTiles
 import com.android.systemui.qs.panels.ui.viewmodel.BounceableTileViewModel
@@ -167,6 +168,7 @@ private fun ContentScope.NothingQuickQuickSettings(
             spans = qqsSpans,
             customPlacements = qqsPlacements.mapIndexed { idx, p -> p.copy(index = idx) },
             useSquareCells = true,
+            maxCellSize = rememberNothingQSMaxCellSize(),
             keys = { qqsTiles[it].spec },
             modifier = Modifier.sysuiResTag("qqs_tile_layout"),
         ) { spanIndex, _ ->

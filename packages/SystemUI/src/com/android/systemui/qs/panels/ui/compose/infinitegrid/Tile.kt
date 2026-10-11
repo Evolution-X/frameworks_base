@@ -88,6 +88,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.trace
@@ -1139,6 +1140,20 @@ fun rememberQSColorOSStyle(): Boolean {
     }
 
     return colorOSStyleEnabled
+}
+
+/** Largest cell of the Nothing style grid on this screen, or unspecified for no limit. */
+@Composable
+fun rememberNothingQSMaxCellSize(): Dp {
+    val maxCellSize = dimensionResource(R.dimen.qs_nothing_max_cell_size)
+    return if (maxCellSize > 0.dp) maxCellSize else Dp.Unspecified
+}
+
+/** Width of the four capped columns and their gaps in the Nothing style grid. */
+@Composable
+fun rememberNothingQSMaxContentWidth(): Dp {
+    val maxCellSize = rememberNothingQSMaxCellSize()
+    return if (maxCellSize == Dp.Unspecified) Dp.Unspecified else maxCellSize * 4 + 16.dp * 3
 }
 
 @Composable
