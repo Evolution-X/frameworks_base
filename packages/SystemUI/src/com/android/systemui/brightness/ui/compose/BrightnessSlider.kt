@@ -53,6 +53,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -128,6 +130,7 @@ import com.android.systemui.brightness.ui.viewmodel.Drag
 import com.android.systemui.common.shared.colors.SystemUISliderColors
 import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingQSMaxContentWidth
 import com.android.systemui.compose.modifiers.sysuiResTag
 import com.android.systemui.gradient.GradientColors
 import com.android.systemui.gradient.diagonal
@@ -1236,8 +1239,13 @@ private fun NothingBrightnessSlider(
     val totalRange = (valueRange.endInclusive - valueRange.start).coerceAtLeast(1f)
     val fraction = ((value - valueRange.start) / totalRange).coerceIn(0f, 1f)
 
+    val maxContentWidth = rememberNothingQSMaxContentWidth()
+
     BoxWithConstraints(
         modifier = modifier
+            .fillMaxWidth()
+            .wrapContentWidth()
+            .widthIn(max = maxContentWidth)
             .fillMaxWidth()
             .height(52.dp)
             .clip(RoundedCornerShape(50))
