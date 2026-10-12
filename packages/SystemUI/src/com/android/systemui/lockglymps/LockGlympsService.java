@@ -300,10 +300,8 @@ public class LockGlympsService extends Service {
         } else if (ACTION_CLEAR_CACHE.equals(action)) {
             if (mExecutor != null && !mExecutor.isShutdown()) {
                 mExecutor.execute(() -> {
+                    // Clearing storage should not immediately refill it.
                     clearAllCaches();
-                    if (mEnabled) {
-                        preFetchWallpapers();
-                    }
                 });
             }
         } else if (ACTION_APPLY_NOW.equals(action)) {
@@ -671,26 +669,11 @@ public class LockGlympsService extends Service {
             return true;
         }
 
-        if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
-            return true;
-        }
-
-        // The default network can be a VPN even when its underlying transport is
-        // Wi-Fi. In that case, keep honoring the user's Wi-Fi-only intent rather
-        // than disabling downloads just because TRANSPORT_VPN is on top.
-        if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
-            for (Network candidate : cm.getAllNetworks()) {
-                NetworkCapabilities candidateCaps = cm.getNetworkCapabilities(candidate);
-                if (candidateCaps != null
-                        && candidateCaps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
-                        && candidateCaps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                        && candidateCaps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        // Do not infer the VPN's path from *other* connected Wi-Fi networks:
+        // a VPN might actually route downloads over cellular. Fail closed for
+        // VPNs with mixed Wi-Fi and cellular transports in Wi-Fi-only mode.
+        return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+                && !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR);
     }
 
     private void preFetchWallpapers() {
