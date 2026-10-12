@@ -718,15 +718,15 @@ public class LockGlympsService extends Service {
     }
 
     private void preFetchWallpapers() {
-        if (!ensureFeatureStillEnabled() || mCacheDir == null || !shouldDownload()) {
+        if (!ensureFeatureStillEnabled() || mCacheDir == null) {
             return;
         }
 
-        if (!hasOnlineProvider() || !canStartNetworkRequest()) {
-            return;
-        }
-
+        // Reclaim outdated files even with Wi-Fi disabled or the device offline.
         cleanOldCache();
+        if (!shouldDownload() || !hasOnlineProvider() || !canStartNetworkRequest()) {
+            return;
+        }
         final int generation = mConfigGeneration.get();
         int cacheCount = countCacheFiles();
         int attempts = 0;
@@ -1774,6 +1774,11 @@ public class LockGlympsService extends Service {
                 return null;
             }
 
+            if (mCacheDir == null
+                    || mCacheDir.getUsableSpace() < MIN_FREE_DISK_BYTES) {
+                Log.w(TAG, "Skipping wallpaper download: disk space is low");
+                return null;
+            }
             temporaryFile = File.createTempFile("glymps_", ".tmp", mCacheDir);
             input = new BufferedInputStream(new BudgetedInputStream(
                     connection.getInputStream()));
@@ -2370,7 +2375,8 @@ public class LockGlympsService extends Service {
     }
 
     private boolean saveBitmapToFile(Bitmap bitmap, File file) {
-        if (bitmap == null || file == null || file.getParentFile() == null) {
+        if (bitmap == null || file == null || file.getParentFile() == null
+                || file.getParentFile().getUsableSpace() < MIN_FREE_DISK_BYTES) {
             return false;
         }
 
@@ -2424,7 +2430,7 @@ public class LockGlympsService extends Service {
     private File[] listCacheFiles() {
         if (mCacheDir == null) return null;
         return mCacheDir.listFiles((dir, name) ->
-                name.startsWith("glymps_") && !name.endsWith(".tmp"));
+                name.startsWith("glymps_") && name.endsWith(".img"));
     }
 
     private File getCachedWallpaper(String provider) {
@@ -2450,9 +2456,32 @@ public class LockGlympsService extends Service {
     }
 
     private void cleanOldCache() {
+        if (mCacheDir == null) return;
+
+        // A process crash may leave partially downloaded/compressed temporary files.
+        // Remove those after 24 hours, and remove invalid or older-than-7-days images.
+        File[] all = mCacheDir.listFiles();
+        long now = System.currentTimeMillis();
+        if (all != null) {
+            for (File file : all) {
+                if (!file.isFile()) continue;
+                String name = file.getName();
+                long age = Math.max(0L, now - file.lastModified());
+                boolean expiredTemporary = name.endsWith(".tmp")
+                        && age > TEMP_CACHE_RETENTION_MS;
+                boolean invalidWallpaper = name.startsWith("glymps_")
+                        && name.endsWith(".img")
+                        && (age > WALLPAPER_CACHE_RETENTION_MS
+                            || file.length() <= 0L
+                            || file.length() > MAX_DOWNLOAD_BYTES);
+                if ((expiredTemporary || invalidWallpaper) && !file.delete()) {
+                    Log.w(TAG, "Unable to remove expired wallpaper cache entry");
+                }
+            }
+        }
+
         File[] files = listCacheFiles();
         if (files == null || files.length == 0) return;
-
         Arrays.sort(files, Comparator.comparingLong(File::lastModified));
 
         long totalBytes = 0L;
@@ -2471,6 +2500,9 @@ public class LockGlympsService extends Service {
                 totalBytes -= length;
                 remaining--;
             }
+        }
+        if (remaining > mCacheSize || totalBytes > MAX_CACHE_BYTES) {
+            Log.w(TAG, "Glymps cache still exceeds limits; could not delete all old files");
         }
     }
 
