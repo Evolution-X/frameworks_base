@@ -29,6 +29,7 @@ import android.os.Looper;
 import android.os.PowerManager;
 import android.os.SystemClock;
 import android.service.quicksettings.Tile;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 
@@ -51,15 +52,17 @@ import javax.inject.Inject;
 /**
  * Quick Settings tile that keeps the display awake for a selected amount of time.
  *
- * <p>The legacy screen wake lock is intentional here: FLAG_KEEP_SCREEN_ON applies to
- * individual activity windows and would not keep the display on across applications.
- * All paths that disable the tile must release the lock, including screen-off and destroy.
+ * <p>Screen wake locks can be ignored by device power policies. While Caffeine is enabled,
+ * the tile additionally refreshes the user-activity timeout. Unlike a window flag, this
+ * works when switching apps. Explicit screen-off always ends the session.
  */
 public class CaffeineTile extends QSTileImpl<BooleanState> {
 
     public static final String TILE_SPEC = "caffeine";
 
+    private static final String TAG = "CaffeineTile";
     private static final long CLICK_CYCLE_WINDOW_MILLIS = 5_000L;
+    private static final long USER_ACTIVITY_INTERVAL_MILLIS = 3_000L;
     private static final int[] DURATIONS_SECONDS = {
         5 * 60,   // 5 minutes
         10 * 60,  // 10 minutes
@@ -71,8 +74,27 @@ public class CaffeineTile extends QSTileImpl<BooleanState> {
     @Nullable
     private Icon mIcon;
 
+    private final PowerManager mPowerManager;
     private final PowerManager.WakeLock mWakeLock;
     private final Receiver mReceiver = new Receiver();
+    private boolean mCanRefreshUserActivity = true;
+
+    private final Runnable mKeepScreenAwake = new Runnable() {
+        @Override
+        public void run() {
+            if (!mWakeLock.isHeld()) {
+                return;
+            }
+            // User-initiated sleep or another display-off event must always win.
+            if (!mPowerManager.isInteractive()) {
+                stopCaffeine();
+                refreshState();
+                return;
+            }
+            refreshUserActivity();
+            mHandler.postDelayed(this, USER_ACTIVITY_INTERVAL_MILLIS);
+        }
+    };
 
     @Nullable
     private CountDownTimer mCountdownTimer;
@@ -95,7 +117,8 @@ public class CaffeineTile extends QSTileImpl<BooleanState> {
     ) {
         super(host, uiEventLogger, backgroundLooper, mainHandler, falsingManager, metricsLogger,
                 statusBarStateController, activityStarter, qsLogger);
-        mWakeLock = mContext.getSystemService(PowerManager.class).newWakeLock(
+        mPowerManager = mContext.getSystemService(PowerManager.class);
+        mWakeLock = mPowerManager.newWakeLock(
                 PowerManager.FULL_WAKE_LOCK, "CaffeineTile");
         // The tile represents a single active request, not a collection of nested locks.
         mWakeLock.setReferenceCounted(false);
@@ -174,7 +197,25 @@ public class CaffeineTile extends QSTileImpl<BooleanState> {
         mSecondsRemaining = DURATIONS_SECONDS[durationIndex];
 
         if (!mWakeLock.isHeld()) {
-            mWakeLock.acquire();
+            try {
+                mWakeLock.acquire();
+            } catch (SecurityException | IllegalArgumentException e) {
+                Log.e(TAG, "Unable to acquire the display wake lock", e);
+                stopCaffeine();
+                return;
+            }
+        }
+
+        // A screen wake lock is not sufficient on all modern device power policies.
+        // Refresh the system's actual inactivity timer as well, without permanently
+        // modifying the user's SCREEN_OFF_TIMEOUT preference.
+        mHandler.removeCallbacks(mKeepScreenAwake);
+        if (mPowerManager.isInteractive()) {
+            refreshUserActivity();
+            mHandler.postDelayed(mKeepScreenAwake, USER_ACTIVITY_INTERVAL_MILLIS);
+        } else {
+            stopCaffeine();
+            return;
         }
 
         if (durationIndex == INFINITE_DURATION_INDEX) {
@@ -210,7 +251,22 @@ public class CaffeineTile extends QSTileImpl<BooleanState> {
         }.start();
     }
 
+    private void refreshUserActivity() {
+        if (!mCanRefreshUserActivity) {
+            return;
+        }
+        try {
+            mPowerManager.userActivity(SystemClock.uptimeMillis(),
+                    PowerManager.USER_ACTIVITY_EVENT_OTHER, 0);
+        } catch (SecurityException e) {
+            // Keep the legacy display lock active even on ROMs without this permission.
+            mCanRefreshUserActivity = false;
+            Log.w(TAG, "User activity fallback unavailable; using screen wake lock only", e);
+        }
+    }
+
     private void stopCaffeine() {
+        mHandler.removeCallbacks(mKeepScreenAwake);
         stopCountDown();
         if (mWakeLock.isHeld()) {
             mWakeLock.release();
@@ -265,13 +321,17 @@ public class CaffeineTile extends QSTileImpl<BooleanState> {
             mIcon = maybeLoadResourceIcon(R.drawable.ic_qs_caffeine);
         }
         state.icon = mIcon;
-        state.label = mContext.getString(R.string.quick_settings_caffeine_label);
+        final CharSequence caffeineLabel = mContext.getString(R.string.quick_settings_caffeine_label);
+        // Some compact QS layouts omit secondaryLabel altogether. Show the countdown
+        // as the primary label while active so the time remains visible.
+        state.label = state.value ? formatValueWithRemainingTime() : caffeineLabel;
         state.handlesLongClick = true;
         state.hasLongClickEffect = true;
         if (state.value) {
-            state.secondaryLabel = formatValueWithRemainingTime();
+            state.secondaryLabel = caffeineLabel;
             state.contentDescription = mContext.getString(
-                    R.string.accessibility_quick_settings_caffeine_on);
+                    R.string.accessibility_quick_settings_caffeine_on)
+                    + ", " + formatValueWithRemainingTime();
             state.state = Tile.STATE_ACTIVE;
         } else {
             state.secondaryLabel = null;
