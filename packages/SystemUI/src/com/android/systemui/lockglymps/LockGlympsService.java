@@ -2042,6 +2042,21 @@ public class LockGlympsService extends Service {
                 }
             }
 
+            if (bitmap == null) {
+                // If the selected topic has no cached image while offline, try
+                // another *selected* topic; never fall back to an unrelated file.
+                File cachedAlternative = getCachedSelectedWallpaper();
+                if (cachedAlternative != null) {
+                    bitmap = decodeCachedWallpaper(cachedAlternative);
+                    if (bitmap != null) {
+                        appliedHistoryKey = cachedHistoryKey(cachedAlternative);
+                        if (!cachedAlternative.delete()) {
+                            Log.d(TAG, "Unable to remove consumed fallback cache entry");
+                        }
+                    }
+                }
+            }
+
             if (bitmap != null) {
                 if (generation != mConfigGeneration.get()) {
                     Log.d(TAG, "Discarding wallpaper produced for stale settings");
@@ -2263,6 +2278,33 @@ public class LockGlympsService extends Service {
         for (File file : files) {
             String key = cachedHistoryKey(file);
             if (!mNoRepeat || key == null || !historyContains(key)) return file;
+        }
+        return null;
+    }
+
+    private File getCachedSelectedWallpaper() {
+        File[] files = listCacheFiles();
+        if (files == null || files.length == 0) return null;
+
+        // Only accept a cache namespace for an explicitly selected provider
+        // and subject. Work from an in-memory snapshot to avoid repeated
+        // filesystem scans for each configured category.
+        ArrayList<String> allowedPrefixes = new ArrayList<>();
+        for (String provider : mProviders) {
+            if (PROVIDER_LOCAL_FOLDER.equals(provider)) continue;
+            for (String category : mCategories) {
+                allowedPrefixes.add(cacheQueryPrefix(
+                        provider, applyToneToQuery(categoryQuery(category))));
+            }
+        }
+
+        Arrays.sort(files, Comparator.comparingLong(File::lastModified));
+        for (File file : files) {
+            String key = cachedHistoryKey(file);
+            if (mNoRepeat && key != null && historyContains(key)) continue;
+            for (String prefix : allowedPrefixes) {
+                if (file.getName().startsWith(prefix)) return file;
+            }
         }
         return null;
     }
