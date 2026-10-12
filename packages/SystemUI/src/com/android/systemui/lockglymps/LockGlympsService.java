@@ -1539,7 +1539,10 @@ public class LockGlympsService extends Service {
                     return null;
                 }
 
-                if (mWifiOnly && total >= nextNetworkCheck) {
+                // Recheck battery saver, charging, and connectivity even when
+                // the user allows mobile data; device conditions may change
+                // during a long image download.
+                if (total >= nextNetworkCheck) {
                     if (!shouldDownload()) {
                         Log.d(TAG, "Stopping wallpaper download after Wi-Fi became unavailable");
                         return null;
