@@ -1562,6 +1562,14 @@ public class LockGlympsService extends Service {
         DisplayMetrics metrics = getResources().getDisplayMetrics();
         int targetWidth = Math.max(1440, metrics.widthPixels);
         int targetHeight = Math.max(2560, metrics.heightPixels);
+        return calculateDecodeSampleForDisplay(width, height, targetWidth, targetHeight);
+    }
+
+    // Package-private so the decoder's memory ceiling can be tested without
+    // creating a SystemUI service instance or downloading a real image.
+    static int calculateDecodeSampleForDisplay(
+            int width, int height, int targetWidth, int targetHeight) {
+        if (width <= 0 || height <= 0) return 1;
 
         int sample = 1;
         while (sample < 128
