@@ -130,6 +130,8 @@ public class LockGlympsService extends Service {
     private static final String LOCK_GLYMPS_NO_REPEAT = "lock_glymps_no_repeat";
     private static final String LOCK_GLYMPS_WIFI_ONLY = "lock_glymps_wifi_only";
     private static final String LOCK_GLYMPS_CACHE_SIZE = "lock_glymps_cache_size";
+    private static final String LOCK_GLYMPS_CACHE_LIMIT_MB = "lock_glymps_cache_limit_mb";
+    private static final String LOCK_GLYMPS_DAILY_LIMIT_MB = "lock_glymps_daily_limit_mb";
     private static final String LOCK_GLYMPS_CUSTOM_URLS = "lock_glymps_custom_urls";
     private static final String LOCK_GLYMPS_CHANGE_ON = "lock_glymps_change_on";
     private static final String LOCK_GLYMPS_TIMER_INTERVAL = "lock_glymps_timer_interval";
@@ -174,6 +176,8 @@ public class LockGlympsService extends Service {
     private volatile boolean mSfwOnly = true;
     private volatile boolean mNoRepeat = true;
     private volatile int mCacheSize = 5;
+    private volatile long mCacheByteLimit = 32L * 1024 * 1024;
+    private volatile long mDailyNetworkByteLimit = 64L * 1024 * 1024;
     private volatile int mChangeOn = 1;
     private volatile long mTimerInterval = DEFAULT_TIMER_INTERVAL;
     private volatile int mWallpaperTarget = TARGET_LOCK_SCREEN;
@@ -384,6 +388,14 @@ public class LockGlympsService extends Service {
                             getContentResolver(), LOCK_GLYMPS_CACHE_SIZE, 5),
                     1,
                     MAX_CACHE_SIZE);
+            mCacheByteLimit = clamp(
+                    Settings.System.getInt(
+                            getContentResolver(), LOCK_GLYMPS_CACHE_LIMIT_MB, 32),
+                    16, 64) * 1024L * 1024L;
+            mDailyNetworkByteLimit = clamp(
+                    Settings.System.getInt(
+                            getContentResolver(), LOCK_GLYMPS_DAILY_LIMIT_MB, 64),
+                    32, 128) * 1024L * 1024L;
             mChangeOn = clamp(
                     Settings.System.getInt(
                             getContentResolver(), LOCK_GLYMPS_CHANGE_ON, 1),
@@ -619,7 +631,7 @@ public class LockGlympsService extends Service {
         resetNetworkBudgetIfNewDay();
         return mNetworkBudgetPreferences.getInt("requests", 0) < MAX_NETWORK_REQUESTS_PER_DAY
                 && mNetworkBudgetPreferences.getLong("reserved_bytes", 0L)
-                        < MAX_NETWORK_BYTES_PER_DAY;
+                        < mDailyNetworkByteLimit;
     }
 
     private synchronized boolean reserveNetworkRequest() {
@@ -638,7 +650,7 @@ public class LockGlympsService extends Service {
         }
         resetNetworkBudgetIfNewDay();
         long previous = mNetworkBudgetPreferences.getLong("reserved_bytes", 0L);
-        if (previous > MAX_NETWORK_BYTES_PER_DAY - bytes) {
+        if (previous > mDailyNetworkByteLimit - bytes) {
             return false;
         }
         return mNetworkBudgetPreferences.edit()
@@ -733,6 +745,7 @@ public class LockGlympsService extends Service {
         int maxAttempts = Math.max(4, mCacheSize * 4);
 
         while (cacheCount < mCacheSize
+                && getCachedWallpaperBytes() + MAX_DOWNLOAD_BYTES <= mCacheByteLimit
                 && canStartNetworkRequest()
                 && attempts < maxAttempts
                 && generation == mConfigGeneration.get()
@@ -2427,6 +2440,16 @@ public class LockGlympsService extends Service {
         return files == null ? 0 : files.length;
     }
 
+    private long getCachedWallpaperBytes() {
+        File[] files = listCacheFiles();
+        if (files == null) return 0L;
+        long total = 0L;
+        for (File file : files) {
+            total += Math.max(0L, file.length());
+        }
+        return total;
+    }
+
     private File[] listCacheFiles() {
         if (mCacheDir == null) return null;
         return mCacheDir.listFiles((dir, name) ->
@@ -2440,7 +2463,8 @@ public class LockGlympsService extends Service {
                 + provider.replaceAll("[^a-zA-Z0-9_-]", "_")
                 + "_";
 
-        File[] files = mCacheDir.listFiles((dir, name) -> name.startsWith(prefix));
+        File[] files = mCacheDir.listFiles((dir, name) ->
+                name.startsWith(prefix) && name.endsWith(".img"));
         if (files == null || files.length == 0) return null;
 
         Arrays.sort(files, Comparator.comparingLong(File::lastModified));
@@ -2491,7 +2515,7 @@ public class LockGlympsService extends Service {
 
         int remaining = files.length;
         for (File file : files) {
-            if (remaining <= mCacheSize && totalBytes <= MAX_CACHE_BYTES) {
+            if (remaining <= mCacheSize && totalBytes <= mCacheByteLimit) {
                 break;
             }
 
@@ -2501,7 +2525,7 @@ public class LockGlympsService extends Service {
                 remaining--;
             }
         }
-        if (remaining > mCacheSize || totalBytes > MAX_CACHE_BYTES) {
+        if (remaining > mCacheSize || totalBytes > mCacheByteLimit) {
             Log.w(TAG, "Glymps cache still exceeds limits; could not delete all old files");
         }
     }
