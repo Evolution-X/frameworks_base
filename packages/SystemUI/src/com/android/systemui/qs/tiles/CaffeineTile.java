@@ -92,7 +92,9 @@ public class CaffeineTile extends QSTileImpl<BooleanState> {
                 return;
             }
             refreshUserActivity();
-            mHandler.postDelayed(this, USER_ACTIVITY_INTERVAL_MILLIS);
+            if (mCanRefreshUserActivity) {
+                mHandler.postDelayed(this, USER_ACTIVITY_INTERVAL_MILLIS);
+            }
         }
     };
 
@@ -144,6 +146,8 @@ public class CaffeineTile extends QSTileImpl<BooleanState> {
 
     @Override
     protected void handleClick(@Nullable Expandable expandable) {
+        Log.d(TAG, "QS tap, held=" + mWakeLock.isHeld()
+                + ", durationIndex=" + mDurationIndex);
         final long now = SystemClock.elapsedRealtime();
         if (mWakeLock.isHeld() && mLastClickTime >= 0
                 && now - mLastClickTime < CLICK_CYCLE_WINDOW_MILLIS) {
@@ -212,11 +216,16 @@ public class CaffeineTile extends QSTileImpl<BooleanState> {
         mHandler.removeCallbacks(mKeepScreenAwake);
         if (mPowerManager.isInteractive()) {
             refreshUserActivity();
-            mHandler.postDelayed(mKeepScreenAwake, USER_ACTIVITY_INTERVAL_MILLIS);
+            if (mCanRefreshUserActivity) {
+                mHandler.postDelayed(mKeepScreenAwake, USER_ACTIVITY_INTERVAL_MILLIS);
+            }
         } else {
+            Log.w(TAG, "Activation rejected: display is not interactive");
             stopCaffeine();
             return;
         }
+        Log.d(TAG, "Caffeine active, durationIndex=" + durationIndex
+                + ", wakeLockHeld=" + mWakeLock.isHeld());
 
         if (durationIndex == INFINITE_DURATION_INDEX) {
             mDeadlineElapsedMillis = 0;
