@@ -26,6 +26,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -54,6 +56,7 @@ import androidx.compose.ui.unit.sp
 import com.android.systemui.common.ui.compose.load
 import com.android.compose.ui.graphics.painter.rememberDrawablePainter
 import com.android.systemui.res.R
+import com.android.systemui.statusbar.pipeline.mobile.ui.NetworkTypeIconVisibility
 import com.android.systemui.statusbar.pipeline.mobile.ui.model.DualSim
 import com.android.systemui.statusbar.pipeline.mobile.ui.viewmodel.StackedMobileIconViewModel
 import com.android.systemui.statusbar.pipeline.shared.ui.composable.StackedMobileIconDimensions.BarBaseHeightFiveBarsSp
@@ -88,6 +91,10 @@ fun StackedMobileIcon(viewModel: StackedMobileIconViewModel, modifier: Modifier 
     val dualSim = viewModel.dualSim ?: return
 
     val contentColor = LocalContentColor.current
+    val context = LocalContext.current
+    val showNetworkType by remember(context) {
+        NetworkTypeIconVisibility.observe(context)
+    }.collectAsState(initial = NetworkTypeIconVisibility.enabled(context))
     val padding = with(LocalDensity.current) { IconPaddingSp.toDp() }
     val horizontalArrangement = with(LocalDensity.current) { spacedBy(IconSpacingSp.toDp()) }
 
@@ -96,7 +103,9 @@ fun StackedMobileIcon(viewModel: StackedMobileIconViewModel, modifier: Modifier 
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier.padding(horizontal = padding),
     ) {
-        if (viewModel.activityContainerVisible) {
+        if (viewModel.activityContainerVisible &&
+            (viewModel.activityInVisible || viewModel.activityOutVisible)
+        ) {
             ActivityIndicators(
                 isActivityInVisible = viewModel.activityInVisible,
                 isActivityOutVisible = viewModel.activityOutVisible,
@@ -104,7 +113,7 @@ fun StackedMobileIcon(viewModel: StackedMobileIconViewModel, modifier: Modifier 
             )
         }
 
-        viewModel.networkTypeIcon?.let {
+        viewModel.networkTypeIcon?.takeIf { showNetworkType }?.let {
             // Provide the RAT context needed for the resource overlays
             val ratContext = viewModel.mobileContext ?: LocalContext.current
             CompositionLocalProvider(LocalContext provides ratContext) {

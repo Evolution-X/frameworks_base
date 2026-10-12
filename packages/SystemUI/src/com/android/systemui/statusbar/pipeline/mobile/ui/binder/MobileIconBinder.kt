@@ -36,6 +36,8 @@ import com.android.systemui.lifecycle.repeatWhenAttached
 import com.android.systemui.plugins.DarkIconDispatcher
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.StatusBarIconView
+import com.android.systemui.statusbar.phone.StatusBarLocation
+import com.android.systemui.statusbar.pipeline.mobile.ui.NetworkTypeIconVisibility
 import com.android.systemui.statusbar.connectivity.ThemeIconController
 import com.android.systemui.statusbar.StatusBarIconView.STATE_HIDDEN
 import com.android.systemui.statusbar.core.NewStatusBarIcons
@@ -47,6 +49,8 @@ import com.android.systemui.statusbar.pipeline.shared.ui.binder.ModernStatusBarV
 import com.android.systemui.util.kotlin.pairwiseBy
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 data class MobileIconColors(@ColorInt val tint: Int, @ColorInt val contrast: Int)
@@ -221,7 +225,15 @@ object MobileIconBinder {
 
                     // Set the network type icon
                     launch {
-                        viewModel.networkTypeIcon.distinctUntilChanged().collect { dataTypeId ->
+                        val showTypeBadge =
+                            if (viewModel.location == StatusBarLocation.HOME) {
+                                NetworkTypeIconVisibility.observe(view.context)
+                            } else {
+                                flowOf(true)
+                            }
+                        combine(viewModel.networkTypeIcon, showTypeBadge) { icon, show ->
+                            if (show) icon else null
+                        }.distinctUntilChanged().collect { dataTypeId ->
                             viewModel.verboseLogger?.logBinderReceivedNetworkTypeIcon(
                                 view,
                                 viewModel.subscriptionId,

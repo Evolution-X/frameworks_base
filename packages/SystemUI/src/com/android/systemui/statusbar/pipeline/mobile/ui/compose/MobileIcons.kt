@@ -52,8 +52,9 @@ fun MobileIcons(
         )
     } else {
         val mobileSubViewModels = state.mobileSubViewModels
-        val iconPaddingSp = 4.sp
-        val iconSpacingSp = 2.sp
+        // Keep dual-SIM groups compact; other icon containers already provide spacing.
+        val iconPaddingSp = 1.sp
+        val iconSpacingSp = 1.sp
         val padding = with(LocalDensity.current) { iconPaddingSp.toDp() }
         val spacing = with(LocalDensity.current) { iconSpacingSp.toDp() }
 
