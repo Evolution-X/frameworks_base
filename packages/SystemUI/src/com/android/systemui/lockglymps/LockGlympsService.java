@@ -98,6 +98,8 @@ public class LockGlympsService extends Service {
     private static final int MAX_REDIRECTS = 5;
     private static final int MAX_SOURCE_DIMENSION = 16384;
     private static final long MAX_SOURCE_PIXELS = 120_000_000L;
+    // Keep decoded ARGB_8888 bitmaps below roughly 32 MiB in SystemUI.
+    private static final long MAX_DECODED_PIXELS = 8_000_000L;
     private static final long MAX_DOWNLOAD_BYTES = 12L * 1024L * 1024L;
     private static final long MAX_CACHE_BYTES = 64L * 1024L * 1024L;
     private static final int MAX_JSON_RESPONSE_CHARS = 2 * 1024 * 1024;
@@ -239,7 +241,9 @@ public class LockGlympsService extends Service {
         }
 
         loadSettings();
-        // Respect the user's persisted cache-size selection before pruning.
+        // A fresh service has no active downloads: remove orphaned temp files
+        // immediately, then honor the user's persisted cache limits.
+        clearOrphanedTemporaryFiles();
         cleanOldCache();
 
         if (mEnabled) {
@@ -747,7 +751,7 @@ public class LockGlympsService extends Service {
         int maxAttempts = Math.max(4, mCacheSize * 4);
 
         while (cacheCount < mCacheSize
-                && getCachedWallpaperBytes() + MAX_DOWNLOAD_BYTES <= mCacheByteLimit
+                && getCachedWallpaperBytes() < mCacheByteLimit
                 && canStartNetworkRequest()
                 && attempts < maxAttempts
                 && generation == mConfigGeneration.get()
@@ -769,14 +773,18 @@ public class LockGlympsService extends Service {
             String fileName = buildCacheFileName(download.candidate);
             File cacheFile = new File(mCacheDir, fileName);
 
-            if (saveBitmapToFile(download.bitmap, cacheFile)) {
-                cleanOldCache();
-                cacheCount = countCacheFiles();
-                Log.d(TAG, "Cached " + download.candidate.provider
-                        + " wallpaper as " + cacheFile.getName());
-            }
-
+            boolean saved = saveBitmapToFile(download.bitmap, cacheFile);
             download.bitmap.recycle();
+            if (!saved) {
+                // Do not keep downloading candidates when there is not enough
+                // room for the encoded result within the selected cache limit.
+                Log.d(TAG, "Stopping Glymps prefetch: cache quota or disk limit reached");
+                break;
+            }
+            cleanOldCache();
+            cacheCount = countCacheFiles();
+            Log.d(TAG, "Cached " + download.candidate.provider
+                    + " wallpaper as " + cacheFile.getName());
         }
 
         cleanOldCache();
@@ -1890,12 +1898,20 @@ public class LockGlympsService extends Service {
         int targetHeight = Math.max(2560, metrics.heightPixels);
 
         int sample = 1;
-        while (sample <= 64
+        while (sample < 128
                 && width / (sample * 2) >= targetWidth
                 && height / (sample * 2) >= targetHeight) {
             sample *= 2;
         }
-        return Math.max(1, sample);
+        // Very wide or tall images can exceed the memory budget even when
+        // their smallest side is near the display size. Never decode these
+        // full-size inside the SystemUI process.
+        while (sample < 128
+                && ((long) ((width + sample - 1) / sample))
+                        * ((height + sample - 1) / sample) > MAX_DECODED_PIXELS) {
+            sample *= 2;
+        }
+        return sample;
     }
 
     private boolean candidateAllowed(WallpaperCandidate candidate) {
@@ -2420,6 +2436,11 @@ public class LockGlympsService extends Service {
             Log.w(TAG, "Unable to save cached wallpaper", e);
         }
 
+        if (written && tempFile.length() + getCachedWallpaperBytes() > mCacheByteLimit) {
+            Log.d(TAG, "Encoded wallpaper exceeds remaining configured cache space");
+            written = false;
+        }
+
         if (written) {
             if (file.exists() && !file.delete()) {
                 Log.d(TAG, "Unable to replace old wallpaper cache entry");
@@ -2480,6 +2501,23 @@ public class LockGlympsService extends Service {
 
         Arrays.sort(files, Comparator.comparingLong(File::lastModified));
         return files[0];
+    }
+
+    /**
+     * The service has one download worker, so at creation time there cannot be
+     * a valid in-flight temporary wallpaper. Remove partial files left behind
+     * by a killed process instead of letting many restarts fill the cache.
+     */
+    private void clearOrphanedTemporaryFiles() {
+        if (mCacheDir == null) return;
+        File[] orphaned = mCacheDir.listFiles(
+                (dir, name) -> name.startsWith("glymps_") && name.endsWith(".tmp"));
+        if (orphaned == null) return;
+        for (File file : orphaned) {
+            if (file.isFile() && !file.delete()) {
+                Log.w(TAG, "Unable to clear leftover wallpaper download");
+            }
+        }
     }
 
     private void cleanOldCache() {
