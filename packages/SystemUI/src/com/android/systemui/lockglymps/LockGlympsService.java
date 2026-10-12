@@ -711,7 +711,7 @@ public class LockGlympsService extends Service {
                 break;
             }
 
-            String fileName = buildCacheFileName(download.candidate);
+            String fileName = buildCacheFileName(download.candidate, query);
             File cacheFile = new File(mCacheDir, fileName);
 
             boolean saved = saveBitmapToFile(download.bitmap, cacheFile);
@@ -732,7 +732,7 @@ public class LockGlympsService extends Service {
     }
 
     private WallpaperDownload downloadFromProviderPool(String query, boolean onlineOnly) {
-        List<String> providers = getProviderOrder(onlineOnly);
+        List<String> providers = getProviderOrder(onlineOnly, query);
 
         for (String provider : providers) {
             if (PROVIDER_LOCAL_FOLDER.equals(provider)) {
@@ -761,7 +761,7 @@ public class LockGlympsService extends Service {
         return null;
     }
 
-    private List<String> getProviderOrder(boolean onlineOnly) {
+    private List<String> getProviderOrder(boolean onlineOnly, String query) {
         ArrayList<String> available = new ArrayList<>();
 
         List<String> providerSnapshot = mProviders;
@@ -780,7 +780,7 @@ public class LockGlympsService extends Service {
                 if (hasLocalWallpapers()) {
                     available.add(provider);
                 }
-            } else if (hasCachedWallpaper(provider) || isProviderAvailable(provider)) {
+            } else if (hasCachedWallpaper(provider, query) || isProviderAvailable(provider)) {
                 // Cached wallpapers remain usable even while a provider is rate
                 // limited or temporarily lacks credentials.
                 available.add(provider);
@@ -837,14 +837,22 @@ public class LockGlympsService extends Service {
         }
     }
 
-    private boolean hasCachedWallpaper(String provider) {
+    /**
+     * Each cached image is tied to the exact topic/tone query that selected it.
+     * An image prefetched for "space" must not later satisfy "flowers".
+     * Old unscoped cache files are ignored and will expire during pruning.
+     */
+    private String cacheQueryPrefix(String provider, String query) {
+        return "glymps_" + provider.replaceAll("[^a-zA-Z0-9_-]", "_")
+                + "_" + stableHash(query) + "_";
+    }
+
+    private boolean hasCachedWallpaper(String provider, String query) {
         if (mCacheDir == null || isBlank(provider)) return false;
 
-        String prefix = "glymps_"
-                + provider.replaceAll("[^a-zA-Z0-9_-]", "_")
-                + "_";
+        String prefix = cacheQueryPrefix(provider, query);
         File[] files = mCacheDir.listFiles(
-                (dir, name) -> name.startsWith(prefix) && !name.endsWith(".tmp"));
+                (dir, name) -> name.startsWith(prefix) && name.endsWith(".img"));
         return files != null && files.length > 0;
     }
 
@@ -1926,7 +1934,7 @@ public class LockGlympsService extends Service {
         Bitmap bitmap = null;
         try {
             String query = nextSearchQuery();
-            List<String> providerOrder = getProviderOrder(false);
+            List<String> providerOrder = getProviderOrder(false, query);
 
             for (String provider : providerOrder) {
                 if (PROVIDER_LOCAL_FOLDER.equals(provider)) {
@@ -1940,7 +1948,7 @@ public class LockGlympsService extends Service {
                     continue;
                 }
 
-                File cached = getCachedWallpaper(provider);
+                File cached = getCachedWallpaper(provider, query);
                 if (cached != null) {
                     bitmap = decodeCachedWallpaper(cached);
                     if (!cached.delete()) {
@@ -1960,17 +1968,6 @@ public class LockGlympsService extends Service {
                 if (download != null) {
                     bitmap = download.bitmap;
                     break;
-                }
-            }
-
-            // Generic cache fallback is useful when a provider is temporarily offline.
-            if (bitmap == null) {
-                File fallback = getAnyCachedWallpaper();
-                if (fallback != null) {
-                    bitmap = decodeCachedWallpaper(fallback);
-                    if (!fallback.delete()) {
-                        Log.d(TAG, "Unable to delete fallback cache file: " + fallback.getName());
-                    }
                 }
             }
 
@@ -2097,10 +2094,11 @@ public class LockGlympsService extends Service {
         }
     }
 
-    private String buildCacheFileName(WallpaperCandidate candidate) {
+    private String buildCacheFileName(WallpaperCandidate candidate, String query) {
         String provider = candidate.provider.replaceAll("[^a-zA-Z0-9_-]", "_");
         String id = stableHash(candidate.historyKey);
-        return "glymps_" + provider + "_" + id + "_" + System.currentTimeMillis() + ".img";
+        return "glymps_" + provider + "_" + stableHash(query) + "_" + id
+                + "_" + System.currentTimeMillis() + ".img";
     }
 
     private boolean saveBitmapToFile(Bitmap bitmap, File file) {
@@ -2178,23 +2176,13 @@ public class LockGlympsService extends Service {
                 name.startsWith("glymps_") && name.endsWith(".img"));
     }
 
-    private File getCachedWallpaper(String provider) {
+    private File getCachedWallpaper(String provider, String query) {
         if (mCacheDir == null || provider == null) return null;
 
-        String prefix = "glymps_"
-                + provider.replaceAll("[^a-zA-Z0-9_-]", "_")
-                + "_";
+        String prefix = cacheQueryPrefix(provider, query);
 
         File[] files = mCacheDir.listFiles((dir, name) ->
                 name.startsWith(prefix) && name.endsWith(".img"));
-        if (files == null || files.length == 0) return null;
-
-        Arrays.sort(files, Comparator.comparingLong(File::lastModified));
-        return files[0];
-    }
-
-    private File getAnyCachedWallpaper() {
-        File[] files = listCacheFiles();
         if (files == null || files.length == 0) return null;
 
         Arrays.sort(files, Comparator.comparingLong(File::lastModified));
