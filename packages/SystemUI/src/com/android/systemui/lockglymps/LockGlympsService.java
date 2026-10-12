@@ -1465,7 +1465,8 @@ public class LockGlympsService extends Service {
             }
 
             if (mCacheDir == null
-                    || mCacheDir.getUsableSpace() < MIN_FREE_DISK_BYTES) {
+                    || mCacheDir.getUsableSpace()
+                            < MIN_FREE_DISK_BYTES + MAX_DOWNLOAD_BYTES) {
                 Log.w(TAG, "Skipping wallpaper download: disk space is low");
                 return null;
             }
@@ -2104,7 +2105,8 @@ public class LockGlympsService extends Service {
 
     private boolean saveBitmapToFile(Bitmap bitmap, File file) {
         if (bitmap == null || file == null || file.getParentFile() == null
-                || file.getParentFile().getUsableSpace() < MIN_FREE_DISK_BYTES) {
+                || file.getParentFile().getUsableSpace()
+                        < MIN_FREE_DISK_BYTES + MAX_DOWNLOAD_BYTES) {
             return false;
         }
 
