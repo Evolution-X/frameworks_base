@@ -82,7 +82,13 @@ public class LockGlympsService extends Service {
     static final String ACTION_APPLY_NOW =
             "com.android.systemui.lockglymps.action.APPLY_NOW";
 
-    private static final int MAX_CACHE_SIZE = 10;
+    private static final int MAX_CACHE_SIZE = 8;
+    private static final long WALLPAPER_CACHE_RETENTION_MS = 7L * 24 * 60 * 60 * 1000;
+    private static final long TEMP_CACHE_RETENTION_MS = 24L * 60 * 60 * 1000;
+    private static final long MIN_FREE_DISK_BYTES = 128L * 1024 * 1024;
+    private static final int MAX_NETWORK_REQUESTS_PER_DAY = 48;
+    private static final long MAX_NETWORK_BYTES_PER_DAY = 128L * 1024 * 1024;
+    private static final long NETWORK_BUDGET_CHUNK_BYTES = 1024L * 1024;
     private static final int MAX_HISTORY_SIZE = 160;
     private static final int MAX_CUSTOM_URLS = 100;
     private static final int MAX_CUSTOM_URL_LENGTH = 4096;
@@ -92,12 +98,12 @@ public class LockGlympsService extends Service {
     private static final int MAX_REDIRECTS = 5;
     private static final int MAX_SOURCE_DIMENSION = 16384;
     private static final long MAX_SOURCE_PIXELS = 120_000_000L;
-    private static final long MAX_DOWNLOAD_BYTES = 50L * 1024L * 1024L;
-    private static final long MAX_CACHE_BYTES = 160L * 1024L * 1024L;
+    private static final long MAX_DOWNLOAD_BYTES = 12L * 1024L * 1024L;
+    private static final long MAX_CACHE_BYTES = 64L * 1024L * 1024L;
     private static final int MAX_JSON_RESPONSE_CHARS = 2 * 1024 * 1024;
     private static final long MAX_JSON_CACHE_BYTES = 4L * 1024L * 1024L;
-    private static final int MAX_API_CACHE_FILES = 128;
-    private static final long MAX_API_CACHE_BYTES = 32L * 1024L * 1024L;
+    private static final int MAX_API_CACHE_FILES = 32;
+    private static final long MAX_API_CACHE_BYTES = 8L * 1024L * 1024L;
     private static final int CONNECTION_TIMEOUT = 20000;
     private static final int READ_TIMEOUT = 30000;
     private static final int SCREEN_ON_DELAY = 800;
@@ -161,6 +167,7 @@ public class LockGlympsService extends Service {
     private Runnable mTimerRunnable;
     private SharedPreferences mHistoryPreferences;
     private SharedPreferences mCachePreferences;
+    private SharedPreferences mNetworkBudgetPreferences;
 
     private volatile boolean mEnabled;
     private volatile boolean mWifiOnly = true;
@@ -204,6 +211,8 @@ public class LockGlympsService extends Service {
         mRandom = new Random();
         mHistoryPreferences = getSharedPreferences("lock_glymps_history", MODE_PRIVATE);
         mCachePreferences = getSharedPreferences("lock_glymps_cache_meta", MODE_PRIVATE);
+        mNetworkBudgetPreferences = getSharedPreferences(
+                "lock_glymps_network_budget", MODE_PRIVATE);
         loadHistory();
 
         mCacheDir = new File(getCacheDir(), "lock_glymps");
@@ -211,6 +220,8 @@ public class LockGlympsService extends Service {
             Log.w(TAG, "Unable to create wallpaper cache directory");
         }
 
+        // Enforce quotas when restarting, including after a force-stop during a download.
+        cleanOldCache();
         mApiCacheDir = new File(getCacheDir(), "lock_glymps_api");
         if (!mApiCacheDir.exists() && !mApiCacheDir.mkdirs()) {
             Log.w(TAG, "Unable to create provider response cache directory");
@@ -626,16 +637,18 @@ public class LockGlympsService extends Service {
             return;
         }
 
-        if (!hasOnlineProvider()) {
+        if (!hasOnlineProvider() || !canStartNetworkRequest()) {
             return;
         }
 
+        cleanOldCache();
         final int generation = mConfigGeneration.get();
         int cacheCount = countCacheFiles();
         int attempts = 0;
         int maxAttempts = Math.max(4, mCacheSize * 4);
 
         while (cacheCount < mCacheSize
+                && canStartNetworkRequest()
                 && attempts < maxAttempts
                 && generation == mConfigGeneration.get()
                 && !mWallpaperChangePending.get()
@@ -657,7 +670,8 @@ public class LockGlympsService extends Service {
             File cacheFile = new File(mCacheDir, fileName);
 
             if (saveBitmapToFile(download.bitmap, cacheFile)) {
-                cacheCount++;
+                cleanOldCache();
+                cacheCount = countCacheFiles();
                 Log.d(TAG, "Cached " + download.candidate.provider
                         + " wallpaper as " + cacheFile.getName());
             }
@@ -774,13 +788,12 @@ public class LockGlympsService extends Service {
             // Keep these legacy identifiers recognized, but do not issue requests.
             case PROVIDER_PEXELS:
             case PROVIDER_UNSPLASH:
+            case PROVIDER_PIXABAY:
                 return false;
             case PROVIDER_PEXELS:
                 return !isBlank(mPexelsApiKey);
             case PROVIDER_UNSPLASH:
                 return !isBlank(mUnsplashApiKey);
-            case PROVIDER_PIXABAY:
-                return !isBlank(mPixabayApiKey);
             case PROVIDER_CUSTOM_URLS:
                 return !mCustomUrls.isEmpty();
             case PROVIDER_LOCAL_FOLDER:
@@ -818,12 +831,11 @@ public class LockGlympsService extends Service {
                     return fetchWallhavenCandidate(query, attempt);
                 case PROVIDER_OPENVERSE:
                     return fetchOpenverseCandidate(query, attempt);
+                // Legacy IDs are ignored rather than starting key-based downloads.
                 case PROVIDER_PEXELS:
-                    return fetchPexelsCandidate(query, attempt);
                 case PROVIDER_UNSPLASH:
-                    return fetchUnsplashCandidate(query, attempt);
                 case PROVIDER_PIXABAY:
-                    return fetchPixabayCandidate(query, attempt);
+                    return null;
                 case PROVIDER_PICSUM:
                     return buildPicsumCandidate();
                 case PROVIDER_CUSTOM_URLS:
@@ -2536,7 +2548,6 @@ public class LockGlympsService extends Service {
         return PROVIDER_WALLHAVEN.equals(provider)
                 || PROVIDER_OPENVERSE.equals(provider)
                 || PROVIDER_PICSUM.equals(provider)
-                || PROVIDER_PIXABAY.equals(provider)
                 || PROVIDER_CUSTOM_URLS.equals(provider)
                 || PROVIDER_LOCAL_FOLDER.equals(provider);
     }
