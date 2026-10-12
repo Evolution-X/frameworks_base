@@ -49,6 +49,24 @@ public class LockGlympsSelectionTest {
     }
 
     @Test
+    public void changingNativeResolutionInvalidatesPreviouslyCachedSelection() {
+        String base = LockGlympsService.cacheQueryPrefix(
+                "openverse", "night sky", "1080", "portrait");
+        String higher = LockGlympsService.cacheQueryPrefix(
+                "openverse", "night sky", "4320", "portrait");
+        assertThat(base).isNotEqualTo(higher);
+    }
+
+    @Test
+    public void changingOrientationInvalidatesPreviouslyCachedSelection() {
+        String portrait = LockGlympsService.cacheQueryPrefix(
+                "wallhaven", "nature", "2160", "portrait");
+        String landscape = LockGlympsService.cacheQueryPrefix(
+                "wallhaven", "nature", "2160", "landscape");
+        assertThat(portrait).isNotEqualTo(landscape);
+    }
+
+    @Test
     public void recoverOnlyTheImageIdentityNotTheTimestamp() {
         String prefix = LockGlympsService.cacheQueryPrefix("openverse", "forest");
         File cached = new File(prefix + "abc123_1791780000000.img");
