@@ -29,6 +29,7 @@ import android.os.Looper;
 import android.os.PowerManager;
 import android.os.SystemClock;
 import android.service.quicksettings.Tile;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 
@@ -48,27 +49,61 @@ import com.android.systemui.res.R;
 
 import javax.inject.Inject;
 
-/** Quick settings tile: Caffeine **/
+/**
+ * Quick Settings tile that keeps the display awake for a selected amount of time.
+ *
+ * <p>Screen wake locks can be ignored by device power policies. While Caffeine is enabled,
+ * the tile additionally refreshes the user-activity timeout. Unlike a window flag, this
+ * works when switching apps. Explicit screen-off always ends the session.
+ */
 public class CaffeineTile extends QSTileImpl<BooleanState> {
 
     public static final String TILE_SPEC = "caffeine";
 
-    @Nullable
-    private Icon mIcon = null;
-
-    private final PowerManager.WakeLock mWakeLock;
-    private int mSecondsRemaining;
-    private int mDuration;
-    private static int[] DURATIONS = new int[] {
-        5 * 60,   // 5 min
-        10 * 60,  // 10 min
-        30 * 60,  // 30 min
-        -1,       // infinity
+    private static final String TAG = "CaffeineTile";
+    private static final long CLICK_CYCLE_WINDOW_MILLIS = 5_000L;
+    private static final long USER_ACTIVITY_INTERVAL_MILLIS = 3_000L;
+    private static final int[] DURATIONS_SECONDS = {
+        5 * 60,   // 5 minutes
+        10 * 60,  // 10 minutes
+        30 * 60,  // 30 minutes
+        -1,       // Until manually stopped
     };
-    private static final int INFINITE_DURATION_INDEX = DURATIONS.length - 1;
-    private CountDownTimer mCountdownTimer = null;
-    public long mLastClickTime = -1;
+    private static final int INFINITE_DURATION_INDEX = DURATIONS_SECONDS.length - 1;
+
+    @Nullable
+    private Icon mIcon;
+
+    private final PowerManager mPowerManager;
+    private final PowerManager.WakeLock mWakeLock;
     private final Receiver mReceiver = new Receiver();
+    private boolean mCanRefreshUserActivity = true;
+
+    private final Runnable mKeepScreenAwake = new Runnable() {
+        @Override
+        public void run() {
+            if (!mWakeLock.isHeld()) {
+                return;
+            }
+            // User-initiated sleep or another display-off event must always win.
+            if (!mPowerManager.isInteractive()) {
+                stopCaffeine();
+                refreshState();
+                return;
+            }
+            refreshUserActivity();
+            if (mCanRefreshUserActivity) {
+                mHandler.postDelayed(this, USER_ACTIVITY_INTERVAL_MILLIS);
+            }
+        }
+    };
+
+    @Nullable
+    private CountDownTimer mCountdownTimer;
+    private int mDurationIndex = -1;
+    private int mSecondsRemaining;
+    private long mDeadlineElapsedMillis;
+    private long mLastClickTime = -1;
 
     @Inject
     public CaffeineTile(
@@ -84,8 +119,11 @@ public class CaffeineTile extends QSTileImpl<BooleanState> {
     ) {
         super(host, uiEventLogger, backgroundLooper, mainHandler, falsingManager, metricsLogger,
                 statusBarStateController, activityStarter, qsLogger);
-        mWakeLock = mContext.getSystemService(PowerManager.class).newWakeLock(
+        mPowerManager = mContext.getSystemService(PowerManager.class);
+        mWakeLock = mPowerManager.newWakeLock(
                 PowerManager.FULL_WAKE_LOCK, "CaffeineTile");
+        // The tile represents a single active request, not a collection of nested locks.
+        mWakeLock.setReferenceCounted(false);
         mReceiver.init();
     }
 
@@ -96,72 +134,54 @@ public class CaffeineTile extends QSTileImpl<BooleanState> {
 
     @Override
     protected void handleDestroy() {
-        super.handleDestroy();
-        stopCountDown();
         mReceiver.destroy();
-        if (mWakeLock.isHeld()) {
-            mWakeLock.release();
-        }
+        stopCaffeine();
+        super.handleDestroy();
     }
 
     @Override
     public void handleSetListening(boolean listening) {
+        super.handleSetListening(listening);
     }
 
     @Override
     protected void handleClick(@Nullable Expandable expandable) {
-        // If last user clicks < 5 seconds
-        // we cycle different duration
-        // otherwise toggle on/off
-        if (mWakeLock.isHeld() && (mLastClickTime != -1) &&
-                (SystemClock.elapsedRealtime() - mLastClickTime < 5000)) {
-            // cycle duration
-            mDuration++;
-            if (mDuration >= DURATIONS.length) {
-                // all durations cycled, turn if off
-                mDuration = -1;
-                stopCountDown();
-                if (mWakeLock.isHeld()) {
-                    mWakeLock.release();
-                }
+        Log.d(TAG, "QS tap, held=" + mWakeLock.isHeld()
+                + ", durationIndex=" + mDurationIndex);
+        final long now = SystemClock.elapsedRealtime();
+        if (mWakeLock.isHeld() && mLastClickTime >= 0
+                && now - mLastClickTime < CLICK_CYCLE_WINDOW_MILLIS) {
+            // Consecutive taps cycle through 5, 10, 30 minutes, infinity, then off.
+            final int nextIndex = mDurationIndex + 1;
+            if (nextIndex >= DURATIONS_SECONDS.length) {
+                stopCaffeine();
             } else {
-                // change duration
-                startCountDown(DURATIONS[mDuration]);
-                if (!mWakeLock.isHeld()) {
-                    mWakeLock.acquire();
-                }
+                startCaffeine(nextIndex);
             }
+        } else if (mWakeLock.isHeld()) {
+            stopCaffeine();
         } else {
-            // toggle
-            if (mWakeLock.isHeld()) {
-                mWakeLock.release();
-                stopCountDown();
-            } else {
-                mWakeLock.acquire();
-                mDuration = 0;
-                startCountDown(DURATIONS[mDuration]);
-            }
+            startCaffeine(0);
         }
-        mLastClickTime = SystemClock.elapsedRealtime();
+
+        mLastClickTime = mWakeLock.isHeld() ? now : -1;
         refreshState();
     }
 
     @Override
     protected void handleLongClick(@Nullable Expandable expandable) {
-        if (mWakeLock.isHeld()) {
-            if (mDuration == INFINITE_DURATION_INDEX) {
-                return;
-            }
-        } else {
-            mWakeLock.acquire();
+        if (mWakeLock.isHeld() && mDurationIndex == INFINITE_DURATION_INDEX) {
+            return;
         }
-        mDuration = INFINITE_DURATION_INDEX;
-        startCountDown(DURATIONS[INFINITE_DURATION_INDEX]);
+        startCaffeine(INFINITE_DURATION_INDEX);
+        // The next short tap should stop infinity, not unexpectedly cycle durations.
+        mLastClickTime = -1;
         refreshState();
     }
 
     @Override
     public Intent getLongClickIntent() {
+        // Long press is handled in-place rather than opening another activity.
         return null;
     }
 
@@ -175,72 +195,170 @@ public class CaffeineTile extends QSTileImpl<BooleanState> {
         return VIEW_UNKNOWN;
     }
 
-    private void startCountDown(long duration) {
+    private void startCaffeine(int durationIndex) {
         stopCountDown();
-        mSecondsRemaining = (int) duration;
-        if (duration == -1) {
-            // infinity timing, no need to start timer
+        mDurationIndex = durationIndex;
+        mSecondsRemaining = DURATIONS_SECONDS[durationIndex];
+
+        if (!mWakeLock.isHeld()) {
+            try {
+                mWakeLock.acquire();
+            } catch (SecurityException | IllegalArgumentException e) {
+                Log.e(TAG, "Unable to acquire the display wake lock", e);
+                stopCaffeine();
+                return;
+            }
+        }
+
+        // A screen wake lock is not sufficient on all modern device power policies.
+        // Refresh the system's actual inactivity timer as well, without permanently
+        // modifying the user's SCREEN_OFF_TIMEOUT preference.
+        mHandler.removeCallbacks(mKeepScreenAwake);
+        if (mPowerManager.isInteractive()) {
+            refreshUserActivity();
+            if (mCanRefreshUserActivity) {
+                mHandler.postDelayed(mKeepScreenAwake, USER_ACTIVITY_INTERVAL_MILLIS);
+            }
+        } else {
+            Log.w(TAG, "Activation rejected: display is not interactive");
+            stopCaffeine();
             return;
         }
-        mCountdownTimer = new CountDownTimer(duration * 1000, 1000) {
+        Log.d(TAG, "Caffeine active, durationIndex=" + durationIndex
+                + ", wakeLockHeld=" + mWakeLock.isHeld());
+
+        if (durationIndex == INFINITE_DURATION_INDEX) {
+            mDeadlineElapsedMillis = 0;
+            return;
+        }
+
+        final long durationMillis = mSecondsRemaining * 1_000L;
+        // elapsedRealtime is monotonic: changing the wall clock cannot extend the timer.
+        mDeadlineElapsedMillis = SystemClock.elapsedRealtime() + durationMillis;
+        mCountdownTimer = new CountDownTimer(durationMillis, 1_000L) {
             @Override
             public void onTick(long millisUntilFinished) {
-                mSecondsRemaining = (int) (millisUntilFinished / 1000);
+                // Ignore callbacks from a timer that has already been replaced or cancelled.
+                if (mCountdownTimer != this || !mWakeLock.isHeld()) {
+                    return;
+                }
+                updateRemainingSeconds();
+                if (mSecondsRemaining == 0) {
+                    stopCaffeine();
+                }
                 refreshState();
             }
 
             @Override
             public void onFinish() {
-                if (mWakeLock.isHeld()) {
-                    mWakeLock.release();
+                if (mCountdownTimer != this) {
+                    return;
                 }
+                stopCaffeine();
                 refreshState();
             }
-
         }.start();
     }
 
+    private void refreshUserActivity() {
+        if (!mCanRefreshUserActivity) {
+            return;
+        }
+        try {
+            mPowerManager.userActivity(SystemClock.uptimeMillis(),
+                    PowerManager.USER_ACTIVITY_EVENT_OTHER, 0);
+        } catch (SecurityException e) {
+            // Keep the legacy display lock active even on ROMs without this permission.
+            mCanRefreshUserActivity = false;
+            Log.w(TAG, "User activity fallback unavailable; using screen wake lock only", e);
+        }
+    }
+
+    private void stopCaffeine() {
+        mHandler.removeCallbacks(mKeepScreenAwake);
+        stopCountDown();
+        if (mWakeLock.isHeld()) {
+            mWakeLock.release();
+        }
+        mDurationIndex = -1;
+        mSecondsRemaining = 0;
+        mDeadlineElapsedMillis = 0;
+        mLastClickTime = -1;
+    }
+
     private void stopCountDown() {
-        if (mCountdownTimer != null) {
-            mCountdownTimer.cancel();
-            mCountdownTimer = null;
+        final CountDownTimer timer = mCountdownTimer;
+        mCountdownTimer = null;
+        if (timer != null) {
+            timer.cancel();
+        }
+    }
+
+    private void updateRemainingSeconds() {
+        if (mDurationIndex == INFINITE_DURATION_INDEX) {
+            mSecondsRemaining = -1;
+        } else if (mDurationIndex >= 0) {
+            final long remainingMillis =
+                    Math.max(0L, mDeadlineElapsedMillis - SystemClock.elapsedRealtime());
+            // Round up so an active timer does not prematurely display 00:00.
+            mSecondsRemaining = (int) ((remainingMillis + 999L) / 1_000L);
         }
     }
 
     private String formatValueWithRemainingTime() {
         if (mSecondsRemaining == -1) {
-            return "\u221E"; // infinity
+            return "∞";
         }
-        return String.format("%02d:%02d", mSecondsRemaining / 60 % 60, mSecondsRemaining % 60);
+        return String.format("%02d:%02d", mSecondsRemaining / 60,
+                mSecondsRemaining % 60);
     }
 
     @Override
     protected void handleUpdateState(BooleanState state, Object arg) {
+        // The system may release a display wake lock externally, e.g. on forced screen-off.
+        if (!mWakeLock.isHeld() && mDurationIndex >= 0) {
+            stopCaffeine();
+        } else if (mWakeLock.isHeld() && mDurationIndex != INFINITE_DURATION_INDEX) {
+            updateRemainingSeconds();
+            if (mSecondsRemaining == 0) {
+                stopCaffeine();
+            }
+        }
+
         state.value = mWakeLock.isHeld();
         if (mIcon == null) {
             mIcon = maybeLoadResourceIcon(R.drawable.ic_qs_caffeine);
         }
         state.icon = mIcon;
-        state.label = mContext.getString(R.string.quick_settings_caffeine_label);
-        state.hasLongClickEffect = false;
+        final CharSequence caffeineLabel = mContext.getString(R.string.quick_settings_caffeine_label);
+        // Some compact QS layouts omit secondaryLabel altogether. Show the countdown
+        // as the primary label while active so the time remains visible.
+        state.label = state.value ? formatValueWithRemainingTime() : caffeineLabel;
+        state.handlesLongClick = true;
+        state.hasLongClickEffect = true;
         if (state.value) {
-            state.secondaryLabel = formatValueWithRemainingTime();
-            state.contentDescription =  mContext.getString(
-                    R.string.accessibility_quick_settings_caffeine_on);
+            state.secondaryLabel = caffeineLabel;
+            state.contentDescription = mContext.getString(
+                    R.string.accessibility_quick_settings_caffeine_on)
+                    + ", " + formatValueWithRemainingTime();
             state.state = Tile.STATE_ACTIVE;
         } else {
             state.secondaryLabel = null;
-            state.contentDescription =  mContext.getString(
+            state.contentDescription = mContext.getString(
                     R.string.accessibility_quick_settings_caffeine_off);
             state.state = Tile.STATE_INACTIVE;
         }
     }
 
+    // Package-private for lifecycle regression tests.
+    void handleScreenOff() {
+        stopCaffeine();
+        refreshState();
+    }
+
     private final class Receiver extends BroadcastReceiver {
         public void init() {
-            // Register for Intent broadcasts for...
-            IntentFilter filter = new IntentFilter();
-            filter.addAction(Intent.ACTION_SCREEN_OFF);
+            final IntentFilter filter = new IntentFilter(Intent.ACTION_SCREEN_OFF);
             mContext.registerReceiver(this, filter, null, mHandler);
         }
 
@@ -250,14 +368,8 @@ public class CaffeineTile extends QSTileImpl<BooleanState> {
 
         @Override
         public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            if (Intent.ACTION_SCREEN_OFF.equals(action)) {
-                // disable caffeine if user force off (power button)
-                stopCountDown();
-                if (mWakeLock.isHeld()) {
-                    mWakeLock.release();
-                }
-                refreshState();
+            if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
+                handleScreenOff();
             }
         }
     }
