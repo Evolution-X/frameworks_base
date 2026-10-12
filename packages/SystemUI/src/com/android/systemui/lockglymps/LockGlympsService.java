@@ -853,8 +853,25 @@ public class LockGlympsService extends Service {
                 .append("?q=").append(Uri.encode(query))
                 .append("&license=cc0,pdm")
                 .append("&mature=false")
+                .append("&size=large")
                 .append("&page_size=30")
                 .append("&page=").append(1 + Math.min(4, Math.max(0, attempt)));
+
+        // Apply orientation at the provider to avoid downloading pages of
+        // unsuitable landscape images for a portrait phone.
+        switch (mOrientation) {
+            case "portrait":
+                url.append("&aspect_ratio=tall");
+                break;
+            case "landscape":
+                url.append("&aspect_ratio=wide");
+                break;
+            case "square":
+                url.append("&aspect_ratio=square");
+                break;
+            default:
+                break;
+        }
 
         if ("latest".equals(mOrder)) {
             url.append("&unstable__sort_by=indexed_on");
