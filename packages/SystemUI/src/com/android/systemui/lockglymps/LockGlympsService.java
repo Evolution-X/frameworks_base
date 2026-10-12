@@ -1211,15 +1211,22 @@ public class LockGlympsService extends Service {
             BufferedReader reader = new BufferedReader(
                     new InputStreamReader(stream, StandardCharsets.UTF_8));
 
-            StringBuilder body = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (body.length() + line.length() > MAX_JSON_RESPONSE_CHARS) {
+            // Never use readLine() for untrusted JSON: an unbounded line
+            // could allocate a large String before the size check runs.
+            StringBuilder body = new StringBuilder(Math.min(MAX_JSON_RESPONSE_CHARS, 8192));
+            char[] chunk = new char[4096];
+            int read;
+            while ((read = reader.read(chunk, 0, chunk.length)) != -1) {
+                if (Thread.currentThread().isInterrupted()
+                        || !shouldDownload()) {
+                    return null;
+                }
+                if (read > MAX_JSON_RESPONSE_CHARS - body.length()) {
                     Log.w(TAG, provider + " API response exceeded safety limit");
                     coolDownProvider(provider, DEFAULT_PROVIDER_COOLDOWN);
                     return null;
                 }
-                body.append(line);
+                body.append(chunk, 0, read);
             }
 
             JSONObject result = new JSONObject(body.toString());
