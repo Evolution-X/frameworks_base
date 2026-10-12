@@ -875,7 +875,7 @@ public class LockGlympsService extends Service {
      * An image prefetched for "space" must not later satisfy "flowers".
      * Old unscoped cache files are ignored and will expire during pruning.
      */
-    private String cacheQueryPrefix(String provider, String query) {
+    static String cacheQueryPrefix(String provider, String query) {
         return "glymps_" + provider.replaceAll("[^a-zA-Z0-9_-]", "_")
                 + "_" + stableHash(query) + "_";
     }
@@ -1323,7 +1323,7 @@ public class LockGlympsService extends Service {
         }
     }
 
-    private String stableHash(String value) {
+    private static String stableHash(String value) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] bytes = digest.digest(value.getBytes(StandardCharsets.UTF_8));
@@ -1648,7 +1648,7 @@ public class LockGlympsService extends Service {
     }
 
     /** Recover a stable image identity from the scoped cache file name. */
-    private String cachedHistoryKey(File file) {
+    static String cachedHistoryKey(File file) {
         if (file == null) return null;
         String name = file.getName();
         if (!name.endsWith(".img")) return null;
