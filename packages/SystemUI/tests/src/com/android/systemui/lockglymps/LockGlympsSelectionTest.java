@@ -56,6 +56,32 @@ public class LockGlympsSelectionTest {
     }
 
     @Test
+    public void native4kAnd8kRequireActualSourcePixels() {
+        assertThat(LockGlympsService.meetsNativeResolution(
+                3840, 2160, "2160")).isTrue();
+        assertThat(LockGlympsService.meetsNativeResolution(
+                1920, 1080, "2160")).isFalse();
+        assertThat(LockGlympsService.meetsNativeResolution(
+                7680, 4320, "4320")).isTrue();
+        assertThat(LockGlympsService.meetsNativeResolution(
+                7680, 4319, "4320")).isFalse();
+        assertThat(LockGlympsService.meetsNativeResolution(
+                3840, 2160, "4320")).isFalse();
+        assertThat(LockGlympsService.meetsNativeResolution(
+                4320, 7680, "4320")).isTrue();
+    }
+
+    @Test
+    public void higherResolutionRemainsSubjectToBoundedDataCaps() {
+        assertThat(LockGlympsService.downloadLimitForResolution("auto"))
+                .isEqualTo(12L * 1024L * 1024L);
+        assertThat(LockGlympsService.downloadLimitForResolution("2160"))
+                .isEqualTo(16L * 1024L * 1024L);
+        assertThat(LockGlympsService.downloadLimitForResolution("4320"))
+                .isEqualTo(24L * 1024L * 1024L);
+    }
+
+    @Test
     public void rejectInvalidCacheFileSuffix() {
         assertThat(LockGlympsService.cachedHistoryKey(new File("bad.jpg"))).isNull();
     }
