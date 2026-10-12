@@ -121,6 +121,7 @@ public class LockGlympsService extends Service {
     private static final String LOCK_GLYMPS_ENABLED = "lock_glymps_enabled";
     private static final String LOCK_GLYMPS_LEGACY_SOURCE = "lock_glymps_source";
     private static final String LOCK_GLYMPS_PROVIDERS = "lock_glymps_providers";
+    private static final String LOCK_GLYMPS_CATEGORY_STRATEGY = "lock_glymps_category_strategy";
     private static final String LOCK_GLYMPS_CATEGORIES = "lock_glymps_categories";
     private static final String LOCK_GLYMPS_PROVIDER_STRATEGY = "lock_glymps_provider_strategy";
     private static final String LOCK_GLYMPS_MIN_RESOLUTION = "lock_glymps_min_resolution";
@@ -181,6 +182,7 @@ public class LockGlympsService extends Service {
     private volatile int mWallpaperTarget = TARGET_LOCK_SCREEN;
 
     private volatile String mProviderStrategy = "balanced";
+    private volatile String mCategoryStrategy = "round_robin";
     private volatile String mMinResolution = "auto";
     private volatile String mOrientation = "portrait";
     private volatile String mTone = "any";
@@ -198,6 +200,7 @@ public class LockGlympsService extends Service {
 
     private int mRoundRobinIndex;
     private int mCategoryIndex;
+    private int mLastCategoryIndex = -1;
     private Runnable mPendingWallpaperChange;
 
     @Override
@@ -212,6 +215,7 @@ public class LockGlympsService extends Service {
         mCachePreferences = getSharedPreferences("lock_glymps_cache_meta", MODE_PRIVATE);
         // Continue cycling through the user's categories across service restarts.
         mCategoryIndex = Math.max(0, mCachePreferences.getInt("category_cursor", 0));
+        mLastCategoryIndex = mCachePreferences.getInt("last_category_index", -1);
         mNetworkBudgetPreferences = getSharedPreferences(
                 "lock_glymps_network_budget", MODE_PRIVATE);
         mCooldownPreferences = getSharedPreferences(
@@ -450,6 +454,10 @@ public class LockGlympsService extends Service {
                             getContentResolver(), LOCK_GLYMPS_PROVIDER_STRATEGY),
                     "balanced",
                     "balanced", "priority", "random", "round_robin");
+            mCategoryStrategy = sanitizeChoice(
+                    Settings.System.getString(
+                            getContentResolver(), LOCK_GLYMPS_CATEGORY_STRATEGY),
+                    "round_robin", "round_robin", "random");
             mMinResolution = sanitizeChoice(
                     Settings.System.getString(
                             getContentResolver(), LOCK_GLYMPS_MIN_RESOLUTION),
@@ -1761,10 +1769,25 @@ public class LockGlympsService extends Service {
             return applyToneToQuery("nature");
         }
 
-        int index = Math.floorMod(mCategoryIndex++, categories.size());
-        if (mCategoryIndex < 0) mCategoryIndex = 0;
+        int index;
+        if ("random".equals(mCategoryStrategy) && categories.size() > 1) {
+            int last = mLastCategoryIndex;
+            if (last >= 0 && last < categories.size()) {
+                // Avoid immediately repeating the last selected topic.
+                int choice = mRandom.nextInt(categories.size() - 1);
+                index = choice >= last ? choice + 1 : choice;
+            } else {
+                index = mRandom.nextInt(categories.size());
+            }
+        } else {
+            index = Math.floorMod(mCategoryIndex++, categories.size());
+            if (mCategoryIndex < 0) mCategoryIndex = 0;
+        }
+        mLastCategoryIndex = index;
         if (mCachePreferences != null) {
-            mCachePreferences.edit().putInt("category_cursor", mCategoryIndex).apply();
+            mCachePreferences.edit()
+                    .putInt("category_cursor", mCategoryIndex)
+                    .putInt("last_category_index", index).apply();
         }
         String category = categories.get(index);
         return applyToneToQuery(categoryQuery(category));
