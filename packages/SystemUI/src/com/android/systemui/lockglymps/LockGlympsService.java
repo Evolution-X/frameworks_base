@@ -87,6 +87,7 @@ public class LockGlympsService extends Service {
     private static final long TEMP_CACHE_RETENTION_MS = 24L * 60 * 60 * 1000;
     private static final long MIN_FREE_DISK_BYTES = 128L * 1024 * 1024;
     private static final int MAX_NETWORK_REQUESTS_PER_DAY = 48;
+    private static final int MAX_PREFETCH_IMAGES_PER_RUN = 2;
     private static final long MAX_NETWORK_BYTES_PER_DAY = 128L * 1024 * 1024;
     private static final long NETWORK_BUDGET_CHUNK_BYTES = 1024L * 1024;
     private static final int MAX_HISTORY_SIZE = 160;
@@ -129,6 +130,7 @@ public class LockGlympsService extends Service {
     private static final String LOCK_GLYMPS_SFW_ONLY = "lock_glymps_sfw_only";
     private static final String LOCK_GLYMPS_NO_REPEAT = "lock_glymps_no_repeat";
     private static final String LOCK_GLYMPS_WIFI_ONLY = "lock_glymps_wifi_only";
+    private static final String LOCK_GLYMPS_CHARGING_ONLY = "lock_glymps_charging_only";
     private static final String LOCK_GLYMPS_CACHE_SIZE = "lock_glymps_cache_size";
     private static final String LOCK_GLYMPS_CACHE_LIMIT_MB = "lock_glymps_cache_limit_mb";
     private static final String LOCK_GLYMPS_DAILY_LIMIT_MB = "lock_glymps_daily_limit_mb";
@@ -167,6 +169,7 @@ public class LockGlympsService extends Service {
 
     private volatile boolean mEnabled;
     private volatile boolean mWifiOnly = true;
+    private volatile boolean mChargingOnly = false;
     private volatile boolean mSfwOnly = true;
     private volatile boolean mNoRepeat = true;
     private volatile int mCacheSize = 5;
@@ -363,6 +366,8 @@ public class LockGlympsService extends Service {
                     getContentResolver(), LOCK_GLYMPS_ENABLED, 0) == 1;
             mWifiOnly = Settings.System.getInt(
                     getContentResolver(), LOCK_GLYMPS_WIFI_ONLY, 1) == 1;
+            mChargingOnly = Settings.System.getInt(
+                    getContentResolver(), LOCK_GLYMPS_CHARGING_ONLY, 0) == 1;
             mSfwOnly = Settings.System.getInt(
                     getContentResolver(), LOCK_GLYMPS_SFW_ONLY, 1) == 1;
             mNoRepeat = Settings.System.getInt(
@@ -652,6 +657,16 @@ public class LockGlympsService extends Service {
     }
 
     private boolean shouldDownload() {
+        PowerManager power = getSystemService(PowerManager.class);
+        if (power != null && power.isPowerSaveMode()) {
+            return false;
+        }
+        if (mChargingOnly) {
+            android.os.BatteryManager battery = getSystemService(
+                    android.os.BatteryManager.class);
+            if (battery == null || !battery.isCharging()) return false;
+        }
+
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
         if (cm == null) return false;
 
@@ -669,10 +684,10 @@ public class LockGlympsService extends Service {
             return true;
         }
 
-        // Do not infer the VPN's path from *other* connected Wi-Fi networks:
-        // a VPN might actually route downloads over cellular. Fail closed for
-        // VPNs with mixed Wi-Fi and cellular transports in Wi-Fi-only mode.
-        return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+        // Refuse Wi-Fi hotspots marked metered, and VPNs whose transport
+        // could silently route over cellular when Wi-Fi-only is selected.
+        return !cm.isActiveNetworkMetered()
+                && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
                 && !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR);
     }
 
@@ -689,9 +704,11 @@ public class LockGlympsService extends Service {
         final int generation = mConfigGeneration.get();
         int cacheCount = countCacheFiles();
         int attempts = 0;
-        int maxAttempts = Math.max(4, mCacheSize * 4);
+        int additions = 0;
+        int maxAttempts = MAX_PREFETCH_IMAGES_PER_RUN * 3;
 
         while (cacheCount < mCacheSize
+                && additions < MAX_PREFETCH_IMAGES_PER_RUN
                 && getCachedWallpaperBytes() < mCacheByteLimit
                 && canStartNetworkRequest()
                 && attempts < maxAttempts
@@ -724,6 +741,7 @@ public class LockGlympsService extends Service {
             }
             cleanOldCache();
             cacheCount = countCacheFiles();
+            additions++;
             Log.d(TAG, "Cached " + download.candidate.provider
                     + " wallpaper as " + cacheFile.getName());
         }
@@ -987,7 +1005,8 @@ public class LockGlympsService extends Service {
         StringBuilder url = new StringBuilder("https://wallhaven.cc/api/v1/search")
                 .append("?q=").append(Uri.encode(query))
                 .append("&categories=111")
-                .append("&purity=").append(mSfwOnly ? "100" : "110")
+                // Unauthenticated Wallhaven searches support SFW only.
+                .append("&purity=100")
                 .append("&sorting=").append(sorting)
                 .append("&order=desc");
 
