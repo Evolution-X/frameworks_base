@@ -266,9 +266,7 @@ public class LockGlympsService extends Service {
             String oldContentSignature = getContentSignature();
             List<String> oldProviders = new ArrayList<>(mProviders);
             loadSettings();
-            resetProviderCooldownsAfterConfigChange(
-
-
+            resetProviderCooldownsAfterConfigChange(oldProviders);
             if (!mEnabled) {
                 stopTimer();
                 unregisterScreenReceiver();
