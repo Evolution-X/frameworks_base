@@ -890,10 +890,6 @@ public class LockGlympsService extends Service {
             case PROVIDER_UNSPLASH:
             case PROVIDER_PIXABAY:
                 return false;
-            case PROVIDER_PEXELS:
-                return !isBlank(mPexelsApiKey);
-            case PROVIDER_UNSPLASH:
-                return !isBlank(mUnsplashApiKey);
             case PROVIDER_CUSTOM_URLS:
                 return !mCustomUrls.isEmpty();
             case PROVIDER_LOCAL_FOLDER:
