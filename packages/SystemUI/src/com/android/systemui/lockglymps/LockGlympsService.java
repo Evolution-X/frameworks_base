@@ -225,7 +225,6 @@ public class LockGlympsService extends Service {
         }
 
         // Enforce quotas when restarting, including after a force-stop during a download.
-        cleanOldCache();
         mApiCacheDir = new File(getCacheDir(), "lock_glymps_api");
         if (!mApiCacheDir.exists() && !mApiCacheDir.mkdirs()) {
             Log.w(TAG, "Unable to create provider response cache directory");
@@ -240,6 +239,8 @@ public class LockGlympsService extends Service {
         }
 
         loadSettings();
+        // Respect the user's persisted cache-size selection before pruning.
+        cleanOldCache();
 
         if (mEnabled) {
             registerScreenReceiver();
@@ -389,14 +390,14 @@ public class LockGlympsService extends Service {
                             getContentResolver(), LOCK_GLYMPS_CACHE_SIZE, 5),
                     1,
                     MAX_CACHE_SIZE);
-            mCacheByteLimit = clamp(
+            mCacheByteLimit = Math.min(MAX_CACHE_BYTES, clamp(
                     Settings.System.getInt(
                             getContentResolver(), LOCK_GLYMPS_CACHE_LIMIT_MB, 32),
-                    16, 64) * 1024L * 1024L;
-            mDailyNetworkByteLimit = clamp(
+                    16, 64) * 1024L * 1024L);
+            mDailyNetworkByteLimit = Math.min(MAX_NETWORK_BYTES_PER_DAY, clamp(
                     Settings.System.getInt(
                             getContentResolver(), LOCK_GLYMPS_DAILY_LIMIT_MB, 64),
-                    32, 128) * 1024L * 1024L;
+                    32, 128) * 1024L * 1024L);
             mChangeOn = clamp(
                     Settings.System.getInt(
                             getContentResolver(), LOCK_GLYMPS_CHANGE_ON, 1),
