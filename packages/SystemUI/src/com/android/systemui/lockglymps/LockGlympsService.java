@@ -2076,6 +2076,7 @@ public class LockGlympsService extends Service {
 
         Bitmap bitmap = null;
         String appliedHistoryKey = null;
+        File consumedCacheFile = null;
         try {
             String query = nextSearchQuery();
             List<String> providerOrder = getProviderOrder(false, query);
@@ -2095,10 +2096,15 @@ public class LockGlympsService extends Service {
                 File cached = getCachedWallpaper(provider, query);
                 if (cached != null) {
                     bitmap = decodeCachedWallpaper(cached);
-                    if (!cached.delete()) {
-                        Log.d(TAG, "Unable to delete consumed cache file: " + cached.getName());
+                    if (bitmap == null) {
+                        // Remove unreadable files so the next wallpaper change does
+                        // not keep selecting the same broken cache entry.
+                        if (!cached.delete()) {
+                            Log.w(TAG, "Unable to remove invalid wallpaper cache entry");
+                        }
                     }
                     if (bitmap != null) {
+                        consumedCacheFile = cached;
                         appliedHistoryKey = cachedHistoryKey(cached);
                         noteProviderSuccess(provider);
                         break;
@@ -2124,10 +2130,10 @@ public class LockGlympsService extends Service {
                 if (cachedAlternative != null) {
                     bitmap = decodeCachedWallpaper(cachedAlternative);
                     if (bitmap != null) {
+                        consumedCacheFile = cachedAlternative;
                         appliedHistoryKey = cachedHistoryKey(cachedAlternative);
-                        if (!cachedAlternative.delete()) {
-                            Log.d(TAG, "Unable to remove consumed fallback cache entry");
-                        }
+                    } else if (!cachedAlternative.delete()) {
+                        Log.w(TAG, "Unable to remove invalid fallback cache entry");
                     }
                 }
             }
@@ -2140,6 +2146,9 @@ public class LockGlympsService extends Service {
 
                 if (setWallpaperFromBitmap(bitmap)) {
                     noteHistory(appliedHistoryKey);
+                    if (consumedCacheFile != null && !consumedCacheFile.delete()) {
+                        Log.w(TAG, "Unable to remove applied wallpaper cache entry");
+                    }
                     if (mExecutor != null && !mExecutor.isShutdown()) {
                         mExecutor.execute(this::preFetchWallpapers);
                     }
