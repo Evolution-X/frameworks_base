@@ -1,0 +1,62 @@
+/*
+ * Copyright (C) 2026 Evolution X contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.android.systemui.lockglymps;
+
+import static com.google.common.truth.Truth.assertThat;
+
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SmallTest;
+
+import java.io.File;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+/** Regression tests for wallpaper topic matching and recently applied identities. */
+@RunWith(AndroidJUnit4.class)
+@SmallTest
+public class LockGlympsSelectionTest {
+    @Test
+    public void separateSelectedTopicsDoNotShareWallpaperCacheNamespace() {
+        String mountain = LockGlympsService.cacheQueryPrefix("openverse", "mountains dark");
+        String flowers = LockGlympsService.cacheQueryPrefix("openverse", "flowers dark");
+        assertThat(mountain).isNotEqualTo(flowers);
+        assertThat(mountain).startsWith("glymps_openverse_");
+        assertThat(flowers).startsWith("glymps_openverse_");
+    }
+
+    @Test
+    public void sameSelectionUsesStableNamespaceAcrossServiceRestarts() {
+        String topic = "minimal architecture";
+        assertThat(LockGlympsService.cacheQueryPrefix("wallhaven", topic))
+                .isEqualTo(LockGlympsService.cacheQueryPrefix("wallhaven", topic));
+        assertThat(LockGlympsService.cacheQueryPrefix("wallhaven", topic))
+                .isNotEqualTo(LockGlympsService.cacheQueryPrefix("openverse", topic));
+    }
+
+    @Test
+    public void recoverOnlyTheImageIdentityNotTheTimestamp() {
+        String prefix = LockGlympsService.cacheQueryPrefix("openverse", "forest");
+        File cached = new File(prefix + "abc123_1791780000000.img");
+        assertThat(LockGlympsService.cachedHistoryKey(cached)).isEqualTo("seen:abc123");
+    }
+
+    @Test
+    public void rejectInvalidCacheFileSuffix() {
+        assertThat(LockGlympsService.cachedHistoryKey(new File("bad.jpg"))).isNull();
+    }
+}
