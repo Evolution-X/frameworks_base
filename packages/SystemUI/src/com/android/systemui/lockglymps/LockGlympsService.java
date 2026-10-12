@@ -2519,8 +2519,6 @@ public class LockGlympsService extends Service {
         return PROVIDER_WALLHAVEN.equals(provider)
                 || PROVIDER_OPENVERSE.equals(provider)
                 || PROVIDER_PICSUM.equals(provider)
-                || PROVIDER_PEXELS.equals(provider)
-                || PROVIDER_UNSPLASH.equals(provider)
                 || PROVIDER_PIXABAY.equals(provider)
                 || PROVIDER_CUSTOM_URLS.equals(provider)
                 || PROVIDER_LOCAL_FOLDER.equals(provider);
