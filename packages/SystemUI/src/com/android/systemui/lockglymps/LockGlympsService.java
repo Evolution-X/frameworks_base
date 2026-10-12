@@ -1456,8 +1456,11 @@ public class LockGlympsService extends Service {
         if (url == null) return false;
 
         String protocol = url.getProtocol();
+        // Privileged SystemUI must not fetch unencrypted images or expose
+        // userinfo to arbitrary servers through user-supplied image URLs.
         if (!"https".equalsIgnoreCase(protocol)
-                && !"http".equalsIgnoreCase(protocol)) {
+                || (url.getPort() != -1 && url.getPort() != 443)
+                || (url.getAuthority() != null && url.getAuthority().contains("@"))) {
             return false;
         }
 
@@ -2623,8 +2626,10 @@ public class LockGlympsService extends Service {
             try {
                 URL url = new URL(value);
                 String protocol = url.getProtocol();
-                if (("https".equalsIgnoreCase(protocol)
-                        || "http".equalsIgnoreCase(protocol))
+                if ("https".equalsIgnoreCase(protocol)
+                        && (url.getPort() == -1 || url.getPort() == 443)
+                        && url.getAuthority() != null
+                        && !url.getAuthority().contains("@")
                         && !isBlank(url.getHost())) {
                     result.add(value);
                 }
