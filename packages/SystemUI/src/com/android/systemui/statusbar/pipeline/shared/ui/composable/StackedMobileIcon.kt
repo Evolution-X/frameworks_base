@@ -103,7 +103,9 @@ fun StackedMobileIcon(viewModel: StackedMobileIconViewModel, modifier: Modifier 
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier.padding(horizontal = padding),
     ) {
-        if (viewModel.activityContainerVisible) {
+        if (viewModel.activityContainerVisible &&
+            (viewModel.activityInVisible || viewModel.activityOutVisible)
+        ) {
             ActivityIndicators(
                 isActivityInVisible = viewModel.activityInVisible,
                 isActivityOutVisible = viewModel.activityOutVisible,
