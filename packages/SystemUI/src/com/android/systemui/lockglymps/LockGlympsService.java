@@ -134,6 +134,7 @@ public class LockGlympsService extends Service {
     private static final String LOCK_GLYMPS_PIXABAY_API_KEY = "lock_glymps_pixabay_api_key";
 
     private static final String PROVIDER_WALLHAVEN = "wallhaven";
+    private static final String PROVIDER_OPENVERSE = "openverse";
     private static final String PROVIDER_PICSUM = "picsum";
     private static final String PROVIDER_PEXELS = "pexels";
     private static final String PROVIDER_UNSPLASH = "unsplash";
@@ -765,8 +766,15 @@ public class LockGlympsService extends Service {
 
         switch (provider) {
             case PROVIDER_WALLHAVEN:
+            case PROVIDER_OPENVERSE:
             case PROVIDER_PICSUM:
                 return true;
+            // Pexels prohibits using its API to provide a standalone wallpaper app.
+            // Unsplash requires hotlinking/attribution unavailable for device wallpapers.
+            // Keep these legacy identifiers recognized, but do not issue requests.
+            case PROVIDER_PEXELS:
+            case PROVIDER_UNSPLASH:
+                return false;
             case PROVIDER_PEXELS:
                 return !isBlank(mPexelsApiKey);
             case PROVIDER_UNSPLASH:
@@ -808,6 +816,8 @@ public class LockGlympsService extends Service {
             switch (provider) {
                 case PROVIDER_WALLHAVEN:
                     return fetchWallhavenCandidate(query, attempt);
+                case PROVIDER_OPENVERSE:
+                    return fetchOpenverseCandidate(query, attempt);
                 case PROVIDER_PEXELS:
                     return fetchPexelsCandidate(query, attempt);
                 case PROVIDER_UNSPLASH:
@@ -825,6 +835,64 @@ public class LockGlympsService extends Service {
             Log.w(TAG, "Provider " + provider + " failed while selecting a wallpaper", e);
             return null;
         }
+    }
+
+    /**
+     * Openverse searches openly licensed works. Restrict automatic wallpaper retrieval to
+     * Creative Commons Zero / public-domain works, so a background rotation does not
+     * silently omit attribution required by other Creative Commons licenses.
+     *
+     * Openverse may index third-party image hosts. The regular bounded downloader performs
+     * public-address checks on each candidate URL and limits both bytes and image dimensions.
+     */
+    private WallpaperCandidate fetchOpenverseCandidate(String query, int attempt) {
+        if (isBlank(query)) return null;
+
+        final StringBuilder url = new StringBuilder(
+                "https://api.openverse.org/v1/images/")
+                .append("?q=").append(Uri.encode(query))
+                .append("&license=cc0,pdm")
+                .append("&mature=false")
+                .append("&page_size=30")
+                .append("&page=").append(1 + Math.min(4, Math.max(0, attempt)));
+
+        if ("latest".equals(mOrder)) {
+            url.append("&unstable__sort_by=indexed_on");
+        }
+
+        JSONObject response = requestJson(
+                PROVIDER_OPENVERSE, url.toString(), Collections.emptyMap());
+        if (response == null) return null;
+
+        JSONArray results = response.optJSONArray("results");
+        if (results == null || results.length() == 0) return null;
+
+        for (int index : shuffledIndexes(results.length())) {
+            JSONObject item = results.optJSONObject(index);
+            if (item == null || item.optBoolean("mature", false)) continue;
+
+            String license = item.optString("license", "").toLowerCase(Locale.ROOT);
+            if (!"cc0".equals(license) && !"pdm".equals(license)) {
+                continue;
+            }
+
+            String id = item.optString("id", "");
+            String imageUrl = item.optString("url", "");
+            if (isBlank(id) || isBlank(imageUrl)) continue;
+
+            WallpaperCandidate candidate = new WallpaperCandidate(
+                    PROVIDER_OPENVERSE,
+                    id,
+                    imageUrl,
+                    PROVIDER_OPENVERSE + ":" + id,
+                    item.optInt("width", 0),
+                    item.optInt("height", 0),
+                    null);
+            if (candidateAllowed(candidate)) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     private WallpaperCandidate fetchWallhavenCandidate(String query, int attempt) {
@@ -2449,6 +2517,7 @@ public class LockGlympsService extends Service {
 
     private boolean isKnownProvider(String provider) {
         return PROVIDER_WALLHAVEN.equals(provider)
+                || PROVIDER_OPENVERSE.equals(provider)
                 || PROVIDER_PICSUM.equals(provider)
                 || PROVIDER_PEXELS.equals(provider)
                 || PROVIDER_UNSPLASH.equals(provider)
