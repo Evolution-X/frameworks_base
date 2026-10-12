@@ -230,6 +230,7 @@ public class LockGlympsService extends Service {
         if (!mApiCacheDir.exists() && !mApiCacheDir.mkdirs()) {
             Log.w(TAG, "Unable to create provider response cache directory");
         }
+        cleanApiCache();
 
         PowerManager pm = getSystemService(PowerManager.class);
         if (pm != null) {
@@ -617,7 +618,7 @@ public class LockGlympsService extends Service {
         if (mNetworkBudgetPreferences == null) return;
         // UTC days give predictable limits regardless of the user's locale.
         long day = System.currentTimeMillis() / (24L * 60 * 60 * 1000);
-        if (mNetworkBudgetPreferences.getLong("utc_day", -1L) != day) {
+        if (mNetworkBudgetPreferences.getLong("utc_day", -1L) < day) {
             mNetworkBudgetPreferences.edit()
                     .putLong("utc_day", day)
                     .putInt("requests", 0)
@@ -1660,6 +1661,11 @@ public class LockGlympsService extends Service {
                 throw new IOException("Blocked unsafe wallpaper URL");
             }
 
+            // Charge every HTTP hop, not just the initial URL. A redirect
+            // chain must not bypass the daily 48-request ceiling.
+            if (!reserveNetworkRequest()) {
+                throw new IOException("Glymps daily HTTP request cap reached");
+            }
             HttpURLConnection connection =
                     (HttpURLConnection) current.openConnection();
             connection.setConnectTimeout(CONNECTION_TIMEOUT);
@@ -1765,7 +1771,7 @@ public class LockGlympsService extends Service {
 
     private Bitmap downloadBitmap(WallpaperCandidate candidate) {
         if (candidate == null || isBlank(candidate.url)
-                || !reserveNetworkRequest()) return null;
+                || !canStartNetworkRequest()) return null;
 
         HttpURLConnection connection = null;
         InputStream input = null;
