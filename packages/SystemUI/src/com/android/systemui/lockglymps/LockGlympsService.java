@@ -101,6 +101,9 @@ public class LockGlympsService extends Service {
     // Keep decoded ARGB_8888 bitmaps below roughly 32 MiB in SystemUI.
     private static final long MAX_DECODED_PIXELS = 8_000_000L;
     private static final long MAX_DOWNLOAD_BYTES = 12L * 1024L * 1024L;
+    // Local images are not downloaded. Keep their on-disk safety ceiling
+    // independent from online bandwidth quotas, while still sampling decodes.
+    private static final long MAX_LOCAL_WALLPAPER_BYTES = 128L * 1024L * 1024L;
     private static final long MAX_4K_DOWNLOAD_BYTES = 16L * 1024L * 1024L;
     private static final long MAX_8K_DOWNLOAD_BYTES = 24L * 1024L * 1024L;
     private static final long MAX_CACHE_BYTES = 64L * 1024L * 1024L;
@@ -904,14 +907,30 @@ public class LockGlympsService extends Service {
      * Old unscoped cache files are ignored and will expire during pruning.
      */
     static String cacheQueryPrefix(String provider, String query) {
+        return cacheQueryPrefix(provider, query, "auto", "auto");
+    }
+
+    /**
+     * A filter change invalidates the old image cache namespace. The cached
+     * bitmap is display-sized, so its decoded dimensions cannot prove that
+     * the original download met a newly requested 4K/8K resolution.
+     */
+    static String cacheQueryPrefix(
+            String provider, String query, String resolution, String orientation) {
+        String filterKey = query + "|resolution=" + resolution
+                + "|orientation=" + orientation;
         return "glymps_" + provider.replaceAll("[^a-zA-Z0-9_-]", "_")
-                + "_" + stableHash(query) + "_";
+                + "_" + stableHash(filterKey) + "_";
+    }
+
+    private String currentCacheQueryPrefix(String provider, String query) {
+        return cacheQueryPrefix(provider, query, mMinResolution, mOrientation);
     }
 
     private boolean hasCachedWallpaper(String provider, String query) {
         if (mCacheDir == null || isBlank(provider)) return false;
 
-        String prefix = cacheQueryPrefix(provider, query);
+        String prefix = currentCacheQueryPrefix(provider, query);
         File[] files = mCacheDir.listFiles(
                 (dir, name) -> name.startsWith(prefix) && name.endsWith(".img"));
         if (files == null) return false;
@@ -1977,7 +1996,7 @@ public class LockGlympsService extends Service {
         }
 
         long length = file.length();
-        if (length <= 0L || length > getImageDownloadLimitBytes()) {
+        if (length <= 0L || length > MAX_LOCAL_WALLPAPER_BYTES) {
             return false;
         }
 
@@ -2275,7 +2294,7 @@ public class LockGlympsService extends Service {
     private String buildCacheFileName(WallpaperCandidate candidate, String query) {
         String provider = candidate.provider.replaceAll("[^a-zA-Z0-9_-]", "_");
         String id = stableHash(candidate.historyKey);
-        return "glymps_" + provider + "_" + stableHash(query) + "_" + id
+        return currentCacheQueryPrefix(provider, query) + id
                 + "_" + System.currentTimeMillis() + ".img";
     }
 
@@ -2357,7 +2376,7 @@ public class LockGlympsService extends Service {
     private File getCachedWallpaper(String provider, String query) {
         if (mCacheDir == null || provider == null) return null;
 
-        String prefix = cacheQueryPrefix(provider, query);
+        String prefix = currentCacheQueryPrefix(provider, query);
 
         File[] files = mCacheDir.listFiles((dir, name) ->
                 name.startsWith(prefix) && name.endsWith(".img"));
@@ -2382,7 +2401,7 @@ public class LockGlympsService extends Service {
         for (String provider : mProviders) {
             if (PROVIDER_LOCAL_FOLDER.equals(provider)) continue;
             for (String category : mCategories) {
-                allowedPrefixes.add(cacheQueryPrefix(
+                allowedPrefixes.add(currentCacheQueryPrefix(
                         provider, applyToneToQuery(categoryQuery(category))));
             }
         }
