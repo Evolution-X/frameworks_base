@@ -2204,6 +2204,32 @@ public class LockGlympsService extends Service {
         }
     }
 
+    private Bitmap decodeCachedWallpaper(File file) {
+        if (file == null || !file.isFile() || file.length() <= 0L
+                || file.length() > MAX_DOWNLOAD_BYTES) {
+            return null;
+        }
+        try {
+            BitmapFactory.Options bounds = new BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(file.getAbsolutePath(), bounds);
+            if (!isSafeImageBounds(bounds.outWidth, bounds.outHeight)) {
+                Log.w(TAG, "Skipping cached wallpaper with invalid dimensions");
+                return null;
+            }
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inSampleSize = calculateDecodeSample(bounds.outWidth, bounds.outHeight);
+            options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+            return BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+        } catch (OutOfMemoryError e) {
+            Log.w(TAG, "Skipping cached wallpaper that exceeded bitmap memory budget", e);
+            return null;
+        } catch (RuntimeException e) {
+            Log.w(TAG, "Unable to decode cached wallpaper", e);
+            return null;
+        }
+    }
+
     private String localHistoryKey(File file) {
         return PROVIDER_LOCAL_FOLDER + ":"
                 + stableHash(file.getAbsolutePath() + ":" + file.lastModified());
@@ -2241,7 +2267,7 @@ public class LockGlympsService extends Service {
 
                 File cached = getCachedWallpaper(provider);
                 if (cached != null) {
-                    bitmap = BitmapFactory.decodeFile(cached.getAbsolutePath());
+                    bitmap = decodeCachedWallpaper(cached);
                     if (!cached.delete()) {
                         Log.d(TAG, "Unable to delete consumed cache file: " + cached.getName());
                     }
@@ -2266,7 +2292,7 @@ public class LockGlympsService extends Service {
             if (bitmap == null) {
                 File fallback = getAnyCachedWallpaper();
                 if (fallback != null) {
-                    bitmap = BitmapFactory.decodeFile(fallback.getAbsolutePath());
+                    bitmap = decodeCachedWallpaper(fallback);
                     if (!fallback.delete()) {
                         Log.d(TAG, "Unable to delete fallback cache file: " + fallback.getName());
                     }
