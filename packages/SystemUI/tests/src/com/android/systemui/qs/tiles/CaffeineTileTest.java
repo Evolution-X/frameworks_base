@@ -102,7 +102,7 @@ public class CaffeineTileTest extends SysuiTestCase {
         mTile.handleClick(null);
         assertRemainingMinutes(30);
         mTile.handleClick(null);
-        assertThat(state().secondaryLabel).isEqualTo("∞");
+        assertThat(state().label).isEqualTo("∞");
         mTile.handleClick(null);
         assertThat(state().state).isEqualTo(Tile.STATE_INACTIVE);
         assertThat(state().secondaryLabel).isNull();
@@ -112,7 +112,7 @@ public class CaffeineTileTest extends SysuiTestCase {
     public void longClickActivatesInfinityAndNextClickStops() {
         mTile.handleLongClick(null);
         assertThat(state().state).isEqualTo(Tile.STATE_ACTIVE);
-        assertThat(state().secondaryLabel).isEqualTo("∞");
+        assertThat(state().label).isEqualTo("∞");
         assertThat(state().handlesLongClick).isTrue();
 
         mTile.handleClick(null);
@@ -134,7 +134,9 @@ public class CaffeineTileTest extends SysuiTestCase {
     private void assertRemainingMinutes(int minutes) {
         final BooleanState current = state();
         assertThat(current.state).isEqualTo(Tile.STATE_ACTIVE);
-        final String label = String.valueOf(current.secondaryLabel);
+        final String label = String.valueOf(current.label);
+        assertThat(current.secondaryLabel).isEqualTo(
+                mContext.getString(com.android.systemui.res.R.string.quick_settings_caffeine_label));
         // Accept a one-second scheduling delay and the test device's numeral locale.
         final String expected = String.format("%02d:", minutes);
         final String previous = String.format("%02d:", minutes - 1);
