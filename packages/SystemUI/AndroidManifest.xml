@@ -22,6 +22,10 @@
     xmlns:tools="http://schemas.android.com/tools"
     coreApp="true">
 
+    <permission
+        android:name="com.android.systemui.permission.CONTROL_LOCK_GLYMPS"
+        android:protectionLevel="signature" />
+
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- Used to read wallpaper -->
@@ -678,6 +682,12 @@
             android:name="com.android.systemui.lockglymps.LockGlympsService"
             android:enabled="true"
             android:exported="false" />
+
+        <receiver
+            android:name="com.android.systemui.lockglymps.LockGlympsControlReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="com.android.systemui.permission.CONTROL_LOCK_GLYMPS" />
 
         <receiver
             android:name="com.android.systemui.lockglymps.LockGlympsBootReceiver"
