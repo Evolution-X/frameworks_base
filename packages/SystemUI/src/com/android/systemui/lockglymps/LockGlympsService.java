@@ -101,6 +101,8 @@ public class LockGlympsService extends Service {
     // Keep decoded ARGB_8888 bitmaps below roughly 32 MiB in SystemUI.
     private static final long MAX_DECODED_PIXELS = 8_000_000L;
     private static final long MAX_DOWNLOAD_BYTES = 12L * 1024L * 1024L;
+    private static final long MAX_4K_DOWNLOAD_BYTES = 16L * 1024L * 1024L;
+    private static final long MAX_8K_DOWNLOAD_BYTES = 24L * 1024L * 1024L;
     private static final long MAX_CACHE_BYTES = 64L * 1024L * 1024L;
     private static final int MAX_JSON_RESPONSE_CHARS = 2 * 1024 * 1024;
     private static final long MAX_JSON_CACHE_BYTES = 4L * 1024L * 1024L;
@@ -880,8 +882,11 @@ public class LockGlympsService extends Service {
         switch (provider) {
             case PROVIDER_WALLHAVEN:
             case PROVIDER_OPENVERSE:
-            case PROVIDER_PICSUM:
                 return true;
+            case PROVIDER_PICSUM:
+                // Picsum doesn't advertise its source's native resolution,
+                // so a generated 8K URL is not evidence of an 8K source photo.
+                return !"4320".equals(mMinResolution);
             case PROVIDER_CUSTOM_URLS:
                 return !mCustomUrls.isEmpty();
             case PROVIDER_LOCAL_FOLDER:
@@ -1529,14 +1534,14 @@ public class LockGlympsService extends Service {
             }
 
             long contentLength = connection.getContentLengthLong();
-            if (contentLength > MAX_DOWNLOAD_BYTES) {
+            if (contentLength > getImageDownloadLimitBytes()) {
                 Log.w(TAG, "Skipping oversized wallpaper: " + contentLength + " bytes");
                 return null;
             }
 
             if (mCacheDir == null
                     || mCacheDir.getUsableSpace()
-                            < MIN_FREE_DISK_BYTES + MAX_DOWNLOAD_BYTES) {
+                            < MIN_FREE_DISK_BYTES + getImageDownloadLimitBytes()) {
                 Log.w(TAG, "Skipping wallpaper download: disk space is low");
                 return null;
             }
@@ -1555,7 +1560,7 @@ public class LockGlympsService extends Service {
                 }
 
                 total += read;
-                if (total > MAX_DOWNLOAD_BYTES) {
+                if (total > getImageDownloadLimitBytes()) {
                     Log.w(TAG, "Wallpaper exceeded download safety limit");
                     return null;
                 }
@@ -1626,6 +1631,18 @@ public class LockGlympsService extends Service {
         }
     }
 
+    /** Strict image-original size selection, not a request to upscale a smaller picture. */
+    private long getImageDownloadLimitBytes() {
+        switch (mMinResolution) {
+            case "4320":
+                return MAX_8K_DOWNLOAD_BYTES;
+            case "2160":
+                return MAX_4K_DOWNLOAD_BYTES;
+            default:
+                return MAX_DOWNLOAD_BYTES;
+        }
+    }
+
     private boolean isSafeImageBounds(int width, int height) {
         if (width <= 0 || height <= 0) return false;
         if (width > MAX_SOURCE_DIMENSION || height > MAX_SOURCE_DIMENSION) return false;
@@ -1691,6 +1708,15 @@ public class LockGlympsService extends Service {
         if (mNoRepeat && (historyContains(candidate.historyKey)
                 || historyContains("seen:" + stableHash(candidate.historyKey))
                 || isAlreadyCached(candidate))) {
+            return false;
+        }
+
+        if ((PROVIDER_WALLHAVEN.equals(candidate.provider)
+                || PROVIDER_OPENVERSE.equals(candidate.provider))
+                && ("2160".equals(mMinResolution) || "4320".equals(mMinResolution))
+                && (candidate.width <= 0 || candidate.height <= 0)) {
+            // In strict 4K/8K modes, skip unknown remote source dimensions
+            // rather than spending data only to discover it is too small.
             return false;
         }
 
@@ -1936,7 +1962,7 @@ public class LockGlympsService extends Service {
         }
 
         long length = file.length();
-        if (length <= 0L || length > MAX_DOWNLOAD_BYTES) {
+        if (length <= 0L || length > getImageDownloadLimitBytes()) {
             return false;
         }
 
@@ -1996,7 +2022,7 @@ public class LockGlympsService extends Service {
 
     private Bitmap decodeCachedWallpaper(File file) {
         if (file == null || !file.isFile() || file.length() <= 0L
-                || file.length() > MAX_DOWNLOAD_BYTES) {
+                || file.length() > getImageDownloadLimitBytes()) {
             return null;
         }
         try {
@@ -2232,7 +2258,7 @@ public class LockGlympsService extends Service {
     private boolean saveBitmapToFile(Bitmap bitmap, File file) {
         if (bitmap == null || file == null || file.getParentFile() == null
                 || file.getParentFile().getUsableSpace()
-                        < MIN_FREE_DISK_BYTES + MAX_DOWNLOAD_BYTES) {
+                        < MIN_FREE_DISK_BYTES + getImageDownloadLimitBytes()) {
             return false;
         }
 
@@ -2249,7 +2275,7 @@ public class LockGlympsService extends Service {
                 output.flush();
                 output.getFD().sync();
                 long encodedBytes = tempFile.length();
-                written = encodedBytes > 0L && encodedBytes <= MAX_DOWNLOAD_BYTES;
+                written = encodedBytes > 0L && encodedBytes <= getImageDownloadLimitBytes();
                 if (!written) {
                     Log.w(TAG, "Rejecting oversized or empty encoded wallpaper cache");
                 }
@@ -2383,7 +2409,7 @@ public class LockGlympsService extends Service {
                         && name.endsWith(".img")
                         && (age > WALLPAPER_CACHE_RETENTION_MS
                             || file.length() <= 0L
-                            || file.length() > MAX_DOWNLOAD_BYTES);
+                            || file.length() > getImageDownloadLimitBytes());
                 if ((expiredTemporary || invalidWallpaper) && !file.delete()) {
                     Log.w(TAG, "Unable to remove expired wallpaper cache entry");
                 }
