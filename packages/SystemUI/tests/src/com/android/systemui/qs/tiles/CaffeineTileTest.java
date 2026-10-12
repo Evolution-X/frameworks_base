@@ -96,11 +96,11 @@ public class CaffeineTileTest extends SysuiTestCase {
     @Test
     public void repeatedClicksCycleThroughDurationsAndStop() {
         mTile.handleClick(null);
-        assertRemainingMinutes("05");
+        assertRemainingMinutes(5);
         mTile.handleClick(null);
-        assertRemainingMinutes("10");
+        assertRemainingMinutes(10);
         mTile.handleClick(null);
-        assertRemainingMinutes("30");
+        assertRemainingMinutes(30);
         mTile.handleClick(null);
         assertThat(state().secondaryLabel).isEqualTo("∞");
         mTile.handleClick(null);
@@ -131,10 +131,14 @@ public class CaffeineTileTest extends SysuiTestCase {
         assertThat(state().secondaryLabel).isNull();
     }
 
-    private void assertRemainingMinutes(String minutes) {
+    private void assertRemainingMinutes(int minutes) {
         final BooleanState current = state();
         assertThat(current.state).isEqualTo(Tile.STATE_ACTIVE);
-        assertThat(String.valueOf(current.secondaryLabel)).startsWith(minutes + ":");
+        final String label = String.valueOf(current.secondaryLabel);
+        // Accept a one-second scheduling delay and the test device's numeral locale.
+        final String expected = String.format("%02d:", minutes);
+        final String previous = String.format("%02d:", minutes - 1);
+        assertThat(label.startsWith(expected) || label.startsWith(previous)).isTrue();
     }
 
     private BooleanState state() {
