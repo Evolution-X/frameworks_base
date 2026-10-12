@@ -28,6 +28,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -54,6 +57,7 @@ import com.android.systemui.common.ui.compose.Icon
 import com.android.systemui.common.ui.compose.load
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.pipeline.mobile.domain.model.SignalIconModel
+import com.android.systemui.statusbar.pipeline.mobile.ui.NetworkTypeIconVisibility
 import com.android.systemui.statusbar.pipeline.mobile.ui.viewmodel.MobileIconState
 import com.android.systemui.statusbar.pipeline.shared.ui.composable.ActivityIndicators
 
@@ -89,7 +93,11 @@ fun MobileIcon(state: MobileIconState, modifier: Modifier = Modifier) {
 
 @Composable
 private fun MobileIcon(state: MobileIconState, iconModel: SignalIconModel.CellularTypeIconModel) {
-    val networkTypeIcon = state.networkTypeIcon
+    val context = LocalContext.current
+    val showType by remember(context) {
+        NetworkTypeIconVisibility.observe(context)
+    }.collectAsState(initial = NetworkTypeIconVisibility.enabled(context))
+    val networkTypeIcon = state.networkTypeIcon.takeIf { showType }
     val roaming = state.roaming
     val activityInVisible = state.activityInVisible
     val activityOutVisible = state.activityOutVisible
@@ -120,7 +128,10 @@ private fun MobileIcon(state: MobileIconState, iconModel: SignalIconModel.Cellul
         }
     }
 
-    Spacer(Modifier.size(spacing))
+    // Do not leave an empty gap when the RAT badge and activity arrows are hidden.
+    if (networkTypeIcon != null || activityContainerVisible) {
+        Spacer(Modifier.size(spacing))
+    }
 
     MobileSignalIcon(viewModel = iconModel, color = contentColor)
 
