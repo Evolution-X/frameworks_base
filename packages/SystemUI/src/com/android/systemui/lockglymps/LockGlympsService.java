@@ -1631,16 +1631,26 @@ public class LockGlympsService extends Service {
         }
     }
 
-    /** Strict image-original size selection, not a request to upscale a smaller picture. */
+    /** Strict original-size selection. Output may be sampled to screen dimensions. */
     private long getImageDownloadLimitBytes() {
-        switch (mMinResolution) {
-            case "4320":
-                return MAX_8K_DOWNLOAD_BYTES;
-            case "2160":
-                return MAX_4K_DOWNLOAD_BYTES;
-            default:
-                return MAX_DOWNLOAD_BYTES;
-        }
+        return downloadLimitForResolution(mMinResolution);
+    }
+
+    static long downloadLimitForResolution(String resolution) {
+        if ("4320".equals(resolution)) return MAX_8K_DOWNLOAD_BYTES;
+        if ("2160".equals(resolution)) return MAX_4K_DOWNLOAD_BYTES;
+        return MAX_DOWNLOAD_BYTES;
+    }
+
+    static boolean meetsNativeResolution(int width, int height, String resolution) {
+        if (width <= 0 || height <= 0) return false;
+        int shortest = Math.min(width, height);
+        int longest = Math.max(width, height);
+        if ("4320".equals(resolution)) return shortest >= 4320 && longest >= 7680;
+        if ("2160".equals(resolution)) return shortest >= 2160 && longest >= 3840;
+        if ("1440".equals(resolution)) return shortest >= 1440 && longest >= 2560;
+        if ("1080".equals(resolution)) return shortest >= 1080 && longest >= 1920;
+        return true;
     }
 
     private boolean isSafeImageBounds(int width, int height) {
@@ -1744,10 +1754,10 @@ public class LockGlympsService extends Service {
                 break;
         }
 
+        if (!meetsNativeResolution(width, height, mMinResolution)) return false;
         int[] required = getRequiredShortLong();
         int shortSide = Math.min(width, height);
         int longSide = Math.max(width, height);
-
         return shortSide >= required[0] && longSide >= required[1];
     }
 
