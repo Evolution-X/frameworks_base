@@ -25,6 +25,7 @@ import android.widget.ImageView
 import android.widget.Space
 import androidx.core.view.isVisible
 import com.android.settingslib.graph.SignalDrawable
+import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.common.ui.binder.IconViewBinder
 import com.android.systemui.kairos.BuildScope
 import com.android.systemui.kairos.BuildSpec
@@ -37,6 +38,8 @@ import com.android.systemui.kairos.util.nameTag
 import com.android.systemui.plugins.DarkIconDispatcher
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.StatusBarIconView
+import com.android.systemui.statusbar.phone.StatusBarLocation
+import com.android.systemui.statusbar.pipeline.mobile.ui.NetworkTypeIconVisibility
 import com.android.systemui.statusbar.connectivity.ThemeIconController
 import com.android.systemui.statusbar.pipeline.mobile.domain.model.SignalIconModel
 import com.android.systemui.statusbar.pipeline.mobile.ui.MobileViewLogger
@@ -48,6 +51,7 @@ import com.android.systemui.util.lifecycle.kairos.repeatWhenWindowIsVisible
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 object MobileIconBinderKairos {
@@ -142,6 +146,19 @@ object MobileIconBinderKairos {
         val activityOut = view.requireViewById<ImageView>(R.id.mobile_out)
         val networkTypeView = view.requireViewById<ImageView>(R.id.mobile_type)
         val networkTypeContainer = view.requireViewById<FrameLayout>(R.id.mobile_type_container)
+        val isHome = viewModel.location == StatusBarLocation.HOME
+        var allowNetworkType = !isHome || NetworkTypeIconVisibility.enabled(view.context)
+        var latestNetworkType: Icon.Resource? = null
+
+        fun renderNetworkType() {
+            val typeIcon = latestNetworkType.takeIf { allowNetworkType }
+            typeIcon?.let { IconViewBinder.bind(it, networkTypeView) }
+            val nextVisibility = if (typeIcon != null) View.VISIBLE else View.GONE
+            if (networkTypeContainer.visibility != nextVisibility) {
+                networkTypeContainer.visibility = nextVisibility
+                view.requestLayout()
+            }
+        }
         val iconView = view.requireViewById<ImageView>(R.id.mobile_signal)
         val roamingView = view.requireViewById<ImageView>(R.id.mobile_roaming)
         val roamingSpace = view.requireViewById<Space>(R.id.mobile_roaming_space)
@@ -280,7 +297,17 @@ object MobileIconBinderKairos {
                 MobileContentDescriptionViewBinder.bind(it, view)
             }
 
-            // Set the network type icon
+            // Both Kairos and legacy binders must honor the same status-bar preference.
+            // Collect only while the view is visible to avoid leaking an observer.
+            if (isHome) {
+                launchEffect(name = nameTag { "MobileIconBinderKairos.networkTypeSetting" }) {
+                    NetworkTypeIconVisibility.observe(view.context).collect {
+                        allowNetworkType = it
+                        renderNetworkType()
+                    }
+                }
+            }
+
             viewModel.networkTypeIcon.observe(
                 name = nameTag { "MobileIconBinderKairos.networkTypeIcon" }
             ) { dataTypeId ->
@@ -289,14 +316,8 @@ object MobileIconBinderKairos {
                     viewModel.subscriptionId,
                     dataTypeId,
                 )
-                dataTypeId?.let { IconViewBinder.bind(dataTypeId, networkTypeView) }
-                val prevVis = networkTypeContainer.visibility
-                networkTypeContainer.visibility =
-                    if (dataTypeId != null) View.VISIBLE else View.GONE
-
-                if (prevVis != networkTypeContainer.visibility) {
-                    view.requestLayout()
-                }
+                latestNetworkType = dataTypeId
+                renderNetworkType()
             }
 
             // Set the network type background and tint
