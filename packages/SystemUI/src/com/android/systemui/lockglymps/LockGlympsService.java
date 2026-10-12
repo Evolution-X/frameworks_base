@@ -142,7 +142,7 @@ public class LockGlympsService extends Service {
     private static final String PROVIDER_CUSTOM_URLS = "custom_urls";
     private static final String PROVIDER_LOCAL_FOLDER = "local_folder";
 
-    private static final String DEFAULT_PROVIDERS = "wallhaven";
+    private static final String DEFAULT_PROVIDERS = "wallhaven,openverse";
     private static final String DEFAULT_CATEGORIES = "nature,amoled,space";
     private static final String STORAGE_FOLDER = "Glymps";
 
