@@ -77,6 +77,9 @@ public class NetworkTraffic extends TextView implements TunerService.Tunable,
     private static final int MESSAGE_TYPE_ADD_NETWORK = 2;
     private static final int MESSAGE_TYPE_REMOVE_NETWORK = 3;
 
+    // Avoid status-bar layout jumping when automatic traffic hiding is enabled.
+    private static final long AUTOHIDE_GRACE_PERIOD_MS = 5_000L;
+
     private static final int Kilo = 1000;
     private static final int Mega = Kilo * Kilo;
     private static final int Giga = Mega * Kilo;
@@ -143,6 +146,7 @@ public class NetworkTraffic extends TextView implements TunerService.Tunable,
     private boolean isUsingQs;
 
     private int mCurrentWidth = -1;
+    private long mLastTrafficAboveThreshold;
 
     public NetworkTraffic(Context context) {
         this(context, null);
@@ -237,9 +241,16 @@ public class NetworkTraffic extends TextView implements TunerService.Tunable,
                         mMode == MODE_DOWNSTREAM_ONLY || mMode == MODE_UPSTREAM_AND_DOWNSTREAM;
                 final boolean aboveThreshold = (showUpstream && mTxBytes > mAutoHideThreshold)
                         || (showDownstream && mRxBytes > mAutoHideThreshold);
+                final long now = SystemClock.elapsedRealtime();
+                if (aboveThreshold) {
+                    mLastTrafficAboveThreshold = now;
+                }
+                final boolean withinGracePeriod = mLastTrafficAboveThreshold > 0
+                        && now - mLastTrafficAboveThreshold < AUTOHIDE_GRACE_PERIOD_MS;
+                // A temporary loss of network validation must not hide the meter when
+                // auto-hide is disabled. Keep showing zero throughput instead.
                 mIsActive = mAttached
-                        && mHasValidatedInternet
-                        && (!mAutoHide || aboveThreshold);
+                        && (!mAutoHide || aboveThreshold || withinGracePeriod);
 
                 int submode = MODE_UPSTREAM_AND_DOWNSTREAM;
                 final boolean trafficactive = (mTxBytes > 0 || mRxBytes > 0);
@@ -386,7 +397,9 @@ public class NetworkTraffic extends TextView implements TunerService.Tunable,
 
     @Override
     public boolean isIconVisible() {
-        return mEnabled;
+        // The status icon container measures this independently of View visibility.
+        // Returning only mEnabled reserves width even when the meter is GONE.
+        return mEnabled && mIsActive && !TextUtils.isEmpty(getText());
     }
 
     @Override
@@ -537,7 +550,9 @@ public class NetworkTraffic extends TextView implements TunerService.Tunable,
         if (mVisible && !mHideArrows) {
             requiredWidth = (int) (30 * getResources().getDisplayMetrics().density);
         } else if (mVisible) {
-            requiredWidth = (int) (18 * getResources().getDisplayMetrics().density);
+            // Without the arrow, use the actual text size instead of a fixed
+            // spacer that leaves unused space or clips longer speed values.
+            requiredWidth = ViewGroup.LayoutParams.WRAP_CONTENT;
         }
         if (requiredWidth == mCurrentWidth) return;
         ViewGroup.LayoutParams lp = getLayoutParams();
@@ -578,6 +593,7 @@ public class NetworkTraffic extends TextView implements TunerService.Tunable,
             case NETWORK_TRAFFIC_AUTOHIDE:
                 mAutoHide =
                         TunerService.parseIntegerSwitch(newValue, false);
+                mLastTrafficAboveThreshold = 0;
                 updateViews();
                 break;
             case NETWORK_TRAFFIC_AUTOHIDE_THRESHOLD:
