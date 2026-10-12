@@ -92,7 +92,6 @@ public class LockGlympsService extends Service {
     private static final int MAX_HISTORY_SIZE = 160;
     private static final int MAX_CUSTOM_URLS = 100;
     private static final int MAX_CUSTOM_URL_LENGTH = 4096;
-    private static final int MAX_API_KEY_LENGTH = 512;
     private static final int MAX_CSV_ENTRIES = 256;
     private static final int MAX_SETTING_TOKEN_LENGTH = 96;
     private static final int MAX_REDIRECTS = 5;
@@ -116,7 +115,6 @@ public class LockGlympsService extends Service {
     private static final long DEFAULT_PROVIDER_COOLDOWN = 5L * 60L * 1000L;
     private static final long AUTH_PROVIDER_COOLDOWN = 60L * 60L * 1000L;
     private static final long DEFAULT_API_CACHE_TTL = 10L * 60L * 1000L;
-    private static final long PIXABAY_API_CACHE_TTL = 24L * 60L * 60L * 1000L;
     private static final String USER_AGENT = "EvolutionX-LockGlymps/2.0";
 
     private static final String LOCK_GLYMPS_ENABLED = "lock_glymps_enabled";
@@ -139,16 +137,10 @@ public class LockGlympsService extends Service {
     private static final String LOCK_GLYMPS_TIMER_INTERVAL = "lock_glymps_timer_interval";
     private static final String LOCK_GLYMPS_WALLPAPER_TARGET = "lock_glymps_wallpaper_target";
 
-    private static final String LOCK_GLYMPS_PEXELS_API_KEY = "lock_glymps_pexels_api_key";
-    private static final String LOCK_GLYMPS_UNSPLASH_API_KEY = "lock_glymps_unsplash_api_key";
-    private static final String LOCK_GLYMPS_PIXABAY_API_KEY = "lock_glymps_pixabay_api_key";
 
     private static final String PROVIDER_WALLHAVEN = "wallhaven";
     private static final String PROVIDER_OPENVERSE = "openverse";
     private static final String PROVIDER_PICSUM = "picsum";
-    private static final String PROVIDER_PEXELS = "pexels";
-    private static final String PROVIDER_UNSPLASH = "unsplash";
-    private static final String PROVIDER_PIXABAY = "pixabay";
     private static final String PROVIDER_CUSTOM_URLS = "custom_urls";
     private static final String PROVIDER_LOCAL_FOLDER = "local_folder";
 
@@ -189,9 +181,6 @@ public class LockGlympsService extends Service {
     private volatile String mOrientation = "portrait";
     private volatile String mTone = "any";
     private volatile String mOrder = "latest";
-    private volatile String mPexelsApiKey = "";
-    private volatile String mUnsplashApiKey = "";
-    private volatile String mPixabayApiKey = "";
 
     private volatile List<String> mProviders = new ArrayList<>();
     private volatile List<String> mCategories = new ArrayList<>();
@@ -276,15 +265,9 @@ public class LockGlympsService extends Service {
             int oldChangeOn = mChangeOn;
             String oldContentSignature = getContentSignature();
             List<String> oldProviders = new ArrayList<>(mProviders);
-            String oldPexelsKey = mPexelsApiKey;
-            String oldUnsplashKey = mUnsplashApiKey;
-            String oldPixabayKey = mPixabayApiKey;
             loadSettings();
             resetProviderCooldownsAfterConfigChange(
-                    oldProviders,
-                    oldPexelsKey,
-                    oldUnsplashKey,
-                    oldPixabayKey);
+
 
             if (!mEnabled) {
                 stopTimer();
@@ -474,12 +457,6 @@ public class LockGlympsService extends Service {
                     "latest",
                     "latest", "random", "popular", "top");
 
-            mPexelsApiKey = sanitizeApiKey(Settings.Secure.getString(
-                    getContentResolver(), LOCK_GLYMPS_PEXELS_API_KEY));
-            mUnsplashApiKey = sanitizeApiKey(Settings.Secure.getString(
-                    getContentResolver(), LOCK_GLYMPS_UNSPLASH_API_KEY));
-            mPixabayApiKey = sanitizeApiKey(Settings.Secure.getString(
-                    getContentResolver(), LOCK_GLYMPS_PIXABAY_API_KEY));
 
             mCustomUrls = parseCustomUrls(readAndMigrateCustomUrls());
 
@@ -513,24 +490,7 @@ public class LockGlympsService extends Service {
         mCachePreferences.edit().putString("signature", signature).apply();
     }
 
-    private void resetProviderCooldownsAfterConfigChange(
-            List<String> oldProviders,
-            String oldPexelsKey,
-            String oldUnsplashKey,
-            String oldPixabayKey) {
-        if (!safeEquals(oldPexelsKey, mPexelsApiKey)) {
-            mProviderCooldownUntil.remove(PROVIDER_PEXELS);
-            scheduleProviderApiCacheClear(PROVIDER_PEXELS);
-        }
-        if (!safeEquals(oldUnsplashKey, mUnsplashApiKey)) {
-            mProviderCooldownUntil.remove(PROVIDER_UNSPLASH);
-            scheduleProviderApiCacheClear(PROVIDER_UNSPLASH);
-        }
-        if (!safeEquals(oldPixabayKey, mPixabayApiKey)) {
-            mProviderCooldownUntil.remove(PROVIDER_PIXABAY);
-            scheduleProviderApiCacheClear(PROVIDER_PIXABAY);
-        }
-
+    private void resetProviderCooldownsAfterConfigChange(List<String> oldProviders) {
         for (String provider : mProviders) {
             if (oldProviders == null || !oldProviders.contains(provider)) {
                 mProviderCooldownUntil.remove(provider);
@@ -812,10 +772,6 @@ public class LockGlympsService extends Service {
                 noteHistory(candidate.historyKey);
                 noteProviderSuccess(provider);
 
-                if (PROVIDER_UNSPLASH.equals(provider)
-                        && !isBlank(candidate.downloadLocation)) {
-                    triggerUnsplashDownload(candidate.downloadLocation);
-                }
 
                 return new WallpaperDownload(candidate, bitmap);
             }
@@ -891,13 +847,6 @@ public class LockGlympsService extends Service {
             case PROVIDER_OPENVERSE:
             case PROVIDER_PICSUM:
                 return true;
-            // Pexels prohibits using its API to provide a standalone wallpaper app.
-            // Unsplash requires hotlinking/attribution unavailable for device wallpapers.
-            // Keep these legacy identifiers recognized, but do not issue requests.
-            case PROVIDER_PEXELS:
-            case PROVIDER_UNSPLASH:
-            case PROVIDER_PIXABAY:
-                return false;
             case PROVIDER_CUSTOM_URLS:
                 return !mCustomUrls.isEmpty();
             case PROVIDER_LOCAL_FOLDER:
@@ -935,11 +884,6 @@ public class LockGlympsService extends Service {
                     return fetchWallhavenCandidate(query, attempt);
                 case PROVIDER_OPENVERSE:
                     return fetchOpenverseCandidate(query, attempt);
-                // Legacy IDs are ignored rather than starting key-based downloads.
-                case PROVIDER_PEXELS:
-                case PROVIDER_UNSPLASH:
-                case PROVIDER_PIXABAY:
-                    return null;
                 case PROVIDER_PICSUM:
                     return buildPicsumCandidate();
                 case PROVIDER_CUSTOM_URLS:
@@ -1100,224 +1044,6 @@ public class LockGlympsService extends Service {
         return null;
     }
 
-    private WallpaperCandidate fetchPexelsCandidate(String query, int attempt) {
-        StringBuilder url = new StringBuilder("https://api.pexels.com/v1/search")
-                .append("?query=").append(Uri.encode(query))
-                .append("&per_page=40");
-
-        if ("portrait".equals(mOrientation)
-                || "landscape".equals(mOrientation)
-                || "square".equals(mOrientation)) {
-            url.append("&orientation=").append(mOrientation);
-        }
-
-        if ("2160".equals(mMinResolution) || "4320".equals(mMinResolution)) {
-            url.append("&size=large");
-        } else if ("1440".equals(mMinResolution)) {
-            url.append("&size=medium");
-        } else if ("1080".equals(mMinResolution)) {
-            url.append("&size=small");
-        }
-
-        if ("dark".equals(mTone) || "amoled".equals(mTone)) {
-            url.append("&color=black");
-        } else if ("monochrome".equals(mTone)) {
-            url.append("&color=gray");
-        }
-
-        if ("random".equals(mOrder) || attempt > 0) {
-            url.append("&page=").append(1 + mRandom.nextInt(4));
-        }
-
-        Map<String, String> headers = new HashMap<>();
-        headers.put("Authorization", mPexelsApiKey);
-
-        JSONObject root = requestJson(
-                PROVIDER_PEXELS, url.toString(), headers);
-        if (root == null) return null;
-
-        JSONArray photos = root.optJSONArray("photos");
-        if (photos == null || photos.length() == 0) return null;
-
-        for (int index : shuffledIndexes(photos.length())) {
-            JSONObject item = photos.optJSONObject(index);
-            if (item == null) continue;
-
-            String id = String.valueOf(item.optLong("id", 0L));
-            int width = item.optInt("width", 0);
-            int height = item.optInt("height", 0);
-            JSONObject src = item.optJSONObject("src");
-            if (src == null) continue;
-
-            String imageUrl = firstNonBlank(
-                    src.optString("original"),
-                    src.optString("large2x"),
-                    src.optString("portrait"),
-                    src.optString("large"));
-
-            WallpaperCandidate candidate = new WallpaperCandidate(
-                    PROVIDER_PEXELS,
-                    id,
-                    imageUrl,
-                    PROVIDER_PEXELS + ":" + id,
-                    width,
-                    height,
-                    null);
-
-            if (candidateAllowed(candidate)) {
-                return candidate;
-            }
-        }
-
-        return null;
-    }
-
-    private WallpaperCandidate fetchUnsplashCandidate(String query, int attempt) {
-        String orderBy = "latest".equals(mOrder) ? "latest" : "relevant";
-
-        StringBuilder url = new StringBuilder("https://api.unsplash.com/search/photos")
-                .append("?query=").append(Uri.encode(query))
-                .append("&per_page=30")
-                .append("&content_filter=").append(mSfwOnly ? "high" : "low")
-                .append("&order_by=").append(orderBy);
-
-        if ("portrait".equals(mOrientation) || "landscape".equals(mOrientation)) {
-            url.append("&orientation=").append(mOrientation);
-        } else if ("square".equals(mOrientation)) {
-            url.append("&orientation=squarish");
-        }
-
-        if ("dark".equals(mTone) || "amoled".equals(mTone)) {
-            url.append("&color=black");
-        } else if ("monochrome".equals(mTone)) {
-            url.append("&color=black_and_white");
-        }
-
-        if ("random".equals(mOrder) || attempt > 0) {
-            url.append("&page=").append(1 + mRandom.nextInt(4));
-        }
-
-        Map<String, String> headers = new HashMap<>();
-        headers.put("Authorization", "Client-ID " + mUnsplashApiKey);
-
-        JSONObject root = requestJson(
-                PROVIDER_UNSPLASH, url.toString(), headers);
-        if (root == null) return null;
-
-        JSONArray results = root.optJSONArray("results");
-        if (results == null || results.length() == 0) return null;
-
-        for (int index : shuffledIndexes(results.length())) {
-            JSONObject item = results.optJSONObject(index);
-            if (item == null) continue;
-
-            String id = item.optString("id");
-            int width = item.optInt("width", 0);
-            int height = item.optInt("height", 0);
-
-            JSONObject urls = item.optJSONObject("urls");
-            if (urls == null) continue;
-
-            String imageUrl = firstNonBlank(
-                    urls.optString("raw"),
-                    urls.optString("full"),
-                    urls.optString("regular"));
-            if (!isBlank(imageUrl) && imageUrl.contains("images.unsplash.com")) {
-                int requestedWidth = getPreferredDownloadWidth(width);
-                if (requestedWidth > 0 && imageUrl.contains("?")) {
-                    imageUrl += "&w=" + requestedWidth + "&q=90&fm=jpg&fit=max";
-                }
-            }
-
-            JSONObject links = item.optJSONObject("links");
-            String downloadLocation = links == null
-                    ? null : links.optString("download_location");
-
-            WallpaperCandidate candidate = new WallpaperCandidate(
-                    PROVIDER_UNSPLASH,
-                    id,
-                    imageUrl,
-                    PROVIDER_UNSPLASH + ":" + id,
-                    width,
-                    height,
-                    downloadLocation);
-
-            if (candidateAllowed(candidate)) {
-                return candidate;
-            }
-        }
-
-        return null;
-    }
-
-    private WallpaperCandidate fetchPixabayCandidate(String query, int attempt) {
-        StringBuilder url = new StringBuilder("https://pixabay.com/api/")
-                .append("?key=").append(Uri.encode(mPixabayApiKey))
-                .append("&q=").append(Uri.encode(query))
-                .append("&image_type=photo")
-                .append("&per_page=40")
-                .append("&safesearch=").append(mSfwOnly ? "true" : "false")
-                .append("&order=").append("latest".equals(mOrder) ? "latest" : "popular");
-
-        if ("portrait".equals(mOrientation)) {
-            url.append("&orientation=vertical");
-        } else if ("landscape".equals(mOrientation)) {
-            url.append("&orientation=horizontal");
-        }
-
-        int[] minimum = getRequiredDimensions();
-        if (minimum[0] > 0 && minimum[1] > 0) {
-            url.append("&min_width=").append(minimum[0])
-                    .append("&min_height=").append(minimum[1]);
-        }
-
-        if ("dark".equals(mTone) || "amoled".equals(mTone)) {
-            url.append("&colors=black");
-        } else if ("monochrome".equals(mTone)) {
-            url.append("&colors=grayscale");
-        }
-
-        if ("random".equals(mOrder) || attempt > 0) {
-            url.append("&page=").append(1 + mRandom.nextInt(4));
-        }
-
-        JSONObject root = requestJson(
-                PROVIDER_PIXABAY, url.toString(), Collections.emptyMap());
-        if (root == null) return null;
-
-        JSONArray hits = root.optJSONArray("hits");
-        if (hits == null || hits.length() == 0) return null;
-
-        for (int index : shuffledIndexes(hits.length())) {
-            JSONObject item = hits.optJSONObject(index);
-            if (item == null) continue;
-
-            String id = String.valueOf(item.optLong("id", 0L));
-            int width = item.optInt("imageWidth", 0);
-            int height = item.optInt("imageHeight", 0);
-            String imageUrl = firstNonBlank(
-                    item.optString("imageURL"),
-                    item.optString("fullHDURL"),
-                    item.optString("largeImageURL"),
-                    item.optString("webformatURL"));
-
-            WallpaperCandidate candidate = new WallpaperCandidate(
-                    PROVIDER_PIXABAY,
-                    id,
-                    imageUrl,
-                    PROVIDER_PIXABAY + ":" + id,
-                    width,
-                    height,
-                    null);
-
-            if (candidateAllowed(candidate)) {
-                return candidate;
-            }
-        }
-
-        return null;
-    }
-
     private WallpaperCandidate buildPicsumCandidate() {
         int[] required = getRequiredDimensions();
         int width = required[0] > 0 ? required[0] : 1080;
@@ -1458,8 +1184,7 @@ public class LockGlympsService extends Service {
             return null;
         }
 
-        long ttl = PROVIDER_PIXABAY.equals(provider)
-                ? PIXABAY_API_CACHE_TTL : DEFAULT_API_CACHE_TTL;
+        long ttl = DEFAULT_API_CACHE_TTL;
         if (System.currentTimeMillis() - cacheFile.lastModified() > ttl) {
             if (!cacheFile.delete()) {
                 Log.d(TAG, "Unable to delete expired provider cache");
@@ -1541,8 +1266,7 @@ public class LockGlympsService extends Service {
 
         long now = System.currentTimeMillis();
         for (File file : files) {
-            long maxAge = file.getName().startsWith(PROVIDER_PIXABAY + "_")
-                    ? PIXABAY_API_CACHE_TTL : DEFAULT_API_CACHE_TTL;
+            long maxAge = DEFAULT_API_CACHE_TTL;
             if (now - file.lastModified() > maxAge && !file.delete()) {
                 Log.d(TAG, "Unable to delete expired provider response cache");
             }
@@ -1617,45 +1341,6 @@ public class LockGlympsService extends Service {
         mProviderCooldownUntil.put(
                 provider,
                 System.currentTimeMillis() + Math.max(60000L, durationMs));
-    }
-
-    private void triggerUnsplashDownload(String downloadLocation) {
-        if (isBlank(downloadLocation) || isBlank(mUnsplashApiKey)) {
-            return;
-        }
-
-        HttpURLConnection connection = null;
-        InputStream stream = null;
-        try {
-            URL url = new URL(downloadLocation);
-            if (!"https".equalsIgnoreCase(url.getProtocol())
-                    || !"api.unsplash.com".equalsIgnoreCase(url.getHost())) {
-                Log.w(TAG, "Ignoring unexpected Unsplash download endpoint");
-                return;
-            }
-
-            connection = (HttpURLConnection) url.openConnection();
-            connection.setConnectTimeout(CONNECTION_TIMEOUT);
-            connection.setReadTimeout(READ_TIMEOUT);
-            connection.setInstanceFollowRedirects(false);
-            connection.setRequestProperty("User-Agent", USER_AGENT);
-            connection.setRequestProperty("Accept", "application/json");
-            connection.setRequestProperty(
-                    "Authorization",
-                    "Client-ID " + mUnsplashApiKey);
-
-            int code = connection.getResponseCode();
-            if (code >= 200 && code < 300) {
-                stream = connection.getInputStream();
-            } else {
-                handleProviderHttpError(PROVIDER_UNSPLASH, connection, code);
-            }
-        } catch (IOException e) {
-            Log.d(TAG, "Unable to register Unsplash download", e);
-        } finally {
-            closeQuietly(stream);
-            if (connection != null) connection.disconnect();
-        }
     }
 
     private HttpURLConnection openSafeImageConnection(String sourceUrl) throws IOException {
@@ -2344,10 +2029,6 @@ public class LockGlympsService extends Service {
             noteHistory(candidate.historyKey);
             noteProviderSuccess(provider);
 
-            if (PROVIDER_UNSPLASH.equals(provider)
-                    && !isBlank(candidate.downloadLocation)) {
-                triggerUnsplashDownload(candidate.downloadLocation);
-            }
 
             return new WallpaperDownload(candidate, bitmap);
         }
@@ -2610,34 +2291,6 @@ public class LockGlympsService extends Service {
         }
     }
 
-    private void scheduleProviderApiCacheClear(String provider) {
-        ExecutorService executor = mExecutor;
-        if (executor == null || executor.isShutdown() || isBlank(provider)) {
-            return;
-        }
-
-        try {
-            executor.execute(() -> clearProviderApiCache(provider));
-        } catch (RuntimeException e) {
-            Log.d(TAG, "Unable to schedule provider cache invalidation", e);
-        }
-    }
-
-    private void clearProviderApiCache(String provider) {
-        if (mApiCacheDir == null || isBlank(provider)) return;
-
-        String prefix = provider + "_";
-        File[] files = mApiCacheDir.listFiles(
-                (dir, name) -> name != null && name.startsWith(prefix));
-        if (files == null) return;
-
-        for (File file : files) {
-            if (!file.delete()) {
-                Log.d(TAG, "Unable to delete stale " + provider + " API cache entry");
-            }
-        }
-    }
-
     private void clearApiCache() {
         if (mApiCacheDir == null) return;
 
@@ -2821,14 +2474,6 @@ public class LockGlympsService extends Service {
         }
 
         return migrated;
-    }
-
-    private String sanitizeApiKey(String value) {
-        if (value == null) return "";
-        String trimmed = value.trim();
-        return trimmed.length() <= MAX_API_KEY_LENGTH
-                ? trimmed
-                : trimmed.substring(0, MAX_API_KEY_LENGTH);
     }
 
     private String joinLines(List<String> values) {
