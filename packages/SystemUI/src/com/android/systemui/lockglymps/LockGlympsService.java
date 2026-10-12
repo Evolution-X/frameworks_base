@@ -132,6 +132,8 @@ public class LockGlympsService extends Service {
     private static final String LOCK_GLYMPS_NO_REPEAT = "lock_glymps_no_repeat";
     private static final String LOCK_GLYMPS_WIFI_ONLY = "lock_glymps_wifi_only";
     private static final String LOCK_GLYMPS_CHARGING_ONLY = "lock_glymps_charging_only";
+    private static final String LOCK_GLYMPS_PAUSE_BATTERY_SAVER =
+            "lock_glymps_pause_battery_saver";
     private static final String LOCK_GLYMPS_CACHE_SIZE = "lock_glymps_cache_size";
     private static final String LOCK_GLYMPS_CACHE_LIMIT_MB = "lock_glymps_cache_limit_mb";
     private static final String LOCK_GLYMPS_DAILY_LIMIT_MB = "lock_glymps_daily_limit_mb";
@@ -172,6 +174,7 @@ public class LockGlympsService extends Service {
     private volatile boolean mEnabled;
     private volatile boolean mWifiOnly = true;
     private volatile boolean mChargingOnly = false;
+    private volatile boolean mPauseOnBatterySaver = true;
     private volatile boolean mSfwOnly = true;
     private volatile boolean mNoRepeat = true;
     private volatile int mCacheSize = 5;
@@ -385,6 +388,8 @@ public class LockGlympsService extends Service {
                     getContentResolver(), LOCK_GLYMPS_WIFI_ONLY, 1) == 1;
             mChargingOnly = Settings.System.getInt(
                     getContentResolver(), LOCK_GLYMPS_CHARGING_ONLY, 0) == 1;
+            mPauseOnBatterySaver = Settings.System.getInt(
+                    getContentResolver(), LOCK_GLYMPS_PAUSE_BATTERY_SAVER, 1) == 1;
             mSfwOnly = Settings.System.getInt(
                     getContentResolver(), LOCK_GLYMPS_SFW_ONLY, 1) == 1;
             mNoRepeat = Settings.System.getInt(
@@ -682,7 +687,7 @@ public class LockGlympsService extends Service {
 
     private boolean shouldDownload() {
         PowerManager power = getSystemService(PowerManager.class);
-        if (power != null && power.isPowerSaveMode()) {
+        if (mPauseOnBatterySaver && power != null && power.isPowerSaveMode()) {
             return false;
         }
         if (mChargingOnly) {
@@ -1560,7 +1565,7 @@ public class LockGlympsService extends Service {
                 // during a long image download.
                 if (total >= nextNetworkCheck) {
                     if (!shouldDownload()) {
-                        Log.d(TAG, "Stopping wallpaper download after Wi-Fi became unavailable");
+                        Log.d(TAG, "Stopping wallpaper download after network/power policy changed");
                         return null;
                     }
                     nextNetworkCheck = total + 1024L * 1024L;
