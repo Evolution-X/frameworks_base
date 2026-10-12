@@ -750,8 +750,7 @@ public class LockGlympsService extends Service {
                     continue;
                 }
 
-                noteHistory(candidate.historyKey);
-                noteProviderSuccess(provider);
+                    noteProviderSuccess(provider);
 
 
                 return new WallpaperDownload(candidate, bitmap);
@@ -853,7 +852,12 @@ public class LockGlympsService extends Service {
         String prefix = cacheQueryPrefix(provider, query);
         File[] files = mCacheDir.listFiles(
                 (dir, name) -> name.startsWith(prefix) && name.endsWith(".img"));
-        return files != null && files.length > 0;
+        if (files == null) return false;
+        for (File file : files) {
+            String key = cachedHistoryKey(file);
+            if (!mNoRepeat || key == null || !historyContains(key)) return true;
+        }
+        return false;
     }
 
     private boolean hasOnlineProvider() {
@@ -1597,12 +1601,35 @@ public class LockGlympsService extends Service {
         return sample;
     }
 
+    private boolean isAlreadyCached(WallpaperCandidate candidate) {
+        if (mCacheDir == null) return false;
+        String identity = "_" + stableHash(candidate.historyKey) + "_";
+        File[] matches = mCacheDir.listFiles((dir, name) ->
+                name.startsWith("glymps_") && name.endsWith(".img")
+                        && name.contains(identity));
+        return matches != null && matches.length > 0;
+    }
+
+    /** Recover a stable image identity from the scoped cache file name. */
+    private String cachedHistoryKey(File file) {
+        if (file == null) return null;
+        String name = file.getName();
+        if (!name.endsWith(".img")) return null;
+        int timestampSeparator = name.lastIndexOf('_');
+        int hashSeparator = name.lastIndexOf('_', timestampSeparator - 1);
+        if (timestampSeparator <= 0 || hashSeparator < 0) return null;
+        String hash = name.substring(hashSeparator + 1, timestampSeparator);
+        return hash.isEmpty() ? null : "seen:" + hash;
+    }
+
     private boolean candidateAllowed(WallpaperCandidate candidate) {
         if (candidate == null || isBlank(candidate.url) || isBlank(candidate.historyKey)) {
             return false;
         }
 
-        if (mNoRepeat && historyContains(candidate.historyKey)) {
+        if (mNoRepeat && (historyContains(candidate.historyKey)
+                || historyContains("seen:" + stableHash(candidate.historyKey))
+                || isAlreadyCached(candidate))) {
             return false;
         }
 
@@ -1932,6 +1959,7 @@ public class LockGlympsService extends Service {
         }
 
         Bitmap bitmap = null;
+        String appliedHistoryKey = null;
         try {
             String query = nextSearchQuery();
             List<String> providerOrder = getProviderOrder(false, query);
@@ -1941,7 +1969,7 @@ public class LockGlympsService extends Service {
                     File local = getLocalWallpaper();
                     bitmap = decodeLocalWallpaper(local);
                     if (bitmap != null) {
-                        noteHistory(localHistoryKey(local));
+                        appliedHistoryKey = localHistoryKey(local);
                         noteProviderSuccess(provider);
                         break;
                     }
@@ -1955,6 +1983,7 @@ public class LockGlympsService extends Service {
                         Log.d(TAG, "Unable to delete consumed cache file: " + cached.getName());
                     }
                     if (bitmap != null) {
+                        appliedHistoryKey = cachedHistoryKey(cached);
                         noteProviderSuccess(provider);
                         break;
                     }
@@ -1967,6 +1996,7 @@ public class LockGlympsService extends Service {
                 WallpaperDownload download = downloadFromSingleProvider(provider, query);
                 if (download != null) {
                     bitmap = download.bitmap;
+                    appliedHistoryKey = "seen:" + stableHash(download.candidate.historyKey);
                     break;
                 }
             }
@@ -1977,9 +2007,11 @@ public class LockGlympsService extends Service {
                     return;
                 }
 
-                setWallpaperFromBitmap(bitmap);
-                if (mExecutor != null && !mExecutor.isShutdown()) {
-                    mExecutor.execute(this::preFetchWallpapers);
+                if (setWallpaperFromBitmap(bitmap)) {
+                    noteHistory(appliedHistoryKey);
+                    if (mExecutor != null && !mExecutor.isShutdown()) {
+                        mExecutor.execute(this::preFetchWallpapers);
+                    }
                 }
             } else {
                 Log.w(TAG, "No wallpaper available for the current source/filter configuration");
@@ -2013,7 +2045,6 @@ public class LockGlympsService extends Service {
             Bitmap bitmap = downloadBitmap(candidate);
             if (bitmap == null) continue;
 
-            noteHistory(candidate.historyKey);
             noteProviderSuccess(provider);
 
 
@@ -2065,21 +2096,23 @@ public class LockGlympsService extends Service {
         mHandler.postDelayed(mPendingWallpaperChange, delay);
     }
 
-    private void setWallpaperFromBitmap(Bitmap bitmap) {
-        if (mWallpaperManager == null || bitmap == null) return;
+    private boolean setWallpaperFromBitmap(Bitmap bitmap) {
+        if (mWallpaperManager == null || bitmap == null) return false;
 
         try {
             int wallpaperId = mWallpaperManager.setBitmap(
-                    bitmap,
-                    null,
-                    false,
-                    getWallpaperFlags());
-            Log.d(TAG, "Wallpaper applied successfully, id=" + wallpaperId);
+                    bitmap, null, false, getWallpaperFlags());
+            if (wallpaperId != 0) {
+                Log.d(TAG, "Wallpaper applied successfully, id=" + wallpaperId);
+                return true;
+            }
+            Log.w(TAG, "WallpaperManager rejected wallpaper without exception");
         } catch (OutOfMemoryError e) {
             Log.e(TAG, "Applying wallpaper exceeded memory budget", e);
         } catch (IOException | RuntimeException e) {
             Log.e(TAG, "Unable to apply wallpaper", e);
         }
+        return false;
     }
 
     private int getWallpaperFlags() {
@@ -2186,7 +2219,11 @@ public class LockGlympsService extends Service {
         if (files == null || files.length == 0) return null;
 
         Arrays.sort(files, Comparator.comparingLong(File::lastModified));
-        return files[0];
+        for (File file : files) {
+            String key = cachedHistoryKey(file);
+            if (!mNoRepeat || key == null || !historyContains(key)) return file;
+        }
+        return null;
     }
 
     /**
