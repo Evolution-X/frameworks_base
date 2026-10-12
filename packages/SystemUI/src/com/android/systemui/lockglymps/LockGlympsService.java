@@ -209,6 +209,8 @@ public class LockGlympsService extends Service {
         mRandom = new Random();
         mHistoryPreferences = getSharedPreferences("lock_glymps_history", MODE_PRIVATE);
         mCachePreferences = getSharedPreferences("lock_glymps_cache_meta", MODE_PRIVATE);
+        // Continue cycling through the user's categories across service restarts.
+        mCategoryIndex = Math.max(0, mCachePreferences.getInt("category_cursor", 0));
         mNetworkBudgetPreferences = getSharedPreferences(
                 "lock_glymps_network_budget", MODE_PRIVATE);
         loadHistory();
@@ -1741,6 +1743,10 @@ public class LockGlympsService extends Service {
         }
 
         int index = Math.floorMod(mCategoryIndex++, categories.size());
+        if (mCategoryIndex < 0) mCategoryIndex = 0;
+        if (mCachePreferences != null) {
+            mCachePreferences.edit().putInt("category_cursor", mCategoryIndex).apply();
+        }
         String category = categories.get(index);
         return applyToneToQuery(categoryQuery(category));
     }
