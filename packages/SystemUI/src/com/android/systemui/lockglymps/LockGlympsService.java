@@ -166,6 +166,7 @@ public class LockGlympsService extends Service {
     private SharedPreferences mHistoryPreferences;
     private SharedPreferences mCachePreferences;
     private SharedPreferences mNetworkBudgetPreferences;
+    private SharedPreferences mCooldownPreferences;
 
     private volatile boolean mEnabled;
     private volatile boolean mWifiOnly = true;
@@ -213,6 +214,16 @@ public class LockGlympsService extends Service {
         mCategoryIndex = Math.max(0, mCachePreferences.getInt("category_cursor", 0));
         mNetworkBudgetPreferences = getSharedPreferences(
                 "lock_glymps_network_budget", MODE_PRIVATE);
+        mCooldownPreferences = getSharedPreferences(
+                "lock_glymps_provider_cooldowns", MODE_PRIVATE);
+        for (String provider : Arrays.asList(
+                PROVIDER_WALLHAVEN, PROVIDER_OPENVERSE, PROVIDER_PICSUM,
+                PROVIDER_CUSTOM_URLS)) {
+            long until = mCooldownPreferences.getLong(provider, 0L);
+            if (until > System.currentTimeMillis()) {
+                mProviderCooldownUntil.put(provider, until);
+            }
+        }
         loadHistory();
 
         mCacheDir = new File(getCacheDir(), "lock_glymps");
@@ -497,6 +508,9 @@ public class LockGlympsService extends Service {
         for (String provider : mProviders) {
             if (oldProviders == null || !oldProviders.contains(provider)) {
                 mProviderCooldownUntil.remove(provider);
+                if (mCooldownPreferences != null) {
+                    mCooldownPreferences.edit().remove(provider).apply();
+                }
             }
         }
     }
@@ -1352,9 +1366,11 @@ public class LockGlympsService extends Service {
     }
 
     private void coolDownProvider(String provider, long durationMs) {
-        mProviderCooldownUntil.put(
-                provider,
-                System.currentTimeMillis() + Math.max(60000L, durationMs));
+        long until = System.currentTimeMillis() + Math.max(60000L, durationMs);
+        mProviderCooldownUntil.put(provider, until);
+        if (mCooldownPreferences != null) {
+            mCooldownPreferences.edit().putLong(provider, until).apply();
+        }
     }
 
     private HttpURLConnection openSafeImageConnection(String sourceUrl) throws IOException {
@@ -2411,6 +2427,9 @@ public class LockGlympsService extends Service {
                 provider,
                 mProviderUsage.getOrDefault(provider, 0) + 1);
         mProviderCooldownUntil.remove(provider);
+        if (mCooldownPreferences != null) {
+            mCooldownPreferences.edit().remove(provider).apply();
+        }
     }
 
     private ArrayList<Integer> shuffledIndexes(int size) {
