@@ -242,7 +242,7 @@ public class CaffeineTile extends QSTileImpl<BooleanState> {
 
     private String formatValueWithRemainingTime() {
         if (mSecondsRemaining == -1) {
-            return "\\u221E";
+            return "∞";
         }
         return String.format("%02d:%02d", mSecondsRemaining / 60,
                 mSecondsRemaining % 60);
