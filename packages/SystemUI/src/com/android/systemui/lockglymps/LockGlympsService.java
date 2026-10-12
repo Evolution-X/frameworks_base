@@ -592,6 +592,91 @@ public class LockGlympsService extends Service {
         return false;
     }
 
+    /**
+     * Persist network allowances before opening connections or consuming response bytes.
+     * Every request consumes one request slot; each stream reserves data in 1 MiB blocks,
+     * including bytes downloaded from a server that eventually returns invalid content.
+     *
+     * Charging in advance and committing synchronously keeps the limit intact when
+     * SystemUI is killed or restarted mid-download. A rejected budget never touches
+     * the network. Local wallpapers and already cached files do not consume allowance.
+     */
+    private synchronized void resetNetworkBudgetIfNewDay() {
+        if (mNetworkBudgetPreferences == null) return;
+        // UTC days give predictable limits regardless of the user's locale.
+        long day = System.currentTimeMillis() / (24L * 60 * 60 * 1000);
+        if (mNetworkBudgetPreferences.getLong("utc_day", -1L) != day) {
+            mNetworkBudgetPreferences.edit()
+                    .putLong("utc_day", day)
+                    .putInt("requests", 0)
+                    .putLong("reserved_bytes", 0L)
+                    .commit();
+        }
+    }
+
+    private synchronized boolean canStartNetworkRequest() {
+        if (mNetworkBudgetPreferences == null) return false;
+        resetNetworkBudgetIfNewDay();
+        return mNetworkBudgetPreferences.getInt("requests", 0) < MAX_NETWORK_REQUESTS_PER_DAY
+                && mNetworkBudgetPreferences.getLong("reserved_bytes", 0L)
+                        < MAX_NETWORK_BYTES_PER_DAY;
+    }
+
+    private synchronized boolean reserveNetworkRequest() {
+        if (!canStartNetworkRequest()) {
+            Log.i(TAG, "Glymps daily network request/byte budget reached");
+            return false;
+        }
+        int requests = mNetworkBudgetPreferences.getInt("requests", 0);
+        return mNetworkBudgetPreferences.edit().putInt("requests", requests + 1).commit();
+    }
+
+    private synchronized boolean reserveNetworkBytes(long bytes) {
+        if (bytes <= 0 || bytes > NETWORK_BUDGET_CHUNK_BYTES
+                || mNetworkBudgetPreferences == null) {
+            return false;
+        }
+        resetNetworkBudgetIfNewDay();
+        long previous = mNetworkBudgetPreferences.getLong("reserved_bytes", 0L);
+        if (previous > MAX_NETWORK_BYTES_PER_DAY - bytes) {
+            return false;
+        }
+        return mNetworkBudgetPreferences.edit()
+                .putLong("reserved_bytes", previous + bytes).commit();
+    }
+
+    private final class BudgetedInputStream extends java.io.FilterInputStream {
+        private long mBytesLeftInReservation;
+
+        BudgetedInputStream(InputStream input) {
+            super(input);
+        }
+
+        @Override
+        public int read() throws IOException {
+            byte[] oneByte = new byte[1];
+            int count = read(oneByte, 0, 1);
+            return count < 0 ? -1 : oneByte[0] & 0xff;
+        }
+
+        @Override
+        public int read(byte[] buffer, int offset, int length) throws IOException {
+            if (length == 0) return 0;
+            if (mBytesLeftInReservation == 0) {
+                if (!reserveNetworkBytes(NETWORK_BUDGET_CHUNK_BYTES)) {
+                    throw new IOException("Glymps daily network data cap reached");
+                }
+                mBytesLeftInReservation = NETWORK_BUDGET_CHUNK_BYTES;
+            }
+            int available = (int) Math.min((long) length, mBytesLeftInReservation);
+            int count = in.read(buffer, offset, available);
+            if (count > 0) {
+                mBytesLeftInReservation -= count;
+            }
+            return count;
+        }
+    }
+
     private boolean shouldDownload() {
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
         if (cm == null) return false;
@@ -1277,6 +1362,8 @@ public class LockGlympsService extends Service {
             return cached;
         }
 
+        if (!reserveNetworkRequest()) return null;
+
         HttpURLConnection connection = null;
         InputStream stream = null;
 
@@ -1299,7 +1386,8 @@ public class LockGlympsService extends Service {
                 return null;
             }
 
-            stream = new BufferedInputStream(connection.getInputStream());
+            stream = new BufferedInputStream(new BudgetedInputStream(
+                    connection.getInputStream()));
             BufferedReader reader = new BufferedReader(
                     new InputStreamReader(stream, StandardCharsets.UTF_8));
 
@@ -1663,7 +1751,8 @@ public class LockGlympsService extends Service {
     }
 
     private Bitmap downloadBitmap(WallpaperCandidate candidate) {
-        if (candidate == null || isBlank(candidate.url)) return null;
+        if (candidate == null || isBlank(candidate.url)
+                || !reserveNetworkRequest()) return null;
 
         HttpURLConnection connection = null;
         InputStream input = null;
@@ -1686,7 +1775,8 @@ public class LockGlympsService extends Service {
             }
 
             temporaryFile = File.createTempFile("glymps_", ".tmp", mCacheDir);
-            input = new BufferedInputStream(connection.getInputStream());
+            input = new BufferedInputStream(new BudgetedInputStream(
+                    connection.getInputStream()));
             output = new BufferedOutputStream(new FileOutputStream(temporaryFile));
 
             byte[] buffer = new byte[32 * 1024];
