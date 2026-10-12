@@ -704,6 +704,14 @@ public class LockGlympsService extends Service {
             return false;
         }
 
+        // Respect the device's Data Saver policy even if SystemUI happens
+        // to have privileged network exemptions.
+        if (cm.isActiveNetworkMetered()
+                && cm.getRestrictBackgroundStatus()
+                        == ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED) {
+            return false;
+        }
+
         if (!mWifiOnly) {
             return true;
         }
