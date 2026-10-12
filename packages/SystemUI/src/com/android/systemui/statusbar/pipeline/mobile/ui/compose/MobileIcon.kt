@@ -105,7 +105,9 @@ private fun MobileIcon(state: MobileIconState, iconModel: SignalIconModel.Cellul
     val contentColor = LocalContentColor.current
     val spacing = with(LocalDensity.current) { MobileIconDimensions.IconSpacingSp.toDp() }
 
-    if (activityContainerVisible) {
+    // Reserve space for mobile data arrows only while they are visible.
+    val showActivityArrows = activityContainerVisible && (activityInVisible || activityOutVisible)
+    if (showActivityArrows) {
         Column {
             ActivityIndicators(
                 isActivityInVisible = activityInVisible,
@@ -129,7 +131,7 @@ private fun MobileIcon(state: MobileIconState, iconModel: SignalIconModel.Cellul
     }
 
     // Do not leave an empty gap when the RAT badge and activity arrows are hidden.
-    if (networkTypeIcon != null || activityContainerVisible) {
+    if (networkTypeIcon != null || showActivityArrows) {
         Spacer(Modifier.size(spacing))
     }
 
