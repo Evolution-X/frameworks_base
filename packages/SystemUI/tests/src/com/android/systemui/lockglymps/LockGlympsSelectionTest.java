@@ -32,8 +32,8 @@ import org.junit.runner.RunWith;
 public class LockGlympsSelectionTest {
     @Test
     public void separateSelectedTopicsDoNotShareWallpaperCacheNamespace() {
-        String mountain = LockGlympsService.cacheQueryPrefix("openverse", "mountains dark");
-        String flowers = LockGlympsService.cacheQueryPrefix("openverse", "flowers dark");
+        String mountain = LockGlympsService.cacheQueryPrefix("openverse", "mountains dark", "1080", "portrait");
+        String flowers = LockGlympsService.cacheQueryPrefix("openverse", "flowers dark", "1080", "portrait");
         assertThat(mountain).isNotEqualTo(flowers);
         assertThat(mountain).startsWith("glymps_openverse_");
         assertThat(flowers).startsWith("glymps_openverse_");
@@ -42,10 +42,10 @@ public class LockGlympsSelectionTest {
     @Test
     public void sameSelectionUsesStableNamespaceAcrossServiceRestarts() {
         String topic = "minimal architecture";
-        assertThat(LockGlympsService.cacheQueryPrefix("wallhaven", topic))
-                .isEqualTo(LockGlympsService.cacheQueryPrefix("wallhaven", topic));
-        assertThat(LockGlympsService.cacheQueryPrefix("wallhaven", topic))
-                .isNotEqualTo(LockGlympsService.cacheQueryPrefix("openverse", topic));
+        assertThat(LockGlympsService.cacheQueryPrefix("wallhaven", topic, "1080", "portrait"))
+                .isEqualTo(LockGlympsService.cacheQueryPrefix("wallhaven", topic, "1080", "portrait"));
+        assertThat(LockGlympsService.cacheQueryPrefix("wallhaven", topic, "1080", "portrait"))
+                .isNotEqualTo(LockGlympsService.cacheQueryPrefix("openverse", topic, "1080", "portrait"));
     }
 
     @Test
@@ -68,7 +68,7 @@ public class LockGlympsSelectionTest {
 
     @Test
     public void recoverOnlyTheImageIdentityNotTheTimestamp() {
-        String prefix = LockGlympsService.cacheQueryPrefix("openverse", "forest");
+        String prefix = LockGlympsService.cacheQueryPrefix("openverse", "forest", "1080", "portrait");
         File cached = new File(prefix + "abc123_1791780000000.img");
         assertThat(LockGlympsService.cachedHistoryKey(cached)).isEqualTo("seen:abc123");
     }
