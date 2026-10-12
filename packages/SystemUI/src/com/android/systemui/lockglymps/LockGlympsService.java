@@ -884,9 +884,11 @@ public class LockGlympsService extends Service {
             case PROVIDER_OPENVERSE:
                 return true;
             case PROVIDER_PICSUM:
-                // Picsum doesn't advertise its source's native resolution,
-                // so a generated 8K URL is not evidence of an 8K source photo.
-                return !"4320".equals(mMinResolution);
+                // Requesting a large Picsum output does not establish the
+                // original photograph's native resolution. Strict 4K/8K only
+                // uses providers exposing verifiable source dimensions.
+                return !"2160".equals(mMinResolution)
+                        && !"4320".equals(mMinResolution);
             case PROVIDER_CUSTOM_URLS:
                 return !mCustomUrls.isEmpty();
             case PROVIDER_LOCAL_FOLDER:
