@@ -476,13 +476,13 @@ public class StatusIconContainer extends AlphaOptimizedLinearLayout {
         return (StatusIconState) child.getTag(R.id.status_bar_view_state_tag);
     }
 
-    private static int getViewTotalMeasuredWidth(View child) {
+    static int getViewTotalMeasuredWidth(View child) {
         // Android's measured width already includes the view's internal padding.
         // Counting it again creates blank gaps between status-bar icons.
         return child.getMeasuredWidth();
     }
 
-    private static int getViewTotalWidth(View child) {
+    static int getViewTotalWidth(View child) {
         // Match the measured width calculation with the actual layout bounds.
         return child.getWidth();
     }
