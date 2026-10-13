@@ -98,6 +98,7 @@ public final class PlayIntegritySpoofService {
 
     private volatile boolean mConfigLoaded = false;
     private volatile boolean mSignatureSpoofed = false;
+    private volatile boolean mLoadFailureLogged = false;
 
     private PlayIntegritySpoofService() {}
 
@@ -123,7 +124,10 @@ public final class PlayIntegritySpoofService {
         try {
             content = am.getSpoofPifConfig();
         } catch (Throwable e) {
-            Log.e(TAG, "Failed to fetch PIF config from system_server", e);
+            if (!mLoadFailureLogged) {
+                mLoadFailureLogged = true;
+                Log.w(TAG, "PIF config not available yet: " + e);
+            }
             return;
         }
 
@@ -142,6 +146,7 @@ public final class PlayIntegritySpoofService {
 
             deriveFieldsFromFingerprint();
 
+            mLoadFailureLogged = false;
             mConfigLoaded = true;
             Log.i(TAG, "PIF config loaded, fields=" + mBuildFields.size());
         } catch (Throwable e) {
