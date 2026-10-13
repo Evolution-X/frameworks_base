@@ -1067,6 +1067,9 @@ public class UdfpsController implements DozeReceiver, Dumpable {
         if (udfpsView.isDisplayConfigured()) {
             udfpsView.unconfigureDisplay();
         }
+        if (mOverlay != null) {
+            mOverlay.setIlluminationRequested(false);
+        }
     }
 
     /**
@@ -1303,6 +1306,7 @@ public class UdfpsController implements DozeReceiver, Dumpable {
 
         final View view = mOverlay.getTouchOverlay();
         if (isOptical() && view instanceof UdfpsTouchOverlay udfpsView) {
+            mOverlay.setIlluminationRequested(true);
             if (mIgnoreRefreshRate) {
                 dispatchOnUiReady(requestId);
             } else {
