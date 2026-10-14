@@ -993,7 +993,6 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
 
         detachFromParent(mMediaViewController.getMediaArtScrim());
         detachFromParent(mPulseViewController.getPulseView());
-        detachFromParent(mEdgeLightViewController.getEdgeLightView());
         detachFromParent(mChargingAnimationViewController.getChargingView());
 
         attachMediaArt();
@@ -1005,10 +1004,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
                 new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
-        overlay.addView(mEdgeLightViewController.getEdgeLightView(),
-                new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT));
+        mEdgeLightViewController.attachToLockscreen(overlay);
         overlay.addView(mChargingAnimationViewController.getChargingView(),
                 new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
