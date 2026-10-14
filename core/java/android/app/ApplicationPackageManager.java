@@ -959,7 +959,8 @@ public class ApplicationPackageManager extends PackageManager {
         if (name != null && pkg != null && PRIV_PKGS.contains(pkg)) {
             final boolean photosSpoof = !Process.isIsolated()
                 && "com.google.android.apps.photos".equals(pkg)
-                && sPhotosSpoofEnabled;
+                && sPhotosSpoofEnabled
+                && !IS_TENSOR_DEVICE;
             if (photosSpoof) {
                 if (FEATURES_PIXEL.contains(name)) return false;
                 if (FEATURES_PIXEL_OTHERS.contains(name)) return true;
