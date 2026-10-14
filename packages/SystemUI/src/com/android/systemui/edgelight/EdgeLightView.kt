@@ -17,7 +17,6 @@ package com.android.systemui.edgelight
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
-import android.animation.ArgbEvaluator
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
@@ -27,19 +26,19 @@ import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PathMeasure
+import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.SweepGradient
+import android.view.MotionEvent
+import android.view.RoundedCorner
+import android.view.WindowInsets
 import android.widget.FrameLayout
 import androidx.core.view.isVisible
 import com.android.systemui.res.R
-import kotlin.math.sin
-import kotlin.math.cos
 import kotlin.math.PI
+import kotlin.math.sin
 import kotlin.random.Random
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffXfermode
-import android.graphics.BlurMaskFilter
 
 class EdgeLightView(context: Context) : FrameLayout(context) {
 
@@ -102,11 +101,15 @@ class EdgeLightView(context: Context) : FrameLayout(context) {
     private val roundedPath = Path()
     private val roundedRect = RectF()
     private var cornerRadius: Float = 0f
+    private val cornerRadii = FloatArray(8)
+    private var cutoutBounds: List<Rect> = emptyList()
     private var pathLength: Float = 0f
 
     private var useRainbowGradient = false
 
     private var glowBaseColor: Int = Color.WHITE
+
+    var onPulseFinished: (() -> Unit)? = null
 
     var visible: Boolean
         get() = isVisible
@@ -115,16 +118,21 @@ class EdgeLightView(context: Context) : FrameLayout(context) {
     var paintColor: Int
         get() = edgePaint.color
         set(value) {
-            if (value != COLOR_RAINBOW) {
-                useRainbowGradient = false
-                edgePaint.shader = null
-                edgePaint.color = value
-                edgePaint.alpha = 255
-                glowBaseColor = resolveGlowBase(value)
-            } else {
-                useRainbowGradient = true
+            edgePaint.color = value
+            edgePaint.alpha = 255
+            glowBaseColor = resolveGlowBase(value)
+            invalidate()
+        }
+
+    var rainbow: Boolean
+        get() = useRainbowGradient
+        set(value) {
+            useRainbowGradient = value
+            if (value) {
                 glowBaseColor = RAINBOW[0]
                 updateRainbowGradient()
+            } else {
+                edgePaint.shader = null
             }
             invalidate()
         }
@@ -133,9 +141,9 @@ class EdgeLightView(context: Context) : FrameLayout(context) {
         get() = pulseAnimator?.isRunning == true
         set(value) {
             if (value && !pulseRunning) {
-                startPulse()
                 startEffectAnimation()
                 startRainbowAnimation()
+                startPulse()
             } else if (!value) {
                 stopRainbowAnimation()
                 stopEffectAnimation()
@@ -146,7 +154,10 @@ class EdgeLightView(context: Context) : FrameLayout(context) {
 
     init {
         layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
-        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+        isFocusable = false
+        isClickable = false
+        isLongClickable = false
         setWillNotDraw(false)
         visible = false
 
@@ -159,6 +170,26 @@ class EdgeLightView(context: Context) : FrameLayout(context) {
         }
 
         edgePaint.strokeWidth = userStrokeWidth * resources.displayMetrics.density
+        cornerRadii.fill(cornerRadius)
+    }
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean = false
+
+    override fun onInterceptTouchEvent(event: MotionEvent): Boolean = false
+
+    override fun onApplyWindowInsets(insets: WindowInsets): WindowInsets {
+        val positions = intArrayOf(
+            RoundedCorner.POSITION_TOP_LEFT, RoundedCorner.POSITION_TOP_RIGHT,
+            RoundedCorner.POSITION_BOTTOM_RIGHT, RoundedCorner.POSITION_BOTTOM_LEFT,
+        )
+        positions.forEachIndexed { index, position ->
+            val radius = insets.getRoundedCorner(position)?.radius?.toFloat() ?: cornerRadius
+            cornerRadii[index * 2] = radius
+            cornerRadii[index * 2 + 1] = radius
+        }
+        cutoutBounds = insets.displayCutout?.boundingRects ?: emptyList()
+        invalidate()
+        return insets
     }
 
     private fun resolveGlowBase(color: Int): Int {
@@ -201,21 +232,21 @@ class EdgeLightView(context: Context) : FrameLayout(context) {
                 override fun onAnimationEnd(animation: Animator) {
                     visible = false
                     pulseAnimator = null
-                }
-
-                override fun onAnimationCancel(animation: Animator) {
-                    visible = false
-                    pulseAnimator = null
+                    stopRainbowAnimation()
+                    stopEffectAnimation()
+                    onPulseFinished?.invoke()
                 }
             })
             repeatCount = 0
-            start()
         }
+        pulseAnimator?.start()
     }
 
     private fun stopPulse() {
+        pulseAnimator?.removeAllListeners()
         pulseAnimator?.cancel()
         pulseAnimator = null
+        visible = false
     }
 
     override fun onDetachedFromWindow() {
@@ -332,7 +363,11 @@ class EdgeLightView(context: Context) : FrameLayout(context) {
         edgePaint.strokeCap = Paint.Cap.BUTT
 
         when (animationEffect) {
-            EFFECT_BREATHING -> applyBreathingEffect()
+            EFFECT_BREATHING -> {
+                applyBreathingEffect()
+                canvas.drawLine(halfStroke, 0f, halfStroke, height.toFloat(), edgePaint)
+                canvas.drawLine(width - halfStroke, 0f, width - halfStroke, height.toFloat(), edgePaint)
+            }
             EFFECT_WAVE -> drawWaveEffect(canvas)
             EFFECT_SPARKLE -> drawSparkleEffect(canvas)
             EFFECT_CHASE -> drawChaseEffect(canvas)
@@ -360,8 +395,7 @@ class EdgeLightView(context: Context) : FrameLayout(context) {
         roundedPath.reset()
         roundedPath.addRoundRect(
             roundedRect,
-            cornerRadius,
-            cornerRadius,
+            cornerRadii,
             Path.Direction.CW
         )
 
@@ -656,9 +690,7 @@ class EdgeLightView(context: Context) : FrameLayout(context) {
     }
 
     private fun updateRainbowGradient() {
-        if (width == 0 || height == 0) {
-            post { _updateRainbowGradient() }
-        } else {
+        if (width > 0 && height > 0) {
             _updateRainbowGradient()
         }
     }
@@ -775,7 +807,6 @@ class EdgeLightView(context: Context) : FrameLayout(context) {
     companion object {
         const val STYLE_DEFAULT = "default"
         const val STYLE_ROUNDED = "rounded"
-        const val COLOR_RAINBOW = -1
         const val EFFECT_NONE = "none"
         const val EFFECT_BREATHING = "breathing"
         const val EFFECT_WAVE = "wave"
