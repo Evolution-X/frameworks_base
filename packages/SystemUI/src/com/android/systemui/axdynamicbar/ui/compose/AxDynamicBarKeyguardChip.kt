@@ -9,7 +9,7 @@ import android.graphics.drawable.GradientDrawable
 import android.view.View
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.viewinterop.AndroidView
-import com.android.axion.blur.AxBlurBackgroundRenderer
+import com.android.axion.blur.BlurEngine
 import com.android.axion.blur.AxBlurColors
 import com.android.compose.animation.Expandable
 import com.android.compose.animation.rememberExpandableController
@@ -138,22 +138,18 @@ private val BatteryIconSize = ChipHeight - SpaceXxl
 private val CountBadgeHeight = ChipHeight / 2
 
 private class MusicPillBlurHost(context: Context) : View(context) {
-    private val blur = AxBlurBackgroundRenderer(this)
-    private val overlayColor = AxBlurColors.surfaceLightTint(context)
+    private val blur = BlurEngine(this)
+    private val overlayColor = AxBlurColors.surfaceBrightTint(context)
+    private val cornerRadiusPx = context.resources.displayMetrics.density * 50f
 
     private val bgDrawable: GradientDrawable = GradientDrawable().also { d ->
         d.setColor(0x00000000)
-        d.cornerRadius = context.resources.displayMetrics.density * 50f
+        d.cornerRadius = cornerRadiusPx
     }
 
-    override fun onAttachedToWindow() {
-        super.onAttachedToWindow()
-        blur.onAttachedToWindow()
-    }
-
-    override fun onDetachedFromWindow() {
-        blur.onDetachedFromWindow()
-        super.onDetachedFromWindow()
+    init {
+        blur.setOverlayColor(overlayColor)
+        blur.setEnabled(true)
     }
 
     override fun onVisibilityAggregated(isVisible: Boolean) {
@@ -167,7 +163,7 @@ private class MusicPillBlurHost(context: Context) : View(context) {
     override fun draw(canvas: Canvas) {
         if (width > 0 && height > 0) {
             bgDrawable.setBounds(0, 0, width, height)
-            if (!blur.drawBackgroundWithOverlayColor(canvas, bgDrawable, overlayColor)) {
+            if (!blur.draw(canvas, 0, 0, width, height, cornerRadiusPx)) {
                 bgDrawable.setColor(overlayColor and 0x00FFFFFF or (0xCC shl 24))
                 bgDrawable.draw(canvas)
                 bgDrawable.setColor(0x00000000)
