@@ -169,19 +169,10 @@ public class WallpaperDepthUtils {
                 registerTunable();
                 ViewGroup parent = (ViewGroup) getParent();
                 if (parent != null && mLockScreenBackground.getParent() == null) {
-                    View keyguardRootView = parent.findViewById(
-                            com.android.systemui.res.R.id.keyguard_root_view);
-                    if (keyguardRootView != null) {
-                        int keyguardIndex = parent.indexOfChild(keyguardRootView);
-                        if (keyguardIndex >= 0) {
-                            parent.addView(mLockScreenBackground, keyguardIndex);
-                        } else {
-                            parent.addView(mLockScreenBackground, 0);
-                        }
-                    } else {
-                        int myIndex = parent.indexOfChild(this);
-                        parent.addView(mLockScreenBackground, Math.max(0, myIndex));
-                    }
+                    View scrimBehind = parent.findViewById(
+                            com.android.systemui.res.R.id.scrim_behind);
+                    int scrimIndex = parent.indexOfChild(scrimBehind);
+                    parent.addView(mLockScreenBackground, Math.max(0, scrimIndex));
                 }
             }
 
