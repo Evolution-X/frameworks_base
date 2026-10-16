@@ -748,11 +748,14 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
                 chipTopBottomPadding
             )
             clock.setTextAlignment(View.TEXT_ALIGNMENT_CENTER)
-            // Set text color to white for visibility on filled chip backgrounds
+            // Set text color for visibility on filled chip backgrounds: white on dark
+            // chips, dark on chips with a light/near-white center (LIGHT_CHIP_STYLES).
             // Styles 2 and 8 are outline-only (transparent background), so use normal color
             if (style != 2 && style != 8) {
                 clock.setStaticColor(true)
-                clock.setTextColor(Color.WHITE)
+                clock.setTextColor(
+                    if (style in LIGHT_CHIP_STYLES) CHIP_TEXT_DARK else Color.WHITE
+                )
             } else {
                 clock.setStaticColor(false)
             }
@@ -889,6 +892,12 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
 
     companion object {
         private const val CHIP_STYLE_CUSTOM_GRADIENT = 13
+
+        // Chip styles (1-based, matches statusbar_clock_chip) with a light/near-white
+        // center that needs dark clock text. Keep in sync with Evolver's
+        // ClockBackgroundChipPreference.
+        private val LIGHT_CHIP_STYLES = setOf(5)
+        private const val CHIP_TEXT_DARK = 0xFF1B1B1F.toInt()
         private const val GRADIENT_TEXT_STYLE_MASK = 1
 
         private const val CLOCK_POSITION_RIGHT = 0
