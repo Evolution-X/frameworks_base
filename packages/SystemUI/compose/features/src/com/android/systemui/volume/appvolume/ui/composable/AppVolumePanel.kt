@@ -34,6 +34,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -48,8 +49,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.compose.PlatformButton
 import com.android.compose.PlatformOutlinedButton
 import com.android.compose.PlatformSliderDefaults
+import com.android.compose.theme.LocalAndroidColorScheme
 import com.android.systemui.common.ui.compose.Icon as SysUiIcon
 import com.android.systemui.res.R
+import com.android.systemui.shared.system.BlurUtils.isVolumeAndPowerBlurEnabled
 import com.android.systemui.volume.appvolume.ui.viewmodel.AppVolumePanelViewModel
 import com.android.systemui.volume.panel.component.volume.slider.ui.viewmodel.AppVolumeSliderState
 import com.android.systemui.volume.panel.component.volume.ui.composable.VolumeSlider
@@ -147,7 +150,7 @@ private fun AppSliderRow(
         modifier =
             modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceContainer, shape)
+                .background(rowColor(), shape)
                 .padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -174,10 +177,7 @@ private fun EmptyState() {
     Row(
         modifier =
             Modifier.fillMaxWidth()
-                .background(
-                    MaterialTheme.colorScheme.surfaceContainer,
-                    RoundedCornerShape(OuterCornerRadius),
-                )
+                .background(rowColor(), RoundedCornerShape(OuterCornerRadius))
                 .padding(horizontal = 20.dp, vertical = 24.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -212,9 +212,31 @@ private fun BottomBar(viewModel: AppVolumePanelViewModel) {
     }
 }
 
+/**
+ * Whether the sheet behind the panel is blurred. createBottomSheet() draws the blur itself, so the
+ * content only has to avoid painting opaque surfaces over it.
+ */
+@Composable
+private fun isBlurEnabled(): Boolean = remember { isVolumeAndPowerBlurEnabled() }
+
+/** Row surface: translucent over the blurred sheet like the main volume panel, else opaque. */
+@Composable
+private fun rowColor(): Color =
+    if (isBlurEnabled()) {
+        LocalAndroidColorScheme.current.surfaceEffect1
+    } else {
+        MaterialTheme.colorScheme.surfaceContainer
+    }
+
 @Composable
 private fun appVolumeSliderColors(): SliderColors {
-    val inactive = MaterialTheme.colorScheme.surfaceContainerHighest
+    // One effect layer above the row so the track stays visible on it.
+    val inactive =
+        if (isBlurEnabled()) {
+            LocalAndroidColorScheme.current.surfaceEffect2
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHighest
+        }
     return SliderDefaults.colors()
         .copy(
             activeTickColor = inactive,
