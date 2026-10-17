@@ -3,42 +3,38 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
-    android:gravity="center_vertical">
+    android:orientation="vertical"
+    android:gravity="start">
 
     <FrameLayout
         android:id="@+id/oos_clock"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="start|center"
-        android:layout_marginTop="7dp"
+        android:layout_gravity="start"
         android:tag="clock"
-        android:gravity="center_vertical"
         android:layoutDirection="ltr">
 
         <TextClock
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:includeFontPadding="false"
-            android:layout_gravity="start|center"
             android:format12Hour="hh:mm"
             android:format24Hour="HH:mm"
             android:singleLine="true"
             android:textColor="?android:attr/textColorPrimary"
-            android:textSize="22sp"
+            android:textSize="30sp"
             android:textStyle="bold" />
 
         <TextClock
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="start|center"
+            android:includeFontPadding="false"
             android:format12Hour="hh:mm"
             android:format24Hour="HH:mm"
             android:maxLength="2"
             android:singleLine="true"
-            android:includeFontPadding="false"
             android:textColor="@android:color/system_accent1_300"
-            android:textSize="22sp"
+            android:textSize="30sp"
             android:textStyle="bold" />
     </FrameLayout>
 
@@ -46,8 +42,8 @@
         android:id="@+id/oos_date"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:layout_gravity="center_vertical"
+        android:layout_gravity="start"
+        android:layout_marginTop="2dp"
         android:includeFontPadding="false"
         android:format12Hour="EEEE, MMM dd"
         android:format24Hour="EEEE, dd MMM"
