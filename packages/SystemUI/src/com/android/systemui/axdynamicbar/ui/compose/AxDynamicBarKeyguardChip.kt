@@ -35,10 +35,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
@@ -139,7 +136,7 @@ private val MultiLineChipHeight = 48.dp
 @Composable
 private fun chipFillColor(): Color = CardBg.copy(alpha = AlphaGlass)
 
-/** Shared frosted shell for every keyguard chip: blur + glass fill + hairline, pill-shaped. */
+/** Shared frosted shell for every keyguard chip: surface-tinted frost with a rim, pill-shaped. */
 @Composable
 private fun GlassChip(
     height: Dp,
@@ -149,7 +146,13 @@ private fun GlassChip(
 ) {
     Box(
         // ShapeChip is a 50 % pill; the blur needs the matching radius explicitly.
-        modifier = modifier.islandBlur(cornerRadius = height / 2, fallbackColor = CardBg, alpha = blurAlpha),
+        modifier = modifier.islandBlur(
+            cornerRadius = height / 2,
+            fallbackColor = CardBg,
+            tint = chipFillColor(),
+            alpha = blurAlpha,
+            highlightWidth = ChipHighlightWidth,
+        ),
         contentAlignment = Alignment.Center,
     ) {
         content()
@@ -387,8 +390,6 @@ private fun KeyguardChipBody(
         else -> ChipHeight
     }
     val dynamicMinWidth = if (isMedia) MusicChipMinWidth else 48.dp
-    val strokeColor = chipStrokeColor()
-    val fillColor = chipFillColor()
     val washColor = accent.copy(alpha = AlphaIconBg)
 
     GlassChip(height = dynamicHeight, blurAlpha = blurAlpha) {
@@ -396,10 +397,8 @@ private fun KeyguardChipBody(
             modifier = Modifier
                 .height(dynamicHeight)
                 .widthIn(min = dynamicMinWidth, max = 180.dp)
-                .border(BorderStroke(0.3.dp, strokeColor), ChipShape)
                 .clip(ChipShape)
                 .squishAnimation(toggleCount)
-                .background(fillColor)
                 .animateContentSize(motionScheme.defaultSpatialSpec())
                 .then(
                     if (progress != null) {
@@ -655,10 +654,8 @@ private fun KeyguardBatteryChip(
         Row(
             modifier = Modifier
                 .height(dynamicHeight)
-                .widthIn(min = 48.dp, max = 180.dp)
-                .border(BorderStroke(0.3.dp, chipStrokeColor()), ChipShape)
                 .clip(ChipShape)
-                .background(chipFillColor())
+                .widthIn(min = 48.dp, max = 180.dp)
                 .padding(horizontal = SpaceMd)
                 .animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec()),
             verticalAlignment = Alignment.CenterVertically,
@@ -1092,12 +1089,6 @@ private fun ActionButton(
             )
         }
     }
-}
-
-@Composable
-private fun chipStrokeColor(): Color {
-    val base = if (isSystemInDarkTheme()) Color.White else Color.Black
-    return base.copy(alpha = 0.3f)
 }
 
 @Composable
