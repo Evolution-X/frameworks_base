@@ -17,6 +17,11 @@
 package com.android.systemui.keyguard.ui.lockscreen.elementproviders
 
 import android.content.testableContext
+import com.android.systemui.axdynamicbar.domain.AxDynamicBarInteractor
+import com.android.systemui.axdynamicbar.domain.AxDynamicBarSettings
+import com.android.systemui.axdynamicbar.ui.AxDynamicBarChipViewModel
+import com.android.systemui.axdynamicbar.ui.AxDynamicBarKeyguardExpansion
+import com.android.systemui.axdynamicbar.ui.KeyguardBatteryInfo
 import com.android.systemui.keyguard.domain.interactor.keyguardInteractor
 import com.android.systemui.keyguard.domain.interactor.keyguardQuickAffordanceInteractor
 import com.android.systemui.keyguard.domain.interactor.keyguardTransitionInteractor
@@ -44,6 +49,9 @@ import com.android.systemui.keyguard.ui.viewmodel.toLockscreenEndStateTransition
 import com.android.systemui.kosmos.Kosmos
 import com.android.systemui.kosmos.applicationCoroutineScope
 import com.android.systemui.shade.domain.interactor.shadeInteractor
+import kotlinx.coroutines.flow.MutableStateFlow
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.whenever
 
 val Kosmos.lockscreenLowerRegionElementProvider by
     Kosmos.Fixture {
@@ -85,5 +93,33 @@ val Kosmos.lockscreenLowerRegionElementProvider by
                         toLockscreenEndStateTransitionViewModel,
                     transitionInteractor = keyguardTransitionInteractor,
                 ),
+            axDynamicBarChipViewModel = hiddenAxDynamicBarChipViewModel(),
         )
     }
+
+/** Lockscreen scene tests compose the dynamic bar. Keep it hidden so they do not need the real pipeline. */
+private fun hiddenAxDynamicBarChipViewModel(): AxDynamicBarChipViewModel {
+    val settings = mock<AxDynamicBarSettings>()
+    val interactor =
+        mock<AxDynamicBarInteractor>().apply {
+            whenever(this.settings).thenReturn(settings)
+            whenever(this.mediaControlChipModel).thenReturn(MutableStateFlow(null))
+        }
+    val expansion = mock<AxDynamicBarKeyguardExpansion>()
+    return mock<AxDynamicBarChipViewModel>().apply {
+        whenever(this.interactor).thenReturn(interactor)
+        whenever(this.keyguardExpansion).thenReturn(expansion)
+        whenever(this.chipState).thenReturn(MutableStateFlow(null))
+        whenever(this.isOnKeyguard).thenReturn(MutableStateFlow(false))
+        whenever(this.isEnabled).thenReturn(MutableStateFlow(false))
+        whenever(this.isKeyguardEnabled).thenReturn(MutableStateFlow(false))
+        whenever(this.isKeyguardMusicPillEnabled).thenReturn(MutableStateFlow(false))
+        whenever(this.mediaUseWaveform).thenReturn(MutableStateFlow(false))
+        whenever(this.isLowUdfps).thenReturn(MutableStateFlow(false))
+        whenever(this.isKeyguardExpanded).thenReturn(MutableStateFlow(false))
+        whenever(this.keyguardBatteryChipMode).thenReturn(MutableStateFlow(0))
+        whenever(this.keyguardBatteryInfo)
+            .thenReturn(MutableStateFlow(KeyguardBatteryInfo(0, false, false, false, null)))
+        whenever(this.batteryString).thenReturn(MutableStateFlow(""))
+    }
+}

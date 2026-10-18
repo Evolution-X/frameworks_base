@@ -26,9 +26,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.dp
+import com.android.compose.theme.PlatformTheme
+import com.android.systemui.axdynamicbar.ui.AxDynamicBarChipViewModel
+import com.android.systemui.axdynamicbar.ui.compose.AxDynamicBarKeyguardChip
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,6 +70,7 @@ constructor(
     private val viewModelFactory: LockscreenLowerRegionViewModel.Factory,
     @Named(LOCKSCREEN_INSTANCE)
     private val quickAffordancesCombinedViewModel: KeyguardQuickAffordancesCombinedViewModel,
+    private val axDynamicBarChipViewModel: AxDynamicBarChipViewModel,
 ) : LockscreenElementProvider {
     override val elements: List<LockscreenElement> by lazy { listOf(LowerRegionElement()) }
 
@@ -84,9 +90,20 @@ constructor(
 
                 Box(
                     Modifier.weight(1f)
-                        .wrapContentHeight(Alignment.CenterVertically, unbounded = true)
+                        .wrapContentHeight(Alignment.CenterVertically, unbounded = true),
+                    contentAlignment = Alignment.Center,
                 ) {
                     LockscreenElement(IndicationArea)
+                    val isLowUdfps by
+                        axDynamicBarChipViewModel.isLowUdfps.collectAsStateWithLifecycle()
+                    if (!isLowUdfps) {
+                        PlatformTheme {
+                            AxDynamicBarKeyguardChip(
+                                viewModel = axDynamicBarChipViewModel,
+                                modifier = Modifier.widthIn(max = 260.dp),
+                            )
+                        }
+                    }
                 }
 
                 ShortcutElement(Shortcuts.End, viewModel)

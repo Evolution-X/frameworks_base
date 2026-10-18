@@ -19,17 +19,22 @@ package com.android.systemui.keyguard.ui.composable.elements
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.HorizontalAlignmentLine
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.VerticalAlignmentLine
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.compose.animation.scene.BaseContentScope
 import com.android.compose.animation.scene.ContentScope
 import com.android.compose.animation.scene.ElementContentScope
 import com.android.compose.modifiers.thenIf
+import com.android.systemui.axdynamicbar.ui.AxDynamicBarKeyguardExpansion
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.keyguard.ui.composable.LockscreenTouchHandling
 import com.android.systemui.keyguard.ui.composable.modifier.burnInAware
@@ -54,6 +59,7 @@ import com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenEl
 import com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenScope
 import com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenScope.Companion.LockscreenElement
 import com.android.systemui.shade.ShadeDisplayAware
+import com.android.systemui.wallpapers.data.repository.WallpaperFocalAreaRepository
 import javax.inject.Inject
 import kotlin.math.max
 import kotlin.math.min
@@ -67,6 +73,9 @@ constructor(
     private val viewModelFactory: LockscreenRootViewModel.Factory,
     private val aodBurnInViewModel: AodBurnInViewModel,
     private val keyguardClockViewModel: KeyguardClockViewModel,
+    private val ambientBounds: LockscreenAmbientBounds,
+    private val wallpaperFocalAreaRepository: WallpaperFocalAreaRepository,
+    private val keyguardExpansion: AxDynamicBarKeyguardExpansion,
 ) : LockscreenElementProvider {
     override val elements: List<LockscreenElement> by lazy { listOf(RootElement()) }
 
@@ -95,22 +104,84 @@ constructor(
                                 Clock.Small -> {
                                     burnInTracker.onSmallClockTopChanged(rect.top)
                                     viewModel.setSmallClockBottom(rect.bottom)
+                                    ambientBounds.smallClockBottom.value = rect.bottom
                                 }
+                                Clock.Large -> ambientBounds.largeClockBottom.value = rect.bottom
+                                Smartspace.DWA.LargeClock.Below ->
+                                    ambientBounds.largeDateWeatherBottom.value = rect.bottom
+                                Smartspace.DWA.SmallClock.Row,
+                                Smartspace.DWA.SmallClock.Column ->
+                                    ambientBounds.smallDateWeatherBottom.value = rect.bottom
                                 Smartspace.Cards -> {
                                     burnInTracker.onSmartspaceTopChanged(rect.top)
                                     viewModel.setSmartspaceCardBottom(rect.bottom)
+                                    ambientBounds.smartspaceBottom.value = rect.bottom
                                 }
-                                MediaCarousel -> viewModel.setMediaPlayerBottom(rect.bottom)
+                                MediaCarousel -> {
+                                    viewModel.setMediaPlayerBottom(rect.bottom)
+                                    ambientBounds.mediaBottom.value = rect.bottom
+                                }
                                 Shortcuts.Start -> viewModel.setShortcutTop(rect.top)
                                 Shortcuts.End -> viewModel.setShortcutTop(rect.top)
                                 SettingsMenu -> onSettingsMenuPlaced(rect)
                                 else -> {}
                             }
                         },
+                        onElementUnpositioned = { key ->
+                            when (key) {
+                                Clock.Small -> ambientBounds.smallClockBottom.value = -1f
+                                Clock.Large -> ambientBounds.largeClockBottom.value = -1f
+                                Smartspace.DWA.LargeClock.Below ->
+                                    ambientBounds.largeDateWeatherBottom.value = -1f
+                                Smartspace.DWA.SmallClock.Row,
+                                Smartspace.DWA.SmallClock.Column ->
+                                    ambientBounds.smallDateWeatherBottom.value = -1f
+                                Smartspace.Cards -> ambientBounds.smartspaceBottom.value = -1f
+                                MediaCarousel -> ambientBounds.mediaBottom.value = -1f
+                                else -> {}
+                            }
+                        },
                     )
 
+                val notificationBottom by
+                    wallpaperFocalAreaRepository.notificationStackAbsoluteBottom
+                        .collectAsStateWithLifecycle()
+                val largeClockBottom by
+                    ambientBounds.largeClockBottom.collectAsStateWithLifecycle()
+                val largeDateWeatherBottom by
+                    ambientBounds.largeDateWeatherBottom.collectAsStateWithLifecycle()
+                val smallClockBottom by
+                    ambientBounds.smallClockBottom.collectAsStateWithLifecycle()
+                val smallDateWeatherBottom by
+                    ambientBounds.smallDateWeatherBottom.collectAsStateWithLifecycle()
+                val smartspaceBottom by
+                    ambientBounds.smartspaceBottom.collectAsStateWithLifecycle()
+                val mediaBottom by ambientBounds.mediaBottom.collectAsStateWithLifecycle()
+                val expandedAmbient by
+                    keyguardExpansion.isExpanded.collectAsStateWithLifecycle()
+                val contentBottom =
+                    listOf(
+                            largeClockBottom,
+                            largeDateWeatherBottom,
+                            smallClockBottom,
+                            smallDateWeatherBottom,
+                            smartspaceBottom,
+                            mediaBottom,
+                            notificationBottom,
+                        )
+                        .filter { it > 0f }
+                        .maxOrNull()
+                        ?.toInt() ?: -1
+                val ambientMarginPx = with(LocalDensity.current) { 8.dp.roundToPx() }
+                val ambientIconGapPx = with(LocalDensity.current) { 24.dp.roundToPx() }
                 with(scopeFactory.create(contentScope, innerContext)) {
-                    LockscreenSceneLayout(viewModel.isUdfpsSupported)
+                    LockscreenSceneLayout(
+                        contentBottomPx = contentBottom,
+                        expandedAmbient = expandedAmbient,
+                        ambientMarginPx = ambientMarginPx,
+                        pinAboveIcon = smallClockBottom > 0f,
+                        ambientIconGapPx = ambientIconGapPx,
+                    )
                 }
             }
         }
@@ -191,7 +262,11 @@ object LockIconAlignmentLines {
  */
 @Composable
 private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
-    isUdfpsSupported: Boolean,
+    contentBottomPx: Int,
+    expandedAmbient: Boolean,
+    ambientMarginPx: Int,
+    pinAboveIcon: Boolean,
+    ambientIconGapPx: Int,
     modifier: Modifier = Modifier,
 ) {
     Layout(
@@ -233,19 +308,8 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
                 bottom = lockIconPlaceable[LockIconAlignmentLines.Bottom],
             )
 
-        val ambientIndicationPlaceable =
-            ambientIndicationMeasurable.measure(
-                constraints = Constraints.fixedWidth(constraints.maxWidth)
-            )
-
-        var upperRegionMaxHeight = lockIconBounds.top - statusBarPlaceable.measuredHeight
-        var lowerRegionMaxHeight = constraints.maxHeight - lockIconBounds.bottom
-
-        if (!isUdfpsSupported) {
-            upperRegionMaxHeight -= ambientIndicationPlaceable.measuredHeight
-        } else {
-            lowerRegionMaxHeight -= ambientIndicationPlaceable.measuredHeight
-        }
+        val upperRegionMaxHeight = lockIconBounds.top - statusBarPlaceable.measuredHeight
+        val lowerRegionMaxHeight = constraints.maxHeight - lockIconBounds.bottom
 
         val upperRegionPlaceable =
             upperRegionMeasurable.measure(
@@ -267,6 +331,20 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
                 )
             )
 
+        val shortcutsTop = constraints.maxHeight - lowerRegionPlaceable.measuredHeight
+        val ambientIndicationPlaceable =
+            if (expandedAmbient) {
+                val height =
+                    (shortcutsTop - statusBarPlaceable.measuredHeight).coerceAtLeast(0)
+                ambientIndicationMeasurable.measure(
+                    Constraints.fixed(constraints.maxWidth, height)
+                )
+            } else {
+                ambientIndicationMeasurable.measure(
+                    constraints = Constraints.fixedWidth(constraints.maxWidth)
+                )
+            }
+
         val settingsMenuPlaceable = settingsMenuMeasurable.measure(constraints)
 
         layout(constraints.maxWidth, constraints.maxHeight) {
@@ -274,18 +352,31 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
             upperRegionPlaceable.placeRelative(0, statusBarPlaceable.measuredHeight)
             lockIconPlaceable.place(lockIconBounds.left, lockIconBounds.top)
 
-            if (isUdfpsSupported) {
-                // Place below UDFPS icon.
-                ambientIndicationPlaceable.placeRelative(
-                    0,
-                    lockIconBounds.top + lockIconPlaceable.measuredHeight,
-                )
+            val ambientTop =
+                if (expandedAmbient) {
+                    statusBarPlaceable.measuredHeight
+                } else {
+                    ambientSlotTop(
+                        contentBottom = contentBottomPx,
+                        shortcutsTop = shortcutsTop,
+                        obstacle = lockIconBounds,
+                        cardHeight = ambientIndicationPlaceable.measuredHeight,
+                        margin = ambientMarginPx,
+                        pinAboveIcon = pinAboveIcon,
+                        iconGap = ambientIconGapPx,
+                    )
+                }
+            if (ambientTop != null) {
+                ambientIndicationPlaceable.placeRelativeWithLayer(0, ambientTop) {}
             } else {
-                // Place above lock icon.
-                ambientIndicationPlaceable.placeRelative(
+                // Off the bottom edge, so a card that does not fit cannot cover the clock,
+                // the sensor, or the shortcuts.
+                ambientIndicationPlaceable.placeRelativeWithLayer(
                     0,
-                    lockIconBounds.top - ambientIndicationPlaceable.measuredHeight,
-                )
+                    constraints.maxHeight,
+                ) {
+                    alpha = 0f
+                }
             }
 
             lowerRegionPlaceable.place(
@@ -299,6 +390,39 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
             )
         }
     }
+}
+
+/**
+ * Y of a card centered between the lock icon and the shortcuts when that gap can hold it.
+ *
+ * When it cannot, a large clock still centers the card between the clock cluster and the icon. A
+ * small clock pins the card [iconGap] above the icon instead, so it does not float in the middle
+ * of the tall gap. Returns null when the card would cover other content.
+ */
+private fun ambientSlotTop(
+    contentBottom: Int,
+    shortcutsTop: Int,
+    obstacle: IntRect,
+    cardHeight: Int,
+    margin: Int,
+    pinAboveIcon: Boolean,
+    iconGap: Int,
+): Int? {
+    if (contentBottom <= 0 || cardHeight <= 0) return null
+    val needed = cardHeight + margin * 2
+    val belowTop = max(obstacle.bottom, contentBottom)
+    if (shortcutsTop - belowTop >= needed) {
+        return belowTop + (shortcutsTop - belowTop - cardHeight) / 2
+    }
+    val aboveBottom = min(obstacle.top, shortcutsTop)
+    if (pinAboveIcon) {
+        val cardTop = aboveBottom - iconGap - cardHeight
+        return if (cardTop >= contentBottom + margin) cardTop else null
+    }
+    if (aboveBottom - contentBottom >= needed) {
+        return contentBottom + (aboveBottom - contentBottom - cardHeight) / 2
+    }
+    return null
 }
 
 private fun BaseContentScope.isIdleWithOverlay(): Boolean {
