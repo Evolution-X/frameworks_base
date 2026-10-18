@@ -25,7 +25,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -112,9 +114,16 @@ private object PrivacyChips {
     }
 
     object Colors {
-        val locationBackground = Color(0xff4e8ff8)
-        val locationIcon = Color(0xff001945)
-        val otherTypesBackground = Color(0xff3ddc84)
-        val otherTypesIcon = Color(0xff00522b)
+        val locationBackground: Color
+            @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.primaryContainer
+
+        val locationIcon: Color
+            @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.onPrimaryContainer
+
+        val otherTypesBackground: Color
+            @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.primaryContainer
+
+        val otherTypesIcon: Color
+            @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.onPrimaryContainer
     }
 }
