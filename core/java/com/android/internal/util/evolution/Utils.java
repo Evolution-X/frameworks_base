@@ -22,6 +22,7 @@ import android.app.IActivityManager;
 import android.app.role.RoleManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.om.IOverlayManager;
 import android.content.om.OverlayManager;
 import android.content.om.OverlayManagerTransaction;
 import android.content.om.OverlayIdentifier;
@@ -159,6 +160,20 @@ public class Utils {
             overlayManager.commit(transaction.build());
         } catch (Exception e) {
             Log.e(TAG, "Error toggling overlay", e);
+        }
+    }
+
+    public static void toggleOverlay(Context context, String overlayName, boolean enable,
+            boolean highestPriority) {
+        toggleOverlay(context, overlayName, enable);
+        if (!enable || !highestPriority) {
+            return;
+        }
+        try {
+            IOverlayManager.Stub.asInterface(ServiceManager.getService(Context.OVERLAY_SERVICE))
+                    .setHighestPriority(overlayName, UserHandle.USER_CURRENT);
+        } catch (RemoteException e) {
+            Log.e(TAG, "Error raising overlay priority", e);
         }
     }
 
