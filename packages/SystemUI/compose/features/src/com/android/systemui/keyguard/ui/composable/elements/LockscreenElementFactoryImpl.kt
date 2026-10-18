@@ -22,6 +22,7 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import com.android.compose.animation.scene.Key
+import com.android.compose.modifiers.onUnplaced
 import com.android.systemui.log.LogBuffer
 import com.android.systemui.log.core.Logger
 import com.android.systemui.log.dagger.KeyguardBlueprintLog
@@ -55,12 +56,14 @@ constructor(
         with(scope) {
             CompositionLocalProvider(LocalContext provides element.context) {
                 val elementModifier =
-                    modifier.onGloballyPositioned { coordinates ->
-                        context.onElementPositioned(
-                            element.key,
-                            VRectF(coordinates.boundsInWindow()),
-                        )
-                    }
+                    modifier
+                        .onGloballyPositioned { coordinates ->
+                            context.onElementPositioned(
+                                element.key,
+                                VRectF(coordinates.boundsInWindow()),
+                            )
+                        }
+                        .onUnplaced { context.onElementUnpositioned(element.key) }
                 when (element) {
                     is MovableLockscreenElement -> {
                         MovableElement(element.key, elementModifier) {
