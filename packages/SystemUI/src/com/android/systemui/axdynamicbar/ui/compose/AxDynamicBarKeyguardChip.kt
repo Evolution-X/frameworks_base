@@ -61,6 +61,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -184,6 +185,14 @@ fun AxDynamicBarKeyguardChip(
 
     val motionScheme = MaterialTheme.motionScheme
     val expandableController = rememberExpandableController(color = Color.Transparent, shape = ChipShape)
+
+    // The scene-container lockscreen has no blueprint section to hide the keyguard indication
+    // text, so the chip does it itself while it is shown in that slot.
+    val suppressKeyguardIndication = isOnKeyguard && isEnabled && isKeyguardEnabled
+    LaunchedEffect(suppressKeyguardIndication) {
+        viewModel.setKeyguardIndicationSuppressed(suppressKeyguardIndication)
+    }
+    DisposableEffect(Unit) { onDispose { viewModel.setKeyguardIndicationSuppressed(false) } }
 
     Box(modifier = modifier) {
 

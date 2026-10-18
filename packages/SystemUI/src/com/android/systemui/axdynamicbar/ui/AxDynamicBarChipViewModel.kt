@@ -53,7 +53,7 @@ constructor(
     private val batteryController: BatteryController,
     authController: AuthController,
     udfpsOverlayInteractor: UdfpsOverlayInteractor,
-    keyguardIndicationController: KeyguardIndicationController,
+    private val keyguardIndicationController: KeyguardIndicationController,
     val keyguardExpansion: AxDynamicBarKeyguardExpansion,
     val statusBarExpansion: AxDynamicBarStatusBarExpansion,
 ) {
@@ -163,6 +163,11 @@ constructor(
 
     fun updateKeyguardCarrierText(text: String) {
         _keyguardCarrierText.value = text
+    }
+
+    /** Hides the keyguard indication text while the chip is drawn in its place. */
+    fun setKeyguardIndicationSuppressed(suppressed: Boolean) {
+        keyguardIndicationController.setSuppressIndication(suppressed)
     }
 
     private val _chipCenterXFraction = MutableStateFlow(0.5f)
