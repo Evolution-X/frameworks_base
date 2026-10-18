@@ -17,11 +17,15 @@
 package com.android.systemui.keyguard.ui.lockscreen.elementproviders
 
 import android.content.testableContext
+import com.android.systemui.axdynamicbar.ui.AxDynamicBarKeyguardExpansion
+import com.android.systemui.keyguard.ui.composable.elements.LockscreenAmbientBounds
 import com.android.systemui.keyguard.ui.composable.elements.LockscreenRootElementProvider
 import com.android.systemui.keyguard.ui.viewmodel.aodBurnInViewModel
 import com.android.systemui.keyguard.ui.viewmodel.keyguardClockViewModelWithImpl
 import com.android.systemui.keyguard.ui.viewmodel.lockscreenRootViewModelFactory
 import com.android.systemui.kosmos.Kosmos
+import com.android.systemui.wallpapers.data.repository.wallpaperFocalAreaRepository
+import org.mockito.kotlin.mock
 
 val Kosmos.lockscreenRootElementProvider by
     Kosmos.Fixture {
@@ -30,5 +34,8 @@ val Kosmos.lockscreenRootElementProvider by
             viewModelFactory = lockscreenRootViewModelFactory,
             aodBurnInViewModel = aodBurnInViewModel,
             keyguardClockViewModel = keyguardClockViewModelWithImpl,
+            ambientBounds = LockscreenAmbientBounds(),
+            wallpaperFocalAreaRepository = wallpaperFocalAreaRepository,
+            keyguardExpansion = mock<AxDynamicBarKeyguardExpansion>(),
         )
     }
