@@ -2784,6 +2784,13 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         // Lineage additions
         mAlarmManager = mContext.getSystemService(AlarmManager.class);
         mCameraManager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
+        try {
+            // Resolve the torch camera id up front so TorchModeCallback tracks torch
+            // state changes made elsewhere (e.g. QS tile) before the first toggleTorch().
+            getRearFlashCameraId();
+        } catch (CameraAccessException e) {
+            Slog.w(TAG, "Unable to resolve rear flash camera id", e);
+        }
         mCameraManager.registerTorchCallback(new TorchModeCallback(), mHandler);
         mCameraAvailabilityListener = new CameraAvailbilityListener();
         mCameraManager.registerAvailabilityCallback(mCameraAvailabilityListener, mHandler);
@@ -7706,16 +7713,26 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
     private String getRearFlashCameraId() throws CameraAccessException {
         if (mRearFlashCameraId != null) return mRearFlashCameraId;
+        // Must stay in sync with SystemUI's FlashlightControllerImpl/FlashlightRepository:
+        // prefer the logical multi-camera with flash, since torch callbacks are reported
+        // per camera id and SystemUI only listens to the id it selected.
+        String fallback = null;
         for (final String id : mCameraManager.getCameraIdList()) {
             CameraCharacteristics c = mCameraManager.getCameraCharacteristics(id);
             Boolean flashAvailable = c.get(CameraCharacteristics.FLASH_INFO_AVAILABLE);
             Integer lensFacing = c.get(CameraCharacteristics.LENS_FACING);
-            if (flashAvailable != null && flashAvailable
-                    && lensFacing != null && lensFacing == CameraCharacteristics.LENS_FACING_BACK) {
-                mRearFlashCameraId = id;
-                break;
+            if (!Boolean.TRUE.equals(flashAvailable) || lensFacing == null
+                    || lensFacing != CameraCharacteristics.LENS_FACING_BACK) {
+                continue;
             }
+            Set<String> physicalIds = c.getPhysicalCameraIds();
+            if (physicalIds != null && !physicalIds.isEmpty()) {
+                mRearFlashCameraId = id;
+                return id;
+            }
+            if (fallback == null) fallback = id;
         }
+        mRearFlashCameraId = fallback;
         return mRearFlashCameraId;
     }
 
