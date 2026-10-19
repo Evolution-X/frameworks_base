@@ -18,7 +18,6 @@ package com.android.systemui.weather
 import android.content.Context
 import android.util.AttributeSet
 import android.view.View
-import android.view.View.MeasureSpec
 import android.widget.ImageView
 import android.widget.TextView
 import com.android.systemui.res.R
@@ -60,8 +59,10 @@ class WeatherImageView @JvmOverloads constructor(
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val width = maxSizePx.coerceAtMost(MeasureSpec.getSize(widthMeasureSpec))
-        val height = maxSizePx.coerceAtMost(MeasureSpec.getSize(heightMeasureSpec))
-        setMeasuredDimension(width, height)
+        // Custom clocks measure with an unspecified height, which is not a zero-size limit.
+        setMeasuredDimension(
+            resolveSize(maxSizePx, widthMeasureSpec),
+            resolveSize(maxSizePx, heightMeasureSpec),
+        )
     }
 }
