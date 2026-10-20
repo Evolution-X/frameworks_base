@@ -26,14 +26,21 @@ import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
 import android.media.AudioManager
 import android.os.BatteryManager
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.util.AttributeSet
 import android.graphics.Color
 import android.widget.ImageView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.android.systemui.Dependency
+import com.android.systemui.lifecycle.repeatWhenAttached
 import com.android.systemui.plugins.statusbar.StatusBarStateController
-import kotlinx.coroutines.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collectLatest
 
 import com.android.systemui.res.R
 
@@ -52,7 +59,7 @@ class ProgressImageView @JvmOverloads constructor(
         Dependency.get(StatusBarStateController::class.java)
     }
     private var batteryTemperature = -1
-    private var updateJob: Job? = null
+    private val memoryPollingWanted = MutableStateFlow(false)
     private var widgetOpacity = DEFAULT_OPACITY
     private var colorMode = COLOR_MODE_DEFAULT
     private var customColor = Color.WHITE
@@ -65,6 +72,7 @@ class ProgressImageView @JvmOverloads constructor(
         override fun onDozingChanged(dozing: Boolean) {
             if (isDozing == dozing) return
             isDozing = dozing
+            updateMemoryPolling()
             updateProgress()
         }
     }
@@ -73,23 +81,24 @@ class ProgressImageView @JvmOverloads constructor(
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == Intent.ACTION_SCREEN_ON) {
                 isDozing = false
-                updateProgress()
-            }
-        }
-    }
-    
-    private val batteryReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == Intent.ACTION_BATTERY_CHANGED) {
-                batteryLevel = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-                batteryLevel = batteryLevel.coerceIn(0, 100)
-                batteryTemperature = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10
+                updateMemoryPolling()
                 updateProgress()
             }
         }
     }
 
-    private val colorSettingsObserver = object : ContentObserver(null) {
+    private val dataReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == Intent.ACTION_BATTERY_CHANGED) {
+                batteryLevel = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+                batteryLevel = batteryLevel.coerceIn(0, 100)
+                batteryTemperature = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10
+            }
+            updateProgress()
+        }
+    }
+
+    private val colorSettingsObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
         override fun onChange(selfChange: Boolean) {
             colorMode = Settings.System.getString(
                 context.contentResolver,
@@ -104,7 +113,7 @@ class ProgressImageView @JvmOverloads constructor(
         }
     }
 
-    private val settingsObserver = object : ContentObserver(null) {
+    private val settingsObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
         override fun onChange(selfChange: Boolean) {
             updateVisibility()
         }
@@ -127,6 +136,19 @@ class ProgressImageView @JvmOverloads constructor(
             R.id.memory_progress -> progressType = ProgressType.MEMORY
             R.id.temperature_progress -> progressType = ProgressType.TEMPERATURE
             R.id.volume_progress -> progressType = ProgressType.VOLUME
+        }
+        if (progressType == ProgressType.MEMORY) {
+            repeatWhenAttached(assertOnMainThread = false) {
+                repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    memoryPollingWanted.collectLatest { wanted ->
+                        if (!wanted) return@collectLatest
+                        while (true) {
+                            updateProgress()
+                            delay(1000L)
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -166,14 +188,19 @@ class ProgressImageView @JvmOverloads constructor(
             "lockscreen_widgets_custom_color",
             Color.WHITE
         )
-        if (!receiverRegistered) {
-            if (progressType == ProgressType.BATTERY || progressType == ProgressType.TEMPERATURE) {
-                val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-                context.registerReceiver(batteryReceiver, filter, Context.RECEIVER_EXPORTED)
-                receiverRegistered = true
+        val dataFilter = when (progressType) {
+            ProgressType.BATTERY, ProgressType.TEMPERATURE ->
+                IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+            ProgressType.VOLUME -> IntentFilter().apply {
+                addAction(AudioManager.VOLUME_CHANGED_ACTION)
+                addAction(AudioManager.STREAM_MUTE_CHANGED_ACTION)
             }
+            else -> null
         }
-        startProgressUpdates()
+        if (dataFilter != null) {
+            context.registerReceiver(dataReceiver, dataFilter, Context.RECEIVER_EXPORTED)
+            receiverRegistered = true
+        }
         updateVisibility()
         updateProgress()
     }
@@ -187,24 +214,9 @@ class ProgressImageView @JvmOverloads constructor(
         context.contentResolver.unregisterContentObserver(settingsObserver)
         context.contentResolver.unregisterContentObserver(colorSettingsObserver)
         if (receiverRegistered) {
-            context.unregisterReceiver(batteryReceiver)
+            context.unregisterReceiver(dataReceiver)
+            receiverRegistered = false
         }
-        stopProgressUpdates()
-    }
-
-    private fun startProgressUpdates() {
-        if (progressType == ProgressType.MEMORY || progressType == ProgressType.VOLUME) {
-            updateJob = CoroutineScope(Dispatchers.Main).launch {
-                while (isActive) {
-                    updateProgress()
-                    delay(1000L)
-                }
-            }
-        }
-    }
-
-    private fun stopProgressUpdates() {
-        updateJob?.cancel()
     }
 
     private fun updateProgress() {
@@ -289,6 +301,11 @@ class ProgressImageView @JvmOverloads constructor(
             "lockscreen_info_widgets_enabled", 0
         ) == 1
         visibility = if (masterEnabled && infoEnabled) VISIBLE else GONE
+        updateMemoryPolling()
+    }
+
+    private fun updateMemoryPolling() {
+        memoryPollingWanted.value = visibility == VISIBLE && !isDozing
     }
 
     companion object {
