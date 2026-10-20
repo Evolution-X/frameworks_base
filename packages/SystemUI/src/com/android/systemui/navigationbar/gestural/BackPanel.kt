@@ -526,9 +526,6 @@ class BackPanel(context: Context, private val latencyTracker: LatencyTracker) : 
                 alpha = (255 * min(arrowAlpha.pos, backgroundAlpha.pos)).toInt()
                 style = if (arrowMode == ARROW_MODE_FILL) Paint.Style.FILL else Paint.Style.STROKE
             }
-        if (isLeftPanel) {
-            canvas.scale(-1f, 1f, dx / 2f, dy / 2f)
-        }
         val path = when (arrowMode) {
             ARROW_MODE_FILL -> calculateArrowPathEx(arrowPath, arrowPaint, x = dx, y = dy)
             ARROW_MODE_CUSTOM_PATH -> getArrowPathFromResource(dx = dx, dy = dy)
