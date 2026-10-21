@@ -22406,6 +22406,16 @@ public final class Settings {
         public static final String EVOLUTION_WINDOW_BLOCK_SCREENRECORD_DETECTION = "window_block_screenrecord_detection";
 
         /**
+         * Whether Evolution X should hide screen capture status (both screenshot and screen
+         * recording detection) from all apps. Acts as a master switch on top of
+         * {@link #EVOLUTION_WINDOW_BLOCK_SCREENSHOT_DETECTION} and
+         * {@link #EVOLUTION_WINDOW_BLOCK_SCREENRECORD_DETECTION}.
+         *
+         * @hide
+         */
+        public static final String HIDE_SCREEN_CAPTURE_STATUS = "hide_screen_capture_status";
+
+        /**
          * Settings migrated from Wear OS settings provider.
          * @hide
          */
