@@ -5549,6 +5549,13 @@ public final class Settings {
         public static final String SCREEN_OFF_TIMEOUT = "screen_off_timeout";
 
         /**
+         * The amount of time in milliseconds before the lock screen display times out.
+         * If unset or non-positive, SystemUI uses the device's configured default.
+         * @hide
+         */
+        public static final String LOCKSCREEN_DISPLAY_TIMEOUT = "lockscreen_display_timeout";
+
+        /**
          * The screen backlight brightness between 1 (minimum) and 255 (maximum).
          *
          * Use {@link android.view.WindowManager.LayoutParams#screenBrightness} to set the screen
