@@ -245,6 +245,8 @@ import java.util.function.Consumer;
 import javax.inject.Inject;
 import javax.inject.Named;
 
+import kotlin.Unit;
+
 /**
  * A class handling initialization and coordination between some of the key central surfaces in
  * System UI: The notification shade, the keyguard (lockscreen), and the status bar.
@@ -985,10 +987,11 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
         detachFromParent(mEdgeLightViewController.getEdgeLightView());
         detachFromParent(mChargingAnimationViewController.getChargingView());
 
-        overlay.addView(mMediaViewController.getMediaArtScrim(),
-                new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT));
+        attachMediaArt();
+        mMediaViewController.setOnStatusBarAboveArtChanged(above -> {
+            mMainExecutor.execute(this::attachMediaArt);
+            return Unit.INSTANCE;
+        });
         overlay.addView(mPulseViewController.getPulseView(),
                 new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -1001,6 +1004,27 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
                 new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
+    /**
+     * Places the media art scrim. By default it lives in the shared overlay container, which is
+     * drawn above notification_panel (and so above the keyguard status bar). When the user wants
+     * the status bar above the art, it is placed directly below notification_panel instead:
+     * still above the scrims, but below the panel's status bar.
+     */
+    private void attachMediaArt() {
+        final View art = mMediaViewController.getMediaArtScrim();
+        final ViewGroup root = (ViewGroup) getNotificationShadeWindowView();
+        final FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT);
+        detachFromParent(art);
+        final View panel = root.findViewById(R.id.notification_panel);
+        if (mMediaViewController.isStatusBarAboveArt() && panel != null) {
+            root.addView(art, Math.max(root.indexOfChild(panel), 0), lp);
+        } else {
+            getScrimOverlayContainer().addView(art, 0, lp);
+        }
     }
 
     private static void detachFromParent(View v) {

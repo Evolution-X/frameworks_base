@@ -63,6 +63,10 @@ class MediaViewController @Inject constructor(
 
     private var listening = false
     private var featureEnabled = false
+    private var statusBarAboveArt = false
+
+    /** Invoked on the main thread when "status bar above media art" changes. */
+    var onStatusBarAboveArtChanged: ((Boolean) -> Unit)? = null
     private var aodEnabled = false
     private var artworkDrawable: Drawable? = null
     private var isMediaPlaying = false
@@ -153,6 +157,11 @@ class MediaViewController @Inject constructor(
             false,
             settingsObserver
         )
+        context.contentResolver.registerContentObserver(
+            Settings.System.getUriFor(Settings.System.LS_MEDIA_ART_STATUS_BAR_ABOVE),
+            false,
+            settingsObserver
+        )
 
         updateSettings()
     }
@@ -206,6 +215,17 @@ class MediaViewController @Inject constructor(
             35,
             UserHandle.USER_CURRENT
         ).coerceIn(0, 100)
+
+        val above = Settings.System.getIntForUser(
+            context.contentResolver,
+            Settings.System.LS_MEDIA_ART_STATUS_BAR_ABOVE,
+            0,
+            UserHandle.USER_CURRENT
+        ) == 1
+        if (above != statusBarAboveArt) {
+            statusBarAboveArt = above
+            onStatusBarAboveArtChanged?.invoke(above)
+        }
 
         if (!featureEnabled && !expandedMusicOpen) {
             cleanupResources(false)
@@ -748,6 +768,8 @@ class MediaViewController @Inject constructor(
     }
 
     fun getMediaArtScrim() = mediaScrim
+
+    fun isStatusBarAboveArt() = statusBarAboveArt
 
     fun albumArtVisible() = isAlbumArtVisible
 
