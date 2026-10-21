@@ -25,8 +25,10 @@ import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Color
 import android.os.AsyncTask
+import android.os.UserHandle
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.provider.Settings
 import android.util.AttributeSet
 import android.view.View
 import android.widget.ImageView
@@ -51,6 +53,9 @@ class FaceUnlockImageView @JvmOverloads constructor(
     }
 
     private val DELAY_HIDE_DURATION = 1500
+    private companion object {
+        const val FACE_UNLOCK_ANIMATION = "face_unlock_animation"
+    }
     private var currentState: State = State.HIDDEN
     private var colorState: ColorStateList? = null
     private val startAnimation: ObjectAnimator = createScaleAnimation(start = true)
@@ -100,7 +105,16 @@ class FaceUnlockImageView @JvmOverloads constructor(
         backgroundTintList = ColorStateList.valueOf(Color.parseColor("#99000000"))
     }
 
+    private fun isAnimationEnabled() = Settings.System.getIntForUser(
+        context.contentResolver, FACE_UNLOCK_ANIMATION, 1, UserHandle.USER_CURRENT) != 0
+
     fun setState(state: State) {
+        if (!isAnimationEnabled()) {
+            currentState = state
+            cancelAllAnimations()
+            visibility = View.GONE
+            return
+        }
         if (currentState != state) {
             currentState = state
             updateFaceIconState()
