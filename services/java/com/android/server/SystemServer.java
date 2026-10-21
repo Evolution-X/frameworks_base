@@ -1594,6 +1594,30 @@ public final class SystemServer implements Dumpable {
         t.traceEnd();
     }
 
+    // Order of the old persist.sys.bootanimation_style index, see BootAnimation.cpp.
+    private static final String[] LEGACY_BOOTANIM_NAMES = {
+        "default", "evo_reveal", "aokp", "cm", "ctos", "cyberpunk", "du", "google", "pac",
+        "rr", "slim", "valorant", "custom",
+    };
+
+    /**
+     * Pins a legacy boot animation style index to a name, so adding a style later can't change
+     * what was selected. Runs every boot and does nothing once a name is set.
+     */
+    private static void migrateBootAnimationStyle() {
+        try {
+            if (!SystemProperties.get("persist.sys.bootanim.name", "").isEmpty()) return;
+            final String legacy = SystemProperties.get("persist.sys.bootanimation_style", "");
+            if (legacy.isEmpty()) return;
+            final int index = Integer.parseInt(legacy.trim());
+            SystemProperties.set("persist.sys.bootanim.name",
+                    index >= 0 && index < LEGACY_BOOTANIM_NAMES.length
+                            ? LEGACY_BOOTANIM_NAMES[index] : "default");
+        } catch (RuntimeException e) {
+            Slog.w(TAG, "Could not migrate the boot animation style", e);
+        }
+    }
+
     /**
      * Starts a miscellaneous grab bag of stuff that has yet to be refactored and organized.
      */
@@ -2282,6 +2306,8 @@ public final class SystemServer implements Dumpable {
             t.traceBegin("StartCustomDeviceConfigService");
             mSystemServiceManager.startService(CustomDeviceConfigService.class);
             t.traceEnd();
+
+            migrateBootAnimationStyle();
 
             t.traceBegin("StartNetworkManagementService");
             try {
