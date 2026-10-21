@@ -727,6 +727,10 @@ final class UpdatableFontDir {
     private boolean isValidEmojiFontUpdate(FontFileInfo fontFileInfo,
             @Nullable FontUpdateRequest.Family prioritizedFamily,
             FontConfig fontConfig) {
+        // Custom emoji fonts are user supplied and may be older than the preinstalled one.
+        if (axFontFeatureSupport) {
+            return true;
+        }
         if (prioritizedFamily != null
                 && prioritizedFamily.getLang() != null
                 && EMOJI_LANG.equals(prioritizedFamily.getLang().toLanguageTags())) {
