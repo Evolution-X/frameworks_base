@@ -47,6 +47,7 @@ import com.android.systemui.shade.ShadeDisplayAware
 import com.android.systemui.shared.system.SysUiStatsLog
 import com.android.systemui.statusbar.policy.KeyguardStateController
 import com.android.systemui.user.domain.interactor.SelectedUserInteractor
+import com.android.systemui.util.ScrimUtils
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -256,6 +257,7 @@ constructor(
         }
         if (expansionChanged) {
             primaryBouncerCallbackInteractor.dispatchExpansionChanged(expansion)
+            ScrimUtils.get().onPrimaryBouncerExpansionChanged(expansion)
         }
     }
 
