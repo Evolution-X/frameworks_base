@@ -15853,6 +15853,9 @@ public final class Settings {
          */
         public static final String SPOOF_TRICKYSTORE_KEYBOX = "spoof_trickystore_keybox";
 
+        /** @hide */
+        public static final String SPOOF_DUCK_RKP_ENABLED = "spoof_duck_rkp_enabled";
+
         /**
          * @hide
          */
