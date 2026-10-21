@@ -37,6 +37,7 @@ class ScrimUtils private constructor(context: Context?) {
         fun onKeyguardFadingAwayChanged(fadingAway: Boolean) {}
         fun onKeyguardGoingAwayChanged(goingAway: Boolean) {}
         fun onPrimaryBouncerShowingChanged(showing: Boolean) {}
+        fun onPrimaryBouncerExpansionChanged(expansion: Float) {}
         fun onDozingChanged(dozing: Boolean) {}
         fun onExpandedFractionChanged(expandedFraction: Float) {}
         fun onBarStateChanged(state: Int) {}
@@ -167,6 +168,11 @@ class ScrimUtils private constructor(context: Context?) {
         listeners.notifyOnMain { it.onPrimaryBouncerShowingChanged(showing) }
         postKeyguardRetry()
         mWallpaperDepthUtils?.onBouncerShowingChanged(showing)
+    }
+
+    /** @param expansion 1f when the bouncer is fully hidden, 0f when fully showing */
+    fun onPrimaryBouncerExpansionChanged(expansion: Float) {
+        listeners.notifyOnMain { it.onPrimaryBouncerExpansionChanged(expansion) }
     }
 
     private fun postKeyguardRetry() {
