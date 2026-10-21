@@ -80,7 +80,6 @@ static const char SYSTEM_SHUTDOWNANIMATION_FILE[] = "/system/media/shutdownanima
 
 static const char* const BOOT_ANIMATION_FILES[] = {
     "/product/media/bootanimation.zip",
-    "/product/media/bootanimation_evo_reveal.zip",
     "/product/media/bootanimation_aokp.zip",
     "/product/media/bootanimation_cm.zip",
     "/product/media/bootanimation_ctos.zip",
@@ -88,6 +87,8 @@ static const char* const BOOT_ANIMATION_FILES[] = {
     "/product/media/bootanimation_du.zip",
     "/product/media/bootanimation_google.zip",
     "/product/media/bootanimation_pac.zip",
+    "/product/media/bootanimation_prism.zip",
+    "/product/media/bootanimation_prism_dynamic.zip",
     "/product/media/bootanimation_rr.zip",
     "/product/media/bootanimation_slim.zip",
     "/product/media/bootanimation_valorant.zip",
@@ -667,6 +668,30 @@ bool BootAnimation::preloadAnimation() {
     return false;
 }
 
+// Resolves the requested boot animation. persist.sys.bootanim.name wins
+// ("custom" or a [a-z0-9_]+ key mapping to bootanimation_<key>.zip); the
+// legacy index in persist.sys.bootanimation_style is only used when no
+// name has been set yet.
+static std::string resolveBootAnimationPath() {
+    const std::string name = android::base::GetProperty("persist.sys.bootanim.name", "");
+    if (name == "custom") {
+        return "/data/misc/bootanim/bootanimation.zip";
+    }
+    if (!name.empty()) {
+        if (name != "default" &&
+            name.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789_") ==
+                    std::string::npos) {
+            const std::string path = "/product/media/bootanimation_" + name + ".zip";
+            if (access(path.c_str(), R_OK) == 0) return path;
+        }
+        return BOOT_ANIMATION_FILES[0];
+    }
+    // A legacy index was written against an older style order than BOOT_ANIMATION_FILES, so
+    // it can't be mapped here. SystemServer pins it to a name on this boot; show the default
+    // animation until then.
+    return BOOT_ANIMATION_FILES[0];
+}
+
 bool BootAnimation::findBootAnimationFileInternal(const std::vector<std::string> &files) {
     ATRACE_CALL();
     for (const std::string& f : files) {
@@ -675,7 +700,10 @@ bool BootAnimation::findBootAnimationFileInternal(const std::vector<std::string>
             const int max_attempts = 100; // 100 * 100ms = 10 seconds max wait
             const int sleep_interval_us = 100000; // 100ms
 
-            while (access(f.c_str(), R_OK) != 0 && attempts < max_attempts) {
+            // Only wait while /data is not up yet; a missing file on a mounted /data
+            // must not stall every boot.
+            while (access(f.c_str(), R_OK) != 0 && access("/data/misc", F_OK) != 0 &&
+                   attempts < max_attempts) {
                 if (attempts % 10 == 0) {
                     ALOGW("Custom bootanim: Waiting for %s... (%d/%d)", f.c_str(), attempts + 1, max_attempts);
                 }
@@ -693,19 +721,14 @@ bool BootAnimation::findBootAnimationFileInternal(const std::vector<std::string>
 
 void BootAnimation::findBootAnimationFile() {
     ATRACE_CALL();
-    char value[PROPERTY_VALUE_MAX];
-    property_get("persist.sys.bootanimation_style", value, "0");
-    const int bootAnimStyle = atoi(value);
-    const size_t numStyles = sizeof(BOOT_ANIMATION_FILES) / sizeof(BOOT_ANIMATION_FILES[0]);
-    const char* selectedBootAnimation =
-        (bootAnimStyle >= 0 && bootAnimStyle < (int)numStyles)
-        ? BOOT_ANIMATION_FILES[bootAnimStyle]
-        : BOOT_ANIMATION_FILES[0];
-    ALOGD("Bootanimation style %d requested -> %s (exists=%d)",
-          bootAnimStyle, selectedBootAnimation, access(selectedBootAnimation, R_OK) == 0);
-    const std::vector<std::string> bootFiles = {
-        std::string(selectedBootAnimation)
-    };
+    const std::string selectedBootAnimation = resolveBootAnimationPath();
+    ALOGD("Bootanimation requested -> %s (exists=%d)",
+          selectedBootAnimation.c_str(), access(selectedBootAnimation.c_str(), R_OK) == 0);
+    std::vector<std::string> bootFiles = {selectedBootAnimation};
+    // Fall back to the default animation instead of the stock Android one.
+    if (selectedBootAnimation != BOOT_ANIMATION_FILES[0]) {
+        bootFiles.push_back(BOOT_ANIMATION_FILES[0]);
+    }
     static const std::vector<std::string> shutdownFiles = {
         PRODUCT_SHUTDOWNANIMATION_FILE, OEM_SHUTDOWNANIMATION_FILE, SYSTEM_SHUTDOWNANIMATION_FILE, ""
     };
