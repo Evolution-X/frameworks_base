@@ -21031,6 +21031,58 @@ public class ActivityManagerService extends IActivityManager.Stub
         return AxExtServiceFactory.getSpoofManager().getTrickyStorePatch();
     }
 
+    private void enforceDuckRkpPermission() {
+        mContext.enforceCallingOrSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS,
+                "Device RKP requires WRITE_SECURE_SETTINGS");
+        if (UserHandle.getUserId(Binder.getCallingUid()) != UserHandle.USER_SYSTEM) {
+            throw new SecurityException("Device RKP is managed by the system user");
+        }
+    }
+
+    @Override
+    public Bundle getDuckRkpState() {
+        enforceDuckRkpPermission();
+        long token = Binder.clearCallingIdentity();
+        try {
+            return AxExtServiceFactory.getSpoofManager().getDuckRkpManager().getState();
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
+    }
+
+    @Override
+    public void setDuckRkpEnabled(boolean enabled) {
+        enforceDuckRkpPermission();
+        long token = Binder.clearCallingIdentity();
+        try {
+            AxExtServiceFactory.getSpoofManager().getDuckRkpManager().setEnabled(enabled);
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
+    }
+
+    @Override
+    public void provisionDuckRkp() {
+        enforceDuckRkpPermission();
+        long token = Binder.clearCallingIdentity();
+        try {
+            AxExtServiceFactory.getSpoofManager().getDuckRkpManager().provision();
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
+    }
+
+    @Override
+    public void setSpoofTrickyStoreKeyBox(String keybox) {
+        enforceDuckRkpPermission();
+        long token = Binder.clearCallingIdentity();
+        try {
+            AxExtServiceFactory.getSpoofManager().getDuckRkpManager().setImportedKeybox(keybox);
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
+    }
+
     // Set of IntentCreatorToken objects that are currently active.
     private static final Map<IntentCreatorToken.Key, WeakReference<IntentCreatorToken>>
             sIntentCreatorTokenCache = new ConcurrentHashMap<>();

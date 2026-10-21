@@ -26,6 +26,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.database.ContentObserver;
 import android.net.Uri;
+import android.os.Binder;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.UserHandle;
@@ -37,6 +38,7 @@ import android.util.Log;
 
 import com.android.internal.util.evolution.PixelDeviceRepository;
 import com.android.server.NtServiceInjector;
+import com.android.server.security.rkp.DuckRkpManager;
 
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -53,6 +55,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class AxSpoofManager implements IAxSpoofManager {
@@ -64,6 +67,7 @@ public class AxSpoofManager implements IAxSpoofManager {
             Settings.Secure.SPOOF_TRICKYSTORE_TARGET,
             Settings.Secure.SPOOF_TRICKYSTORE_KEYBOX,
             Settings.Secure.SPOOF_TRICKYSTORE_PATCH,
+            Settings.Secure.SPOOF_DUCK_RKP_ENABLED,
     };
 
     private static final long REFRESH_INTERVAL_MS = TimeUnit.HOURS.toMillis(1);
@@ -157,6 +161,7 @@ public class AxSpoofManager implements IAxSpoofManager {
     private ContentResolver mResolver;
     private ContentObserver mObserver;
     private volatile boolean mReady = false;
+    private volatile DuckRkpManager mDuckRkp;
 
     public AxSpoofManager() {
         mHandlerThread = new HandlerThread("AxSpoofManager");
@@ -173,6 +178,7 @@ public class AxSpoofManager implements IAxSpoofManager {
         }
         mResolver = mContext.getContentResolver();
 
+        mDuckRkp = new DuckRkpManager(mContext, mHandler, this::onDuckRkpChanged);
         for (String key : WATCHED_KEYS) {
             refreshKey(key);
         }
@@ -183,6 +189,14 @@ public class AxSpoofManager implements IAxSpoofManager {
                 if (uri == null) return;
                 final String last = uri.getLastPathSegment();
                 if (last == null) return;
+                if (TRICKYSTORE_ENABLED_KEY.equals(last)) {
+                    mDuckRkp.onSettingsChanged(true);
+                    return;
+                }
+                if (Settings.Secure.SPOOF_TRICKYSTORE_KEYBOX.equals(last)
+                        || Settings.Secure.SPOOF_DUCK_RKP_ENABLED.equals(last)) {
+                    mDuckRkp.onSettingsChanged(false);
+                }
                 refreshKey(last);
                 if (Settings.Secure.SPOOF_PIF_CONFIG.equals(last)) {
                     onPifConfigChanged();
@@ -194,6 +208,8 @@ public class AxSpoofManager implements IAxSpoofManager {
             mResolver.registerContentObserver(
                     Settings.Secure.getUriFor(key), false, mObserver, UserHandle.USER_ALL);
         }
+        mResolver.registerContentObserver(Settings.System.getUriFor(TRICKYSTORE_ENABLED_KEY),
+                false, mObserver, UserHandle.USER_SYSTEM);
 
         mActivated = Settings.Secure.getIntForUser(
                 mResolver, ACTIVATED_KEY, 0, UserHandle.USER_SYSTEM) != 0;
@@ -288,6 +304,23 @@ public class AxSpoofManager implements IAxSpoofManager {
         stagePifPropOverrides(getCached(Settings.Secure.SPOOF_PIF_CONFIG));
         scheduleFirstRefresh();
         killGmsFamily();
+    }
+
+    /** A device RKP keybox was generated or removed: reload the settings and restart GMS. */
+    private void onDuckRkpChanged() {
+        mHandler.post(() -> {
+            for (String key : WATCHED_KEYS) {
+                refreshKey(key);
+            }
+            if (!mActivated) return;
+            seedDefaultTargetsIfUnset();
+            killGmsFamily();
+        });
+    }
+
+    private boolean isDuckRkpEnabled() {
+        return Settings.Secure.getIntForUser(mResolver, Settings.Secure.SPOOF_DUCK_RKP_ENABLED,
+                0, UserHandle.USER_SYSTEM) != 0;
     }
 
     private void refreshKey(String key) {
@@ -437,7 +470,8 @@ public class AxSpoofManager implements IAxSpoofManager {
 
         String keyboxSource = Settings.Secure.getStringForUser(
                 mResolver, KEYBOX_SOURCE_KEY, UserHandle.USER_SYSTEM);
-        boolean keyboxMissing = isEmpty(Settings.Secure.getStringForUser(
+        boolean keyboxMissing = !isDuckRkpEnabled()
+                && isEmpty(Settings.Secure.getStringForUser(
                         mResolver, Settings.Secure.SPOOF_TRICKYSTORE_KEYBOX, UserHandle.USER_SYSTEM))
                 && !KEYBOX_SOURCE_USER.equals(keyboxSource)
                 && Settings.System.getIntForUser(
@@ -587,6 +621,10 @@ public class AxSpoofManager implements IAxSpoofManager {
         if (Settings.System.getIntForUser(
                 mResolver, TRICKYSTORE_ENABLED_KEY, 1, UserHandle.USER_SYSTEM) == 0) {
             return;
+        }
+
+        if (isDuckRkpEnabled()) {
+            return; // the device generates its own keybox — never overwrite the setting
         }
 
         String source = Settings.Secure.getStringForUser(
@@ -947,7 +985,73 @@ public class AxSpoofManager implements IAxSpoofManager {
     @Override
     public String getTrickyStoreKeyBox() {
         if (!mActivated) return null;
-        return getCached(Settings.Secure.SPOOF_TRICKYSTORE_KEYBOX);
+        if (!canReadTrickyStoreKeybox()) return null;
+        DuckRkpManager duck = mDuckRkp;
+        if (duck == null) return getCached(Settings.Secure.SPOOF_TRICKYSTORE_KEYBOX);
+        long token = Binder.clearCallingIdentity();
+        try {
+            return duck.getKeybox();
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
+    }
+
+    @Override
+    public DuckRkpManager getDuckRkpManager() {
+        DuckRkpManager duck = mDuckRkp;
+        if (duck == null) throw new IllegalStateException("RKP service is starting");
+        return duck;
+    }
+
+    /**
+     * The keybox holds a signing key, so only system_server and packages that are
+     * actually attested (listed in the target setting and not skipped) may read it.
+     */
+    private boolean canReadTrickyStoreKeybox() {
+        int uid = Binder.getCallingUid();
+        if (uid == android.os.Process.SYSTEM_UID || uid == android.os.Process.ROOT_UID) return true;
+        if (UserHandle.getUserId(uid) != ActivityManager.getCurrentUser()
+                && UserHandle.getUserId(uid) != UserHandle.USER_SYSTEM) return false;
+        String[] packages = mContext.getPackageManager().getPackagesForUid(uid);
+        if (packages == null) return false;
+        for (String pkg : packages) {
+            if (TrickyStoreService.XPOSED_PACKAGES.contains(pkg)) return false;
+        }
+        String targets = getCached(Settings.Secure.SPOOF_TRICKYSTORE_TARGET);
+        if (targets == null) return false;
+        boolean allowed = false;
+        try {
+            if (targets.trim().startsWith("[")) {
+                JSONArray entries = new JSONArray(targets);
+                for (int i = 0; i < entries.length(); i++) {
+                    JSONObject entry = entries.getJSONObject(i);
+                    for (String pkg : packages) {
+                        if (pkg.equals(entry.optString("package"))) {
+                            if ("SKIP".equalsIgnoreCase(entry.optString("mode"))) return false;
+                            allowed = true;
+                        }
+                    }
+                }
+            } else {
+                for (String raw : targets.split("\n")) {
+                    String target = raw.trim();
+                    if (target.isEmpty() || target.startsWith("#")) continue;
+                    boolean skipped = target.endsWith("-");
+                    if (skipped || target.endsWith("!") || target.endsWith("?")) {
+                        target = target.substring(0, target.length() - 1).trim();
+                    }
+                    for (String pkg : packages) {
+                        if (pkg.equals(target)) {
+                            if (skipped) return false;
+                            allowed = true;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            return false;
+        }
+        return allowed;
     }
 
     @Override
