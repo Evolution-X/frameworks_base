@@ -66,7 +66,13 @@ class MediaViewController @Inject constructor(
     private var aodEnabled = false
     private var artworkDrawable: Drawable? = null
     private var isMediaPlaying = false
-    private var bouncerShowingOrKeyguardDismissing = false
+    private var bouncerShowing = false
+    private var keyguardGoingAway = false
+    private var keyguardFadingAway = false
+    // 1f = bouncer fully hidden, 0f = bouncer fully showing
+    private var bouncerExpansion = 1f
+    private val keyguardDismissing: Boolean
+        get() = keyguardGoingAway || keyguardFadingAway
     private var isGlanceableHubShowing = false
 
     private var mediaFilter = 0
@@ -316,7 +322,9 @@ class MediaViewController @Inject constructor(
         if (isGlanceableHubShowing) return false
         if (!isPortrait || !isKeyguard || !isCollapsed) return false
         if (!isMediaPlaying) return false
-        if (bouncerShowingOrKeyguardDismissing) return false
+        // The bouncer is intentionally not checked here: while it is being swiped in, the art
+        // follows the swipe through bouncerExpansion instead of being torn down.
+        if (keyguardDismissing) return false
         return true
     }
 
@@ -351,11 +359,18 @@ class MediaViewController @Inject constructor(
     }
 
     private fun getTargetAlpha(): Float {
-        return if ((isDozing() || isPulsing()) && aodEnabled) {
+        val base = if ((isDozing() || isPulsing()) && aodEnabled) {
             aodDimLevel / 100f
         } else {
             1f
         }
+        return base * bouncerExpansion
+    }
+
+    private fun applyBouncerAlpha() {
+        if (scrimState != STATE_SCRIM_VISIBLE || dismissingKeyguard) return
+        cancelScrimAnim()
+        mediaScrim.alpha = getTargetAlpha()
     }
 
     private fun updateAodAlpha() {
@@ -593,16 +608,24 @@ class MediaViewController @Inject constructor(
     }
 
     override fun onPrimaryBouncerShowingChanged(showing: Boolean) {
-        bouncerShowingOrKeyguardDismissing = showing
-        if (showing) {
-            showDelayJob?.cancel()
-            hideDelayJob?.cancel()
-            cleanupResources(true)
+        bouncerShowing = showing
+        if (!showing) {
+            // Swipe cancelled or bouncer dismissed: bring the art straight back without
+            // reprocessing it, the resources were kept alive while the bouncer was swiping in.
+            bouncerExpansion = 1f
+            applyBouncerAlpha()
+            coroutineScope.launch { updateMediaState() }
         }
     }
 
+    override fun onPrimaryBouncerExpansionChanged(expansion: Float) {
+        if (!bouncerShowing && expansion >= 1f && bouncerExpansion >= 1f) return
+        bouncerExpansion = expansion.coerceIn(0f, 1f)
+        applyBouncerAlpha()
+    }
+
     override fun onKeyguardGoingAwayChanged(goingAway: Boolean) {
-        bouncerShowingOrKeyguardDismissing = goingAway
+        keyguardGoingAway = goingAway
         if (goingAway) {
             showDelayJob?.cancel()
             hideDelayJob?.cancel()
@@ -611,7 +634,7 @@ class MediaViewController @Inject constructor(
     }
 
     override fun onKeyguardFadingAwayChanged(fadingAway: Boolean) {
-        bouncerShowingOrKeyguardDismissing = fadingAway
+        keyguardFadingAway = fadingAway
         if (fadingAway) {
             showDelayJob?.cancel()
             hideDelayJob?.cancel()
