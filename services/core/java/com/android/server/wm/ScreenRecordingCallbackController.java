@@ -24,7 +24,6 @@ import android.media.projection.IMediaProjectionManager;
 import android.media.projection.IMediaProjectionWatcherCallback;
 import android.media.projection.MediaProjectionEvent;
 import android.media.projection.MediaProjectionInfo;
-import android.provider.Settings;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.RemoteException;
@@ -154,11 +153,8 @@ public class ScreenRecordingCallbackController {
                 return false;
             }
 
-            boolean uidInRecording = uidHasRecordedActivity(callbackInfo.mUid);
-
-            if (isScreenRecordDetectionBlocked()) {
-                uidInRecording = false;
-            }
+            boolean uidInRecording = !isScreenRecordDetectionBlocked()
+                    && uidHasRecordedActivity(callbackInfo.mUid);
 
             mLastInvokedStateByUid.put(callbackInfo.mUid, uidInRecording);
             mCallbacks.put(binder, callbackInfo);
@@ -205,8 +201,10 @@ public class ScreenRecordingCallbackController {
     @GuardedBy("WindowManagerService.mGlobalLock")
     void onProcessActivityVisibilityChanged(int uid, boolean processVisible) {
         // If recording isn't active or there's no registered callback for the uid, there's nothing
-        // to do on this visibility change.
-        if (mRecordedWC == null || !mLastInvokedStateByUid.containsKey(uid)) {
+        // to do on this visibility change. Same if detection is blocked: every callback has
+        // already been told "not recording", so there's no state left to change.
+        if (mRecordedWC == null || !mLastInvokedStateByUid.containsKey(uid)
+                || isScreenRecordDetectionBlocked()) {
             return;
         }
 
@@ -271,9 +269,7 @@ public class ScreenRecordingCallbackController {
             return;
         }
 
-        final boolean callbackState = isScreenRecordDetectionBlocked()
-            ? false
-            : visibleInScreenRecording;
+        final boolean callbackState = visibleInScreenRecording && !isScreenRecordDetectionBlocked();
 
         for (int i = 0; i < uids.size(); i++) {
             mLastInvokedStateByUid.put(uids.valueAt(i), callbackState);
@@ -298,9 +294,34 @@ public class ScreenRecordingCallbackController {
     }
 
     private boolean isScreenRecordDetectionBlocked() {
-        return Settings.Global.getInt(mWms.mContext.getContentResolver(),
-                Settings.Global.EVOLUTION_WINDOW_BLOCK_SCREENRECORD_DETECTION, 0)
-            != 0;
+        // Cached by WindowManagerService, no Settings lookup while holding the global lock.
+        return mWms.isScreenRecordDetectionBlocked();
+    }
+
+    /**
+     * Called when screen record detection gets blocked or unblocked. Brings the state of every
+     * registered uid in line with the new setting, so apps don't keep seeing a stale state until
+     * the next visibility change.
+     */
+    @GuardedBy("WindowManagerService.mGlobalLock")
+    void onDetectionBlockedChanged() {
+        // Not recording: every callback was already told "not recording", nothing to update.
+        if (mRecordedWC == null) {
+            return;
+        }
+
+        final boolean blocked = isScreenRecordDetectionBlocked();
+        final ArraySet<Integer> toShow = new ArraySet<>();
+        final ArraySet<Integer> toHide = new ArraySet<>();
+        for (int i = 0; i < mLastInvokedStateByUid.size(); i++) {
+            final int uid = mLastInvokedStateByUid.keyAt(i);
+            final boolean inRecording = !blocked && uidHasRecordedActivity(uid);
+            if (inRecording != mLastInvokedStateByUid.valueAt(i)) {
+                (inRecording ? toShow : toHide).add(uid);
+            }
+        }
+        dispatchCallbacks(toShow, true /* visibleInScreenRecording */);
+        dispatchCallbacks(toHide, false /* visibleInScreenRecording */);
     }
 
     void dump(PrintWriter pw) {
