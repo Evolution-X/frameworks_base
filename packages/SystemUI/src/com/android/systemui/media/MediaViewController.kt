@@ -41,6 +41,7 @@ import com.android.internal.graphics.ColorUtils
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.media.MediaScrimState.STATE_SCRIM_HIDDEN
 import com.android.systemui.media.MediaScrimState.STATE_SCRIM_VISIBLE
+import com.android.systemui.res.R
 import com.android.systemui.util.ScrimUtils
 
 import kotlinx.coroutines.*
@@ -63,6 +64,10 @@ class MediaViewController @Inject constructor(
 
     private var listening = false
     private var featureEnabled = false
+    private var statusBarAboveArt = false
+
+    /** Invoked on the main thread when "status bar above media art" changes. */
+    var onStatusBarAboveArtChanged: ((Boolean) -> Unit)? = null
     private var aodEnabled = false
     private var artworkDrawable: Drawable? = null
     private var isMediaPlaying = false
@@ -153,6 +158,11 @@ class MediaViewController @Inject constructor(
             false,
             settingsObserver
         )
+        context.contentResolver.registerContentObserver(
+            Settings.System.getUriFor(Settings.System.LS_MEDIA_ART_STATUS_BAR_ABOVE),
+            false,
+            settingsObserver
+        )
 
         updateSettings()
     }
@@ -206,6 +216,17 @@ class MediaViewController @Inject constructor(
             35,
             UserHandle.USER_CURRENT
         ).coerceIn(0, 100)
+
+        val above = Settings.System.getIntForUser(
+            context.contentResolver,
+            Settings.System.LS_MEDIA_ART_STATUS_BAR_ABOVE,
+            0,
+            UserHandle.USER_CURRENT
+        ) == 1
+        if (above != statusBarAboveArt) {
+            statusBarAboveArt = above
+            onStatusBarAboveArtChanged?.invoke(above)
+        }
 
         if (!featureEnabled && !expandedMusicOpen) {
             cleanupResources(false)
@@ -664,7 +685,11 @@ class MediaViewController @Inject constructor(
 
     private fun updateMediaElevation() {
         val ambient = isDozing() || isPulsing()
-        mediaScrim.translationZ = if (ambient) 1f else 0f
+        // Only lift the art above its siblings when it lives in the overlay container (pulse,
+        // edge light, ...). As a direct child of the shade root a Z lift would draw it above
+        // keyguard_root_view and hide the lockscreen clock.
+        val inOverlay = (mediaScrim.parent as? View)?.id == R.id.custom_overlay_container
+        mediaScrim.translationZ = if (ambient && inOverlay) 1f else 0f
     }
 
     override fun onExpandedFractionChanged(expandedFraction: Float) {
@@ -748,6 +773,8 @@ class MediaViewController @Inject constructor(
     }
 
     fun getMediaArtScrim() = mediaScrim
+
+    fun isStatusBarAboveArt() = statusBarAboveArt
 
     fun albumArtVisible() = isAlbumArtVisible
 

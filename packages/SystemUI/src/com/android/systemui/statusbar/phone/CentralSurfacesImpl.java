@@ -245,6 +245,8 @@ import java.util.function.Consumer;
 import javax.inject.Inject;
 import javax.inject.Named;
 
+import kotlin.Unit;
+
 /**
  * A class handling initialization and coordination between some of the key central surfaces in
  * System UI: The notification shade, the keyguard (lockscreen), and the status bar.
@@ -985,10 +987,11 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
         detachFromParent(mEdgeLightViewController.getEdgeLightView());
         detachFromParent(mChargingAnimationViewController.getChargingView());
 
-        overlay.addView(mMediaViewController.getMediaArtScrim(),
-                new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT));
+        attachMediaArt();
+        mMediaViewController.setOnStatusBarAboveArtChanged(above -> {
+            mMainExecutor.execute(this::attachMediaArt);
+            return Unit.INSTANCE;
+        });
         overlay.addView(mPulseViewController.getPulseView(),
                 new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -1001,6 +1004,37 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
                 new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
+    /**
+     * Places the media art scrim inside the notification shade window. Draw order (back to front):
+     *
+     *   notification_panel (keyguard status bar) < media art < keyguard_root_view (clock)
+     *
+     * Default: the art goes directly above notification_panel, so it covers the status bar
+     * elements (battery, signal, ...) but stays BELOW keyguard_root_view, where the lockscreen
+     * clock lives, so the clock is never hidden.
+     *
+     * "Status bar above art": the art goes directly below notification_panel instead, so the
+     * status bar is drawn on top of it as well.
+     */
+    private void attachMediaArt() {
+        final View art = mMediaViewController.getMediaArtScrim();
+        final ViewGroup root = (ViewGroup) getNotificationShadeWindowView();
+        final FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT);
+        detachFromParent(art);
+        final View panel = root.findViewById(R.id.notification_panel);
+        final View clockRoot = root.findViewById(R.id.keyguard_root_view);
+        if (mMediaViewController.isStatusBarAboveArt() && panel != null) {
+            root.addView(art, Math.max(root.indexOfChild(panel), 0), lp);
+        } else if (clockRoot != null) {
+            // Right below the keyguard root (clock), i.e. above the panel's status bar.
+            root.addView(art, Math.max(root.indexOfChild(clockRoot), 0), lp);
+        } else {
+            getScrimOverlayContainer().addView(art, 0, lp);
+        }
     }
 
     private static void detachFromParent(View v) {
