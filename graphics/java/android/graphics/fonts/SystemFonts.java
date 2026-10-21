@@ -451,10 +451,7 @@ public final class SystemFonts {
         if (EMOJI_STYLE_FACEBOOK.equals(style)) {
             return OEM_EMOJI_XML_FACEBOOK;
         }
-        if (EMOJI_STYLE_ANDROID.equals(style)) {
-            return null;
-        }
-        // Unknown value: keep the stock emoji font instead of silently picking iOS.
+        // "android" and any unknown value keep the stock emoji font.
         return null;
     }
 
