@@ -40,6 +40,7 @@ import android.view.accessibility.IAccessibilityManager;
 
 import com.android.internal.R;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.policy.AxDialogBlurController;
 import com.android.internal.util.ArrayUtils;
 
 import java.lang.ref.WeakReference;
@@ -99,6 +100,7 @@ public class ToastPresenter {
     private final WindowManager.LayoutParams mParams;
     @Nullable private View mView;
     @Nullable private IBinder mToken;
+    @Nullable private AxDialogBlurController mAxToastBlurController;
 
     public ToastPresenter(Context context, IAccessibilityManager accessibilityManager,
             INotificationManager notificationManager, String packageName) {
@@ -274,8 +276,12 @@ public class ToastPresenter {
         checkState(mView != null, "No toast to hide.");
 
         final WindowManager windowManager = getWindowManager(mView);
-        if (mView.getParent() != null && windowManager != null) {
-            windowManager.removeViewImmediate(mView);
+        try {
+            if (mView.getParent() != null && windowManager != null) {
+                windowManager.removeViewImmediate(mView);
+            }
+        } finally {
+            clearToastBlur();
         }
         try {
             mNotificationManager.finishToken(mPackageName, mToken);
@@ -343,6 +349,13 @@ public class ToastPresenter {
         accessibilityManager.removeClient();
     }
 
+    private void clearToastBlur() {
+        if (mAxToastBlurController != null) {
+            mAxToastBlurController.stop();
+            mAxToastBlurController = null;
+        }
+    }
+
     private void addToastView() {
         final WindowManager windowManager = getWindowManager(mView);
         if (windowManager == null) {
@@ -351,8 +364,18 @@ public class ToastPresenter {
         if (mView.getParent() != null) {
             windowManager.removeView(mView);
         }
+        boolean added = false;
         try {
+            final Context presenterContext = mContext.get();
+            final Context context = presenterContext != null ? presenterContext : mView.getContext();
+            mAxToastBlurController =
+                    AxDialogBlurController.createToast(context, mView, windowManager, mParams);
+            if (mAxToastBlurController != null) {
+                mParams.flags |= WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED;
+                mAxToastBlurController.attachToView();
+            }
             windowManager.addView(mView, mParams);
+            added = true;
         } catch (WindowManager.BadTokenException e) {
             // Since the notification manager service cancels the token right after it notifies us
             // to cancel the toast there is an inherent race and we may attempt to add a window
@@ -362,6 +385,10 @@ public class ToastPresenter {
             // Display the toast was scheduled on might have been meanwhile removed.
             Log.w(TAG, "Cannot show toast from " + mPackageName
                     + " on display it was scheduled on.", e);
+        } finally {
+            if (!added) {
+                clearToastBlur();
+            }
         }
     }
 }
