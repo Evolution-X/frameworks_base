@@ -66,6 +66,7 @@ import android.window.WindowOnBackInvokedDispatcher;
 
 import com.android.internal.R;
 import com.android.internal.app.WindowDecorActionBar;
+import com.android.internal.policy.DecorView;
 import com.android.internal.policy.PhoneWindow;
 
 import java.lang.ref.WeakReference;
@@ -435,6 +436,10 @@ public class Dialog implements DialogInterface, Window.Callback,
         if (!mCreated) {
             onCreate(savedInstanceState);
             mCreated = true;
+            final ApplicationInfo app = mContext.getApplicationInfo();
+            if (app.isSystemApp() || app.isUpdatedSystemApp()) {
+                ((DecorView) mWindow.getDecorView()).prepareSystemDialogBlur(true);
+            }
         }
     }
 

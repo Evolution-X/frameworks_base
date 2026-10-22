@@ -36,6 +36,7 @@ import android.view.ViewGroupOverlay
 import android.widget.FrameLayout
 import com.android.internal.jank.Cuj.CujType
 import com.android.internal.jank.InteractionJankMonitor
+import com.android.internal.policy.AxDialogBlurController
 import com.android.systemui.Flags
 import java.util.LinkedList
 import kotlin.math.min
@@ -129,6 +130,7 @@ constructor(
      * then set back to its initial value at the end of the animation.
      */
     private val background: Drawable?
+    private val backgroundSourceView: View?
 
     /** CUJ identifier accounting for whether this controller is for a launch or a return. */
     private val cujType: Int?
@@ -187,9 +189,9 @@ constructor(
         }
 
         /** Find the first view with a background in [view] and its children. */
-        fun findBackground(view: View): Drawable? {
+        fun findBackground(view: View): View? {
             if (view.background != null) {
-                return view.background
+                return view
             }
 
             // Perform a BFS to find the largest View with background.
@@ -198,7 +200,7 @@ constructor(
             while (views.isNotEmpty()) {
                 val v = views.removeAt(0)
                 if (v.background != null) {
-                    return v.background
+                    return v
                 }
 
                 if (v is ViewGroup) {
@@ -211,12 +213,14 @@ constructor(
             return null
         }
 
-        background = findBackground(ghostedView)
+        backgroundSourceView = findBackground(ghostedView)
+        background = backgroundSourceView?.background
 
         if (isEphemeral) ghostedView.addOnAttachStateChangeListener(detachListener)
     }
 
     override fun onDispose() {
+        backgroundDrawable?.clearBlur()
         ghostedView.removeOnAttachStateChangeListener(detachListener)
         transitionToken?.let { token -> transitionRegistry?.unregister(token) }
     }
@@ -300,7 +304,7 @@ constructor(
         // We wrap the ghosted view background and use it to draw the expandable background. Its
         // alpha will be set to 0 as soon as we start drawing the expanding background.
         startBackgroundAlpha = background?.alpha ?: 0xFF
-        backgroundDrawable = WrappedDrawable(background)
+        backgroundDrawable = WrappedDrawable(background, backgroundSourceView, backgroundView)
         backgroundView?.background = backgroundDrawable
 
         // Delay the calls to `ghostedView.setVisibility()` during the animation. This must be
@@ -416,6 +420,7 @@ constructor(
     }
 
     override fun onTransitionAnimationEnd(isExpandingFullyAbove: Boolean) {
+        backgroundDrawable?.clearBlur()
         if (ghostView == null) {
             // We didn't actually run the animation.
             return
@@ -481,7 +486,14 @@ constructor(
         }
     }
 
-    private class WrappedDrawable(val wrapped: Drawable?) : Drawable() {
+    private class WrappedDrawable(
+        val wrapped: Drawable?,
+        private val sourceView: View?,
+        private val drawingView: View?,
+    ) : Drawable() {
+        private var sourceBlurRenderer: AxDialogBlurController.BackgroundRenderer? = null
+        private var blurRenderer: AxDialogBlurController.BackgroundRenderer? = null
+        private var blurReleased = false
         private var currentAlpha = 0xFF
         private var previousBounds = Rect()
 
@@ -497,7 +509,18 @@ constructor(
             wrapped.bounds = bounds
             applyBackgroundRadii()
 
-            wrapped.draw(canvas)
+            val sourceRenderer = if (blurReleased) null else sourceView?.axDialogBlurRenderer
+            if (sourceRenderer !== sourceBlurRenderer) {
+                blurRenderer?.clear()
+                sourceBlurRenderer = sourceRenderer
+                blurRenderer = drawingView?.let { sourceRenderer?.copyForView(it) }
+            }
+            val renderer = blurRenderer
+            if (renderer != null) {
+                renderer.draw(canvas, wrapped)
+            } else {
+                wrapped.draw(canvas)
+            }
 
             // The background view (and therefore this drawable) is drawn before the ghost view, so
             // the ghosted view background alpha should always be 0 when it is drawn above the
@@ -518,6 +541,9 @@ constructor(
 
         override fun getOpacity(): Int {
             val wrapped = this.wrapped ?: return PixelFormat.TRANSPARENT
+            if (!blurReleased && sourceView?.axDialogBlurRenderer != null) {
+                return PixelFormat.TRANSLUCENT
+            }
 
             val previousAlpha = wrapped.alpha
             wrapped.alpha = currentAlpha
@@ -528,6 +554,13 @@ constructor(
 
         override fun setColorFilter(filter: ColorFilter?) {
             wrapped?.colorFilter = filter
+        }
+
+        fun clearBlur() {
+            blurReleased = true
+            blurRenderer?.clear()
+            blurRenderer = null
+            sourceBlurRenderer = null
         }
 
         fun setBackgroundRadius(topCornerRadius: Float, bottomCornerRadius: Float) {

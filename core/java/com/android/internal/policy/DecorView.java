@@ -235,6 +235,8 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
 
     @UnsupportedAppUsage
     private PhoneWindow mWindow;
+    private AxDialogBlurController mAxDialogBlurController;
+    private boolean mIsDialogWindow;
 
     ViewGroup mContentRoot;
 
@@ -1581,7 +1583,8 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
         final boolean renderShadowsInCompositor = mWindow.mRenderShadowsInCompositor;
         // If we draw shadows in the compositor we don't need to force the surface to be
         // translucent.
-        if (winConfig.hasWindowShadow() && !renderShadowsInCompositor) {
+        if ((mAxDialogBlurController != null && mAxDialogBlurController.hasBlurBackgrounds())
+                || (winConfig.hasWindowShadow() && !renderShadowsInCompositor)) {
             // If the window has a shadow, it must be translucent.
             opacity = PixelFormat.TRANSLUCENT;
         } else{
@@ -1655,6 +1658,21 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
         updateElevation();
     }
 
+    void updateSystemDialogBlurOpacity() {
+        drawableChanged();
+    }
+
+    public void prepareSystemDialogBlur(boolean isDialog) {
+        mIsDialogWindow |= isDialog;
+        if (mFeatureId < 0 && mAxDialogBlurController == null) {
+            mAxDialogBlurController = AxDialogBlurController.create(
+                    mWindow, this, mIsDialogWindow);
+        }
+        if (mAxDialogBlurController != null) {
+            mAxDialogBlurController.prepare();
+        }
+    }
+
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
@@ -1684,11 +1702,20 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
 
         updateBackgroundBlurRadius();
 
+        prepareSystemDialogBlur(false);
+        if (mAxDialogBlurController != null) {
+            mAxDialogBlurController.start();
+        }
+
         mWindow.onViewRootImplSet(getViewRootImpl());
     }
 
     @Override
     protected void onDetachedFromWindow() {
+        if (mAxDialogBlurController != null) {
+            mAxDialogBlurController.stop();
+            mAxDialogBlurController = null;
+        }
         super.onDetachedFromWindow();
 
         final Window.Callback cb = mWindow.getCallback();

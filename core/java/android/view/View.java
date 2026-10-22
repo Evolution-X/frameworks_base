@@ -228,6 +228,7 @@ import android.window.OnBackInvokedDispatcher;
 
 import com.android.internal.R;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.policy.AxDialogBlurController;
 import com.android.internal.util.ArrayUtils;
 import com.android.internal.util.FrameworkStatsLog;
 import com.android.internal.util.Preconditions;
@@ -5151,6 +5152,7 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
     @ViewDebug.ExportedProperty(deepExport = true, prefix = "bg_")
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     private Drawable mBackground;
+    private AxDialogBlurController.BackgroundRenderer mAxDialogBlurRenderer;
     private TintInfo mBackgroundTint;
 
     @ViewDebug.ExportedProperty(deepExport = true, prefix = "fg_")
@@ -21637,7 +21639,8 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
         //   - Background is opaque
         //   - Doesn't have scrollbars or scrollbars overlay
 
-        if (mBackground != null && mBackground.getOpacity() == PixelFormat.OPAQUE) {
+        if (mBackground != null && mAxDialogBlurRenderer == null
+                && mBackground.getOpacity() == PixelFormat.OPAQUE) {
             mPrivateFlags |= PFLAG_OPAQUE_BACKGROUND;
         } else {
             mPrivateFlags &= ~PFLAG_OPAQUE_BACKGROUND;
@@ -25818,7 +25821,11 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
         canvas.translate(-bounds.left, -bounds.top);
 
         try {
-            drawable.draw(canvas);
+            if (mAxDialogBlurRenderer != null) {
+                mAxDialogBlurRenderer.draw(canvas, drawable);
+            } else {
+                drawable.draw(canvas);
+            }
         } finally {
             renderNode.endRecording();
         }
@@ -27032,6 +27039,24 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
     @InspectableProperty
     public Drawable getBackground() {
         return mBackground;
+    }
+
+    /** @hide */
+    public void setAxDialogBlurRenderer(
+            @Nullable AxDialogBlurController.BackgroundRenderer renderer) {
+        if (mAxDialogBlurRenderer == renderer) return;
+        if (mAxDialogBlurRenderer != null) {
+            mAxDialogBlurRenderer.clear();
+        }
+        mAxDialogBlurRenderer = renderer;
+        computeOpaqueFlags();
+        invalidate(true);
+    }
+
+    /** @hide */
+    @Nullable
+    public AxDialogBlurController.BackgroundRenderer getAxDialogBlurRenderer() {
+        return mAxDialogBlurRenderer;
     }
 
     /**

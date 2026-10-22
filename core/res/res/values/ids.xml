@@ -17,6 +17,7 @@
 */
 -->
 <resources>
+  <item type="id" name="ax_dialog_blur_owned" />
   <item type="id" name="background" />
   <item type="id" name="checkbox" />
   <item type="id" name="content" />
