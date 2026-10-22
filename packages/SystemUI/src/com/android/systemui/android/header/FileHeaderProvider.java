@@ -25,6 +25,7 @@ import android.graphics.ImageDecoder;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.UserHandle;
+import android.os.UserManager;
 import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -154,6 +155,12 @@ public class FileHeaderProvider implements
     }
 
     private void loadHeaderImage(File file) {
+        final UserManager userManager = mContext.getSystemService(UserManager.class);
+        if (userManager == null || !userManager.isUserUnlocked(ActivityManager.getCurrentUser())) {
+            if (DEBUG) Log.d(TAG, "User storage locked, deferring custom header load");
+            return;
+        }
+
         if (!file.exists()) {
             releaseImage();
             return;
