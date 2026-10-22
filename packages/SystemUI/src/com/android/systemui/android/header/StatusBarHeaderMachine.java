@@ -19,6 +19,7 @@
 
 package com.android.systemui.android.header;
 
+import android.app.ActivityManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -98,6 +99,11 @@ public class StatusBarHeaderMachine {
                 if (mScreenOn) {
                     if (DEBUG) Log.i(TAG, "status bar header background alarm triggered");
                     doUpdateStatusHeaderObservers(false);
+                }
+            } else if (Intent.ACTION_SCREEN_OFF.equals(action)) {
+                if (intent.getIntExtra(Intent.EXTRA_USER_HANDLE, UserHandle.USER_NULL)
+                        == ActivityManager.getCurrentUser()) {
+                    updateEnablement();
                 }
             } else if (Intent.ACTION_SCREEN_OFF.equals(action)) {
                 mScreenOn = false;
