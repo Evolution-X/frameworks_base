@@ -45,11 +45,10 @@
           android:layout_marginRight="0dp"
           android:background="#00000000" >
 
-          <ImageView
+          <com.android.internal.widget.QsHeaderImageView
               android:id="@+id/qs_header_image_view"
               android:layout_width="match_parent"
               android:layout_height="match_parent"
-              android:scaleType="centerCrop"
               android:visibility="gone"
               android:background="@drawable/qs_header_image_view_outline" />
 

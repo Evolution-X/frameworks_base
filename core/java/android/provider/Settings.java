@@ -7584,6 +7584,24 @@ public final class Settings {
         public static final String STATUS_BAR_CUSTOM_HEADER_HEIGHT = "status_bar_custom_header_height";
 
         /**
+         * Header zoom as a percentage, from 100 to 400.
+         * @hide
+         */
+        public static final String STATUS_BAR_CUSTOM_HEADER_ZOOM = "status_bar_custom_header_zoom";
+
+        /**
+         * Horizontal crop position from 0 (left) to 1000 (right), default 500.
+         * @hide
+         */
+        public static final String STATUS_BAR_CUSTOM_HEADER_POSITION_X = "status_bar_custom_header_position_x";
+
+        /**
+         * Vertical crop position from 0 (top) to 1000 (bottom), default 500.
+         * @hide
+         */
+        public static final String STATUS_BAR_CUSTOM_HEADER_POSITION_Y = "status_bar_custom_header_position_y";
+
+        /**
          * Whether edge light is enabled
          * @hide
          */
