@@ -44,6 +44,7 @@ import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.view.WindowManager;
+import android.view.WindowManagerGlobal;
 import android.view.animation.Animation;
 import android.view.animation.AnimationSet;
 import android.view.animation.AnimationUtils;
@@ -368,7 +369,7 @@ public final class LocalFloatingToolbarPopup implements FloatingToolbarPopup {
         // TODO: Consider to use PopupWindow.setIsLaidOutInScreen(true) so that we can
         // specify the popup position in screen coordinates.
         mPopupWindow.showAtLocation(
-                mParent, Gravity.NO_GRAVITY, mCoordsOnWindow.x, mCoordsOnWindow.y);
+                getPopupParent(), Gravity.NO_GRAVITY, mCoordsOnWindow.x, mCoordsOnWindow.y);
         setTouchableSurfaceInsetsComputer();
         runShowAnimation();
     }
@@ -525,10 +526,11 @@ public final class LocalFloatingToolbarPopup implements FloatingToolbarPopup {
         // location of the rootview is supposed to be least expensive.
         // TODO: Consider to use PopupWindow.setIsLaidOutInScreen(true) so that we can avoid
         // the following calculation.
-        mParent.getRootView().getLocationOnScreen(mTmpCoords);
+        final View popupParent = getPopupParent();
+        popupParent.getLocationOnScreen(mTmpCoords);
         int rootViewLeftOnScreen = mTmpCoords[0];
         int rootViewTopOnScreen = mTmpCoords[1];
-        mParent.getRootView().getLocationInWindow(mTmpCoords);
+        popupParent.getLocationInWindow(mTmpCoords);
         int rootViewLeftOnWindow = mTmpCoords[0];
         int rootViewTopOnWindow = mTmpCoords[1];
         int windowLeftOnScreen = rootViewLeftOnScreen - rootViewLeftOnWindow;
@@ -553,6 +555,18 @@ public final class LocalFloatingToolbarPopup implements FloatingToolbarPopup {
         if (rootViewTopOnScreen + mCoordsOnWindow.y < appBounds.top) {
             mCoordsOnWindow.y = 0;
         }
+    }
+
+    private View getPopupParent() {
+        final View rootView = mParent.getRootView();
+        if (rootView.getWindowToken() != rootView.getApplicationWindowToken()) {
+            final View appRootView = WindowManagerGlobal.getInstance().getWindowView(
+                    rootView.getApplicationWindowToken());
+            if (appRootView != null) {
+                return appRootView;
+            }
+        }
+        return rootView;
     }
 
     /**
