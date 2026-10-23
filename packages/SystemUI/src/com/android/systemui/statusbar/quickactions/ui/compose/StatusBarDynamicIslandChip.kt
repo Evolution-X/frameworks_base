@@ -39,8 +39,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.keyframes
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -677,11 +675,7 @@ private fun rememberDynamicIslandCollapseState(isOpen: Boolean): DynamicIslandCo
                 if (open) {
                     scaleX.animateTo(
                         targetValue = 0f,
-                        animationSpec =
-                            spring(
-                                dampingRatio = 0.9f,
-                                stiffness = Spring.StiffnessMediumLow,
-                            ),
+                        animationSpec = DynamicIslandMotion.PillShrink,
                     )
                 } else {
                     scaleX.animateTo(
