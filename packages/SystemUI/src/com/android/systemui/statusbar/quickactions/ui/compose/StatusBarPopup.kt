@@ -19,8 +19,6 @@ package com.android.systemui.statusbar.quickactions.ui.compose
 import android.view.ViewTreeObserver
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -171,31 +169,19 @@ fun StatusBarPopup(
                     launch {
                         scaleX.animateTo(
                             targetValue = 1f,
-                            animationSpec =
-                                spring(
-                                    dampingRatio = 0.6f,
-                                    stiffness = Spring.StiffnessLow,
-                                ),
+                            animationSpec = DynamicIslandMotion.OpenWidth,
                         )
                     }
                     launch {
                         scaleY.animateTo(
                             targetValue = 1f,
-                            animationSpec =
-                                spring(
-                                    dampingRatio = 0.65f,
-                                    stiffness = Spring.StiffnessLow,
-                                ),
+                            animationSpec = DynamicIslandMotion.OpenHeight,
                         )
                     }
                     launch {
                         translationY.animateTo(
                             targetValue = 0f,
-                            animationSpec =
-                                spring(
-                                    dampingRatio = 0.7f,
-                                    stiffness = Spring.StiffnessMediumLow,
-                                ),
+                            animationSpec = DynamicIslandMotion.OpenPosition,
                         )
                     }
                     launch { alpha.animateTo(1f, animationSpec = tween(180)) }
@@ -222,27 +208,19 @@ fun StatusBarPopup(
                     launch {
                         scaleX.animateTo(
                             targetValue = initialScaleFromChip.x,
-                            animationSpec =
-                                spring(
-                                    dampingRatio = 0.8f,
-                                    stiffness = Spring.StiffnessMediumLow,
-                                ),
+                            animationSpec = DynamicIslandMotion.CloseWidth,
                         )
                     }
                     launch {
                         scaleY.animateTo(
                             targetValue = initialScaleFromChip.y,
-                            animationSpec =
-                                spring(
-                                    dampingRatio = 0.8f,
-                                    stiffness = Spring.StiffnessMediumLow,
-                                ),
+                            animationSpec = DynamicIslandMotion.CloseHeight,
                         )
                     }
                     launch {
                         translationY.animateTo(
                             targetValue = -16f,
-                            animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                            animationSpec = DynamicIslandMotion.ClosePosition,
                         )
                     }
                     launch { alpha.animateTo(0f, animationSpec = tween(160)) }
