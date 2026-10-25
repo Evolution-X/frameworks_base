@@ -17,6 +17,7 @@
 package com.android.systemui.statusbar.quickactions.ui.compose
 
 import android.view.DisplayCutout
+import android.view.View
 import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -43,11 +44,14 @@ import androidx.compose.animation.core.spring
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +59,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
@@ -77,6 +82,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 /** Single centered status bar capsule styled like a compact dynamic island. */
 @OptIn(ExperimentalFoundationApi::class)
@@ -162,6 +168,8 @@ fun StatusBarDynamicIslandChip(
             .coerceAtLeast(56.dp)
 
     val collapseState = rememberDynamicIslandCollapseState(viewModel.isPopupShown)
+    val isStartAnchored = cutoutSpec.anchor == DynamicIslandAnchor.START
+    val startGap = if (isStartAnchored) cutoutSpec.embeddedGapWidth else 0.dp
 
     Row(
         modifier =
@@ -169,10 +177,13 @@ fun StatusBarDynamicIslandChip(
                 .then(boundsModifier)
                 .defaultMinSize(minHeight = 32.dp * heightScale)
                 .widthIn(
-                    min = compactWidth ?: 0.dp,
-                    max = compactWidth ?: (CompactIslandMaxWidth * widthScale),
+                    min = if (isStartAnchored) startGap else (compactWidth ?: 0.dp),
+                    max = (compactWidth ?: (CompactIslandMaxWidth * widthScale)) + startGap,
                 )
-                .graphicsLayer { scaleX = collapseState.scale }
+                .graphicsLayer {
+                    scaleX = collapseState.scale
+                    if (isStartAnchored) transformOrigin = TransformOrigin(0f, 0.5f)
+                }
                 .clip(chipShape)
                 .background(Color.Black)
                 .border(width = 1.dp, color = chipOutline, shape = chipShape)
@@ -181,14 +192,18 @@ fun StatusBarDynamicIslandChip(
                     onLongClick = mediaOpenApp?.let { { hapticOnLongPress() } },
                 )
                 .padding(
-                    start = 10.dp * widthScale,
-                    end = 12.dp * widthScale,
+                    start = if (isStartAnchored) startGap else 10.dp * widthScale,
+                    end = if (isStartAnchored) 8.dp * widthScale else 12.dp * widthScale,
                     top = 7.dp * heightScale,
                     bottom = 7.dp * heightScale,
                 )
                 .graphicsLayer { alpha = collapseState.contentAlpha },
         horizontalArrangement =
-            if (isMediaChip) Arrangement.SpaceBetween else Arrangement.spacedBy(8.dp),
+            if (isMediaChip && !isStartAnchored) {
+                Arrangement.SpaceBetween
+            } else {
+                Arrangement.spacedBy(8.dp)
+            },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         viewModel.icons.forEachIndexed { index, chipIcon ->
@@ -225,7 +240,10 @@ fun StatusBarDynamicIslandChip(
                     color = chipContentColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.widthIn(max = maxTextWidth),
+                    modifier =
+                        Modifier.widthIn(
+                            max = if (isStartAnchored) minOf(maxTextWidth, 88.dp) else maxTextWidth
+                        ),
                 )
             }
 
@@ -291,6 +309,7 @@ private fun UtilityStatusIslandChip(
     modifier: Modifier = Modifier,
 ) {
     val collapseState = rememberDynamicIslandCollapseState(viewModel.isPopupShown)
+    val isStartAnchored = cutoutSpec.anchor == DynamicIslandAnchor.START
     val rightSegmentWidth =
         (when (viewModel.popupContent) {
             is PopupContentModel.Flashlight -> 52.dp
@@ -324,9 +343,14 @@ private fun UtilityStatusIslandChip(
     Row(
         modifier =
             modifier
-                .graphicsLayer { scaleX = collapseState.scale }
+                .graphicsLayer {
+                    scaleX = collapseState.scale
+                    if (isStartAnchored) transformOrigin = TransformOrigin(0f, 0.5f)
+                }
                 .defaultMinSize(minHeight = 32.dp * heightScale)
-                .width(connectedIslandWidth)
+                .then(
+                    if (isStartAnchored) Modifier else Modifier.width(connectedIslandWidth)
+                )
                 .clip(RoundedCornerShape(50))
                 .background(Color.Black)
                 .border(width = 1.dp, color = chipOutline, shape = RoundedCornerShape(50))
@@ -335,35 +359,57 @@ private fun UtilityStatusIslandChip(
         horizontalArrangement = Arrangement.spacedBy(0.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Spacer(modifier = Modifier.width(10.dp * widthScale))
-        Icon(
-            icon = viewModel.icons.first().icon,
-            modifier = Modifier.size(16.dp),
-            tint = chipContentColor,
-        )
-        Spacer(modifier = Modifier.width(cutoutSpec.embeddedGapWidth))
-        Box(
-            modifier =
-                Modifier.width(rightSegmentWidth)
-                    .padding(
-                        start = 6.dp * widthScale,
-                        top = 7.dp * heightScale,
-                        bottom = 7.dp * heightScale,
-                        end = 6.dp * widthScale,
-                    ),
-            contentAlignment = Alignment.CenterEnd,
-        ) {
+        if (isStartAnchored) {
+            Spacer(modifier = Modifier.width(cutoutSpec.embeddedGapWidth))
+            Icon(
+                icon = viewModel.icons.first().icon,
+                modifier = Modifier.size(16.dp),
+                tint = chipContentColor,
+            )
+            Spacer(modifier = Modifier.width(6.dp * widthScale))
             Text(
                 text = utilityText,
                 style = MaterialTheme.typography.labelLarge,
                 color = chipContentColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.End,
-                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Start,
+                modifier =
+                    Modifier.widthIn(min = 36.dp * widthScale, max = rightSegmentWidth)
+                        .padding(vertical = 7.dp * heightScale),
             )
+            Spacer(modifier = Modifier.width(10.dp * widthScale))
+        } else {
+            Spacer(modifier = Modifier.width(10.dp * widthScale))
+            Icon(
+                icon = viewModel.icons.first().icon,
+                modifier = Modifier.size(16.dp),
+                tint = chipContentColor,
+            )
+            Spacer(modifier = Modifier.width(cutoutSpec.embeddedGapWidth))
+            Box(
+                modifier =
+                    Modifier.width(rightSegmentWidth)
+                        .padding(
+                            start = 6.dp * widthScale,
+                            top = 7.dp * heightScale,
+                            bottom = 7.dp * heightScale,
+                            end = 6.dp * widthScale,
+                        ),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                Text(
+                    text = utilityText,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = chipContentColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            Spacer(modifier = Modifier.width(10.dp * widthScale))
         }
-        Spacer(modifier = Modifier.width(10.dp * widthScale))
     }
 }
 
@@ -418,23 +464,91 @@ private val DynamicIslandEmbeddedGapMinWidth = 34.dp
 private val DynamicIslandEmbeddedGapMaxWidth = 88.dp
 private val DynamicIslandEmbeddedGapSidePadding = 10.dp
 
+enum class DynamicIslandAnchor {
+    CENTER,
+    START,
+}
+
 data class DynamicIslandCutoutSpec(
     val embeddedGapWidth: Dp,
     val horizontalOffset: Dp,
+    val anchor: DynamicIslandAnchor = DynamicIslandAnchor.CENTER,
 )
 
-@Composable
-fun rememberDynamicIslandCutoutSpec(): DynamicIslandCutoutSpec {
-    val density = LocalDensity.current
-    val view = LocalView.current
+private val DynamicIslandHoleSidePadding = 4.dp
+private val DynamicIslandScreenEdgeMargin = 4.dp
+private const val DynamicIslandStartAnchorMaxFraction = 0.35f
+private const val DynamicIslandCenterMinFraction = 0.35f
+private const val DynamicIslandCenterMaxFraction = 0.65f
+
+fun resolveDynamicIslandAnchor(
+    cutoutCenterX: Float?,
+    windowWidthPx: Int,
+    isRtl: Boolean,
+): DynamicIslandAnchor {
+    if (cutoutCenterX == null || windowWidthPx <= 0 || isRtl) return DynamicIslandAnchor.CENTER
+    return if (cutoutCenterX / windowWidthPx < DynamicIslandStartAnchorMaxFraction) {
+        DynamicIslandAnchor.START
+    } else {
+        DynamicIslandAnchor.CENTER
+    }
+}
+
+private fun embeddedGapFor(cutoutWidthPx: Int, density: Float): Dp =
+    ((cutoutWidthPx / density).dp + (DynamicIslandEmbeddedGapSidePadding * 2))
+        .coerceIn(DynamicIslandEmbeddedGapMinWidth, DynamicIslandEmbeddedGapMaxWidth)
+
+fun dynamicIslandStartEdgePx(cutout: android.graphics.Rect, density: Float): Int =
+    (cutout.left - DynamicIslandHoleSidePadding.value * density)
+        .roundToInt()
+        .coerceAtLeast((DynamicIslandScreenEdgeMargin.value * density).roundToInt())
+
+private fun startAnchoredGapFor(cutout: android.graphics.Rect, density: Float): Dp {
+    val edgePx = dynamicIslandStartEdgePx(cutout, density)
+    val gapPx = cutout.right + DynamicIslandHoleSidePadding.value * density - edgePx
+    return (gapPx / density).dp
+}
+
+private data class DynamicIslandCutoutSnapshot(
+    val topCutout: android.graphics.Rect?,
+    val windowWidthPx: Int,
+    val isRtl: Boolean,
+)
+
+private fun readDynamicIslandCutoutSnapshot(view: View): DynamicIslandCutoutSnapshot {
     val displayCutout = view.rootWindowInsets?.displayCutout ?: view.display?.cutout
-    val topCutout = displayCutout?.topBoundingRectOrNull()
-    val rootWidthPx =
+    val topCutout = displayCutout?.dynamicIslandHoleRect()
+    val windowWidthPx =
         when {
             view.rootView.width > 0 -> view.rootView.width
             view.width > 0 -> view.width
             else -> view.resources.configuration.windowConfiguration.maxBounds.width()
         }
+    return DynamicIslandCutoutSnapshot(
+        topCutout = topCutout,
+        windowWidthPx = windowWidthPx,
+        isRtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL,
+    )
+}
+
+@Composable
+fun rememberDynamicIslandCutoutSpec(): DynamicIslandCutoutSpec {
+    val density = LocalDensity.current
+    val view = LocalView.current
+    var snapshot by remember { mutableStateOf(readDynamicIslandCutoutSnapshot(view)) }
+    DisposableEffect(view) {
+        val listener =
+            View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+                val updated = readDynamicIslandCutoutSnapshot(view)
+                if (updated != snapshot) snapshot = updated
+            }
+        view.rootView.addOnLayoutChangeListener(listener)
+        snapshot = readDynamicIslandCutoutSnapshot(view)
+        onDispose { view.rootView.removeOnLayoutChangeListener(listener) }
+    }
+
+    val topCutout = snapshot.topCutout
+    val rootWidthPx = snapshot.windowWidthPx
 
     return with(density) {
         if (topCutout == null || rootWidthPx <= 0) {
@@ -443,16 +557,27 @@ fun rememberDynamicIslandCutoutSpec(): DynamicIslandCutoutSpec {
                 horizontalOffset = 0.dp,
             )
         } else {
-            val embeddedGapWidthDp =
-                (topCutout.width().toDp() + (DynamicIslandEmbeddedGapSidePadding * 2))
-                    .coerceIn(
-                        DynamicIslandEmbeddedGapMinWidth,
-                        DynamicIslandEmbeddedGapMaxWidth,
-                    )
-            val horizontalOffsetDp = (topCutout.exactCenterX() - (rootWidthPx / 2f)).toDp()
+            val anchor =
+                resolveDynamicIslandAnchor(topCutout.exactCenterX(), rootWidthPx, snapshot.isRtl)
+            val fraction = topCutout.exactCenterX() / rootWidthPx
+            val horizontalOffsetDp =
+                if (
+                    anchor == DynamicIslandAnchor.CENTER &&
+                        fraction in DynamicIslandCenterMinFraction..DynamicIslandCenterMaxFraction
+                ) {
+                    (topCutout.exactCenterX() - (rootWidthPx / 2f)).toDp()
+                } else {
+                    0.dp
+                }
             DynamicIslandCutoutSpec(
-                embeddedGapWidth = embeddedGapWidthDp,
+                embeddedGapWidth =
+                    if (anchor == DynamicIslandAnchor.START) {
+                        startAnchoredGapFor(topCutout, this.density)
+                    } else {
+                        embeddedGapFor(topCutout.width(), this.density)
+                    },
                 horizontalOffset = horizontalOffsetDp,
+                anchor = anchor,
             )
         }
     }
@@ -460,6 +585,21 @@ fun rememberDynamicIslandCutoutSpec(): DynamicIslandCutoutSpec {
 
 private fun DisplayCutout.topBoundingRectOrNull() =
     getBoundingRectTop().takeUnless { it.isEmpty }
+
+fun DisplayCutout.dynamicIslandHoleRect(): android.graphics.Rect? {
+    val boundingRect = topBoundingRectOrNull() ?: return null
+    val path = cutoutPath ?: return android.graphics.Rect(boundingRect)
+    val pathBounds = android.graphics.RectF()
+    path.computeBounds(pathBounds, true)
+    if (pathBounds.isEmpty) return android.graphics.Rect(boundingRect)
+    val hole = android.graphics.Rect()
+    pathBounds.roundOut(hole)
+    return if (android.graphics.Rect.intersects(hole, boundingRect)) {
+        hole
+    } else {
+        android.graphics.Rect(boundingRect)
+    }
+}
 
 private fun PopupContentModel.isUtilityStatusContent(): Boolean {
     return this is PopupContentModel.ScreenRecord ||
