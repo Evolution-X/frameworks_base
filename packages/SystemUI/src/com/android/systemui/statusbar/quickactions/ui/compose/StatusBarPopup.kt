@@ -50,8 +50,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.quickactions.alarm.ui.compose.AlarmPopup
@@ -80,18 +84,30 @@ fun StatusBarPopup(
     chipBoundsInScreen: Rect? = null,
 ) {
     val density = Density(LocalContext.current)
+    val yOffsetPx =
+        with(density) {
+            LocalContext.current.resources
+                .getDimensionPixelSize(R.dimen.status_bar_height)
+                .plus(4.dp.roundToPx())
+        }
+    val positionProvider =
+        remember(yOffsetPx) {
+            object : PopupPositionProvider {
+                override fun calculatePosition(
+                    anchorBounds: IntRect,
+                    windowSize: IntSize,
+                    layoutDirection: LayoutDirection,
+                    popupContentSize: IntSize,
+                ): IntOffset {
+                    val maxX = (windowSize.width - popupContentSize.width).coerceAtLeast(0)
+                    val x =
+                        (anchorBounds.center.x - popupContentSize.width / 2).coerceIn(0, maxX)
+                    return IntOffset(x, anchorBounds.top + yOffsetPx)
+                }
+            }
+        }
     Popup(
-        alignment = Alignment.TopCenter,
-        offset =
-            IntOffset(
-                x = 0,
-                y =
-                    with(density) {
-                        LocalContext.current.resources
-                            .getDimensionPixelSize(R.dimen.status_bar_height)
-                            .plus(4.dp.roundToPx())
-                    },
-            ),
+        popupPositionProvider = positionProvider,
         onDismissRequest = { viewModel.hidePopup() },
         properties =
             PopupProperties(
