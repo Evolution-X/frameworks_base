@@ -53,6 +53,8 @@ fun StatusBarDynamicIslandContainer(
     chips: List<QuickActionChipModel.PopupChip>,
     onMediaControlPopupVisibilityChanged: (Boolean) -> Unit,
     onIslandBoundsChanged: (android.graphics.Rect) -> Unit = {},
+    onIslandActiveChanged: (Boolean) -> Unit = {},
+    onIslandExpandedChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val cutoutSpec = rememberDynamicIslandCutoutSpec()
@@ -101,6 +103,12 @@ fun StatusBarDynamicIslandContainer(
         )
     }
 
+    val hasChip = selectedChip != null
+    LaunchedEffect(hasChip) { onIslandActiveChanged(hasChip) }
+
+    val isExpanded = shownChip != null
+    LaunchedEffect(isExpanded) { onIslandExpandedChanged(isExpanded) }
+
     LaunchedEffect(selectedChip) {
         if (selectedChip == null) {
             onIslandBoundsChanged(android.graphics.Rect())
@@ -120,7 +128,10 @@ fun StatusBarDynamicIslandContainer(
     Box(
         modifier =
             modifier
-                .padding(horizontal = 8.dp)
+                .padding(
+                    start = if (cutoutSpec.anchor == DynamicIslandAnchor.START) 0.dp else 8.dp,
+                    end = 8.dp,
+                )
                 .offset(x = cutoutSpec.horizontalOffset)
                 .onGloballyPositioned { coordinates ->
                     if (selectedChip != null) {
