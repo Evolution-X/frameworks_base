@@ -55,6 +55,7 @@ import android.provider.Settings;
 import android.provider.Settings.System;
 import android.telecom.PhoneAccountHandle;
 import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -944,6 +945,9 @@ public class RingtoneManager {
      * @hide
      */
     static Uri getActualUriFromSettingsUri(Context context, Uri uri) {
+        if (isRingtone2SettingsUri(uri)) {
+            return getActualDefaultRingtoneUriBySlot(context, TYPE_RINGTONE, 1);
+        }
         final PhoneAccountHandle phoneAccountHandle = createPhoneAccountHandleFromUri(uri);
         final int type = getDefaultType(uri);
         return type == TYPE_RINGTONE
@@ -964,11 +968,24 @@ public class RingtoneManager {
      * @hide
      */
     static Uri getCacheUriFromSettingsUri(Context context, Uri uri) {
+        if (isRingtone2SettingsUri(uri)) {
+            return getCacheForTypeBySlot(TYPE_RINGTONE, context.getUserId(), 1);
+        }
         final PhoneAccountHandle phoneAccountHandle = createPhoneAccountHandleFromUri(uri);
         final int type = getDefaultType(uri);
         return type == TYPE_RINGTONE
                 ? getRingtoneCacheForPhoneAccountHandle(context.getUserId(), phoneAccountHandle)
                 : getCacheForType(type, context.getUserId());
+    }
+
+    /** True for Settings.System.DEFAULT_RINGTONE2_URI, with or without user id and query. */
+    private static boolean isRingtone2SettingsUri(Uri uri) {
+        final Uri bare = ContentProvider.getUriWithoutUserId(uri);
+        final Uri ringtone2 = Settings.System.DEFAULT_RINGTONE2_URI;
+        return bare != null
+                && TextUtils.equals(bare.getScheme(), ringtone2.getScheme())
+                && TextUtils.equals(bare.getAuthority(), ringtone2.getAuthority())
+                && TextUtils.equals(bare.getPath(), ringtone2.getPath());
     }
 
     private static PhoneAccountHandle createPhoneAccountHandleFromUri(Uri uri) {
@@ -1040,13 +1057,40 @@ public class RingtoneManager {
     public static Uri getRingtoneUriForPhoneAccountHandle(@NonNull Context context,
             @Nullable PhoneAccountHandle phoneAccountHandle) {
         String setting = getRingtoneSettingForPhoneAccountHandle(phoneAccountHandle);
-        Uri ringtoneUri = getRingtoneUriForSetting(context, setting);
-        // If the ringtoneUri for targeted phoneAccountHandle is null,
-        // try to use the default ringtone which is saved in Settings.System.RINGTONE.
+        Uri ringtoneUri = Settings.System.RINGTONE.equals(setting)
+                ? null : getRingtoneUriForSetting(context, setting);
+        // No ringtone for this phone account: use the per-slot ringtone of its SIM, which is
+        // where the multi SIM ringtone settings store it (Settings.System.RINGTONE2 for slot 1).
+        if (ringtoneUri == null && phoneAccountHandle != null) {
+            final int slotId = getSlotIndexForPhoneAccountHandle(context, phoneAccountHandle);
+            if (slotId != SubscriptionManager.INVALID_SIM_SLOT_INDEX) {
+                ringtoneUri = getActualDefaultRingtoneUriBySlot(context, TYPE_RINGTONE, slotId);
+            }
+        }
+        // Finally fall back to the default ringtone which is saved in Settings.System.RINGTONE.
         if (ringtoneUri == null) {
             ringtoneUri = getRingtoneUriForSetting(context, Settings.System.RINGTONE);
         }
         return ringtoneUri;
+    }
+
+    private static int getSlotIndexForPhoneAccountHandle(Context context,
+            PhoneAccountHandle phoneAccountHandle) {
+        try {
+            final TelephonyManager tm = context.getSystemService(TelephonyManager.class);
+            if (tm == null) {
+                return SubscriptionManager.INVALID_SIM_SLOT_INDEX;
+            }
+            final int subId = tm.getSubscriptionId(phoneAccountHandle);
+            return SubscriptionManager.isValidSubscriptionId(subId)
+                    ? SubscriptionManager.getSlotIndex(subId)
+                    : SubscriptionManager.INVALID_SIM_SLOT_INDEX;
+        } catch (RuntimeException e) {
+            // No READ_PHONE_STATE, no telephony, or the phone process is gone: never let this
+            // break ringtone lookup, keep the old behavior instead.
+            Log.w(TAG, "Cannot resolve the SIM slot of " + phoneAccountHandle, e);
+            return SubscriptionManager.INVALID_SIM_SLOT_INDEX;
+        }
     }
 
     private static Uri getRingtoneUriForSetting(Context context, String setting) {
@@ -1507,21 +1551,32 @@ public class RingtoneManager {
                 TYPE_ALARM,
         }) {
             // Skip if we've already defined it at least once, so we don't
-            // overwrite the user changing to null
+            // overwrite the user changing to null. The only exception is the SIM 2
+            // ringtone, which devices set up before multi SIM support never got.
             final String setting = getDefaultRingtoneSetting(type);
-            String defaultRingtone2 = Settings.System.getString(context.getContentResolver(), Settings.System.RINGTONE2);
-            if (Settings.System.getInt(context.getContentResolver(), setting, 0) != 0) {
-                if (!TextUtils.isEmpty(defaultRingtone2)) {
-                    continue;
-                }
+            final boolean alreadySet =
+                    Settings.System.getInt(context.getContentResolver(), setting, 0) != 0;
+            final boolean ringtone2Missing = type == TYPE_RINGTONE && TextUtils.isEmpty(
+                    Settings.System.getString(context.getContentResolver(),
+                            Settings.System.RINGTONE2));
+            if (alreadySet && !ringtone2Missing) {
+                continue;
             }
 
             // Try finding the scanned ringtone
             Uri ringtoneUri = computeDefaultRingtoneUri(context, type);
             if (ringtoneUri != null) {
-                RingtoneManager.setActualDefaultRingtoneUri(context, type, ringtoneUri);
-                if (TextUtils.isEmpty(defaultRingtone2)) {
-                    RingtoneManager.setActualDefaultRingtoneUriBySlot(context, TYPE_RINGTONE, ringtoneUri, 1);
+                if (type == TYPE_RINGTONE) {
+                    // Fill both SIM slots explicitly: the default voice SIM may be in slot 1,
+                    // which would otherwise leave Settings.System.RINGTONE (slot 0) empty.
+                    if (!alreadySet) {
+                        setActualDefaultRingtoneUriBySlot(context, TYPE_RINGTONE, ringtoneUri, 0);
+                    }
+                    if (ringtone2Missing) {
+                        setActualDefaultRingtoneUriBySlot(context, TYPE_RINGTONE, ringtoneUri, 1);
+                    }
+                } else {
+                    setActualDefaultRingtoneUri(context, type, ringtoneUri);
                 }
                 Settings.System.putInt(context.getContentResolver(), setting, 1);
             }
