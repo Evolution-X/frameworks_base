@@ -986,14 +986,22 @@ public class Typeface {
          */
         public @NonNull Typeface build() {
             final int userFallbackSize = mFamilies.size();
+            final int weight = mStyle == null ? 400 : mStyle.getWeight();
+            final int italic =
+                    (mStyle == null || mStyle.getSlant() == FontStyle.FONT_SLANT_UPRIGHT) ?  0 : 1;
+            final Font firstFont = mFamilies.get(0).getSize() > 0
+                    ? mFamilies.get(0).getFont(0) : null;
+            final Typeface override =
+                    FontController.getBundledFontOverride(firstFont, weight, italic == 1);
+            if (override != null) {
+                return override;
+            }
+
             final Typeface fallbackTypeface = getSystemDefaultTypeface(mFallbackName);
             final long[] ptrArray = new long[userFallbackSize];
             for (int i = 0; i < userFallbackSize; ++i) {
                 ptrArray[i] = mFamilies.get(i).getNativePtr();
             }
-            final int weight = mStyle == null ? 400 : mStyle.getWeight();
-            final int italic =
-                    (mStyle == null || mStyle.getSlant() == FontStyle.FONT_SLANT_UPRIGHT) ?  0 : 1;
             return new Typeface(nativeCreateFromArray(
                     ptrArray, fallbackTypeface.getNativeInstance(), weight, italic), null);
         }
