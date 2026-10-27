@@ -135,10 +135,6 @@ public class AxSpoofManager implements IAxSpoofManager {
     private static final int PIF_CUSTOM_SLOT_MAX = 32;
     private static final int PROP_VALUE_MAX_CHARS = 91;
 
-    // DEVICE_INITIAL_SDK_INT written into the PIF config by the auto-refresh. The
-    // api_level staging prop is read back from the config, so they can't drift.
-    private static final String PIF_DEVICE_INITIAL_SDK = "32";
-
     // Keybox and fingerprint work get their own executor: the fingerprint crawl
     // is many sequential requests, and a stuck one (cancel() can't interrupt
     // blocking URLConnection IO) must not hold up the keybox fetch behind it.
@@ -541,7 +537,10 @@ public class AxSpoofManager implements IAxSpoofManager {
         toSave.put("DEVICE", matched.device);
         toSave.put("FINGERPRINT", matched.fingerprint);
         toSave.put("SECURITY_PATCH", matched.securityPatch);
-        toSave.put("DEVICE_INITIAL_SDK_INT", PIF_DEVICE_INITIAL_SDK);
+        // Per-device, so first_api_level agrees with the spoofed device. The api_level
+        // staging prop is read back from the config, so they can't drift.
+        toSave.put("DEVICE_INITIAL_SDK_INT",
+                PixelDeviceRepository.getInitialSdkInt(matched.device));
         toSave.put("manually_imported", false);
         // Same canary metadata Evolver writes, so the refetch window above can
         // work out how long this fingerprint has left instead of always seeing
@@ -755,9 +754,13 @@ public class AxSpoofManager implements IAxSpoofManager {
         setStagedProp(PIF_BUILD_FLAVOR_PROP,
                 product != null && type != null ? product + "-" + type : null);
         setStagedProp(PIF_SECURITY_PATCH_PROP, firstNonEmpty(
-                fields.get("*.security_patch"), fields.get("SECURITY_PATCH")));
+                fields.get("*.security_patch"), fields.get("SECURITY_PATCH"),
+                PixelDeviceRepository.securityPatchFromBuildId(buildId)));
         setStagedProp(PIF_API_LEVEL_PROP, firstNonEmpty(
-                fields.get("*api_level"), fields.get("DEVICE_INITIAL_SDK_INT")));
+                fields.get("*api_level"),
+                PixelDeviceRepository.resolveInitialSdkInt(
+                        firstNonEmpty(fields.get("DEVICE"), head != null ? head[2] : null),
+                        fields.get("DEVICE_INITIAL_SDK_INT"))));
         stageCustomProps(fields);
     }
 

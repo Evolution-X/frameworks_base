@@ -10,11 +10,14 @@ import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.RemoteException;
+import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.text.TextUtils;
 import android.util.Base64;
 import android.util.JsonReader;
 import android.util.Log;
+
+import com.android.internal.util.evolution.PixelDeviceRepository;
 
 import java.io.IOException;
 import java.io.StringReader;
@@ -29,6 +32,9 @@ import java.util.concurrent.ConcurrentHashMap;
 /** @hide */
 public final class PlayIntegritySpoofService {
     private static final String TAG = "PIF";
+
+    // Minimum gap between lazy config load retries (see ensureLoaded()).
+    private static final long LOAD_RETRY_INTERVAL_MS = 5000;
 
     private static final String DROIDGUARD_PACKAGE = "com.google.android.gms.unstable";
     private static final String VENDING_PACKAGE = "com.android.vending";
@@ -99,6 +105,7 @@ public final class PlayIntegritySpoofService {
     private volatile boolean mConfigLoaded = false;
     private volatile boolean mSignatureSpoofed = false;
     private volatile boolean mLoadFailureLogged = false;
+    private volatile long mLastLoadAttempt = 0;
 
     private PlayIntegritySpoofService() {}
 
@@ -110,13 +117,41 @@ public final class PlayIntegritySpoofService {
         return sInstance;
     }
 
-    public void loadConfig() {
+    /**
+     * Retries loadConfig() when the config isn't loaded yet, at most once per
+     * {@link #LOAD_RETRY_INTERVAL_MS}. A single attempt in getInstance() can run
+     * before ActivityManager or Settings.Secure are ready, which would otherwise
+     * leave the process unspoofed for its whole lifetime. In system_server it
+     * waits for boot to complete first.
+     */
+    private void ensureLoaded() {
+        if (mConfigLoaded || !canLoadNow()) return;
+        synchronized (this) {
+            if (mConfigLoaded) return;
+            final long now = SystemClock.uptimeMillis();
+            if (mLastLoadAttempt != 0 && now - mLastLoadAttempt < LOAD_RETRY_INTERVAL_MS) {
+                return;
+            }
+            loadConfig();
+        }
+    }
+
+    private static boolean canLoadNow() {
+        return !ActivityThread.isSystem()
+                || "1".equals(SystemProperties.get("sys.boot_completed"));
+    }
+
+    public synchronized void loadConfig() {
+        mLastLoadAttempt = SystemClock.uptimeMillis();
         mBuildFields.clear();
         mConfigLoaded = false;
 
         IActivityManager am = ActivityManager.getService();
         if (am == null) {
-            Log.w(TAG, "ActivityManager not ready, skipping PIF config load");
+            if (!mLoadFailureLogged) {
+                mLoadFailureLogged = true;
+                Log.w(TAG, "ActivityManager not ready, skipping PIF config load");
+            }
             return;
         }
 
@@ -132,7 +167,10 @@ public final class PlayIntegritySpoofService {
         }
 
         if (content == null || content.isEmpty()) {
-            Log.w(TAG, "No PIF config in Settings.Secure");
+            if (!mLoadFailureLogged) {
+                mLoadFailureLogged = true;
+                Log.w(TAG, "No PIF config in Settings.Secure");
+            }
             return;
         }
 
@@ -145,6 +183,7 @@ public final class PlayIntegritySpoofService {
             }
 
             deriveFieldsFromFingerprint();
+            deriveSecurityPatchAndInitialSdk();
 
             mLoadFailureLogged = false;
             mConfigLoaded = true;
@@ -183,6 +222,23 @@ public final class PlayIntegritySpoofService {
         mBuildFields.putIfAbsent("INCREMENTAL", incrementalAndType[0]);
         mBuildFields.putIfAbsent("TYPE", incrementalAndType[1]);
         mBuildFields.putIfAbsent("TAGS", rest[3]);
+    }
+
+    /**
+     * Keeps SECURITY_PATCH and DEVICE_INITIAL_SDK_INT in step with the spoofed
+     * profile, matching what AxSpoofManager stages for bionic. A missing patch is
+     * taken from the build ID, and a known Pixel codename always gets its own launch
+     * SDK rather than a stale configured one.
+     */
+    private void deriveSecurityPatchAndInitialSdk() {
+        if (TextUtils.isEmpty(mBuildFields.get("SECURITY_PATCH"))) {
+            final String patch = PixelDeviceRepository.securityPatchFromBuildId(
+                    mBuildFields.get("ID"));
+            if (patch != null) mBuildFields.put("SECURITY_PATCH", patch);
+        }
+        final String sdk = PixelDeviceRepository.resolveInitialSdkInt(
+                mBuildFields.get("DEVICE"), mBuildFields.get("DEVICE_INITIAL_SDK_INT"));
+        if (sdk != null) mBuildFields.put("DEVICE_INITIAL_SDK_INT", sdk);
     }
 
     private void parseProp(String content) {
@@ -297,8 +353,11 @@ public final class PlayIntegritySpoofService {
     }
 
     public boolean shouldSpoof(String processName) {
-        if (!mConfigLoaded) return false;
-        return DROIDGUARD_PACKAGE.equals(processName) || VENDING_PACKAGE.equals(processName);
+        if (!DROIDGUARD_PACKAGE.equals(processName) && !VENDING_PACKAGE.equals(processName)) {
+            return false;
+        }
+        ensureLoaded();
+        return mConfigLoaded;
     }
 
     public boolean isGmsProcess(String dataDir) {
@@ -315,12 +374,13 @@ public final class PlayIntegritySpoofService {
     }
 
     public void spoofBuildFields(String processName) {
-        if (!mConfigLoaded) return;
-
         boolean isVending = isVending(processName);
         boolean isDroidGuard = isDroidGuard(processName);
 
         if (!isDroidGuard && !isVending) return;
+
+        ensureLoaded();
+        if (!mConfigLoaded) return;
 
         if (isVending) {
             // Like upstream, spoofing the SDK level replaces the FINGERPRINT spoof
@@ -677,10 +737,12 @@ public final class PlayIntegritySpoofService {
     }
 
     public boolean isSpoofSignatureEnabled() {
+        ensureLoaded();
         return mSpoofSignature && mConfigLoaded;
     }
 
     public boolean isSpoofProviderEnabled() {
+        ensureLoaded();
         return mSpoofProvider && mConfigLoaded;
     }
 
@@ -735,6 +797,7 @@ public final class PlayIntegritySpoofService {
      * {@link #isConfigLoaded()} as well.
      */
     public boolean isSpoofBuildEnabled() {
+        ensureLoaded();
         return mSpoofBuild && mConfigLoaded;
     }
 
