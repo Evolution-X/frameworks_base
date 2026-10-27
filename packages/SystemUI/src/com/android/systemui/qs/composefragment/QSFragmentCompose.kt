@@ -56,6 +56,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -112,6 +113,7 @@ import com.android.compose.modifiers.height
 import com.android.compose.modifiers.padding
 import com.android.compose.modifiers.thenIf
 import com.android.compose.theme.PlatformTheme
+import com.android.settingslib.volume.domain.interactor.AudioVolumeInteractor
 import com.android.systemui.Dumpable
 import com.android.systemui.Flags
 import com.android.systemui.Flags.notificationShadeBlur
@@ -127,12 +129,14 @@ import com.android.systemui.keyboard.shortcut.ui.composable.ProvideShortcutHelpe
 import com.android.systemui.lifecycle.repeatWhenAttached
 import com.android.systemui.lifecycle.setSnapshotBinding
 import com.android.systemui.log.table.TableLogBuffer
+import com.android.systemui.media.controls.domain.pipeline.MediaDataManager
 import com.android.systemui.media.controls.ui.view.MediaHost
 import com.android.systemui.media.remedia.shared.flag.MediaControlsInComposeFlag
 import com.android.systemui.media.remedia.ui.compose.Media
 import com.android.systemui.media.remedia.ui.compose.MediaPresentationStyle
 import com.android.systemui.media.remedia.ui.compose.MediaUiBehavior
 import com.android.systemui.media.remedia.ui.viewmodel.MediaViewModel
+import com.android.systemui.plugins.ActivityStarter
 import com.android.systemui.plugins.qs.QS
 import com.android.systemui.plugins.qs.QSContainerController
 import com.android.systemui.qs.composefragment.SceneKeys.QuickQuickSettings
@@ -149,6 +153,9 @@ import com.android.systemui.qs.panels.shared.model.QSFragmentComposeClippingTabl
 import com.android.systemui.qs.panels.ui.compose.EditMode
 import com.android.systemui.qs.panels.ui.compose.QuickQuickSettings
 import com.android.systemui.qs.panels.ui.compose.TileGrid
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.InfiniteGridLayout
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSQsStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSColorOSStyle
 import com.android.systemui.qs.shared.ui.QuickSettings.Elements
 import com.android.systemui.qs.ui.composable.QuickSettingsShade
 import com.android.systemui.qs.ui.composable.QuickSettingsShade.systemGestureExclusionInShade
@@ -186,6 +193,10 @@ constructor(
     private val dumpManager: DumpManager,
     @Background private val backgroundDispatcher: CoroutineDispatcher,
     @ShadeDisplayAware private val configurationController: ConfigurationController,
+    private val infiniteGridLayout: InfiniteGridLayout,
+    private val audioVolumeInteractor: AudioVolumeInteractor,
+    private val mediaDataManager: MediaDataManager,
+    private val activityStarter: ActivityStarter,
 ) : LifecycleFragment(), QS, Dumpable {
 
     private val scrollListener = MutableStateFlow<QS.ScrollListener?>(null)
@@ -204,6 +215,19 @@ constructor(
     private val locationTemp = IntArray(2)
     private var bottomBarPositionInRoot = IntRect(IntOffset(0, 0), 0)
     private var bottomContentPadding by mutableIntStateOf(0)
+    private var colorOSQsStyle by mutableStateOf(false)
+
+    /** Media sessions for the ColorOS-style QS media card. */
+    private val colorOSMediaSessions = ColorOSMediaSessions()
+
+    /**
+     * The portrait ColorOS layout always fits, so QS never scrolls and a swipe up always collapses
+     * it. In landscape the panel is too short, so it scrolls like stock.
+     */
+    private fun colorOSNoVerticalScroll(): Boolean =
+        colorOSQsStyle &&
+            context?.resources?.configuration?.orientation != Configuration.ORIENTATION_LANDSCAPE
+
     private val containerView: FrameLayoutTouchPassthrough?
         get() = view as? FrameLayoutTouchPassthrough
 
@@ -219,6 +243,12 @@ constructor(
 
         setListenerCollections()
         lifecycleScope.launch { viewModel.activate() }
+        mediaDataManager.addListener(colorOSMediaSessions)
+    }
+
+    override fun onDestroy() {
+        mediaDataManager.removeListener(colorOSMediaSessions)
+        super.onDestroy()
     }
 
     override fun onCreateView(
@@ -234,7 +264,11 @@ constructor(
                     repeatOnLifecycle(Lifecycle.State.CREATED) {
                         initOnBackPressedDispatcherOwner(this@repeatWhenAttached.lifecycle)
                         setContent {
-                            this@QSFragmentCompose.Content(Modifier.sysUiResTagContainer())
+                            val colorOSStyle = rememberQSColorOSStyle()
+                            SideEffect { colorOSQsStyle = colorOSStyle }
+                            CompositionLocalProvider(LocalColorOSQsStyle provides colorOSStyle) {
+                                this@QSFragmentCompose.Content(Modifier.sysUiResTagContainer())
+                            }
                         }
                     }
                 }
@@ -243,11 +277,15 @@ constructor(
         val canScrollQs =
             object : CanScrollQs {
                 override fun forward(): Boolean {
+                    // The ColorOS layout pages sideways and never scrolls vertically, so a swipe
+                    // up always reaches the shade and collapses QS.
+                    if (colorOSNoVerticalScroll()) return isCustomizing
                     return (scrollState.canScrollForward && viewModel.isQsFullyExpanded) ||
                         isCustomizing
                 }
 
                 override fun backward(): Boolean {
+                    if (colorOSNoVerticalScroll()) return isCustomizing
                     return (scrollState.canScrollBackward && viewModel.isQsFullyExpanded) ||
                         isCustomizing
                 }
@@ -331,7 +369,12 @@ constructor(
                 transitions =
                     transitions {
                         from(QuickQuickSettings, QuickSettings) {
-                            quickQuickSettingsToQuickSettings(viewModel::animateTilesExpansion::get)
+                            // The ColorOS layout puts tiles in different places and shapes than QQS,
+                            // so morphing each tile across makes them fly over each other. There,
+                            // QQS fades out and the panel fades/slides in.
+                            quickQuickSettingsToQuickSettings {
+                                viewModel.animateTilesExpansion && !colorOSQsStyle
+                            }
                         }
                         to(SceneKeys.EditMode) {
                             spec = tween(durationMillis = EDIT_MODE_TIME_MILLIS)
@@ -836,7 +879,15 @@ constructor(
                                     )
                                 }
                                 .onSizeChanged { viewModel.qsScrollHeight = it.height }
-                                .verticalScroll(scrollState)
+                                .verticalScroll(
+                                    scrollState,
+                                    // The portrait ColorOS layout fits the screen and must not
+                                    // scroll; landscape is too short, so it scrolls.
+                                    enabled =
+                                        !LocalColorOSQsStyle.current ||
+                                            LocalConfiguration.current.orientation ==
+                                                Configuration.ORIENTATION_LANDSCAPE,
+                                )
                                 .padding(bottom = 8.dp)
                                 .sysuiResTag(ResIdTags.qsScroll)
                     ) {
@@ -901,17 +952,79 @@ constructor(
                                         end = qsHorizontalMargin(),
                                     )
                         ) {
-                            QuickSettingsLayout(
-                                brightness =
-                                    if (viewModel.isBrightnessSliderVisible) {
-                                        BrightnessSlider
-                                    } else {
-                                        {}
-                                    },
-                                tiles = TileGrid,
-                                media = Media,
-                                mediaInRow = viewModel.qsMediaInRow,
-                            )
+                            if (LocalColorOSQsStyle.current) {
+                                Box {
+                                    GridAnchor()
+                                    ColorOSQuickSettingsLayout(
+                                        tiles = containerViewModel.tileGridViewModel.tileViewModels,
+                                        gridLayout = containerViewModel.tileGridViewModel.gridLayout,
+                                        infiniteGridLayout = infiniteGridLayout,
+                                        brightnessViewModel =
+                                            containerViewModel.brightnessSliderViewModel,
+                                        audioVolumeInteractor = audioVolumeInteractor,
+                                        showMedia =
+                                            viewModel.qsMediaVisible &&
+                                                colorOSMediaSessions.current != null,
+                                        mediaHost = { hostModifier ->
+                                            // The stock QS media host stays in the slot, hidden
+                                            // under the ColorOS card, so the stock media
+                                            // animation from QQS lands here instead of flying
+                                            // off to the top of the screen.
+                                            if (viewModel.qsMediaVisible) {
+                                                MediaObject(
+                                                    mediaHost = viewModel.qsMediaHost,
+                                                    modifier =
+                                                        hostModifier.graphicsLayer { alpha = 0f },
+                                                    mediaViewModelFactory =
+                                                        viewModel.mediaViewModelFactory,
+                                                    mediaPresentationStyle =
+                                                        MediaPresentationStyle.Compressed,
+                                                    onSwipeToDismiss =
+                                                        viewModel::onMediaSwipeToDismiss,
+                                                    behavior = viewModel.qsMediaUiBehavior,
+                                                    visible = isListening,
+                                                    // Fully qualified: the local `Media` lambda
+                                                    // shadows the class here.
+                                                    location =
+                                                        com.android.systemui.media.remedia.ui
+                                                            .compose.Media.Location.QS,
+                                                    expansion = { 0f },
+                                                )
+                                            }
+                                        },
+                                        media = { mediaModifier ->
+                                            colorOSMediaSessions.current?.let { data ->
+                                                ColorOSMediaCard(
+                                                    data = data,
+                                                    onOpen = { intent ->
+                                                        activityStarter
+                                                            .postStartActivityDismissingKeyguard(
+                                                                intent
+                                                            )
+                                                    },
+                                                    modifier = mediaModifier,
+                                                )
+                                            }
+                                        },
+                                        listening = isListening,
+                                        // ColorOS 17 uses ~38dp side margins; the stock QS
+                                        // margin already gives ~16dp, so add the rest.
+                                        modifier = Modifier.padding(horizontal = 22.dp),
+                                    )
+                                }
+                            } else {
+                                QuickSettingsLayout(
+                                    brightness =
+                                        if (viewModel.isBrightnessSliderVisible) {
+                                            BrightnessSlider
+                                        } else {
+                                            {}
+                                        },
+                                    tiles = TileGrid,
+                                    media = Media,
+                                    mediaInRow = viewModel.qsMediaInRow,
+                                )
+                            }
                         }
                     }
                 }
