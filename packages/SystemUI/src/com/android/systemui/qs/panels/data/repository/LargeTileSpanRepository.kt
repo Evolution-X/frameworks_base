@@ -68,6 +68,8 @@ constructor(
     private companion object {
         const val FONT_SCALE_THRESHOLD = 1.8f
         const val DEFAULT_LARGE_TILE_WIDTH = 2
+        // Settings.System.QS_PANEL_STYLE value of the classic style (2 is ColorOS)
+        const val QS_PANEL_STYLE_CLASSIC = 1
     }
 
     private fun settingsChanges(): Flow<Unit> = callbackFlow {
@@ -87,7 +89,7 @@ constructor(
             Settings.System.getIntForUser(
                 context.contentResolver, Settings.System.QS_PANEL_STYLE, 0,
                 UserHandle.USER_CURRENT
-            ) != 0
+            ) == QS_PANEL_STYLE_CLASSIC
         } catch (_: Throwable) {
             false
         }

@@ -321,4 +321,7 @@
     <string name="app_volume_panel_empty">No apps are playing audio right now</string>
     <!-- Accessibility state description of an app volume slider [CHAR LIMIT=NONE] -->
     <string name="app_volume_panel_percent"><xliff:g id="percent" example="50">%d</xliff:g> percent</string>
+
+    <!-- ColorOS style QS: shown in the media slot when nothing is playing -->
+    <string name="qs_coloros_no_media">No media playing</string>
 </resources>

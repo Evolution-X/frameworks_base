@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastMap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.compose.animation.scene.ContentScope
@@ -37,6 +38,7 @@ import com.android.systemui.grid.ui.compose.VerticalSpannedGrid
 import com.android.systemui.haptics.msdl.qs.TileHapticsViewModel
 import com.android.systemui.lifecycle.rememberViewModel
 import com.android.systemui.qs.panels.shared.model.SizedTileImpl
+import com.android.systemui.qs.panels.ui.compose.BounceableInfo
 import com.android.systemui.qs.panels.ui.compose.EditTileListState
 import com.android.systemui.qs.panels.ui.compose.PaginatableGridLayout
 import com.android.systemui.qs.panels.ui.compose.TileListener
@@ -54,6 +56,16 @@ import com.android.systemui.res.R
 import com.android.systemui.shade.shared.flag.DualShadeFlag
 import javax.inject.Inject
 import kotlinx.coroutines.launch
+
+/** Gap between tiles and rows in the ColorOS Quick Settings style (ColorOS 17). */
+val ColorOSGap = 16.dp
+
+/**
+ * Round tiles per page in the ColorOS Quick Settings style. Fewer rows than stock so the whole
+ * panel fits without vertical scrolling; extra tiles go to the next page (swipe sideways).
+ */
+const val ColorOSGridRows = 3
+const val ColorOSGridColumns = 4
 
 @SysUISingleton
 class InfiniteGridLayout
@@ -87,11 +99,16 @@ constructor(
         val columns = viewModel.columnsWithMediaViewModel.columns
         val largeTilesSpan = viewModel.columnsWithMediaViewModel.largeSpan
         val largeTiles by viewModel.iconTilesViewModel.largeTilesState
+        val colorOSStyle = LocalColorOSQsStyle.current
         // Tiles or largeTiles may be updated while this is composed, so listen to any changes
         val sizedTiles =
-            remember(tiles, largeTiles, largeTilesSpan) {
+            remember(tiles, largeTiles, largeTilesSpan, colorOSStyle) {
+                // ColorOS style: the fixed wide tiles (Wi-Fi, mobile data, Bluetooth) are drawn
+                // separately by the ColorOS layout, so every tile in this grid is a round icon
+                // tile.
                 tiles.map {
-                    SizedTileImpl(it, if (largeTiles.contains(it.spec)) largeTilesSpan else 1)
+                    val wide = !colorOSStyle && largeTiles.contains(it.spec)
+                    SizedTileImpl(it, if (wide) largeTilesSpan else 1)
                 }
             }
         val squishiness by viewModel.squishinessViewModel.squishiness.collectAsStateWithLifecycle()
@@ -104,8 +121,12 @@ constructor(
         val spans by remember(sizedTiles) { derivedStateOf { sizedTiles.fastMap { it.width } } }
         VerticalSpannedGrid(
             columns = columns,
-            columnSpacing = dimensionResource(R.dimen.qs_tile_margin_horizontal),
-            rowSpacing = dimensionResource(R.dimen.qs_tile_margin_vertical),
+            columnSpacing =
+                if (colorOSStyle) ColorOSGap
+                else dimensionResource(R.dimen.qs_tile_margin_horizontal),
+            rowSpacing =
+                if (colorOSStyle) ColorOSGap
+                else dimensionResource(R.dimen.qs_tile_margin_vertical),
             spans = spans,
             keys = { sizedTiles[it].tile.spec },
             modifier = modifier,
@@ -115,7 +136,10 @@ constructor(
             Element(it.tile.spec.toElementKey(), Modifier) {
                 Tile(
                     tile = it.tile,
-                    iconOnly = classicStyle || iconTilesViewModel.isIconTile(it.tile.spec),
+                    iconOnly =
+                        colorOSStyle ||
+                            classicStyle ||
+                            iconTilesViewModel.isIconTile(it.tile.spec),
                     squishiness = { squishiness },
                     tileHapticsViewModelFactory = tileHapticsViewModelFactory,
                     coroutineScope = scope,
@@ -137,6 +161,46 @@ constructor(
         }
 
         TileListener(tiles, listening)
+    }
+
+    /**
+     * ColorOS style: draws a single wide tile outside the grid (used for the fixed Wi-Fi, mobile
+     * data and Bluetooth slots of the ColorOS Quick Settings layout). The caller is responsible
+     * for making the tile listen, e.g. with [TileListener].
+     */
+    @Composable
+    fun ContentScope.ColorOSWideTile(
+        tile: TileViewModel,
+        listening: () -> Boolean,
+        modifier: Modifier = Modifier,
+    ) {
+        val context = LocalContext.current
+        val textFeedbackViewModel =
+            rememberViewModel(traceName = "InfiniteGridLayout.ColorOSWideTile", key = context) {
+                textFeedbackContentViewModelFactory.create(context)
+            }
+        val scope = rememberCoroutineScope()
+        val bounceable = remember(tile) { BounceableTileViewModel() }
+        Element(tile.spec.toElementKey(), modifier) {
+            Tile(
+                tile = tile,
+                iconOnly = false,
+                squishiness = { 1f },
+                tileHapticsViewModelFactory = tileHapticsViewModelFactory,
+                coroutineScope = scope,
+                bounceableInfo =
+                    BounceableInfo(
+                        bounceable = bounceable,
+                        previousTile = null,
+                        nextTile = null,
+                        bounceEnd = false,
+                    ),
+                detailsViewModel = detailsViewModel,
+                isVisible = listening,
+                requestToggleTextFeedback = textFeedbackViewModel::requestShowFeedback,
+                enableRevealEffect = false,
+            )
+        }
     }
 
     @Composable
