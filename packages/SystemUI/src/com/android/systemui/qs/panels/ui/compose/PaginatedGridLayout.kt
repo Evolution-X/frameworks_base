@@ -52,6 +52,9 @@ import com.android.systemui.qs.footer.ui.compose.rememberSystemSettingEnabled
 import com.android.systemui.qs.panels.dagger.PaginatedBaseLayoutType
 import com.android.systemui.qs.panels.ui.compose.Dimensions.FooterHeight
 import com.android.systemui.qs.panels.ui.compose.Dimensions.InterPageSpacing
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSGridColumns
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSGridRows
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSQsStyle
 import com.android.systemui.qs.panels.ui.compose.toolbar.EditModeButton
 import com.android.systemui.qs.panels.ui.viewmodel.PaginatedGridViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.TileViewModel
@@ -81,10 +84,17 @@ constructor(
                 delegateGridLayout.viewModelFactory.create()
             }
 
-        val rows = viewModel.rows
+        // The ColorOS style shows every grid tile as a 1-column round tile, so pages are plain
+        // chunks of rows x columns, with fewer rows so the panel never needs to scroll.
+        val colorOSStyle = LocalColorOSQsStyle.current
+        val rows = if (colorOSStyle) ColorOSGridRows else viewModel.rows
         val pages =
-            remember(tiles, rows, *delegateGridViewModel.pageKeys) {
-                delegateGridViewModel.splitIntoPages(tiles, rows)
+            remember(tiles, rows, colorOSStyle, *delegateGridViewModel.pageKeys) {
+                if (colorOSStyle) {
+                    tiles.chunked(rows * ColorOSGridColumns)
+                } else {
+                    delegateGridViewModel.splitIntoPages(tiles, rows)
+                }
             }
 
         val pagerState = rememberPagerState(0) { pages.size }
