@@ -23,6 +23,7 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.graphics.Typeface;
 import android.graphics.fonts.FontManager;
+import android.graphics.fonts.FontStyle;
 import android.graphics.fonts.FontUpdateRequest;
 import android.graphics.fonts.SystemFonts;
 import android.os.FileUtils;
@@ -53,6 +54,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
@@ -69,6 +71,9 @@ final class UpdatableFontDir {
     private static final String RANDOM_DIR_PREFIX = "~~";
 
     private static final String FONT_SIGNATURE_FILE = "font.fsv_sig";
+    private static final String CUSTOM_FONT_MARKER_FILE = "custom.font";
+    private static final String CUSTOM_FONT_FAMILY_NAME = "sans-serif";
+    private static final long MAX_CUSTOM_FONT_FILE_SIZE = 64L * 1024L * 1024L;
     private static final String EMOJI_LANG = "und-Zsye";
     private static final String EMOJI_DEFAULT_POSTSCRIPT_NAME = "NotoColorEmoji";
     // This is from frameworks/minikin/include/minikin/FontCollection.h
@@ -201,6 +206,13 @@ final class UpdatableFontDir {
             PersistentSystemFontConfig.Config config = readPersistentConfig();
             List<PersistentSystemFontConfig.PrioritizedFamily> prioritizedFamilyList =
                     config.prioritizedFamilyList;
+            String activeCustomFont = null;
+            for (FontUpdateRequest.Family family : config.fontFamilies) {
+                if (CUSTOM_FONT_FAMILY_NAME.equals(family.getName())
+                        && !family.getFonts().isEmpty()) {
+                    activeCustomFont = family.getFonts().get(0).getPostScriptName();
+                }
+            }
             mLastModifiedMillis = config.lastModifiedMillis;
 
             File[] dirs = mFilesDir.listFiles();
@@ -234,17 +246,31 @@ final class UpdatableFontDir {
                     return;
                 }
 
+                File customMarker = new File(dir, CUSTOM_FONT_MARKER_FILE);
+                boolean isCustomFont = customMarker.isFile();
                 File[] files = dir.listFiles();
-                if (files == null || files.length != 2) {
+                int expectedFileCount = isCustomFont ? 3 : 2;
+                if (files == null || files.length != expectedFileCount) {
                     Slog.e(TAG, "Unexpected files in dir: " + dir);
                     return;
                 }
 
-                File fontFile;
-                if (files[0].equals(signatureFile)) {
-                    fontFile = files[1];
-                } else {
-                    fontFile = files[0];
+                File fontFile = null;
+                for (File file : files) {
+                    if (!file.equals(signatureFile) && !file.equals(customMarker)) {
+                        fontFile = file;
+                        break;
+                    }
+                }
+                if (fontFile == null) {
+                    Slog.e(TAG, "Font file is missing in: " + dir);
+                    return;
+                }
+
+                if (isCustomFont
+                        && !Objects.equals(activeCustomFont, mParser.getPostScriptName(fontFile))) {
+                    FileUtils.deleteContentsAndDir(dir);
+                    continue;
                 }
 
                 FontFileInfo fontFileInfo = validateFontFile(fontFile, signature);
@@ -396,6 +422,88 @@ final class UpdatableFontDir {
                 mLastModifiedMillis = backupLastModifiedDate;
             }
         }
+    }
+
+    void installCustomFont(FileDescriptor fd) throws SystemFontException {
+        UpdateBackup backup = validateRequestsAndBackup(Collections.emptyList());
+        Map<String, FontUpdateRequest.Family> familyMap = new HashMap<>();
+        for (FontUpdateRequest.Family family : backup.mCurConfig.fontFamilies) {
+            familyMap.put(family.getName(), family);
+        }
+
+        boolean success = false;
+        try {
+            FontFileInfo fontFileInfo = installFontFile(fd, new byte[0], true);
+            FontUpdateRequest.Font font = new FontUpdateRequest.Font(
+                    fontFileInfo.getPostScriptName(),
+                    new FontStyle(FontStyle.FONT_WEIGHT_NORMAL, FontStyle.FONT_SLANT_UPRIGHT),
+                    0,
+                    "");
+            familyMap.put(CUSTOM_FONT_FAMILY_NAME, new FontUpdateRequest.Family(
+                    CUSTOM_FONT_FAMILY_NAME, Collections.singletonList(font)));
+
+            PersistentSystemFontConfig.Config newConfig = new PersistentSystemFontConfig.Config();
+            mLastModifiedMillis = mCurrentTimeSupplier.get();
+            newConfig.lastModifiedMillis = mLastModifiedMillis;
+            for (FontFileInfo info : mFontFileInfoMap.values()) {
+                newConfig.updatedFontDirs.add(info.getRandomizedFontDir().getName());
+            }
+            newConfig.fontFamilies.addAll(familyMap.values());
+            newConfig.prioritizedFamilyList.addAll(backup.mCurConfig.prioritizedFamilyList);
+            writePersistentConfig(newConfig);
+            mConfigVersion++;
+            success = true;
+        } finally {
+            if (!success) {
+                mFontFileInfoMap.clear();
+                mFontFileInfoMap.putAll(backup.mBackupMap);
+                mLastModifiedMillis = backup.mBackupLastModifiedDate;
+            }
+        }
+    }
+
+    void clearCustomFont() throws SystemFontException {
+        PersistentSystemFontConfig.Config curConfig = readPersistentConfig();
+        PersistentSystemFontConfig.Config newConfig = new PersistentSystemFontConfig.Config();
+        long previousLastModifiedMillis = mLastModifiedMillis;
+        long newLastModifiedMillis = mCurrentTimeSupplier.get();
+        newConfig.lastModifiedMillis = newLastModifiedMillis;
+        newConfig.updatedFontDirs.addAll(curConfig.updatedFontDirs);
+        for (FontUpdateRequest.Family family : curConfig.fontFamilies) {
+            if (!isCustomFontFamily(family)) {
+                newConfig.fontFamilies.add(family);
+            }
+        }
+        newConfig.prioritizedFamilyList.addAll(curConfig.prioritizedFamilyList);
+        try {
+            writePersistentConfig(newConfig);
+        } catch (SystemFontException e) {
+            mLastModifiedMillis = previousLastModifiedMillis;
+            throw e;
+        }
+        mLastModifiedMillis = newLastModifiedMillis;
+        mConfigVersion++;
+    }
+
+    @Nullable
+    String getCustomFontName() {
+        PersistentSystemFontConfig.Config config = readPersistentConfig();
+        for (int i = config.fontFamilies.size() - 1; i >= 0; i--) {
+            FontUpdateRequest.Family family = config.fontFamilies.get(i);
+            if (isCustomFontFamily(family)) {
+                return family.getFonts().get(0).getPostScriptName();
+            }
+        }
+        return null;
+    }
+
+    private boolean isCustomFontFamily(FontUpdateRequest.Family family) {
+        if (!CUSTOM_FONT_FAMILY_NAME.equals(family.getName()) || family.getFonts().isEmpty()) {
+            return false;
+        }
+        FontFileInfo info = mFontFileInfoMap.get(family.getFonts().get(0).getPostScriptName());
+        return info != null
+                && new File(info.getRandomizedFontDir(), CUSTOM_FONT_MARKER_FILE).isFile();
     }
 
     private FontConfig.FontFamily resolveFontFilesForUnnamedFamily(
@@ -576,7 +684,13 @@ final class UpdatableFontDir {
      * @param pkcs7Signature A PKCS#7 detached signature to enable fs-verity for the font file.
      * @throws SystemFontException if error occurs.
      */
-    private void installFontFile(FileDescriptor fd, byte[] pkcs7Signature)
+    private FontFileInfo installFontFile(FileDescriptor fd, byte[] pkcs7Signature)
+            throws SystemFontException {
+        return installFontFile(fd, pkcs7Signature, false);
+    }
+
+    private FontFileInfo installFontFile(
+            FileDescriptor fd, byte[] pkcs7Signature, boolean isCustomFont)
             throws SystemFontException {
         File newDir = getRandomDir(mFilesDir);
         if (!newDir.mkdir()) {
@@ -596,7 +710,15 @@ final class UpdatableFontDir {
         try {
             File tempNewFontFile = new File(newDir, "font.ttf");
             try (FileOutputStream out = new FileOutputStream(tempNewFontFile)) {
-                FileUtils.copy(fd, out.getFD());
+                long copied = isCustomFont
+                        ? FileUtils.copy(fd, out.getFD(), MAX_CUSTOM_FONT_FILE_SIZE + 1,
+                                null, null, null)
+                        : FileUtils.copy(fd, out.getFD());
+                if (isCustomFont && copied > MAX_CUSTOM_FONT_FILE_SIZE) {
+                    throw new SystemFontException(
+                            FontManager.RESULT_ERROR_INVALID_FONT_FILE,
+                            "Custom font exceeds 64 MiB.");
+                }
             } catch (IOException e) {
                 throw new SystemFontException(
                         FontManager.RESULT_ERROR_FAILED_TO_WRITE_FONT_FILE,
@@ -657,6 +779,16 @@ final class UpdatableFontDir {
                         FontManager.RESULT_ERROR_FAILED_TO_WRITE_FONT_FILE,
                         "Failed to change the signature file mode to 600", e);
             }
+            if (isCustomFont) {
+                File customMarker = new File(newDir, CUSTOM_FONT_MARKER_FILE);
+                try (FileOutputStream ignored = new FileOutputStream(customMarker)) {
+                    Os.chmod(customMarker.getAbsolutePath(), 0600);
+                } catch (IOException | ErrnoException e) {
+                    throw new SystemFontException(
+                            FontManager.RESULT_ERROR_FAILED_TO_WRITE_FONT_FILE,
+                            "Failed to create custom font marker", e);
+                }
+            }
             FontFileInfo fontFileInfo = validateFontFile(newFontFile, pkcs7Signature);
 
             // Try to create Typeface and treat as failure something goes wrong.
@@ -676,6 +808,7 @@ final class UpdatableFontDir {
                         "Downgrading font file is forbidden.");
             }
             success = true;
+            return fontFileInfo;
         } finally {
             if (!success) {
                 FileUtils.deleteContentsAndDir(newDir);
@@ -978,18 +1111,48 @@ final class UpdatableFontDir {
         // First, handle the named families.
         List<FontUpdateRequest.Family> families = persistentConfig.fontFamilies;
         List<FontConfig.NamedFamilyList> mergedFamilies =
-                new ArrayList<>(config.getNamedFamilyLists().size() + families.size());
+                new ArrayList<>(config.getNamedFamilyLists().size() * 2 + families.size());
         // We should keep the first font family (config.getFontFamilies().get(0)) because it's used
         // as a fallback font. See SystemFonts.java.
         mergedFamilies.addAll(config.getNamedFamilyLists());
+        FontConfig.NamedFamilyList customFontFamily = null;
+        for (int i = families.size() - 1; i >= 0; --i) {
+            if (isCustomFontFamily(families.get(i))) {
+                customFontFamily = resolveFontFilesForNamedFamily(families.get(i));
+                break;
+            }
+        }
+        boolean customFontApplied = false;
+        if (customFontFamily != null && !customFontFamily.getFamilies().isEmpty()) {
+            FontConfig.FontFamily customFamily = customFontFamily.getFamilies().get(0);
+            for (FontConfig.NamedFamilyList baseFamily : config.getNamedFamilyLists()) {
+                if (!isUiFontFamilyName(baseFamily.getName())) {
+                    continue;
+                }
+                List<FontConfig.FontFamily> fallbackFamilies =
+                        new ArrayList<>(baseFamily.getFamilies().size() + 1);
+                fallbackFamilies.add(customFamily);
+                fallbackFamilies.addAll(baseFamily.getFamilies());
+                mergedFamilies.add(new FontConfig.NamedFamilyList(fallbackFamilies,
+                        baseFamily.getName(), baseFamily.getFallback()));
+                customFontApplied = true;
+            }
+        }
         // When building Typeface, a latter font family definition will override the previous font
         // family definition with the same name. An exception is config.getFontFamilies.get(0),
         // which will be used as a fallback font without being overridden.
         for (int i = 0; i < families.size(); ++i) {
+            if (customFontFamily != null && isCustomFontFamily(families.get(i))) {
+                continue;
+            }
             FontConfig.NamedFamilyList family = resolveFontFilesForNamedFamily(families.get(i));
             if (family != null) {
                 mergedFamilies.add(family);
             }
+        }
+
+        if (customFontFamily != null && !customFontApplied) {
+            mergedFamilies.add(customFontFamily);
         }
 
         if (Flags.insertFontFamily()) {
@@ -1045,6 +1208,20 @@ final class UpdatableFontDir {
         return new FontConfig(
                 config.getFontFamilies(), config.getAliases(), mergedFamilies,
                 config.getLocaleFallbackCustomizations(), mLastModifiedMillis, mConfigVersion);
+    }
+
+    @VisibleForTesting
+    static boolean isUiFontFamilyName(@Nullable String familyName) {
+        if (familyName == null) {
+            return false;
+        }
+        String normalized = familyName.toLowerCase(Locale.ROOT);
+        return normalized.startsWith("sans-serif")
+                || normalized.startsWith("google-sans")
+                || normalized.startsWith("variable-")
+                || normalized.equals("roboto")
+                || normalized.equals("roboto-flex")
+                || normalized.startsWith("source-sans-pro");
     }
 
     @VisibleForTesting
