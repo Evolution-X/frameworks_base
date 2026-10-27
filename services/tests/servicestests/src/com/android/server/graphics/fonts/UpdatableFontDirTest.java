@@ -46,6 +46,7 @@ import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.internal.util.android.FontController;
 import com.android.text.flags.Flags;
 
 import org.junit.After;
@@ -508,13 +509,15 @@ public final class UpdatableFontDirTest {
     }
 
     @Test
-    public void isUiFontFamilyName_matchesFrameworkUiFamiliesOnly() {
-        assertThat(UpdatableFontDir.isUiFontFamilyName("sans-serif")).isTrue();
-        assertThat(UpdatableFontDir.isUiFontFamilyName("google-sans-text")).isTrue();
-        assertThat(UpdatableFontDir.isUiFontFamilyName("variable-body-medium")).isTrue();
-        assertThat(UpdatableFontDir.isUiFontFamilyName("roboto-flex")).isTrue();
-        assertThat(UpdatableFontDir.isUiFontFamilyName("serif")).isFalse();
-        assertThat(UpdatableFontDir.isUiFontFamilyName("monospace")).isFalse();
+    public void isOverridableFamily_matchesFrameworkUiFamiliesOnly() {
+        assertThat(FontController.isOverridableFamily("sans-serif")).isTrue();
+        assertThat(FontController.isOverridableFamily("google-sans-text")).isTrue();
+        assertThat(FontController.isOverridableFamily("variable-body-medium")).isTrue();
+        assertThat(FontController.isOverridableFamily("roboto-flex")).isTrue();
+        assertThat(FontController.isOverridableFamily("serif")).isFalse();
+        assertThat(FontController.isOverridableFamily("monospace")).isFalse();
+        assertThat(FontController.isOverridableFamily("google-sans-flex-clock")).isFalse();
+        assertThat(FontController.isOverridableFamily("google-sans-mono")).isFalse();
     }
 
     @Test
