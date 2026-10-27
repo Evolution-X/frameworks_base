@@ -32,6 +32,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
@@ -53,6 +54,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.State
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -68,6 +70,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -110,6 +113,7 @@ import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.InactiveIconCornerRadius
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.InactiveTileCornerRadius
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.TileHeight
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.ToggleTargetSize
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.longPressLabelMoreDetails
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.longPressLabelSettings
 import com.android.systemui.qs.panels.ui.viewmodel.AccessibilityUiState
@@ -132,6 +136,17 @@ import platform.test.motion.compose.values.motionTestValues
 
 private val TileViewModel.traceName
     get() = spec.toString().takeLast(Trace.MAX_SECTION_NAME_LEN)
+
+/** Values of [Settings.System.QS_PANEL_STYLE]; 0 is the default card style. */
+private const val QS_PANEL_STYLE_CLASSIC = 1
+private const val QS_PANEL_STYLE_COLOROS = 2
+
+/** ColorOS-style Quick Settings (glass tiles, round icon tiles with labels below). */
+internal val LocalColorOSQsStyle = compositionLocalOf { false }
+
+private val ColorOSBlue = Color(0xFF1677FF)
+private val ColorOSGreen = Color(0xFF16A34A)
+private val COLOROS_DATA_TILES = setOf("cell", "mobile_data", "mobiledata")
 
 /**
  * This composable function is responsible for rendering a tile based on the provided
@@ -188,8 +203,14 @@ fun ContentScope.Tile(
                 tile.state.collect { value = it.toIconProvider() }
             }
 
+        val colorOSStyle = LocalColorOSQsStyle.current
         val tileGradient = rememberQSTileGradient()
-        val colors = TileDefaults.getColorForState(uiState, iconOnly, tileGradient)
+        val colors =
+            if (colorOSStyle) {
+                TileDefaults.colorOSColorsForState(uiState, iconOnly, tile.spec.spec)
+            } else {
+                TileDefaults.getColorForState(uiState, iconOnly, tileGradient)
+            }
         val hapticsViewModel: TileHapticsViewModel? =
             if (rememberTileHaptic()) {
                 rememberViewModel(traceName = "TileHapticsViewModel") {
@@ -199,16 +220,21 @@ fun ContentScope.Tile(
                 null
             }
 
-        val classicStyle = rememberQSPanelStyle()
-        val iconShapeKey = rememberQSTileIconShapeKey()
-        val labelHide = classicStyle && rememberQSTileLabelHide()
+        // The ColorOS style draws its icon tiles with the classic circle and label below, and
+        // keeps the regular layout for the wide tiles.
+        val userClassicStyle = rememberQSPanelStyle()
+        val classicStyle = if (colorOSStyle) iconOnly else userClassicStyle
+        val userIconShapeKey = rememberQSTileIconShapeKey()
+        val iconShapeKey = if (colorOSStyle) QSTileIconShapes.DEFAULT_KEY else userIconShapeKey
+        val labelHide = classicStyle && !colorOSStyle && rememberQSTileLabelHide()
         val tileHeight = if (!classicStyle || labelHide) {
             CommonTileDefaults.TileHeight
         } else {
             CommonTileDefaults.TileHeight + 32.dp
         }
 
-        val shapeMode = rememberTileShapeMode()
+        val userShapeMode = rememberTileShapeMode()
+        val shapeMode = if (colorOSStyle) 0 else userShapeMode
         val animationStyle = rememberQSTileAnimationStyle()
         val wantCircle = shapeMode == 4 && iconOnly
         val tileShape =
@@ -269,6 +295,9 @@ fun ContentScope.Tile(
                 modifier =
                     modifier
                         .then(surfaceRevealModifier)
+                        .thenIf(colorOSStyle && !classicStyle) {
+                            Modifier.border(width = 1.dp, brush = ColorOSTileRim, shape = tileShape)
+                        }
                         .thenIf(!wantCircle) {
                             modifier.borderOnFocus(
                                 color = focusBorderColor,
@@ -398,6 +427,7 @@ fun ContentScope.Tile(
                                     iconShapeKey = iconShapeKey,
                                     colors = colors,
                                     labelHide = labelHide,
+                                    rim = if (colorOSStyle) ColorOSTileRim else null,
                                     modifier =
                                         Modifier.align(Alignment.TopCenter).bounceScale {
                                             currentBounceableInfo.bounceable.iconBounceScale
@@ -746,7 +776,7 @@ fun rememberQSPanelStyle(): Boolean {
             Settings.System.getIntForUser(
                 contentResolver, Settings.System.QS_PANEL_STYLE, 0,
                 UserHandle.USER_CURRENT
-            ) != 0
+            ) == QS_PANEL_STYLE_CLASSIC
         } catch (_: Throwable) {
             false
         }
@@ -774,6 +804,46 @@ fun rememberQSPanelStyle(): Boolean {
     }
 
     return classicStyleEnabled
+}
+
+@Composable
+fun rememberQSColorOSStyle(): Boolean {
+    val context = LocalContext.current
+    val contentResolver = context.contentResolver
+
+    fun readColorOSStyleEnabled(): Boolean {
+        return try {
+            Settings.System.getIntForUser(
+                contentResolver, Settings.System.QS_PANEL_STYLE, 0,
+                UserHandle.USER_CURRENT
+            ) == QS_PANEL_STYLE_COLOROS
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    var colorOSStyleEnabled by remember { mutableStateOf(readColorOSStyleEnabled()) }
+
+    DisposableEffect(contentResolver) {
+        val observer = object : ContentObserver(null) {
+            override fun onChange(selfChange: Boolean) {
+                context.mainExecutor.execute {
+                    colorOSStyleEnabled = readColorOSStyleEnabled()
+                }
+            }
+        }
+
+        contentResolver.registerContentObserver(
+            Settings.System.getUriFor(Settings.System.QS_PANEL_STYLE),
+            false, observer, UserHandle.USER_ALL
+        )
+
+        onDispose {
+            contentResolver.unregisterContentObserver(observer)
+        }
+    }
+
+    return colorOSStyleEnabled
 }
 
 @Composable
@@ -951,6 +1021,52 @@ private object TileDefaults {
         )
     }
 
+    /**
+     * ColorOS style: translucent "glass" tiles that let the shade blur show through. On a dark
+     * panel an active tile shows a white bubble with a coloured icon; on a light panel the bubble
+     * is filled with the colour and the icon is white. Mobile data uses green, everything else
+     * blue.
+     */
+    @Composable
+    @ReadOnlyComposable
+    fun colorOSColorsForState(uiState: TileUiState, iconOnly: Boolean, spec: String): TileColors {
+        val onSurface = MaterialTheme.colorScheme.onSurface
+        val darkPanel = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+        val accent = if (spec in COLOROS_DATA_TILES) ColorOSGreen else ColorOSBlue
+        val glass =
+            if (darkPanel) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.55f)
+        val bubbleOff =
+            if (darkPanel) Color.White.copy(alpha = 0.14f) else Color.Black.copy(alpha = 0.06f)
+        val bubbleOn = if (darkPanel) Color.White else accent
+        val iconOn = if (darkPanel) accent else Color.White
+        val secondary = onSurface.copy(alpha = 0.70f)
+        return when (uiState.visualState) {
+            STATE_ACTIVE ->
+                TileColors(
+                    background = if (iconOnly) bubbleOn else glass,
+                    iconBackground = bubbleOn,
+                    label = onSurface,
+                    secondaryLabel = secondary,
+                    icon = iconOn,
+                    outline = iconOn,
+                    classicLabel = onSurface,
+                    classicSecondaryLabel = secondary,
+                )
+            STATE_INACTIVE ->
+                TileColors(
+                    background = glass,
+                    iconBackground = bubbleOff,
+                    label = onSurface,
+                    secondaryLabel = secondary,
+                    icon = onSurface,
+                    outline = onSurface,
+                    classicLabel = onSurface,
+                    classicSecondaryLabel = secondary,
+                )
+            else -> unavailableTileColors()
+        }
+    }
+
     @Composable
     @ReadOnlyComposable
     fun getColorForState(
@@ -981,6 +1097,7 @@ private object TileDefaults {
 
     @Composable
     fun iconRadius(uiState: TileUiState): Dp {
+        if (LocalColorOSQsStyle.current) return ToggleTargetSize / 2
         return when (uiState.visualState) {
             STATE_ACTIVE -> ActiveIconCornerRadius
             STATE_INACTIVE -> InactiveIconCornerRadius
@@ -990,6 +1107,7 @@ private object TileDefaults {
 
     @Composable
     fun tileRadius(uiState: TileUiState): Dp {
+        if (LocalColorOSQsStyle.current) return TileHeight / 2
         return when (uiState.visualState) {
             STATE_ACTIVE -> ActiveTileCornerRadius
             STATE_INACTIVE -> InactiveTileCornerRadius
