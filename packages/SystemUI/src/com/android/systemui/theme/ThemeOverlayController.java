@@ -599,6 +599,27 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
                 },
                 UserHandle.USER_ALL);
 
+        mSecureSettings.registerContentObserverForUserSync(
+                Settings.Secure.getUriFor(Settings.Secure.SHADE_COLOR_STYLE),
+                false,
+                new ContentObserver(mBgHandler) {
+                    @Override
+                    public void onChange(boolean selfChange, Collection<Uri> collection, int flags,
+                            int userId) {
+                        if (DEBUG) Log.d(TAG, "Panel color changed for user: " + userId);
+                        if (mUserTracker.getUserId() != userId) {
+                            return;
+                        }
+                        if (!mDeviceProvisionedController.isUserSetup(userId)) {
+                            Log.i(TAG, "Theme application deferred when setting changed.");
+                            mDeferredThemeEvaluation = true;
+                            return;
+                        }
+                        reevaluateSystemTheme(true /* forceReload */);
+                    }
+                },
+                UserHandle.USER_ALL);
+
         mUserTracker.addCallback(mUserTrackerCallback, mMainExecutor);
         mDeviceProvisionedController.addCallback(mDeviceProvisionedListener);
 
