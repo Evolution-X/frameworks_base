@@ -29,11 +29,13 @@
     <application
         android:label="@string/app_name"
         android:theme="@style/Theme.AppDataBackup"
+        android:allowBackup="false"
         android:supportsRtl="true">
 
         <activity
             android:name=".AppDataBackupActivity"
             android:exported="true"
+            android:windowSoftInputMode="adjustResize"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
