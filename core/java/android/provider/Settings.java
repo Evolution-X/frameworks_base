@@ -7832,7 +7832,8 @@ public final class Settings {
         public static final String QQS_TILES_ROWS = "qqs_tiles_rows";
 
         /**
-         * Whether to use classic QS panel style for tiles
+         * QS panel style: 0 for the default card style, 1 for the classic
+         * style and 2 for the ColorOS style
          * @hide
          */
         public static final String QS_PANEL_STYLE = "qs_panel_style";

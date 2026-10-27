@@ -337,4 +337,7 @@
     <string name="dynamic_island_action_lap">Lap</string>
     <string name="dynamic_island_action_stop">Stop</string>
     <string name="dynamic_island_action_resume">Resume</string>
+
+    <!-- ColorOS style QS: shown in the media slot when nothing is playing -->
+    <string name="qs_coloros_no_media">No media playing</string>
 </resources>
