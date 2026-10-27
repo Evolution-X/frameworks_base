@@ -31,6 +31,7 @@ import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -124,6 +125,10 @@ private const val TEST_TAG_TOGGLE = "qs_tile_toggle_target"
 private const val TEST_TAG_SMALL = "qs_tile_small"
 private const val TEST_TAG_LARGE = "qs_tile_large"
 
+/** Glass rim of ColorOS tiles. Created once instead of on every frame of the QS animation. */
+internal val ColorOSTileRim =
+    Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.28f), Color.White.copy(alpha = 0.04f)))
+
 @Composable
 fun ClassicTileContent(
     label: String,
@@ -133,6 +138,7 @@ fun ClassicTileContent(
     colors: TileColors,
     labelHide: Boolean,
     modifier: Modifier = Modifier,
+    rim: Brush? = null,
 ) {
     val isNoBackground = iconShapeKey in QSTileIconShapes.NO_BACKGROUND_KEYS
     val iconShape = remember(iconShapeKey) {
@@ -176,6 +182,9 @@ fun ClassicTileContent(
                             } else {
                                 drawRect(color = animatedColor)
                             }
+                        }
+                        .thenIf(rim != null) {
+                            Modifier.border(width = 1.dp, brush = rim!!, shape = iconShape)
                         }
                 }
                 .thenIf(overlayPath != null) {
@@ -605,15 +614,23 @@ object CommonTileDefaults {
         @ReadOnlyComposable
         get() = dimensionResource(id = R.dimen.common_tile_default_start_padding)
 
+    /** ColorOS style sizes, measured from ColorOS 17. The default style is unchanged. */
+    val ColorOSTileHeight = 66.dp
+    val ColorOSToggleTargetSize = 46.dp
+
     val TileHeight: Dp
         @Composable
         @ReadOnlyComposable
-        get() = dimensionResource(id = R.dimen.common_tile_default_tile_height)
+        get() =
+            if (LocalColorOSQsStyle.current) ColorOSTileHeight
+            else dimensionResource(id = R.dimen.common_tile_default_tile_height)
 
     val ToggleTargetSize: Dp
         @Composable
         @ReadOnlyComposable
-        get() = dimensionResource(id = R.dimen.common_tile_default_toggle_target_size)
+        get() =
+            if (LocalColorOSQsStyle.current) ColorOSToggleTargetSize
+            else dimensionResource(id = R.dimen.common_tile_default_toggle_target_size)
 
     val SideIconWidth = 32.dp
     val SideIconHeight = 20.dp
