@@ -152,6 +152,11 @@ constructor(
         internal val NETWORK_TRAFFIC_ENABLED =
             "system:" + Settings.System.NETWORK_TRAFFIC_ENABLED
 
+        internal val QS_PANEL_STYLE = "system:" + Settings.System.QS_PANEL_STYLE
+
+        /** Value of [Settings.System.QS_PANEL_STYLE] for the ColorOS panel. */
+        private const val QS_PANEL_STYLE_COLOROS = 2
+
         private fun Int.stateToString() =
             when (this) {
                 QQS_HEADER_CONSTRAINT -> "QQS Header"
@@ -278,6 +283,9 @@ constructor(
         }
 
     private var singleCarrier = false
+
+    /** Whether the ColorOS QS panel style is on, which gives the expanded header one row. */
+    private var colorOSStyle = false
 
     private val demoModeReceiver =
         object : DemoMode {
@@ -455,7 +463,7 @@ constructor(
 
         iconContainer.setIsUsingQs(true)
 
-        tunerService.addTunable(this, NETWORK_TRAFFIC_ENABLED)
+        tunerService.addTunable(this, NETWORK_TRAFFIC_ENABLED, QS_PANEL_STYLE)
     }
 
     override fun onViewDetached() {
@@ -477,6 +485,16 @@ constructor(
             NETWORK_TRAFFIC_ENABLED -> {
                 if (TunerService.parseIntegerSwitch(value, false))
                     updateColors()
+            }
+
+            QS_PANEL_STYLE -> {
+                val enabled = TunerService.parseInteger(value, 0) == QS_PANEL_STYLE_COLOROS
+                if (enabled != colorOSStyle) {
+                    colorOSStyle = enabled
+                    loadConstraints()
+                    updateTransition()
+                    updateCarrierGroupPadding()
+                }
             }
 
             else -> return
@@ -522,7 +540,10 @@ constructor(
             .load(context, resources.getXml(R.xml.qqs_header))
         header
             .getConstraintSet(QS_HEADER_CONSTRAINT)
-            .load(context, resources.getXml(R.xml.qs_header))
+            .load(
+                context,
+                resources.getXml(if (colorOSStyle) R.xml.qs_header_coloros else R.xml.qs_header),
+            )
         header
             .getConstraintSet(LARGE_SCREEN_HEADER_CONSTRAINT)
             .load(context, resources.getXml(R.xml.large_screen_shade_header))
@@ -542,8 +563,14 @@ constructor(
 
     private fun updateCarrierGroupPadding() {
         clock.doOnLayout {
+            // The ColorOS header hides the clock in the expanded state, so the carrier name
+            // starts at the edge.
             val maxClockWidth =
-                (clock.width * resources.getFloat(R.dimen.qqs_expand_clock_scale)).toInt()
+                if (colorOSStyle) {
+                    0
+                } else {
+                    (clock.width * resources.getFloat(R.dimen.qqs_expand_clock_scale)).toInt()
+                }
             mShadeCarrierGroup.setPaddingRelative(maxClockWidth, 0, 0, 0)
         }
     }
