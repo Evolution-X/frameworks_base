@@ -2,9 +2,11 @@ package com.android.systemui.dt2s;
 
 import static android.provider.Settings.System.DOUBLE_TAP_SLEEP_GESTURE;
 
+import android.app.WindowConfiguration;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.database.ContentObserver;
+import android.inputmethodservice.InputMethodService;
 import android.os.Handler;
 import android.os.PowerManager;
 import android.os.UserHandle;
@@ -24,6 +26,7 @@ import com.android.systemui.shared.system.InputChannelCompat;
 import com.android.systemui.shared.system.InputMonitorCompat;
 import com.android.systemui.shared.system.TaskStackChangeListener;
 import com.android.systemui.shared.system.TaskStackChangeListeners;
+import com.android.systemui.statusbar.CommandQueue;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.inject.Inject;
@@ -40,6 +43,7 @@ public final class DoubleTapToSleepController implements CoreStartable {
     private final FalsingManager mFalsingManager;
     private final Handler mMainHandler;
     private final ContentResolver mContentResolver;
+    private final CommandQueue mCommandQueue;
 
     private InputMonitorCompat mInputMonitorCompat;
     private InputChannelCompat.InputEventReceiver mInputEventReceiver;
@@ -51,6 +55,8 @@ public final class DoubleTapToSleepController implements CoreStartable {
 
     private volatile boolean mLauncherInForeground = false;
 
+    private volatile boolean mImeVisible = false;
+
     private boolean mMonitoringActive = false;
 
     @Inject
@@ -58,10 +64,12 @@ public final class DoubleTapToSleepController implements CoreStartable {
             Context context,
             PowerManager powerManager,
             FalsingManager falsingManager,
+            CommandQueue commandQueue,
             @Main Handler mainHandler) {
         mContext = context;
         mPowerManager = powerManager;
         mFalsingManager = falsingManager;
+        mCommandQueue = commandQueue;
         mMainHandler = mainHandler;
         mContentResolver = context.getContentResolver();
     }
@@ -73,7 +81,7 @@ public final class DoubleTapToSleepController implements CoreStartable {
                     @Override
                     public boolean onDoubleTapEvent(MotionEvent e) {
                         if (e.getActionMasked() != MotionEvent.ACTION_UP) return false;
-                        if (!mEnabled.get() || !mLauncherInForeground) return false;
+                        if (!canHandleGesture()) return false;
                         if (e.getPointerCount() > 1) return false;
                         if (mFalsingManager.isFalseDoubleTap()) return false;
 
@@ -102,11 +110,34 @@ public final class DoubleTapToSleepController implements CoreStartable {
                     public void onTaskMovedToFront(
                             android.app.ActivityManager.RunningTaskInfo taskInfo) {
                         if (taskInfo.topActivity == null) return;
-                        final boolean isLauncher =
-                                LAUNCHER_PKG.equals(taskInfo.topActivity.getPackageName());
-                        mMainHandler.post(() -> mLauncherInForeground = isLauncher);
+
+                        final boolean isLauncherHome =
+                                LAUNCHER_PKG.equals(taskInfo.topActivity.getPackageName())
+                                && taskInfo.getActivityType()
+                                        == WindowConfiguration.ACTIVITY_TYPE_HOME;
+                        mMainHandler.post(() -> mLauncherInForeground = isLauncherHome);
                     }
                 });
+
+        mCommandQueue.addCallback(new CommandQueue.Callbacks() {
+            @Override
+            public void setImeWindowStatus(int displayId, int vis, int backDisposition,
+                    boolean showImeSwitcher) {
+                if (displayId != Display.DEFAULT_DISPLAY) return;
+                final boolean visible = (vis & InputMethodService.IME_VISIBLE) != 0;
+                if (visible == mImeVisible) return;
+                mImeVisible = visible;
+                Log.d(TAG, "IME visible=" + visible);
+            }
+        });
+    }
+
+    /**
+     * Single place that decides whether a double tap may put the device to sleep.
+     * Only allowed on the launcher home screen with no soft keyboard showing.
+     */
+    private boolean canHandleGesture() {
+        return mEnabled.get() && mLauncherInForeground && !mImeVisible;
     }
 
     private void updateEnabledState() {
@@ -163,7 +194,7 @@ public final class DoubleTapToSleepController implements CoreStartable {
     }
 
     private void onInputEvent(InputEvent event) {
-        if (!mEnabled.get() || !mLauncherInForeground) return;
+        if (!canHandleGesture()) return;
         if (!(event instanceof MotionEvent)) return;
 
         final MotionEvent me = (MotionEvent) event;
