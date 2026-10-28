@@ -48,6 +48,7 @@ import com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenEl
 import com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenElementKeys
 import com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenElementKeys.AmbientIndicationArea
 import com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenElementKeys.Clock
+import com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenElementKeys.IndicationArea
 import com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenElementKeys.LockIcon
 import com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenElementKeys.MediaCarousel
 import com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenElementKeys.Region
@@ -121,6 +122,7 @@ constructor(
                                     viewModel.setMediaPlayerBottom(rect.bottom)
                                     ambientBounds.mediaBottom.value = rect.bottom
                                 }
+                                IndicationArea -> ambientBounds.indicationAreaTop.value = rect.top
                                 Shortcuts.Start -> viewModel.setShortcutTop(rect.top)
                                 Shortcuts.End -> viewModel.setShortcutTop(rect.top)
                                 SettingsMenu -> onSettingsMenuPlaced(rect)
@@ -138,6 +140,7 @@ constructor(
                                     ambientBounds.smallDateWeatherBottom.value = -1f
                                 Smartspace.Cards -> ambientBounds.smartspaceBottom.value = -1f
                                 MediaCarousel -> ambientBounds.mediaBottom.value = -1f
+                                IndicationArea -> ambientBounds.indicationAreaTop.value = -1f
                                 else -> {}
                             }
                         },
@@ -157,6 +160,8 @@ constructor(
                 val smartspaceBottom by
                     ambientBounds.smartspaceBottom.collectAsStateWithLifecycle()
                 val mediaBottom by ambientBounds.mediaBottom.collectAsStateWithLifecycle()
+                val indicationAreaTop by
+                    ambientBounds.indicationAreaTop.collectAsStateWithLifecycle()
                 val expandedAmbient by
                     keyguardExpansion.isExpanded.collectAsStateWithLifecycle()
                 val contentBottom =
@@ -181,6 +186,7 @@ constructor(
                         ambientMarginPx = ambientMarginPx,
                         pinAboveIcon = smallClockBottom > 0f,
                         ambientIconGapPx = ambientIconGapPx,
+                        indicationAreaTopPx = indicationAreaTop.toInt(),
                     )
                 }
             }
@@ -267,6 +273,7 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
     ambientMarginPx: Int,
     pinAboveIcon: Boolean,
     ambientIconGapPx: Int,
+    indicationAreaTopPx: Int,
     modifier: Modifier = Modifier,
 ) {
     Layout(
@@ -352,13 +359,19 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
             upperRegionPlaceable.placeRelative(0, statusBarPlaceable.measuredHeight)
             lockIconPlaceable.place(lockIconBounds.left, lockIconBounds.top)
 
+            // The lower region is capped to the space below the lock icon, but the indication area
+            // inside it is not clipped to that and grows with its content (battery info is two
+            // lines or more). Use its real top as the limit so the card never lands on it.
+            val ambientBottomLimit =
+                if (indicationAreaTopPx > 0) min(shortcutsTop, indicationAreaTopPx)
+                else shortcutsTop
             val ambientTop =
                 if (expandedAmbient) {
                     statusBarPlaceable.measuredHeight
                 } else {
                     ambientSlotTop(
                         contentBottom = contentBottomPx,
-                        shortcutsTop = shortcutsTop,
+                        shortcutsTop = ambientBottomLimit,
                         obstacle = lockIconBounds,
                         cardHeight = ambientIndicationPlaceable.measuredHeight,
                         margin = ambientMarginPx,
@@ -394,6 +407,9 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
 
 /**
  * Y of a card centered between the lock icon and the shortcuts when that gap can hold it.
+ *
+ * [shortcutsTop] is the top of whatever sits at the bottom of the screen: the shortcuts, or the
+ * keyguard indication area when that reaches higher.
  *
  * When it cannot, a large clock still centers the card between the clock cluster and the icon. A
  * small clock pins the card [iconGap] above the icon instead, so it does not float in the middle
