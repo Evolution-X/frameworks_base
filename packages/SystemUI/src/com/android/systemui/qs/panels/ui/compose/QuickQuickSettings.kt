@@ -30,6 +30,7 @@ import com.android.compose.animation.scene.ContentScope
 import com.android.systemui.compose.modifiers.sysuiResTag
 import com.android.systemui.grid.ui.compose.VerticalSpannedGrid
 import com.android.systemui.qs.composefragment.ui.GridAnchor
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSQsStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.Tile
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSPanelStyle
 import com.android.systemui.qs.panels.ui.viewmodel.BounceableTileViewModel
@@ -49,6 +50,8 @@ fun ContentScope.QuickQuickSettings(
     val squishiness by viewModel.squishinessViewModel.squishiness.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val classicStyle = rememberQSPanelStyle()
+    // ColorOS style: QQS shows only the round icons, the labels stay in the expanded panel.
+    val colorOSStyle = LocalColorOSQsStyle.current
 
     Box(modifier = modifier) {
         GridAnchor()
@@ -84,6 +87,7 @@ fun ContentScope.QuickQuickSettings(
                     // There should be no QuickQuickSettings when the details view is enabled.
                     detailsViewModel = null,
                     isVisible = listening,
+                    hideLabel = colorOSStyle,
                 )
             }
         }

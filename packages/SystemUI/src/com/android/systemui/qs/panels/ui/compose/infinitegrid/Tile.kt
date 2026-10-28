@@ -26,6 +26,7 @@ import android.os.UserHandle
 import android.provider.Settings
 import android.service.quicksettings.Tile.STATE_ACTIVE
 import android.service.quicksettings.Tile.STATE_INACTIVE
+import android.service.quicksettings.Tile.STATE_UNAVAILABLE
 import androidx.annotation.VisibleForTesting
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
@@ -51,6 +52,7 @@ import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.State
@@ -64,6 +66,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
@@ -75,6 +78,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -144,9 +148,33 @@ private const val QS_PANEL_STYLE_COLOROS = 2
 /** ColorOS-style Quick Settings (glass tiles, round icon tiles with labels below). */
 internal val LocalColorOSQsStyle = compositionLocalOf { false }
 
-private val ColorOSBlue = Color(0xFF1677FF)
+private val ColorOSBlue = Color(0xFF0068FF)
 private val ColorOSGreen = Color(0xFF16A34A)
+private val ColorOSRed = Color(0xFFF2453D)
+private val ColorOSInk = Color(0xFF1C1C1E)
 private val COLOROS_DATA_TILES = setOf("cell", "mobile_data", "mobiledata")
+private val COLOROS_WIFI_TILES = setOf("wifi")
+
+/** How much of a round tile that cannot be used is left, the whole tile fades, glass included. */
+private const val ColorOSUnavailableAlpha = 0.45f
+
+/** Tiles whose icon is dark ink on the white bubble of a dark panel, instead of blue. */
+private val COLOROS_INK_TILES = setOf("dnd", "dark", "night")
+
+/** Tiles that ColorOS marks with a small down chevron after the label, as they open more. */
+private val COLOROS_DROPDOWN_TILES =
+    COLOROS_DATA_TILES + setOf("dnd", "screenrecord", "hotspot", "screenshot")
+
+/**
+ * The label under a round ColorOS tile. The mobile data tile is named after the SIM there, the
+ * network name its state carries, and is only called by its own name while there is none.
+ */
+private fun colorOSRoundTileLabel(spec: String, uiState: TileUiState): String =
+    if (spec in COLOROS_DATA_TILES && uiState.secondaryLabel.isNotBlank()) {
+        uiState.secondaryLabel
+    } else {
+        uiState.label
+    }
 
 /**
  * This composable function is responsible for rendering a tile based on the provided
@@ -168,6 +196,9 @@ private val COLOROS_DATA_TILES = setOf("cell", "mobile_data", "mobiledata")
  * @param detailsViewModel An optional [DetailsViewModel] used to handle navigation to a detailed
  *   view when a tile is clicked, if applicable.
  * @param enableRevealEffect If `true`, the tiles will animate using the reveal animation.
+ * @param hideLabel If `true`, the label of a ColorOS style icon tile is not drawn (QQS shows only
+ *   the round icons), whatever the tile label setting says. Ignored for the other panel styles,
+ *   which follow the tile label setting.
  */
 @Composable
 fun ContentScope.Tile(
@@ -182,6 +213,7 @@ fun ContentScope.Tile(
     requestToggleTextFeedback: (TileSpec) -> Unit = {},
     detailsViewModel: DetailsViewModel?,
     enableRevealEffect: Boolean = false,
+    hideLabel: Boolean = false,
 ) {
     trace(tile.traceName) {
         val currentBounceableInfo by rememberUpdatedState(bounceableInfo)
@@ -226,11 +258,14 @@ fun ContentScope.Tile(
         val classicStyle = if (colorOSStyle) iconOnly else userClassicStyle
         val userIconShapeKey = rememberQSTileIconShapeKey()
         val iconShapeKey = if (colorOSStyle) QSTileIconShapes.DEFAULT_KEY else userIconShapeKey
-        val labelHide = classicStyle && !colorOSStyle && rememberQSTileLabelHide()
+        // The label below an icon tile follows the user setting in every panel style, and the
+        // ColorOS style also drops it where the caller asks for it (QQS).
+        val userLabelHide = rememberQSTileLabelHide()
+        val labelHide = classicStyle && (userLabelHide || (colorOSStyle && hideLabel))
         val tileHeight = if (!classicStyle || labelHide) {
             CommonTileDefaults.TileHeight
         } else {
-            CommonTileDefaults.TileHeight + 32.dp
+            CommonTileDefaults.TileHeight + CommonTileDefaults.ClassicLabelHeight
         }
 
         val userShapeMode = rememberTileShapeMode()
@@ -273,8 +308,25 @@ fun ContentScope.Tile(
             contentRevealModifier = Modifier
         }
 
+        // Where SurfaceFlinger can blur behind the shade, the glass of the wide ColorOS tiles and
+        // of the round ones that are off is a blur region and not a flat fill.
+        val glassBlur = LocalColorOSGlassBlur.current
+        val glassPill = colorOSStyle && !classicStyle && glassBlur != null
+        // The glass is drawn by SurfaceFlinger and does not follow the alpha of a Compose layer,
+        // so the round tile that cannot be used scales the alpha of its own region as well.
+        val colorOSDimmed = colorOSStyle && iconOnly && uiState.visualState == STATE_UNAVAILABLE
+        val tileGlassBlur =
+            remember(glassBlur, colorOSDimmed) {
+                if (glassBlur != null && colorOSDimmed) {
+                    ColorOSGlassBlur { glassBlur.alpha() * ColorOSUnavailableAlpha }
+                } else {
+                    glassBlur
+                }
+            }
         val outerShape = if (wantCircle && !classicStyle) RoundedCornerShape(0.dp) else tileShape
-        val outerColor: () -> Color = if (wantCircle || classicStyle) { { Color.Transparent } } else { { animatedColor } }
+        val outerColor: () -> Color =
+            if (wantCircle || classicStyle || glassPill) { { Color.Transparent } }
+            else { { animatedColor } }
         val focusBorderColor = MaterialTheme.colorScheme.secondary
 
         val expandable =
@@ -294,10 +346,34 @@ fun ContentScope.Tile(
                 classicStyle = classicStyle,
                 modifier =
                     modifier
+                        .then(
+                            if (colorOSStyle && !classicStyle) {
+                                Modifier.colorOSPress(interactionSource)
+                            } else {
+                                Modifier
+                            }
+                        )
                         .then(surfaceRevealModifier)
-                        .thenIf(colorOSStyle && !classicStyle) {
-                            Modifier.border(width = 1.dp, brush = ColorOSTileRim, shape = tileShape)
-                        }
+                        .then(
+                            if (glassPill) {
+                                Modifier.colorOSGlassBlur(tileShape, colorOSGlassTileMaterial())
+                            } else if (colorOSStyle && !classicStyle) {
+                                Modifier.border(
+                                    width = 1.dp,
+                                    brush = ColorOSTileRim,
+                                    shape = tileShape,
+                                )
+                            } else {
+                                Modifier
+                            }
+                        )
+                        .then(
+                            if (colorOSStyle && !classicStyle) {
+                                Modifier.colorOSSpotLight(tileShape, ColorOSSpotLightMedium)
+                            } else {
+                                Modifier
+                            }
+                        )
                         .thenIf(!wantCircle) {
                             modifier.borderOnFocus(
                                 color = focusBorderColor,
@@ -314,7 +390,8 @@ fun ContentScope.Tile(
                             currentBounceableInfo.nextTile,
                             orientation = Orientation.Horizontal,
                             bounceEnd = currentBounceableInfo.bounceEnd,
-                            interactionSource = interactionSource,
+                            // ColorOS presses with colorOSPress instead of the width bounce.
+                            interactionSource = interactionSource.takeIf { !colorOSStyle },
                         ),
             ) { expandable ->
                 // Use main click on long press for small, available dual target tiles.
@@ -403,7 +480,8 @@ fun ContentScope.Tile(
                                     onClick = { click?.invoke() ?: Unit },
                                     onLongClick = { longClick?.invoke() },
                                     accessibilityUiState = uiState.accessibilityUiState,
-                                    interactionSource = interactionSource.takeIf { bounceContainer },
+                                    interactionSource =
+                                        interactionSource.takeIf { bounceContainer || colorOSStyle },
                                     iconOnly = true,
                                     isDualTarget = isDualTarget,
                                 )
@@ -420,25 +498,51 @@ fun ContentScope.Tile(
                                         },
                                 )
                             } else {
-                                ClassicTileContent(
-                                    label = uiState.label,
-                                    secondaryLabel = uiState.secondaryLabel,
-                                    iconProvider = iconProvider,
-                                    iconShapeKey = iconShapeKey,
-                                    colors = colors,
-                                    labelHide = labelHide,
-                                    rim = if (colorOSStyle) ColorOSTileRim else null,
-                                    modifier =
-                                        Modifier.align(Alignment.TopCenter).bounceScale {
-                                            currentBounceableInfo.bounceable.iconBounceScale
-                                        },
-                                )
+                                CompositionLocalProvider(
+                                    LocalColorOSGlassBlur provides tileGlassBlur
+                                ) {
+                                    ClassicTileContent(
+                                        label =
+                                            if (colorOSStyle) {
+                                                colorOSRoundTileLabel(tile.spec.spec, uiState)
+                                            } else {
+                                                uiState.label
+                                            },
+                                        secondaryLabel = uiState.secondaryLabel,
+                                        iconProvider = iconProvider,
+                                        iconShapeKey = iconShapeKey,
+                                        colors = colors,
+                                        labelHide = labelHide,
+                                        rim = if (colorOSStyle) ColorOSTileRim else null,
+                                        glass = colorOSStyle && glassBlur != null,
+                                        chevron =
+                                            colorOSStyle &&
+                                                tile.spec.spec in COLOROS_DROPDOWN_TILES,
+                                        pressSource = interactionSource.takeIf { colorOSStyle },
+                                        lottieSpec = tile.spec.spec.takeIf { colorOSStyle },
+                                        active = uiState.visualState == STATE_ACTIVE,
+                                        modifier =
+                                            Modifier.align(Alignment.TopCenter)
+                                                .bounceScale {
+                                                    currentBounceableInfo.bounceable
+                                                        .iconBounceScale
+                                                }
+                                                .then(
+                                                    if (colorOSDimmed) {
+                                                        Modifier.alpha(ColorOSUnavailableAlpha)
+                                                    } else {
+                                                        Modifier
+                                                    }
+                                                ),
+                                    )
+                                }
                             }
                         }
                     }
                 } else {
                     TileContainer(
-                        interactionSource = interactionSource.takeIf { bounceContainer },
+                        interactionSource =
+                            interactionSource.takeIf { bounceContainer || colorOSStyle },
                         onClick = click,
                         onLongClick = longClick,
                         accessibilityUiState = uiState.accessibilityUiState,
@@ -467,15 +571,31 @@ fun ContentScope.Tile(
                                         tile.toggleClick()
                                     }
                                     .takeIf { isDualTarget }
+                            // ColorOS names the network in the Wi-Fi pill, with the status under
+                            // it. While Wi-Fi is only scanning there is no network to name.
+                            val scanningLabel =
+                                stringResource(R.string.quick_settings_scanning_for_wifi)
+                            val connectedLabel = stringResource(R.string.quick_settings_connected)
+                            val networkAsLabel =
+                                colorOSStyle &&
+                                    tile.spec.spec in COLOROS_WIFI_TILES &&
+                                    uiState.visualState == STATE_ACTIVE &&
+                                    !uiState.secondaryLabel.isNullOrBlank() &&
+                                    uiState.secondaryLabel != scanningLabel
                             LargeTileContent(
-                                label = uiState.label,
-                                secondaryLabel = uiState.secondaryLabel,
+                                label =
+                                    if (networkAsLabel) uiState.secondaryLabel else uiState.label,
+                                secondaryLabel =
+                                    if (networkAsLabel) connectedLabel else uiState.secondaryLabel,
+                                labelMaxLines = if (networkAsLabel) 2 else 1,
                                 iconProvider = iconProvider,
                                 sideDrawable = uiState.sideDrawable,
                                 colors = colors,
                                 iconShape = iconShape,
                                 toggleClick = secondaryClick,
                                 onLongClick = longClick,
+                                lottieSpec = tile.spec.spec.takeIf { colorOSStyle },
+                                active = uiState.visualState == STATE_ACTIVE,
                                 accessibilityUiState = uiState.accessibilityUiState,
                                 squishiness = squishiness,
                                 isVisible = isVisible,
@@ -886,6 +1006,47 @@ fun rememberQSTileLabelHide(): Boolean {
     return labelHideEnabled
 }
 
+/** Whether the media card of the ColorOS panel style fills with the album art. */
+@Composable
+fun rememberQSColorOSMediaArtFill(): Boolean {
+    val context = LocalContext.current
+    val contentResolver = context.contentResolver
+
+    fun readArtFillEnabled(): Boolean {
+        return try {
+            Settings.System.getIntForUser(
+                contentResolver, Settings.System.QS_COLOROS_MEDIA_ART_FILL, 0,
+                UserHandle.USER_CURRENT
+            ) != 0
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    var artFillEnabled by remember { mutableStateOf(readArtFillEnabled()) }
+
+    DisposableEffect(contentResolver) {
+        val observer = object : ContentObserver(null) {
+            override fun onChange(selfChange: Boolean) {
+                context.mainExecutor.execute {
+                    artFillEnabled = readArtFillEnabled()
+                }
+            }
+        }
+
+        contentResolver.registerContentObserver(
+            Settings.System.getUriFor(Settings.System.QS_COLOROS_MEDIA_ART_FILL),
+            false, observer, UserHandle.USER_ALL
+        )
+
+        onDispose {
+            contentResolver.unregisterContentObserver(observer)
+        }
+    }
+
+    return artFillEnabled
+}
+
 @Composable
 fun rememberQSTileIconShapeKey(): String {
     val context = LocalContext.current
@@ -1024,46 +1185,58 @@ private object TileDefaults {
     /**
      * ColorOS style: translucent "glass" tiles that let the shade blur show through. On a dark
      * panel an active tile shows a white bubble with a coloured icon; on a light panel the bubble
-     * is filled with the colour and the icon is white. Mobile data uses green, everything else
-     * blue.
+     * is filled with the colour and the icon is white. Mobile data uses green, auto rotate red,
+     * and everything else blue, except do not disturb and dark mode, whose icon is dark ink on the
+     * white bubble of a dark panel.
      */
     @Composable
     @ReadOnlyComposable
     fun colorOSColorsForState(uiState: TileUiState, iconOnly: Boolean, spec: String): TileColors {
         val onSurface = MaterialTheme.colorScheme.onSurface
         val darkPanel = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-        val accent = if (spec in COLOROS_DATA_TILES) ColorOSGreen else ColorOSBlue
+        val accent =
+            when {
+                spec in COLOROS_DATA_TILES -> ColorOSGreen
+                spec == "rotation" -> ColorOSRed
+                darkPanel && spec in COLOROS_INK_TILES -> ColorOSInk
+                else -> ColorOSBlue
+            }
         val glass =
             if (darkPanel) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.55f)
         val bubbleOff =
             if (darkPanel) Color.White.copy(alpha = 0.14f) else Color.Black.copy(alpha = 0.06f)
-        val bubbleOn = if (darkPanel) Color.White else accent
+        val bubbleOn = if (darkPanel) ColorOSActiveFill else accent
         val iconOn = if (darkPanel) accent else Color.White
-        val secondary = onSurface.copy(alpha = 0.70f)
+        // The labels of a dark panel are softer than full white, like in ColorOS.
+        val primary = if (darkPanel) onSurface.copy(alpha = 0.90f) else onSurface
+        val secondary = onSurface.copy(alpha = if (darkPanel) 0.60f else 0.70f)
+        val inactive =
+            TileColors(
+                background = glass,
+                iconBackground = bubbleOff,
+                label = primary,
+                secondaryLabel = secondary,
+                icon = onSurface,
+                outline = onSurface,
+                classicLabel = primary,
+                classicSecondaryLabel = secondary,
+            )
         return when (uiState.visualState) {
             STATE_ACTIVE ->
                 TileColors(
                     background = if (iconOnly) bubbleOn else glass,
                     iconBackground = bubbleOn,
-                    label = onSurface,
+                    label = primary,
                     secondaryLabel = secondary,
                     icon = iconOn,
                     outline = iconOn,
-                    classicLabel = onSurface,
+                    classicLabel = primary,
                     classicSecondaryLabel = secondary,
                 )
-            STATE_INACTIVE ->
-                TileColors(
-                    background = glass,
-                    iconBackground = bubbleOff,
-                    label = onSurface,
-                    secondaryLabel = secondary,
-                    icon = onSurface,
-                    outline = onSurface,
-                    classicLabel = onSurface,
-                    classicSecondaryLabel = secondary,
-                )
-            else -> unavailableTileColors()
+            STATE_INACTIVE -> inactive
+            // A round tile that cannot be used keeps the colours of one that is off and is faded
+            // as a whole by the caller. The wide tiles keep the greyed out colours.
+            else -> if (iconOnly) inactive else unavailableTileColors()
         }
     }
 

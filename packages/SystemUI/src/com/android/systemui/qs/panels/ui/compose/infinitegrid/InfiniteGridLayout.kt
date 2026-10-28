@@ -19,6 +19,7 @@ package com.android.systemui.qs.panels.ui.compose.infinitegrid
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -29,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastMap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -58,7 +60,20 @@ import javax.inject.Inject
 import kotlinx.coroutines.launch
 
 /** Gap between tiles and rows in the ColorOS Quick Settings style (ColorOS 17). */
-val ColorOSGap = 16.dp
+val ColorOSGap = 17.dp
+
+/**
+ * Gap between the rows of round icon tiles in the ColorOS style. The label lives inside the tile
+ * cell, so ColorOS rows are packed much closer than the 17dp used between the wide cards.
+ */
+val ColorOSIconRowGap = 4.dp
+
+/**
+ * Gap between the rows of round icon tiles in the ColorOS style: the tight [ColorOSIconRowGap] with
+ * the labels in the cells, the [ColorOSGap] of the wide cards without them.
+ */
+fun colorOSIconRowGap(labelsHidden: Boolean): Dp =
+    if (labelsHidden) ColorOSGap else ColorOSIconRowGap
 
 /**
  * Round tiles per page in the ColorOS Quick Settings style. Fewer rows than stock so the whole
@@ -66,6 +81,24 @@ val ColorOSGap = 16.dp
  */
 const val ColorOSGridRows = 3
 const val ColorOSGridColumns = 4
+
+/** Fewest rows of round tiles per page the ColorOS panel falls back to on a short screen. */
+const val ColorOSMinGridRows = 2
+
+/**
+ * Rows of round tiles per page in the ColorOS panel. The panel lowers it from [ColorOSGridRows]
+ * when the screen is too short for all of them.
+ */
+internal val LocalColorOSGridRows = compositionLocalOf { ColorOSGridRows }
+
+/** Height of the pager footer (build number or data usage, page dots, edit button). */
+val ColorOSGridFooterHeight = 48.dp
+
+/**
+ * Room above the first row of round tiles inside the pager, so what a tile draws outside its
+ * bounds is not clipped by the pager.
+ */
+val ColorOSGridHeadroom = 4.dp
 
 @SysUISingleton
 class InfiniteGridLayout
@@ -115,6 +148,7 @@ constructor(
         val scope = rememberCoroutineScope()
 
         val classicStyle = rememberQSPanelStyle()
+        val labelsHidden = rememberQSTileLabelHide()
 
         val bounceables =
             remember(sizedTiles) { List(sizedTiles.size) { BounceableTileViewModel() } }
@@ -125,7 +159,7 @@ constructor(
                 if (colorOSStyle) ColorOSGap
                 else dimensionResource(R.dimen.qs_tile_margin_horizontal),
             rowSpacing =
-                if (colorOSStyle) ColorOSGap
+                if (colorOSStyle) colorOSIconRowGap(labelsHidden)
                 else dimensionResource(R.dimen.qs_tile_margin_vertical),
             spans = spans,
             keys = { sizedTiles[it].tile.spec },

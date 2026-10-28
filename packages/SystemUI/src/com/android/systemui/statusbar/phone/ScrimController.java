@@ -32,8 +32,12 @@ import android.animation.ValueAnimator;
 import android.annotation.IntDef;
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.res.Configuration;
+import android.database.ContentObserver;
 import android.graphics.Color;
 import android.os.Handler;
+import android.os.UserHandle;
+import android.provider.Settings;
 import android.util.Log;
 import android.util.MathUtils;
 import android.util.Pair;
@@ -225,6 +229,8 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
     private static final int TAG_START_ALPHA = R.id.scrim_alpha_start;
     private static final int TAG_END_ALPHA = R.id.scrim_alpha_end;
     private static final float NOT_INITIALIZED = -1;
+    /** Value of {@link Settings.System#QS_PANEL_STYLE} for the ColorOS panel. */
+    private static final int QS_PANEL_STYLE_COLOROS = 2;
 
     private ScrimState mState = ScrimState.UNINITIALIZED;
 
@@ -562,6 +568,20 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
             collectFlow(behindScrim,
                     mWindowRootViewBlurInteractor.get().isBlurCurrentlySupported(),
                     this::handleBlurSupportedChanged);
+        }
+
+        if (Flags.notificationShadeBlur()) {
+            // The panel color depends on the QS panel style, see getShadePanelColor().
+            mContext.getContentResolver().registerContentObserver(
+                    Settings.System.getUriFor(Settings.System.QS_PANEL_STYLE),
+                    false /* notifyForDescendants */,
+                    new ContentObserver(mHandler) {
+                        @Override
+                        public void onChange(boolean selfChange) {
+                            onThemeChanged();
+                        }
+                    },
+                    UserHandle.USER_ALL);
         }
     }
 
@@ -1742,7 +1762,30 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
     }
 
     private int getShadePanelColor() {
+        if (isColorOSBackdrop() && isNightMode()) {
+            // The ColorOS QS panel draws the glass behind the shade itself, a blur region of
+            // the panel material, and the color of the scrim on top of it would only dim it.
+            // The light panel keeps its color: the glass does not lift a dark wallpaper enough
+            // for the dark text of the light theme to be read on it.
+            return Color.TRANSPARENT;
+        }
         return ShadeColors.shadePanel(mContext, isBlurCurrentlySupported(), true);
+    }
+
+    /**
+     * Whether the shade has the glass of the ColorOS QS panel behind it. It is drawn by the QS
+     * fragment under the same conditions: the ColorOS panel style, and blur that can be used.
+     */
+    private boolean isColorOSBackdrop() {
+        return Flags.notificationShadeBlur() && isBlurCurrentlySupported()
+                && Settings.System.getIntForUser(mContext.getContentResolver(),
+                        Settings.System.QS_PANEL_STYLE, 0, UserHandle.USER_CURRENT)
+                        == QS_PANEL_STYLE_COLOROS;
+    }
+
+    private boolean isNightMode() {
+        return (mContext.getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
     }
 
     private void onThemeChanged() {
