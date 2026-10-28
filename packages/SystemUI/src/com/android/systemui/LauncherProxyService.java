@@ -429,8 +429,9 @@ public class LauncherProxyService implements CallbackController<LauncherProxyLis
 
         @Override
         public void onOverviewShown(int displayId) {
-            if (!betterDeskDeactivationInRecentsTransition()) return;
             verifyCallerAndClearCallingIdentityPostMain("onOverviewShown", () -> {
+                notifyOverviewVisibilityChanged(displayId, true /* visible */);
+                if (!betterDeskDeactivationInRecentsTransition()) return;
                 for (int i = mConnectionCallbacks.size() - 1; i >= 0; --i) {
                     mConnectionCallbacks.get(i).onOverviewShown();
                 }
@@ -440,8 +441,9 @@ public class LauncherProxyService implements CallbackController<LauncherProxyLis
 
         @Override
         public void onOverviewHidden(int displayId) {
-            if (!betterDeskDeactivationInRecentsTransition()) return;
             verifyCallerAndClearCallingIdentityPostMain("onOverviewHidden", () -> {
+                notifyOverviewVisibilityChanged(displayId, false /* visible */);
+                if (!betterDeskDeactivationInRecentsTransition()) return;
                 mShellInterface.onOverviewHidden(displayId);
             });
         }
@@ -553,6 +555,13 @@ public class LauncherProxyService implements CallbackController<LauncherProxyLis
                 runnable.run();
                 return null;
             });
+        }
+
+        private void notifyOverviewVisibilityChanged(int displayId, boolean visible) {
+            if (displayId != Display.DEFAULT_DISPLAY) return;
+            for (int i = mConnectionCallbacks.size() - 1; i >= 0; --i) {
+                mConnectionCallbacks.get(i).onOverviewVisibilityChanged(visible);
+            }
         }
 
         private void verifyCallerAndClearCallingIdentityPostMain(String reason, Runnable runnable) {
@@ -1402,6 +1411,8 @@ public class LauncherProxyService implements CallbackController<LauncherProxyLis
         default void onConnectionChanged(boolean isConnected) {}
         default void onPrioritizedRotation(@Surface.Rotation int rotation) {}
         default void onOverviewShown() {}
+        /** Overview visibility on the default display, reported regardless of desk flags. */
+        default void onOverviewVisibilityChanged(boolean visible) {}
         /** Notify the recents app (overview) is started by 3-button navigation. */
         default void onToggleRecentApps() {}
         default void onHomeRotationEnabled(boolean enabled) {}
