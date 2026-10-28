@@ -35,6 +35,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.annotation.VisibleForTesting
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement.spacedBy
@@ -79,6 +80,7 @@ import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -108,6 +110,7 @@ import com.android.compose.animation.scene.SceneTransitionLayoutState
 import com.android.compose.animation.scene.content.state.TransitionState
 import com.android.compose.animation.scene.rememberMutableSceneTransitionLayoutState
 import com.android.compose.animation.scene.transitions
+import com.android.compose.gesture.effect.rememberColorOSOverscrollEffectFactory
 import com.android.compose.gesture.gesturesDisabled
 import com.android.compose.modifiers.height
 import com.android.compose.modifiers.padding
@@ -126,11 +129,13 @@ import com.android.systemui.dump.DumpManager
 import com.android.systemui.initOnBackPressedDispatcherOwner
 import com.android.systemui.keyboard.shortcut.ui.composable.InteractionsConfig
 import com.android.systemui.keyboard.shortcut.ui.composable.ProvideShortcutHelperIndication
+import com.android.systemui.lifecycle.rememberViewModel
 import com.android.systemui.lifecycle.repeatWhenAttached
 import com.android.systemui.lifecycle.setSnapshotBinding
 import com.android.systemui.log.table.TableLogBuffer
 import com.android.systemui.media.controls.domain.pipeline.MediaDataManager
 import com.android.systemui.media.controls.ui.view.MediaHost
+import com.android.systemui.media.dialog.MediaOutputDialogManager
 import com.android.systemui.media.remedia.shared.flag.MediaControlsInComposeFlag
 import com.android.systemui.media.remedia.ui.compose.Media
 import com.android.systemui.media.remedia.ui.compose.MediaPresentationStyle
@@ -153,8 +158,10 @@ import com.android.systemui.qs.panels.shared.model.QSFragmentComposeClippingTabl
 import com.android.systemui.qs.panels.ui.compose.EditMode
 import com.android.systemui.qs.panels.ui.compose.QuickQuickSettings
 import com.android.systemui.qs.panels.ui.compose.TileGrid
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSBackdrop
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.InfiniteGridLayout
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSQsStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSColorOSMediaArtFill
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSColorOSStyle
 import com.android.systemui.qs.shared.ui.QuickSettings.Elements
 import com.android.systemui.qs.ui.composable.QuickSettingsShade
@@ -197,6 +204,7 @@ constructor(
     private val audioVolumeInteractor: AudioVolumeInteractor,
     private val mediaDataManager: MediaDataManager,
     private val activityStarter: ActivityStarter,
+    private val mediaOutputDialogManager: MediaOutputDialogManager,
 ) : LifecycleFragment(), QS, Dumpable {
 
     private val scrollListener = MutableStateFlow<QS.ScrollListener?>(null)
@@ -217,15 +225,23 @@ constructor(
     private var bottomContentPadding by mutableIntStateOf(0)
     private var colorOSQsStyle by mutableStateOf(false)
 
+    /**
+     * Whether the ColorOS panel fits the height of the Quick Settings scroller. It does for most
+     * portrait screens, since the panel shrinks to fit. If it cannot, the scroller must scroll.
+     */
+    private var colorOSContentFits by mutableStateOf(true)
+
     /** Media sessions for the ColorOS-style QS media card. */
     private val colorOSMediaSessions = ColorOSMediaSessions()
 
     /**
-     * The portrait ColorOS layout always fits, so QS never scrolls and a swipe up always collapses
-     * it. In landscape the panel is too short, so it scrolls like stock.
+     * The portrait ColorOS layout shrinks to fit, so QS never scrolls and a swipe up always
+     * collapses it. When it cannot fit, and in landscape where the panel is too short, it scrolls
+     * like stock.
      */
     private fun colorOSNoVerticalScroll(): Boolean =
         colorOSQsStyle &&
+            colorOSContentFits &&
             context?.resources?.configuration?.orientation != Configuration.ORIENTATION_LANDSCAPE
 
     private val containerView: FrameLayoutTouchPassthrough?
@@ -344,6 +360,21 @@ constructor(
                             // by the composables.
                             .thenIf(viewModel.showingMirror) { Modifier.gesturesDisabled() }
                 ) {
+                    // The glass behind the whole shade in the ColorOS style, in place of the
+                    // color of the scrim (see ScrimController). It follows the shade, not the
+                    // panel, so it is also there with only the notifications and QQS down.
+                    if (LocalColorOSQsStyle.current && notificationShadeBlur()) {
+                        ColorOSBackdrop(
+                            alpha = {
+                                if (viewModel.isQsVisibleAndAnyShadeExpanded) {
+                                    viewModel.panelExpansionFraction
+                                } else {
+                                    0f
+                                }
+                            },
+                            modifier = Modifier.matchParentSize(),
+                        )
+                    }
                     CollapsableQuickSettingsSTL()
                 }
             }
@@ -372,9 +403,14 @@ constructor(
                             // The ColorOS layout puts tiles in different places and shapes than QQS,
                             // so morphing each tile across makes them fly over each other. There,
                             // QQS fades out and the panel fades/slides in.
-                            quickQuickSettingsToQuickSettings {
-                                viewModel.animateTilesExpansion && !colorOSQsStyle
-                            }
+                            quickQuickSettingsToQuickSettings(
+                                animateTilesExpansion = {
+                                    viewModel.animateTilesExpansion && !colorOSQsStyle
+                                },
+                                // The ColorOS panel has its own slider, so the QQS one fades out.
+                                fadeOutBrightnessSlider = { colorOSQsStyle },
+                                fadeOutQqsTiles = { colorOSQsStyle },
+                            )
                         }
                         to(SceneKeys.EditMode) {
                             spec = tween(durationMillis = EDIT_MODE_TIME_MILLIS)
@@ -432,7 +468,9 @@ constructor(
         ) {
             scene(QuickSettings, alwaysCompose = true) {
                 LaunchedEffect(Unit) { viewModel.onQSOpen() }
-                Element(QuickSettings.rootElementKey, Modifier) { QuickSettingsElement() }
+                Element(QuickSettings.rootElementKey, Modifier) {
+                    ColorOSOverscroll { QuickSettingsElement() }
+                }
             }
 
             scene(QuickQuickSettings, alwaysCompose = true) {
@@ -834,10 +872,34 @@ constructor(
         }
     }
 
+    /**
+     * Gives the scrollers in [content] the stretch of the ColorOS control center when the ColorOS
+     * style is on, and leaves the overscroll they would get otherwise as it is.
+     */
+    @Composable
+    private fun ColorOSOverscroll(content: @Composable () -> Unit) {
+        val default = LocalOverscrollFactory.current
+        val colorOS = rememberColorOSOverscrollEffectFactory()
+        CompositionLocalProvider(
+            LocalOverscrollFactory provides if (LocalColorOSQsStyle.current) colorOS else default,
+            content = content,
+        )
+    }
+
     @Composable
     private fun ContentScope.QuickSettingsElement(modifier: Modifier = Modifier) {
         val qqsPadding = viewModel.qqsHeaderHeight
-        val qsExtraPadding = dimensionResource(R.dimen.qs_panel_padding_top)
+        // The ColorOS header is taller than the stock one. A large screen header (no qqs padding)
+        // is not changed by the style.
+        val colorOSHeader = LocalColorOSQsStyle.current && qqsPadding > 0
+        val qsExtraPadding =
+            dimensionResource(
+                if (colorOSHeader) {
+                    R.dimen.qs_coloros_header_height
+                } else {
+                    R.dimen.qs_panel_padding_top
+                }
+            )
         Column(
             modifier =
                 modifier.collapseExpandSemanticAction(
@@ -882,18 +944,25 @@ constructor(
                                 .verticalScroll(
                                     scrollState,
                                     // The portrait ColorOS layout fits the screen and must not
-                                    // scroll; landscape is too short, so it scrolls.
+                                    // scroll; landscape, or a screen it cannot shrink to, scrolls.
                                     enabled =
                                         !LocalColorOSQsStyle.current ||
+                                            !colorOSContentFits ||
                                             LocalConfiguration.current.orientation ==
                                                 Configuration.ORIENTATION_LANDSCAPE,
                                 )
-                                .padding(bottom = 8.dp)
+                                .padding(bottom = ColorOSBottomPadding)
                                 .sysuiResTag(ResIdTags.qsScroll)
                     ) {
                         val containerViewModel = viewModel.containerViewModel
+                        // The room of the ColorOS header is part of the panel, which draws the
+                        // buttons in it.
                         Spacer(
-                            modifier = Modifier.height { qqsPadding + qsExtraPadding.roundToPx() }
+                            modifier =
+                                Modifier.height {
+                                    qqsPadding +
+                                        if (colorOSHeader) 0 else qsExtraPadding.roundToPx()
+                                }
                         )
                         val BrightnessSlider: @Composable () -> Unit = {
                             Element(Elements.BrightnessSlider, modifier = modifier) {
@@ -953,6 +1022,23 @@ constructor(
                                     )
                         ) {
                             if (LocalColorOSQsStyle.current) {
+                                // What is left of the scroller under the header and the padding
+                                // around the panel, for the panel to size itself to.
+                                val density = LocalDensity.current
+                                val colorOSAvailableHeight =
+                                    if (viewModel.qsScrollHeight > 0) {
+                                        with(density) {
+                                            (viewModel.qsScrollHeight -
+                                                    qqsPadding -
+                                                    qsExtraPadding.roundToPx() -
+                                                    QuickSettingsShade.Dimensions.VerticalPadding
+                                                        .roundToPx() -
+                                                    ColorOSBottomPadding.roundToPx())
+                                                .toDp()
+                                        }
+                                    } else {
+                                        Dp.Unspecified
+                                    }
                                 Box {
                                     GridAnchor()
                                     ColorOSQuickSettingsLayout(
@@ -994,22 +1080,82 @@ constructor(
                                         },
                                         media = { mediaModifier ->
                                             colorOSMediaSessions.current?.let { data ->
+                                                val colorOSArtFill = rememberQSColorOSMediaArtFill()
                                                 ColorOSMediaCard(
                                                     data = data,
+                                                    artFill = colorOSArtFill,
                                                     onOpen = { intent ->
                                                         activityStarter
                                                             .postStartActivityDismissingKeyguard(
                                                                 intent
                                                             )
                                                     },
+                                                    onOutputSwitcher = { mediaData ->
+                                                        // Same as the stock player: the app's own
+                                                        // output intent when it has one, the
+                                                        // system output switcher otherwise.
+                                                        val deviceIntent = mediaData.device?.intent
+                                                        if (deviceIntent != null) {
+                                                            if (deviceIntent.isActivity) {
+                                                                activityStarter
+                                                                    .postStartActivityDismissingKeyguard(
+                                                                        deviceIntent
+                                                                    )
+                                                            }
+                                                        } else {
+                                                            mediaOutputDialogManager.createAndShow(
+                                                                mediaData.packageName,
+                                                                /* aboveStatusBar= */ true,
+                                                                /* view= */ null,
+                                                                UserHandle.getUserHandleForUid(
+                                                                    mediaData.appUid
+                                                                ),
+                                                                mediaData.token,
+                                                                /* useSystemColors= */ false,
+                                                            )
+                                                        }
+                                                    },
                                                     modifier = mediaModifier,
                                                 )
                                             }
                                         },
                                         listening = isListening,
-                                        // ColorOS 17 uses ~38dp side margins; the stock QS
+                                        // ColorOS 17 uses ~39dp side margins; the stock QS
                                         // margin already gives ~16dp, so add the rest.
-                                        modifier = Modifier.padding(horizontal = 22.dp),
+                                        modifier = Modifier.padding(horizontal = 23.dp),
+                                        availableHeight = colorOSAvailableHeight,
+                                        onFitChanged = { colorOSContentFits = it },
+                                        headerHeight = if (colorOSHeader) qsExtraPadding else 0.dp,
+                                        header = {
+                                            val editButton =
+                                                rememberViewModel("ColorOSHeaderEdit") {
+                                                    viewModel.editModeButtonViewModelFactory
+                                                        .create()
+                                                }
+                                            val settings by
+                                                viewModel.footerActionsViewModel.settings
+                                                    .collectAsStateWithLifecycle(null)
+                                            ColorOSHeaderButtons(
+                                                onEdit = { editButton.onButtonClick() },
+                                                onSettings = settings?.onClick,
+                                            )
+                                        },
+                                        expansion = {
+                                            viewModel.expansionState.progress *
+                                                viewModel.panelExpansionFraction
+                                        },
+                                        // The glass is drawn by SurfaceFlinger and does not
+                                        // follow the alpha of this layer, so it follows the same
+                                        // alpha and is hidden whenever the panel is.
+                                        glassAlpha = {
+                                            if (viewModel.isQsVisibleAndAnyShadeExpanded &&
+                                                !viewModel.isEditing
+                                            ) {
+                                                viewModel.viewAlpha
+                                            } else {
+                                                0f
+                                            }
+                                        },
                                     )
                                 }
                             } else {
@@ -1028,12 +1174,15 @@ constructor(
                         }
                     }
                 }
-                QuickSettingsTheme {
-                    Element(
-                        Elements.FooterActions,
-                        Modifier.sysuiResTag(ResIdTags.qsFooterActions),
-                    ) {
-                        FooterActions(viewModel = viewModel.footerActionsViewModel)
+                // The ColorOS panel has no footer, its buttons are in the header.
+                if (!LocalColorOSQsStyle.current) {
+                    QuickSettingsTheme {
+                        Element(
+                            Elements.FooterActions,
+                            Modifier.sysuiResTag(ResIdTags.qsFooterActions),
+                        ) {
+                            FooterActions(viewModel = viewModel.footerActionsViewModel)
+                        }
                     }
                 }
             }
@@ -1624,6 +1773,9 @@ fun QuickSettingsLayout(
         }
     }
 }
+
+/** Padding under the content of the Quick Settings scroller. */
+private val ColorOSBottomPadding = 8.dp
 
 private object ResIdTags {
     const val quickSettingsPanel = "quick_settings_panel"

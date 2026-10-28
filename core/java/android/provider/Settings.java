@@ -7845,6 +7845,13 @@ public final class Settings {
         public static final String QS_TILE_LABEL_HIDE = "qs_tile_label_hide";
 
         /**
+         * Whether the media card of the ColorOS QS panel style shows the album art over the
+         * whole card (1) or as a thumbnail at the top left (0)
+         * @hide
+         */
+        public static final String QS_COLOROS_MEDIA_ART_FILL = "qs_coloros_media_art_fill";
+
+        /**
          * Select tile shape for classic QS panel style
          * @hide
          */
