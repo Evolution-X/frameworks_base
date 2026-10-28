@@ -141,6 +141,7 @@ import com.android.systemui.statusbar.pipeline.shared.ui.binder.HomeStatusBarVie
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipId
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipModel
 import com.android.systemui.statusbar.quickactions.ui.compose.QuickActionChipsContainer
+import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings
 import com.android.systemui.statusbar.quickactions.ui.compose.DynamicIslandAnchor
 import com.android.systemui.statusbar.quickactions.ui.compose.StatusBarDynamicIslandContainer
 import com.android.systemui.statusbar.quickactions.ui.compose.dynamicIslandHoleRect
@@ -468,6 +469,20 @@ fun StatusBarRoot(
                 val islandDensity = context.resources.displayMetrics.density
 
                 var islandCorrections = 0
+                var islandOffsetXPx = 0f
+                val islandResolver = context.contentResolver
+
+                fun applyIslandOffset() {
+                    islandOffsetXPx =
+                        with(DynamicIslandFeatureSettings) {
+                            islandResolver.readDynamicIslandOffsetPx(OFFSET_X_DP10, islandDensity)
+                        }
+                    composeView.translationX = islandOffsetXPx
+                    composeView.translationY =
+                        with(DynamicIslandFeatureSettings) {
+                            islandResolver.readDynamicIslandOffsetPx(OFFSET_Y_DP10, islandDensity)
+                        }
+                }
 
                 var islandReleaseFraction = 0f
                 var islandReleaseAnimator: ValueAnimator? = null
@@ -533,12 +548,15 @@ fun StatusBarRoot(
                                         else Gravity.CENTER
                                 },
                         )
-                        if (startAnchored) {
-                            allowChildrenOutsideBounds(startSideHost, phoneStatusBarView)
-                        }
+                        allowChildrenOutsideBounds(
+                            if (startAnchored) startSideHost else centeredArea,
+                            phoneStatusBarView,
+                        )
                     }
                     if (startAnchored && cutout != null) {
-                        val desiredLeft = dynamicIslandStartEdgePx(cutout, islandDensity)
+                        val baseLeft = dynamicIslandStartEdgePx(cutout, islandDensity)
+                        // View location includes translationX, so compare against base + offset.
+                        val desiredLeft = baseLeft + islandOffsetXPx.roundToInt()
                         val lp = composeView.layoutParams as LinearLayout.LayoutParams
                         val newMargin: Int
                         if (
@@ -566,7 +584,7 @@ fun StatusBarRoot(
                         } else {
                             val hostLocation = IntArray(2)
                             startSideHost.getLocationInWindow(hostLocation)
-                            newMargin = desiredLeft - hostLocation[0] - startSideHost.paddingLeft
+                            newMargin = baseLeft - hostLocation[0] - startSideHost.paddingLeft
                             islandCorrections = 0
                         }
                         if (lp.leftMargin != newMargin) {
@@ -574,6 +592,7 @@ fun StatusBarRoot(
                             composeView.layoutParams = lp
                         }
                     }
+                    applyIslandOffset()
                     applyIslandRelease()
                 }
 
@@ -591,6 +610,36 @@ fun StatusBarRoot(
                     schedulePlaceIsland()
                 }
                 schedulePlaceIsland()
+
+                val islandOffsetObserver =
+                    object : android.database.ContentObserver(composeView.handler) {
+                        override fun onChange(selfChange: Boolean) {
+                            schedulePlaceIsland()
+                        }
+                    }
+                phoneStatusBarView.addOnAttachStateChangeListener(
+                    object : View.OnAttachStateChangeListener {
+                        override fun onViewAttachedToWindow(v: View) {
+                            listOf(
+                                    DynamicIslandFeatureSettings.OFFSET_X_DP10,
+                                    DynamicIslandFeatureSettings.OFFSET_Y_DP10,
+                                )
+                                .forEach {
+                                    islandResolver.registerContentObserver(
+                                        android.provider.Settings.System.getUriFor(it),
+                                        false,
+                                        islandOffsetObserver,
+                                        android.os.UserHandle.USER_ALL,
+                                    )
+                                }
+                            schedulePlaceIsland()
+                        }
+
+                        override fun onViewDetachedFromWindow(v: View) {
+                            islandResolver.unregisterContentObserver(islandOffsetObserver)
+                        }
+                    }
+                )
 
                 val islandVisibilityResetListener =
                     ViewTreeObserver.OnGlobalLayoutListener {
