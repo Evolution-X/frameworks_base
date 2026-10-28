@@ -70,6 +70,7 @@ import com.android.systemui.deviceentry.DeviceEntryModule;
 import com.android.systemui.display.DisplayModule;
 import com.android.systemui.doze.dagger.DozeComponent;
 import com.android.systemui.doze.dagger.RootDozeModule;
+import com.android.systemui.dt2s.DoubleTapToSleepModule;
 import com.android.systemui.dreams.dagger.DreamModule;
 import com.android.systemui.flags.FeatureFlags;
 import com.android.systemui.flags.FlagDependenciesModule;
@@ -243,6 +244,7 @@ import javax.inject.Named;
         DisplayModule.class,
         RootDozeModule.class,
         DreamModule.class,
+        DoubleTapToSleepModule.class,
         EventLogModule.class,
         FalsingModule.class,
         FlagsModule.class,
