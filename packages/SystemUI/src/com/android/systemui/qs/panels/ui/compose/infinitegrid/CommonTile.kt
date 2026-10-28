@@ -26,6 +26,7 @@ import android.text.TextUtils
 import android.util.PathParser
 import androidx.annotation.VisibleForTesting
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
@@ -33,9 +34,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -52,6 +55,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -82,6 +86,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -94,6 +99,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -125,9 +131,31 @@ private const val TEST_TAG_TOGGLE = "qs_tile_toggle_target"
 private const val TEST_TAG_SMALL = "qs_tile_small"
 private const val TEST_TAG_LARGE = "qs_tile_large"
 
-/** Glass rim of ColorOS tiles. Created once instead of on every frame of the QS animation. */
+/** White of an active ColorOS bubble on a dark panel, a touch short of opaque like ColorOS. */
+internal val ColorOSActiveFill = Color(0xF2FFFFFF)
+
+/** White fill of the ColorOS sliders, which lets a little of the glass show through. */
+internal val ColorOSSliderFill = Color(0xF7FFFFFF)
+
+/**
+ * Glass rim of ColorOS tiles, lit from the top left and the bottom right with the sides fading out
+ * in between. Created once instead of on every frame of the QS animation.
+ */
 internal val ColorOSTileRim =
-    Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.28f), Color.White.copy(alpha = 0.04f)))
+    Brush.linearGradient(
+        0f to Color.White.copy(alpha = 0.30f),
+        0.3f to Color.White.copy(alpha = 0.05f),
+        0.7f to Color.White.copy(alpha = 0.05f),
+        1f to Color.White.copy(alpha = 0.22f),
+    )
+
+/**
+ * Diameter of the ColorOS round tiles, which is also the height of the pills and the width of the
+ * sliders. The expanded ColorOS panel sets it to the width of one of its four columns so the
+ * circles fill their column like in ColorOS. Everywhere else (QQS, edit mode) it keeps the fixed
+ * default.
+ */
+internal val LocalColorOSTileSize = compositionLocalOf { CommonTileDefaults.ColorOSTileHeight }
 
 @Composable
 fun ClassicTileContent(
@@ -139,8 +167,15 @@ fun ClassicTileContent(
     labelHide: Boolean,
     modifier: Modifier = Modifier,
     rim: Brush? = null,
+    glass: Boolean = false,
+    chevron: Boolean = false,
+    pressSource: InteractionSource? = null,
+    lottieSpec: String? = null,
+    active: Boolean = false,
 ) {
     val isNoBackground = iconShapeKey in QSTileIconShapes.NO_BACKGROUND_KEYS
+    // The circle is a blur region of ColorOS glass, instead of the flat fill and the rim.
+    val onGlass = glass && !isNoBackground
     val iconShape = remember(iconShapeKey) {
         QSTileIconShapes.shapeForKey(iconShapeKey)
     }
@@ -160,6 +195,10 @@ fun ClassicTileContent(
 
     val animatedColor by animateColorAsState(colors.background, label = "QSTileCircleBgColor")
     val animatedOutlineColor by animateColorAsState(colors.outline, label = "QSTileOutlineColor")
+    // A tile that is on keeps the glass under its bubble. The bubble fades in over it instead of
+    // replacing it, so the lit rim of the glass still shows around the edge.
+    val glassBubbleAlpha by
+        animateFloatAsState(if (onGlass && active) 1f else 0f, label = "QSTileGlassBubble")
 
     val iconBoxSize = CommonTileDefaults.TileHeight
     val iconSize = CommonTileDefaults.LargeTileIconSize
@@ -172,7 +211,25 @@ fun ClassicTileContent(
         Box(
             modifier = Modifier
                 .size(iconBoxSize)
-                .thenIf(!isNoBackground) {
+                .colorOSPress(pressSource)
+                .then(
+                    if (onGlass) {
+                        Modifier.clip(iconShape)
+                            .colorOSGlassBlur(
+                                iconShape,
+                                if (active) colorOSGlassActiveTileMaterial()
+                                else colorOSGlassTileMaterial(),
+                            )
+                            .drawBehind {
+                                if (glassBubbleAlpha > 0f) {
+                                    drawRect(color = animatedColor, alpha = glassBubbleAlpha)
+                                }
+                            }
+                    } else {
+                        Modifier
+                    }
+                )
+                .thenIf(!isNoBackground && !onGlass) {
                     Modifier
                         .clip(iconShape)
                         .drawBehind {
@@ -187,6 +244,13 @@ fun ClassicTileContent(
                             Modifier.border(width = 1.dp, brush = rim!!, shape = iconShape)
                         }
                 }
+                .then(
+                    if (rim != null && !isNoBackground) {
+                        Modifier.colorOSSpotLight(iconShape, ColorOSSpotLightSmall)
+                    } else {
+                        Modifier
+                    }
+                )
                 .thenIf(overlayPath != null) {
                     Modifier.drawWithContent {
                         drawContent()
@@ -203,42 +267,78 @@ fun ClassicTileContent(
                     }
                 },
         ) {
-            SmallTileContent(
-                iconProvider = iconProvider,
-                color = if (!isNoBackground) colors.icon else animatedOutlineColor,
-                size = { iconSize },
-                modifier = Modifier.align(Alignment.Center),
-            )
+            val animated =
+                !isNoBackground &&
+                    colorOSTileLottie(
+                        spec = lottieSpec,
+                        active = active,
+                        offColor = MaterialTheme.colorScheme.onSurface,
+                        onColor = colors.icon,
+                        size = iconSize,
+                        modifier = Modifier.align(Alignment.Center),
+                    )
+            if (!animated) {
+                SmallTileContent(
+                    iconProvider = iconProvider,
+                    color = if (!isNoBackground) colors.icon else animatedOutlineColor,
+                    size = { iconSize },
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
         }
 
         if (!labelHide) {
             val animatedLabelColor by animateColorAsState(colors.classicLabel, label = "QSTileLabelColor")
             val animatedSecondaryLabelColor by
                 animateColorAsState(colors.classicSecondaryLabel, label = "QSTileSecondaryLabelColor")
-            TileLabel(
-                text = label,
-                color = { animatedLabelColor },
-                style = MaterialTheme.typography.labelMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.Center,
-                    hyphens = Hyphens.Auto,
-                ),
-                modifier = Modifier
-                    .padding(top = 4.dp)
-                    .fillMaxWidth(),
-            )
-            if (!TextUtils.isEmpty(secondaryLabel)) {
+            // ColorOS wraps the label over two lines and has no state line under it.
+            val colorOSLabels = LocalColorOSQsStyle.current
+            val labels: @Composable () -> Unit = {
                 TileLabel(
-                    text = secondaryLabel ?: "",
-                    color = { animatedSecondaryLabelColor },
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = FontWeight.Normal,
+                    text = label,
+                    maxLines = if (colorOSLabels) 2 else 1,
+                    color = { animatedLabelColor },
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
                         textAlign = TextAlign.Center,
                         hyphens = Hyphens.Auto,
                     ),
                     modifier = Modifier
+                        .padding(top = 4.dp)
                         .fillMaxWidth(),
                 )
+                if (!colorOSLabels && !TextUtils.isEmpty(secondaryLabel)) {
+                    TileLabel(
+                        text = secondaryLabel ?: "",
+                        color = { animatedSecondaryLabelColor },
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Normal,
+                            textAlign = TextAlign.Center,
+                            hyphens = Hyphens.Auto,
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                    )
+                }
+            }
+            if (chevron) {
+                // The chevron sits right after the widest label line, and the two are centred
+                // under the tile as one.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f, fill = false).width(IntrinsicSize.Max)) { labels() }
+                    Image(
+                        painter = painterResource(R.drawable.ic_coloros_tile_chevron),
+                        contentDescription = null,
+                        colorFilter = ColorFilter.tint(animatedSecondaryLabelColor),
+                        modifier = Modifier.padding(start = 1.dp).size(10.dp),
+                    )
+                }
+            } else {
+                labels()
             }
         }
     }
@@ -259,11 +359,20 @@ fun LargeTileContent(
     textScale: () -> Float = { 1f },
     toggleClick: (() -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
+    lottieSpec: String? = null,
+    active: Boolean = false,
+    labelMaxLines: Int = 1,
 ) {
     val isDualTarget = toggleClick != null
+    val colorOSStyle = LocalColorOSQsStyle.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = tileHorizontalArrangement(),
+        horizontalArrangement =
+            if (colorOSStyle) {
+                Arrangement.spacedBy(space = CommonTileDefaults.ColorOSPillArrangementPadding)
+            } else {
+                tileHorizontalArrangement()
+            },
         modifier = modifier,
     ) {
         // Icon
@@ -271,18 +380,42 @@ fun LargeTileContent(
         val animatedBackgroundColor by
             animateColorAsState(colors.iconBackground, label = "QSTileDualTargetBackgroundColor")
         val focusBorderColor = MaterialTheme.colorScheme.secondary
+        // The icon circle of a ColorOS pill is glass, like the round tiles: a blur region of its
+        // own that a white bubble fades in over while the tile is on, so the lit rim of the glass
+        // still shows around the bubble. Without blur it is the flat fill with the glass rim.
+        val onGlass = colorOSStyle && LocalColorOSGlassBlur.current != null
+        val glassMaterial =
+            if (active) colorOSGlassActiveTileMaterial() else colorOSGlassTileMaterial()
+        val glassBubbleAlpha by
+            animateFloatAsState(if (onGlass && active) 1f else 0f, label = "QSTileGlassBubble")
+        // colorOSGlassBlur is @Composable, so it is built here and not inside the thenIf lambda.
+        val glassBlurModifier =
+            if (onGlass) Modifier.colorOSGlassBlur(iconShape, glassMaterial) else Modifier
         Box(
             modifier =
                 Modifier.size(CommonTileDefaults.ToggleTargetSize).thenIf(isDualTarget) {
                     Modifier.borderOnFocus(color = focusBorderColor, iconShape.topEnd)
                         .clip(iconShape)
+                        .then(glassBlurModifier)
                         .drawBehind {
-                            val brush: Brush? = colors.backgroundGradient
-                            if (brush != null) {
-                                drawRect(brush = brush)
+                            if (onGlass) {
+                                if (glassBubbleAlpha > 0f) {
+                                    drawRect(
+                                        color = animatedBackgroundColor,
+                                        alpha = glassBubbleAlpha,
+                                    )
+                                }
                             } else {
-                                drawRect(animatedBackgroundColor)
+                                val brush: Brush? = colors.backgroundGradient
+                                if (brush != null) {
+                                    drawRect(brush = brush)
+                                } else {
+                                    drawRect(animatedBackgroundColor)
+                                }
                             }
+                        }
+                        .thenIf(colorOSStyle && !onGlass) {
+                            Modifier.border(width = 1.dp, brush = ColorOSTileRim, shape = iconShape)
                         }
                         // apply the squish effect after the bg is drawn
                         .verticalSquish(squishiness)
@@ -306,12 +439,23 @@ fun LargeTileContent(
                         }
                 }
         ) {
-            SmallTileContent(
-                iconProvider = iconProvider,
-                color = colors.icon,
-                size = { CommonTileDefaults.LargeTileIconSize },
-                modifier = Modifier.align(Alignment.Center),
-            )
+            val animated =
+                colorOSTileLottie(
+                    spec = lottieSpec,
+                    active = active,
+                    offColor = MaterialTheme.colorScheme.onSurface,
+                    onColor = colors.icon,
+                    size = CommonTileDefaults.LargeTileIconSize,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            if (!animated) {
+                SmallTileContent(
+                    iconProvider = iconProvider,
+                    color = colors.icon,
+                    size = { CommonTileDefaults.LargeTileIconSize },
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
         }
 
         // Labels
@@ -321,6 +465,7 @@ fun LargeTileContent(
             colors = colors,
             accessibilityUiState = accessibilityUiState,
             isVisible = isVisible,
+            labelMaxLines = labelMaxLines,
             modifier = Modifier.weight(1f).bounceScale(TransformOrigin(0f, .5f), textScale),
         )
 
@@ -343,6 +488,7 @@ fun LargeTileLabels(
     modifier: Modifier = Modifier,
     isVisible: () -> Boolean = { true },
     accessibilityUiState: AccessibilityUiState? = null,
+    labelMaxLines: Int = 1,
 ) {
     val animatedLabelColor by animateColorAsState(colors.label, label = "QSTileLabelColor")
     val animatedSecondaryLabelColor by
@@ -351,10 +497,12 @@ fun LargeTileLabels(
         TileLabel(
             text = label,
             style = MaterialTheme.typography.titleSmallEmphasized.copy(
-                fontWeight = FontWeight.SemiBold,
+                fontWeight =
+                    if (LocalColorOSQsStyle.current) FontWeight.Medium else FontWeight.SemiBold,
             ),
             color = { animatedLabelColor },
             isVisible = isVisible,
+            maxLines = labelMaxLines,
         )
         if (!TextUtils.isEmpty(secondaryLabel)) {
             TileLabel(
@@ -457,28 +605,33 @@ private fun TileLabel(
     style: TextStyle,
     modifier: Modifier = Modifier,
     isVisible: () -> Boolean = { true },
+    maxLines: Int = 1,
 ) {
     var textSize by remember { mutableIntStateOf(0) }
 
+    // A label that wraps has nothing to scroll or fade, the marquee would give it unbounded width
+    // and keep it on one line.
+    val wraps = maxLines > 1
     val iterations = if (isVisible()) TILE_MARQUEE_ITERATIONS else 0
 
     BasicText(
         text = text,
         color = color,
         style = style,
-        maxLines = 1,
+        maxLines = maxLines,
+        overflow = if (wraps) TextOverflow.Ellipsis else TextOverflow.Clip,
         onTextLayout = { textSize = it.size.width },
         modifier =
             modifier
                 .fillMaxWidth()
                 .graphicsLayer {
-                    if (textSize > size.width) {
+                    if (!wraps && textSize > size.width) {
                         compositingStrategy = CompositingStrategy.Offscreen
                     }
                 }
                 .drawWithContent {
                     drawContent()
-                    if (textSize > size.width) {
+                    if (!wraps && textSize > size.width) {
                         // Draw a blur over the end of the text
                         val edgeWidthPx = TileLabelBlurWidth.toPx()
                         if (layoutDirection == LayoutDirection.Rtl) {
@@ -496,10 +649,12 @@ private fun TileLabel(
                         }
                     }
                 }
-                .basicMarquee(
-                    iterations = iterations,
-                    initialDelayMillis = TILE_INITIAL_DELAY_MILLIS,
-                ),
+                .thenIf(!wraps) {
+                    Modifier.basicMarquee(
+                        iterations = iterations,
+                        initialDelayMillis = TILE_INITIAL_DELAY_MILLIS,
+                    )
+                },
     )
 }
 
@@ -516,7 +671,12 @@ fun Modifier.tileTestTag(iconOnly: Boolean): Modifier {
 @Composable
 fun Modifier.largeTilePadding(isDualTarget: Boolean = false): Modifier {
     return padding(
-        start = CommonTileDefaults.StartPadding,
+        start =
+            if (LocalColorOSQsStyle.current) {
+                CommonTileDefaults.ColorOSPillStartPadding
+            } else {
+                CommonTileDefaults.StartPadding
+            },
         end = if (isDualTarget) CommonTileDefaults.DualTargetEndPadding else TileEndPadding,
     )
 }
@@ -616,27 +776,41 @@ object CommonTileDefaults {
 
     /** ColorOS style sizes, measured from ColorOS 17. The default style is unchanged. */
     val ColorOSTileHeight = 66.dp
-    val ColorOSToggleTargetSize = 46.dp
+    val ColorOSToggleTargetSize = 44.dp
+
+    /** Room under a classic round icon tile for its label, on top of [TileHeight]. */
+    val ClassicLabelHeight = 32.dp
 
     val TileHeight: Dp
         @Composable
         @ReadOnlyComposable
         get() =
-            if (LocalColorOSQsStyle.current) ColorOSTileHeight
+            if (LocalColorOSQsStyle.current) LocalColorOSTileSize.current
             else dimensionResource(id = R.dimen.common_tile_default_tile_height)
 
     val ToggleTargetSize: Dp
         @Composable
         @ReadOnlyComposable
         get() =
-            if (LocalColorOSQsStyle.current) ColorOSToggleTargetSize
-            else dimensionResource(id = R.dimen.common_tile_default_toggle_target_size)
+            if (LocalColorOSQsStyle.current) {
+                // Keeps the proportions of the 46dp toggle inside a 66dp tile.
+                LocalColorOSTileSize.current * (ColorOSToggleTargetSize / ColorOSTileHeight)
+            } else {
+                dimensionResource(id = R.dimen.common_tile_default_toggle_target_size)
+            }
 
     val SideIconWidth = 32.dp
     val SideIconHeight = 20.dp
     val ChevronSize = 14.dp
     val TileEndPadding = 12.dp
     val TileArrangementPadding = 6.dp
+
+    /**
+     * ColorOS pills, measured from ColorOS 17: the icon circle sits as far from the left edge as
+     * from the top and bottom, and the text is a little further from the circle.
+     */
+    val ColorOSPillStartPadding = 10.5.dp
+    val ColorOSPillArrangementPadding = 8.dp
     val TileLabelBlurWidth = 32.dp
     const val TILE_MARQUEE_ITERATIONS = 1
     const val TILE_INITIAL_DELAY_MILLIS = 2000

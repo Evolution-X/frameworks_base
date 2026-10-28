@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 The Evolution X Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+-->
+<!--
+    A plain sun with eight rays, the brightness slider glyph of the ColorOS QS panel style.
+    The glyph is 53x52 and is padded in a 57x56 viewport so that it is about 24dp wide when
+    drawn in the 26dp icon box of the slider.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="26dp"
+    android:height="25.5dp"
+    android:viewportWidth="57"
+    android:viewportHeight="56">
+    <group
+        android:translateX="2"
+        android:translateY="2">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M15.4228 25.9922C15.4228 32.3435 20.5717 37.4922 26.9231 37.4922C33.2745 37.4922 38.4233 32.3435 38.4233 25.9922C38.4233 19.6409 33.2745 14.4922 26.9231 14.4922C20.5717 14.4922 15.4228 19.6409 15.4228 25.9922Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M45.5734 23.6328H49.9268C51.5461 23.6328 52.8589 24.6885 52.8589 25.9907C52.8589 27.2929 51.5461 28.3485 49.9268 28.3485H45.5734C43.9541 28.3485 42.6413 27.2929 42.6413 25.9907C42.6413 24.6885 43.9541 23.6328 45.5734 23.6328Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M12.1633 14.4288L9.08504 11.3506C7.93998 10.2056 7.75819 8.53089 8.67901 7.6101C9.59982 6.68931 11.2746 6.87109 12.4196 8.01612L15.4979 11.0943C16.643 12.2393 16.8247 13.914 15.9039 14.8348C14.9831 15.7556 13.3084 15.5738 12.1633 14.4288Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M41.5368 43.8897L38.4586 40.8116C37.3135 39.6665 37.1317 37.9918 38.0525 37.071C38.9734 36.1502 40.6481 36.332 41.7932 37.4771L44.8714 40.5552C46.0165 41.7003 46.1983 43.375 45.2775 44.2958C44.3566 45.2166 42.6819 45.0348 41.5368 43.8897Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M9.08523 40.628L12.1635 37.5498C13.3086 36.4048 14.9833 36.223 15.9041 37.1438C16.8249 38.0646 16.6431 39.7393 15.4981 40.8843L12.4198 43.9625C11.2747 45.1075 9.60001 45.2893 8.67919 44.3685C7.75837 43.4477 7.94016 41.7731 9.08523 40.628Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M38.4588 11.171L41.537 8.0928C42.6821 6.94777 44.3568 6.76598 45.2776 7.68678C46.1985 8.60757 46.0167 10.2823 44.8716 11.4273L41.7933 14.5055C40.6483 15.6505 38.9735 15.8323 38.0527 14.9115C37.1319 13.9907 37.3137 12.316 38.4588 11.171Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M3.91719 23.6328H8.27051C9.88988 23.6328 11.2026 24.6885 11.2026 25.9907C11.2026 27.2929 9.88988 28.3485 8.27051 28.3485H3.91719L3.76543 28.3454C2.21638 28.2821 0.985063 27.252 0.985063 25.9907C0.985063 24.7293 2.21638 23.6992 3.76543 23.6359L3.91719 23.6328Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M29.2808 7.33995C29.2808 8.95927 28.2251 10.272 26.9229 10.272C25.6206 10.272 24.565 8.95927 24.565 7.33995V2.98673C24.565 1.36741 25.6206 0.0546875 26.9229 0.0546875C28.2251 0.0546875 29.2808 1.36741 29.2808 2.98673V7.33995Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M29.2808 48.9962C29.2808 50.6155 28.2251 51.9282 26.9229 51.9282C25.6206 51.9282 24.565 50.6155 24.565 48.9962V44.643C24.565 43.0237 25.6206 41.7109 26.9229 41.7109C28.2251 41.7109 29.2808 43.0237 29.2808 44.643V48.9962Z" />
+    </group>
+</vector>

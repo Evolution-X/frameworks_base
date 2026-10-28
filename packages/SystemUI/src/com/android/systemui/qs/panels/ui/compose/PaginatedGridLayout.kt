@@ -53,7 +53,9 @@ import com.android.systemui.qs.panels.dagger.PaginatedBaseLayoutType
 import com.android.systemui.qs.panels.ui.compose.Dimensions.FooterHeight
 import com.android.systemui.qs.panels.ui.compose.Dimensions.InterPageSpacing
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSGridColumns
-import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSGridRows
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSGridFooterHeight
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSGridHeadroom
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSGridRows
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSQsStyle
 import com.android.systemui.qs.panels.ui.compose.toolbar.EditModeButton
 import com.android.systemui.qs.panels.ui.viewmodel.PaginatedGridViewModel
@@ -85,9 +87,9 @@ constructor(
             }
 
         // The ColorOS style shows every grid tile as a 1-column round tile, so pages are plain
-        // chunks of rows x columns, with fewer rows so the panel never needs to scroll.
+        // chunks of rows x columns, with fewer rows so the panel does not need to scroll.
         val colorOSStyle = LocalColorOSQsStyle.current
-        val rows = if (colorOSStyle) ColorOSGridRows else viewModel.rows
+        val rows = if (colorOSStyle) LocalColorOSGridRows.current else viewModel.rows
         val pages =
             remember(tiles, rows, colorOSStyle, *delegateGridViewModel.pageKeys) {
                 if (colorOSStyle) {
@@ -124,7 +126,12 @@ constructor(
                 } else {
                     0.dp
                 }
-            val contentPadding = PaddingValues(horizontal = contentPaddingValue)
+            val contentPadding =
+                PaddingValues(
+                    start = contentPaddingValue,
+                    end = contentPaddingValue,
+                    top = if (colorOSStyle) ColorOSGridHeadroom else 0.dp,
+                )
             val nestedScrollConnection =
                 remember(viewModel) {
                     object : NestedScrollConnection {
@@ -173,7 +180,7 @@ constructor(
 }
 
 private object Dimensions {
-    val FooterHeight = 48.dp
+    val FooterHeight = ColorOSGridFooterHeight
     val InterPageSpacing = 16.dp
 }
 

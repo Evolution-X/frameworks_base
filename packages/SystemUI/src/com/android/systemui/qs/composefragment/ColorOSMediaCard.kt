@@ -6,9 +6,7 @@
 package com.android.systemui.qs.composefragment
 
 import android.app.PendingIntent
-import android.content.Context
 import android.graphics.drawable.Drawable
-import android.graphics.drawable.Icon as AndroidIcon
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -30,25 +28,32 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
-import com.android.compose.ui.graphics.painter.rememberDrawablePainter
 import com.android.systemui.media.controls.domain.pipeline.MediaDataManager
+import com.android.systemui.media.controls.shared.MediaControlDrawables
 import com.android.systemui.media.controls.shared.model.MediaAction
 import com.android.systemui.media.controls.shared.model.MediaData
+import com.android.systemui.res.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -85,16 +90,40 @@ class ColorOSMediaSessions : MediaDataManager.Listener {
     }
 }
 
+private val ColorOSMediaArtSize = 46.dp
+private val ColorOSMediaArtShape = RoundedCornerShape(10.dp)
+private val ColorOSMediaButtonSize = 44.dp
+private val ColorOSMediaOutputIconSize = 24.dp
+
+/** The icon of the app in the top left while the art fills the card, as big as the output one. */
+private val ColorOSMediaAppIconSize = ColorOSMediaOutputIconSize
+
+/** Corner radius of the glass slot the card sits on, which the light along its edge follows. */
+private val ColorOSMediaLightCorner = 32.dp
+
+/** Colour of the text and icons of the card while the album art fills it. */
+private val ColorOSMediaOnArt = Color.White
+
+/** Darkening of the album art behind the text and the controls, from the top to the bottom. */
+private const val ColorOSMediaScrimTop = 0.25f
+private const val ColorOSMediaScrimBottom = 0.60f
+
+/** Alpha of a control that cannot be used, like the dimmed glyphs of ColorOS when idle. */
+private const val ColorOSMediaDimAlpha = 0.35f
+
 /**
- * square media card for the ColorOS-style Quick Settings (half the panel width), laid out
- * like ColorOS: app icon at the top, title and artist, then previous, play/pause and next in one
- * row, over the album art. Tapping the card opens the media app.
+ * Media card for the ColorOS-style Quick Settings (two columns of the tile grid), laid out like
+ * ColorOS: album art thumbnail at the top left, output switcher at the top right, title and artist,
+ * then previous, play/pause and next in one row. The glass behind it comes from the slot, so the
+ * card itself draws no background. Tapping the card opens the media app.
  */
 @Composable
 internal fun ColorOSMediaCard(
     data: MediaData,
     onOpen: (PendingIntent) -> Unit,
+    onOutputSwitcher: (MediaData) -> Unit,
     modifier: Modifier = Modifier,
+    artFill: Boolean = false,
 ) {
     val context = LocalContext.current
     val artwork by
@@ -107,100 +136,366 @@ internal fun ColorOSMediaCard(
                     }
                 }
         }
-    val appIcon by
-        produceState<Drawable?>(initialValue = null, data.appIcon) {
-            value = data.appIcon?.let { loadIcon(it, context) }
-        }
     val buttons = data.semanticActions
-    val shape = RoundedCornerShape(32.dp)
+    val playing = data.isPlaying == true
+    val outputEnabled = data.device?.enabled != false && !data.resumption
+    val deviceIcon = rememberDrawableBitmap(data.device?.icon, ColorOSMediaOutputIconSize)
+    // With the art filling the card the text and icons sit on the art and not on the glass, so they
+    // are light whatever the theme is. Without art there is nothing to fill, the thumbnail layout
+    // stays.
+    val art = artwork
+    val fillArt = artFill && art != null
+    // The thumbnail is gone while the art fills the card, the icon of the app takes its place.
+    val appIcon by
+        produceState<Drawable?>(initialValue = null, data.appIcon, fillArt) {
+            value =
+                data.appIcon?.takeIf { fillArt }?.let { icon ->
+                    withContext(Dispatchers.IO) {
+                        runCatching { icon.loadDrawable(context) }.getOrNull()
+                    }
+                }
+        }
+    val appIconBitmap = rememberDrawableBitmap(appIcon, ColorOSMediaAppIconSize)
+    val scheme = MaterialTheme.colorScheme
+    val contentScheme =
+        if (fillArt) {
+            scheme.copy(onSurface = ColorOSMediaOnArt, onSurfaceVariant = ColorOSMediaOnArt)
+        } else {
+            scheme
+        }
+    val onSurface = contentScheme.onSurface
 
-    Box(modifier.clip(shape).background(Color(0xFF2C2C2E))) {
-        artwork?.let { bitmap ->
-            Image(
-                bitmap = bitmap,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
+    val previousGlyph = painterResource(R.drawable.ic_coloros_media_previous)
+    val nextGlyph = painterResource(R.drawable.ic_coloros_media_next)
+    val playPauseGlyph =
+        painterResource(
+            if (playing) R.drawable.ic_coloros_media_pause else R.drawable.ic_coloros_media_play
+        )
+
+    // Only the standard previous and next actions get the ColorOS glyphs. The slots can also hold
+    // a custom action of the app (like, shuffle, ...), which keeps the icon the app provides.
+    val prev = buttons?.prevOrCustom
+    val next = buttons?.nextOrCustom
+    val prevIsStandard = prev != null && prev.icon === MediaControlDrawables.getPrevIcon(context)
+    val nextIsStandard = next != null && next.icon === MediaControlDrawables.getNextIcon(context)
+
+    // The light in the color of the art starts from the thumbnail. With the art over the whole
+    // card the art is the light, so it has none.
+    val density = LocalDensity.current
+    val thumbnailCenter =
+        with(density) {
+            Offset(
+                (16.dp + ColorOSMediaArtSize / 2).toPx(),
+                (14.dp + ColorOSMediaArtSize / 2).toPx(),
             )
         }
-        // Darken the art so white text and icons stay readable, stronger at the bottom.
-        Box(
-            Modifier.fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color.Black.copy(alpha = 0.25f), Color.Black.copy(alpha = 0.60f))
-                    )
-                )
+    Box(
+        modifier.then(
+            if (fillArt) {
+                Modifier
+            } else {
+                Modifier.colorOSMediaLight(art, ColorOSMediaLightCorner, thumbnailCenter)
+            }
         )
+    ) {
+        if (fillArt && art != null) {
+            Image(
+                bitmap = art,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.matchParentSize(),
+            )
+            // Keeps the text and the controls readable over bright art.
+            Box(
+                Modifier.matchParentSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.Black.copy(alpha = ColorOSMediaScrimTop),
+                                Color.Black.copy(alpha = ColorOSMediaScrimBottom),
+                            )
+                        )
+                    )
+            )
+        }
+        MaterialTheme(colorScheme = contentScheme) {
+            ColorOSMediaLayout(
+                modifier = Modifier.fillMaxSize(),
+                showThumbnail = !fillArt,
+                appIcon = appIconBitmap.takeIf { fillArt },
+                description = listOfNotNull(data.song, data.artist, data.app).joinToString(", "),
+                onClick = data.clickIntent?.let { intent -> { onOpen(intent) } },
+                thumbnail = {
+                    val bitmap = artwork
+                    if (bitmap != null) {
+                        Image(
+                            bitmap = bitmap,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        ColorOSMediaNoteTile()
+                    }
+                },
+                output = {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier =
+                            Modifier.size(ColorOSMediaButtonSize)
+                                .clip(CircleShape)
+                                .clickable(enabled = outputEnabled) { onOutputSwitcher(data) }
+                                .semantics {
+                                    contentDescription = data.device?.name?.toString().orEmpty()
+                                },
+                    ) {
+                        val tint =
+                            onSurface.copy(alpha = if (outputEnabled) 1f else ColorOSMediaDimAlpha)
+                        if (deviceIcon != null) {
+                            Icon(
+                                bitmap = deviceIcon,
+                                contentDescription = null,
+                                tint = tint,
+                                modifier = Modifier.size(ColorOSMediaOutputIconSize),
+                            )
+                        } else {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_media_home_devices),
+                                contentDescription = null,
+                                tint = tint,
+                                modifier = Modifier.size(ColorOSMediaOutputIconSize),
+                            )
+                        }
+                    }
+                },
+                title = data.song?.toString().orEmpty(),
+                subtitle = data.artist?.toString().orEmpty(),
+                controls = {
+                    ColorOSMediaButton(
+                        action = prev,
+                        glyph = if (prevIsStandard) previousGlyph else null,
+                        iconSize = 22.dp,
+                    )
+                    ColorOSMediaButton(
+                        action = buttons?.playOrPause,
+                        glyph = playPauseGlyph,
+                        iconSize = 26.dp,
+                    )
+                    ColorOSMediaButton(
+                        action = next,
+                        glyph = if (nextIsStandard) nextGlyph else null,
+                        iconSize = 22.dp,
+                    )
+                },
+            )
+        }
+    }
+}
+
+/**
+ * The media card of the ColorOS-style Quick Settings while nothing is playing: the same layout as
+ * the playing card, with a placeholder tile, the cast icon and dimmed controls, like ColorOS.
+ */
+@Composable
+internal fun ColorOSIdleMediaCard(modifier: Modifier = Modifier) {
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    ColorOSMediaLayout(
+        modifier = modifier,
+        description = stringResource(R.string.qs_coloros_no_media),
+        onClick = null,
+        thumbnail = { ColorOSMediaNoteTile() },
+        output = {
+            Box(Modifier.size(ColorOSMediaButtonSize), contentAlignment = Alignment.Center) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_coloros_media_output),
+                    contentDescription = null,
+                    tint = onSurface,
+                    modifier = Modifier.size(ColorOSMediaOutputIconSize),
+                )
+            }
+        },
+        title = null,
+        subtitle = stringResource(R.string.qs_coloros_no_media),
+        controls = {
+            ColorOSMediaButton(
+                action = null,
+                glyph = painterResource(R.drawable.ic_coloros_media_previous),
+                iconSize = 22.dp,
+            )
+            ColorOSMediaButton(
+                action = null,
+                glyph = painterResource(R.drawable.ic_coloros_media_play),
+                iconSize = 26.dp,
+            )
+            ColorOSMediaButton(
+                action = null,
+                glyph = painterResource(R.drawable.ic_coloros_media_next),
+                iconSize = 22.dp,
+            )
+        },
+    )
+}
+
+/**
+ * Layout shared by the playing and the idle card. [title] is skipped when null, so the idle text
+ * sits on the artist line. The top left corner holds the thumbnail, or with [showThumbnail] off the
+ * [appIcon], if there is one.
+ */
+@Composable
+private fun ColorOSMediaLayout(
+    modifier: Modifier,
+    showThumbnail: Boolean = true,
+    appIcon: ImageBitmap? = null,
+    description: String,
+    onClick: (() -> Unit)?,
+    thumbnail: @Composable () -> Unit,
+    output: @Composable () -> Unit,
+    title: String?,
+    subtitle: String,
+    controls: @Composable () -> Unit,
+) {
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    Box(modifier) {
         Column(
             modifier =
                 Modifier.fillMaxSize()
-                    .clickable(enabled = data.clickIntent != null) {
-                        data.clickIntent?.let(onOpen)
-                    }
-                    .semantics {
-                        contentDescription =
-                            listOfNotNull(data.song, data.artist, data.app).joinToString(", ")
-                    }
-                    .padding(start = 16.dp, end = 12.dp, top = 14.dp, bottom = 8.dp)
+                    .clickable(enabled = onClick != null) { onClick?.invoke() }
+                    .semantics { contentDescription = description }
+                    // Side insets are applied per item: the controls sit closer to the edges
+                    // than the text, and the row ends 3dp above the bottom like ColorOS.
+                    .padding(top = 14.dp, bottom = 3.dp)
         ) {
-            appIcon?.let { icon ->
+            val textInset = Modifier.padding(start = 16.dp, end = 12.dp)
+            if (showThumbnail) {
+                Box(
+                    Modifier.padding(start = 16.dp)
+                        .size(ColorOSMediaArtSize)
+                        .clip(ColorOSMediaArtShape)
+                ) {
+                    thumbnail()
+                }
+            } else if (appIcon != null) {
                 Icon(
-                    painter = rememberDrawablePainter(icon),
+                    bitmap = appIcon,
                     contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp),
+                    tint = onSurface,
+                    modifier = Modifier.padding(start = 16.dp).size(ColorOSMediaAppIconSize),
                 )
             }
             Spacer(Modifier.weight(1f))
+            if (title != null) {
+                Text(
+                    text = title,
+                    modifier = textInset,
+                    color = onSurface,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Text(
-                text = data.song?.toString().orEmpty(),
-                color = Color.White,
-                style = MaterialTheme.typography.titleSmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = data.artist?.toString().orEmpty(),
-                color = Color.White.copy(alpha = 0.75f),
-                style = MaterialTheme.typography.bodySmall,
+                text = subtitle,
+                modifier = textInset,
+                color =
+                    if (title != null) onSurface.copy(alpha = 0.75f)
+                    else onSurface.copy(alpha = 0.5f),
+                style =
+                    if (title != null) MaterialTheme.typography.bodySmall
+                    else MaterialTheme.typography.titleSmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Row(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                // 44dp targets with 5dp inset: the prev/next icons are centred 27dp from the edges.
+                modifier = Modifier.fillMaxWidth().padding(start = 5.dp, end = 5.dp, top = 2.dp),
             ) {
-                ColorOSMediaButton(buttons?.prevOrCustom, iconSize = 22.dp)
-                ColorOSMediaButton(buttons?.playOrPause, iconSize = 30.dp)
-                ColorOSMediaButton(buttons?.nextOrCustom, iconSize = 22.dp)
+                controls()
             }
         }
+        // The output button is centred 26dp below the top and 27dp from the right edge.
+        Box(Modifier.align(Alignment.TopEnd).padding(top = 4.dp, end = 5.dp)) { output() }
     }
 }
 
+/** Placeholder for the album art: a faint tile with a music note. */
 @Composable
-private fun ColorOSMediaButton(action: MediaAction?, iconSize: Dp) {
-    val icon = action?.icon
+private fun ColorOSMediaNoteTile() {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.12f)),
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_music_note),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+            modifier = Modifier.size(24.dp),
+        )
+    }
+}
+
+/**
+ * One transport button. Uses [glyph] when given, otherwise the icon of [action] (a custom action
+ * of the app). Without a usable action the button is dimmed, and a null [action] with no [glyph]
+ * leaves an empty slot, so the other buttons keep their place.
+ */
+@Composable
+private fun ColorOSMediaButton(action: MediaAction?, glyph: Painter?, iconSize: Dp) {
+    val enabled = action?.action != null
+    val tint = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else ColorOSMediaDimAlpha)
+    val actionIcon = rememberDrawableBitmap(if (glyph == null) action?.icon else null, iconSize)
     Box(
         contentAlignment = Alignment.Center,
         modifier =
-            Modifier.size(44.dp)
+            Modifier.size(ColorOSMediaButtonSize)
                 .clip(CircleShape)
-                .clickable(enabled = action?.action != null) { action?.action?.run() }
+                .clickable(enabled = enabled) { action?.action?.run() }
                 .semantics { contentDescription = action?.contentDescription?.toString().orEmpty() },
     ) {
-        if (icon != null) {
+        if (glyph != null) {
             Icon(
-                painter = rememberDrawablePainter(icon),
+                painter = glyph,
                 contentDescription = null,
-                tint = Color.White,
+                tint = tint,
+                modifier = Modifier.size(iconSize),
+            )
+        } else if (actionIcon != null) {
+            Icon(
+                bitmap = actionIcon,
+                contentDescription = null,
+                tint = tint,
                 modifier = Modifier.size(iconSize),
             )
         }
     }
 }
 
-private suspend fun loadIcon(icon: AndroidIcon, context: Context): Drawable? =
-    withContext(Dispatchers.IO) { runCatching { icon.loadDrawable(context) }.getOrNull() }
+/**
+ * Returns a static snapshot of a drawable of the media pipeline (an action icon or the output
+ * device icon).
+ *
+ * These [Drawable]s are shared with the stock media player (the QQS/QS player binds the very same
+ * instance to its ImageButton), so they must never be handed to a Compose painter.
+ * `rememberDrawablePainter` takes over the drawable: it replaces its callback, starts it when it is
+ * an [android.graphics.drawable.Animatable] and overwrites its colour filter. For the play/pause
+ * AnimatedVectorDrawable that runs the pause to play morph, which left the stock QQS player showing
+ * a play glyph while media was playing, and the white filter beat the player's own tint, giving a
+ * white icon on its light button.
+ *
+ * So a private copy is drawn once into a bitmap instead, which shows the icon in its initial,
+ * non-animated frame and leaves the original untouched.
+ */
+@Composable
+private fun rememberDrawableBitmap(icon: Drawable?, size: Dp): ImageBitmap? {
+    val resources = LocalContext.current.resources
+    val sizePx = with(LocalDensity.current) { size.roundToPx() }.coerceAtLeast(1)
+    return remember(icon, sizePx) {
+        icon?.let { source ->
+            // Fall back to the source if it has no constant state; toBitmap() restores its bounds
+            // and only reads from it.
+            val copy = source.constantState?.newDrawable(resources)?.mutate() ?: source
+            runCatching { copy.toBitmap(sizePx, sizePx).asImageBitmap() }.getOrNull()
+        }
+    }
+}

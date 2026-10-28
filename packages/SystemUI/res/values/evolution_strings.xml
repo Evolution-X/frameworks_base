@@ -323,5 +323,5 @@
     <string name="app_volume_panel_percent"><xliff:g id="percent" example="50">%d</xliff:g> percent</string>
 
     <!-- ColorOS style QS: shown in the media slot when nothing is playing -->
-    <string name="qs_coloros_no_media">No media playing</string>
+    <string name="qs_coloros_no_media">Not playing</string>
 </resources>
