@@ -38,6 +38,9 @@ object DynamicIslandFeatureSettings {
     const val WIDTH_SCALE = "status_bar_dynamic_island_width_scale"
     const val HEIGHT_SCALE = "status_bar_dynamic_island_height_scale"
     const val POPUP_COLOR_MODE = "status_bar_dynamic_island_popup_color_mode"
+    const val OFFSET_X_DP10 = "status_bar_dynamic_island_offset_x_dp10"
+    const val OFFSET_Y_DP10 = "status_bar_dynamic_island_offset_y_dp10"
+    private const val OFFSET_DP10_LIMIT = 200
 
     const val SCALE_MIN = 0.7f
     const val SCALE_MAX = 1.4f
@@ -85,6 +88,14 @@ object DynamicIslandFeatureSettings {
             if (defaultValue) 1 else 0,
             UserHandle.USER_CURRENT,
         ) != 0
+    }
+
+    /** Island offset in px; stored as 0.1dp units (same convention as cutout progress offsets). */
+    fun ContentResolver.readDynamicIslandOffsetPx(key: String, density: Float): Float {
+        val dp10 =
+            Settings.System.getIntForUser(this, key, 0, UserHandle.USER_CURRENT)
+                .coerceIn(-OFFSET_DP10_LIMIT, OFFSET_DP10_LIMIT)
+        return dp10 / 10f * density
     }
 
     fun ContentResolver.readDynamicIslandScale(key: String): Float {
