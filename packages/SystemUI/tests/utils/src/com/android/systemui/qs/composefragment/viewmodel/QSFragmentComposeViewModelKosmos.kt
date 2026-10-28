@@ -36,6 +36,7 @@ import com.android.systemui.qs.panels.domain.interactor.tileSquishinessInteracto
 import com.android.systemui.qs.panels.ui.viewmodel.inFirstPageViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.mediaInRowInLandscapeViewModelFactory
 import com.android.systemui.qs.panels.ui.viewmodel.quickQuickSettingsViewModelFactory
+import com.android.systemui.qs.panels.ui.viewmodel.toolbar.editModeButtonViewModelFactory
 import com.android.systemui.qs.ui.viewmodel.quickSettingsContainerViewModelFactory
 import com.android.systemui.shade.domain.interactor.shadeStatusBarComponentsInteractor
 import com.android.systemui.shade.largeScreenHeaderHelper
@@ -73,6 +74,7 @@ val Kosmos.qsFragmentComposeViewModelFactory by
                     mediaCarouselInteractor,
                     mediaViewModelFactory,
                     shadeStatusBarComponentsInteractor,
+                    editModeButtonViewModelFactory,
                 )
             }
         }
