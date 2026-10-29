@@ -398,20 +398,14 @@ class ClockStyle @JvmOverloads constructor(
 
     private fun animateAodTransition(toAod: Boolean) {
         val view = currentClockView ?: return
-        if (!aodAnimEnabled) return
         view.animate().cancel()
+        if (!aodAnimEnabled) return
         if (toAod) {
             view.animate()
                 .scaleX(AOD_SCALE_DOWN)
                 .scaleY(AOD_SCALE_DOWN)
-                .alpha(0f)
                 .setDuration(AOD_ANIM_OUT_MS)
                 .setInterpolator(AccelerateInterpolator(1.5f))
-                .withEndAction {
-                    applyClockAlpha()
-                    view.scaleX = AOD_SCALE_DOWN
-                    view.scaleY = AOD_SCALE_DOWN
-                }
                 .start()
         } else {
             view.scaleX = AOD_SCALE_DOWN
@@ -420,7 +414,6 @@ class ClockStyle @JvmOverloads constructor(
             view.animate()
                 .scaleX(targetScale)
                 .scaleY(targetScale)
-                .alpha(clockOpacity / 100f)
                 .setDuration(AOD_ANIM_IN_MS)
                 .setInterpolator(OvershootInterpolator(1.2f))
                 .start()
