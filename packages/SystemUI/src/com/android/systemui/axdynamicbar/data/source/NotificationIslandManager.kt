@@ -386,7 +386,7 @@ constructor(
                         allActions.mapNotNull { a ->
                             a.title?.let { IslandEvent.NotificationAction(label = it, action = a) }
                         }
-                    val title = extras.getString("android.title") ?: ""
+                    val title = extras.getText("android.title") ?: ""
                     val existing = recording ?: return
                     recorderGraceJob?.cancel()
                     recorderGraceJob = null
@@ -458,11 +458,11 @@ constructor(
                 if (notifFlags and Notification.FLAG_GROUP_SUMMARY != 0) return
                 val groupKey = if (sbn.isGroup) sbn.groupKey else null
 
-                val title = extras.getString("android.title")
+                val title = extras.getText("android.title")
                 val text =
                     extras.getCharSequence("android.bigText")?.toString()?.takeIf {
                         it.isNotEmpty()
-                    } ?: extras.getString("android.text")
+                    } ?: extras.getText("android.text")
 
                 val notif = sbn.notification
                 val isMessagingStyle =
@@ -719,7 +719,7 @@ constructor(
         actionLabels: List<String> = emptyList(),
         actionIntents: List<String> = emptyList(),
     ) {
-        val label = extras.getString("android.title") ?: context.getString(R.string.ax_dynamic_bar_timer)
+        val label = extras.getText("android.title") ?: context.getString(R.string.ax_dynamic_bar_timer)
         val icon =
             try {
                 context.packageManager.getApplicationIcon(sbn.packageName)
@@ -803,7 +803,7 @@ constructor(
         actionLabels: List<String> = emptyList(),
         actionIntents: List<String> = emptyList(),
     ) {
-        val label = extras.getString("android.title") ?: ""
+        val label = extras.getText("android.title") ?: ""
         val icon =
             try {
                 context.packageManager.getApplicationIcon(sbn.packageName)
@@ -878,7 +878,7 @@ constructor(
     }
 
     private fun handleAlarm(sbn: StatusBarNotification, extras: Bundle) {
-        val label = extras.getString("android.title") ?: context.getString(R.string.ax_dynamic_bar_alarm)
+        val label = extras.getText("android.title") ?: context.getString(R.string.ax_dynamic_bar_alarm)
         val isRinging = sbn.notification.category == Notification.CATEGORY_ALARM
         val icon =
             try {
@@ -907,8 +907,8 @@ constructor(
         }
 
     private fun handleCallNotification(sbn: StatusBarNotification, extras: Bundle) {
-        val callerName = extras.getString("android.title")
-        val number = extras.getString("android.text")
+        val callerName = extras.getText("android.title")
+        val number = extras.getText("android.text")
         val callerPhoto =
             try {
                 sbn.notification?.getLargeIcon()?.loadDrawable(context)
@@ -1031,10 +1031,10 @@ constructor(
             try {
                 sbn.notification?.shortCriticalText?.toString() ?: ""
             } catch (_: Exception) {
-                extras.getString("android.shortCriticalText") ?: ""
+                extras.getText("android.shortCriticalText") ?: ""
             }
-        val title = extras.getString("android.title") ?: ""
-        val text = extras.getString("android.text") ?: ""
+        val title = extras.getText("android.title") ?: ""
+        val text = extras.getText("android.text") ?: ""
         val appName = resolveAppName(pkg)
         val icon = loadNotificationIcon(sbn, pkg)
 
@@ -1274,7 +1274,7 @@ constructor(
             val shortCritical = try {
                 sbn.notification?.shortCriticalText?.toString() ?: ""
             } catch (_: Exception) {
-                extras.getString("android.shortCriticalText") ?: ""
+                extras.getText("android.shortCriticalText") ?: ""
             }
             statusDetail = shortCritical
                 .replace(score1, "").replace(score2, "")
@@ -1292,7 +1292,7 @@ constructor(
             } ?: ""
 
         val commentary = extras.getCharSequence("android.bigText")?.toString()
-            ?: extras.getString("android.subText") ?: ""
+            ?: extras.getText("android.subText") ?: ""
 
         val appIcon = loadNotificationIcon(sbn, sbn.packageName)
 
@@ -1370,3 +1370,5 @@ constructor(
         )
     }
 }
+
+private fun Bundle.getText(key: String): String? = getCharSequence(key)?.toString()
