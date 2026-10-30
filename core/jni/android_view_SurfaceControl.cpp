@@ -926,6 +926,12 @@ static void nativeSetBlurRegions(JNIEnv* env, jclass clazz, jlong transactionObj
     for (int i = 0; i < size; i++) {
         jfloatArray regionArray = (jfloatArray)env->GetObjectArrayElement(regions, i);
         env->GetFloatArrayRegion(regionArray, 0, 14, region);
+        // The material is a 15th value that only the regions of a BackgroundBlurDrawable have.
+        // The ones of a SurfaceView have 14, and are drawn as a plain blur.
+        float material = 0;
+        if (env->GetArrayLength(regionArray) > 14) {
+            env->GetFloatArrayRegion(regionArray, 14, 1, &material);
+        }
         float blurRadius = region[0];
         float alpha = region[1];
         float left = region[2];
@@ -954,7 +960,8 @@ static void nativeSetBlurRegions(JNIEnv* env, jclass clazz, jlong transactionObj
                                               .left = static_cast<int>(left),
                                               .top = static_cast<int>(top),
                                               .right = static_cast<int>(right),
-                                              .bottom = static_cast<int>(bottom)});
+                                              .bottom = static_cast<int>(bottom),
+                                              .material = static_cast<int32_t>(material)});
     }
 
     transaction->setBlurRegions(ctrl, blurRegionVector);
