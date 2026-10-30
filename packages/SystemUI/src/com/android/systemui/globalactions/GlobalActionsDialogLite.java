@@ -3106,8 +3106,6 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
         private final GestureDetector mGestureDetector;
         @NonNull
         private final DeviceEntryInteractor mDeviceEntryInteractor;
-        @NonNull
-        private final BlurUtils mBlurUtils;
 
         @VisibleForTesting
         @Nullable
@@ -3199,8 +3197,7 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
                 @NonNull AccessibilityManager accessibilityManager,
                 @NonNull DialogTransitionAnimator dialogTransitionAnimator,
                 @NonNull SystemUIDialog.Factory systemUIDialogFactory,
-                @NonNull DeviceEntryInteractor deviceEntryInteractor,
-                @NonNull BlurUtils blurUtils) {
+                @NonNull DeviceEntryInteractor deviceEntryInteractor) {
             mContext = context;
             mAdapter = adapter;
             mOverflowAdapter = overflowAdapter;
@@ -3225,7 +3222,6 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
             mSystemUIDialogFactory = systemUIDialogFactory;
             mGestureDetector = new GestureDetector(context, mGestureListener);
             mDeviceEntryInteractor = deviceEntryInteractor;
-            mBlurUtils = blurUtils;
             mOnBackInvokedCallback = () -> {
                 logOnBackInvocation();
                 if (mAdapter.isShowingRestartOptions()) {
@@ -3307,8 +3303,7 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
         }
 
         public void showPowerOptionsMenu() {
-            mPowerOptionsDialog = GlobalActionsPowerDialog.create(mContext, mPowerOptionsAdapter,
-                    mBlurUtils);
+            mPowerOptionsDialog = GlobalActionsPowerDialog.create(mContext, mPowerOptionsAdapter);
             mPowerOptionsDialog.show();
         }
 
@@ -3318,7 +3313,7 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
         }
 
         public void showUsersMenu() {
-            mUsersDialog = GlobalActionsPowerDialog.create(mContext, mUsersAdapter, mBlurUtils);
+            mUsersDialog = GlobalActionsPowerDialog.create(mContext, mUsersAdapter);
             mUsersDialog.show();
         }
 
@@ -3384,21 +3379,6 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
             window.setType(WindowManager.LayoutParams.TYPE_VOLUME_OVERLAY);
             window.setTitle(""); // prevent Talkback from speaking first item name twice
             window.addFlags(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM);
-            window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-            if (mBlurUtils.supportsBlursOnWindows()
-                    && Settings.System.getInt(mContext.getContentResolver(),
-                            Settings.System.DIALOG_BLUR_ENABLED, 1) != 0) {
-                // Enable blur behind
-                // Enable dim behind since we are setting some amount dim for the blur.
-                window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
-                // Set blur behind radius
-                int blurBehindRadius = mContext.getResources()
-                        .getDimensionPixelSize(com.android.systemui.res.R.dimen.max_window_blur_radius);
-                window.getAttributes().setBlurBehindRadius(blurBehindRadius);
-                window.setDimAmount(0.54f);
-            } else {
-                window.setDimAmount(0.88f);
-            }
             // If user entered from the lock screen and smart lock was enabled, disable it
             int user = mSelectedUserInteractor.getSelectedUserId();
             boolean userHasTrust = mKeyguardUpdateMonitor.getUserHasTrust(user);
