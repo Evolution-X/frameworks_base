@@ -2488,11 +2488,7 @@ public class DisplayDeviceConfig {
 
     private void loadAutoBrightnessConfigValues(DisplayConfiguration config) {
         final AutoBrightness autoBrightness = config.getAutoBrightness();
-        loadAutoBrightnessBrighteningLightDebounce(autoBrightness);
-        loadAutoBrightnessDarkeningLightDebounce(autoBrightness);
-        // Idle must be called after interactive, since we fall back to it if needed.
-        loadAutoBrightnessBrighteningLightDebounceIdle(autoBrightness);
-        loadAutoBrightnessDarkeningLightDebounceIdle(autoBrightness);
+        loadAutoBrightnessLightDebounces(autoBrightness);
         mDisplayBrightnessMapping = new DisplayBrightnessMappingConfig(mContext, mFlags,
                 autoBrightness, getBacklightToBrightnessSpline());
         loadIdleStylusTimeoutMillis(autoBrightness);
@@ -2546,6 +2542,14 @@ public class DisplayDeviceConfig {
                 rampIncreaseMaxMillis);
         mLuxDeltaToRampDecreaseMaxMillis = Spline.createLinearSpline(luxDelta,
                 rampDecreaseMaxMillis);
+    }
+
+    private void loadAutoBrightnessLightDebounces(@Nullable AutoBrightness autoBrightnessConfig) {
+        loadAutoBrightnessBrighteningLightDebounce(autoBrightnessConfig);
+        loadAutoBrightnessDarkeningLightDebounce(autoBrightnessConfig);
+        // Idle must be called after interactive, since we fall back to it if needed.
+        loadAutoBrightnessBrighteningLightDebounceIdle(autoBrightnessConfig);
+        loadAutoBrightnessDarkeningLightDebounceIdle(autoBrightnessConfig);
     }
 
     /**
@@ -2886,6 +2890,7 @@ public class DisplayDeviceConfig {
     }
 
     private void loadAutoBrightnessConfigsFromConfigXml() {
+        loadAutoBrightnessLightDebounces(/* autoBrightnessConfig= */ null);
         mDisplayBrightnessMapping = new DisplayBrightnessMappingConfig(mContext, mFlags,
                 /* autoBrightnessConfig= */ null, getBacklightToBrightnessSpline());
     }
