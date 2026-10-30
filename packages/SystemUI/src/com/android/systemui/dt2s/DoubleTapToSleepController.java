@@ -5,6 +5,7 @@ import android.app.ActivityTaskManager;
 import android.app.TaskInfo;
 import android.app.WindowConfiguration;
 import android.content.Context;
+import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.inputmethodservice.InputMethodService;
 import android.os.Handler;
@@ -17,6 +18,9 @@ import android.view.Display;
 import android.view.GestureDetector;
 import android.view.InputEvent;
 import android.view.MotionEvent;
+import android.window.WindowInfosListenerForTest;
+import android.window.WindowInfosListenerForTest.DisplayInfo;
+import android.window.WindowInfosListenerForTest.WindowInfo;
 
 import com.android.systemui.CoreStartable;
 import com.android.systemui.LauncherProxyService;
@@ -37,8 +41,11 @@ import com.android.systemui.tuner.TunerService;
 import com.android.wm.shell.shared.FocusTransitionListener;
 import com.android.wm.shell.shared.ShellTransitions;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
 import javax.inject.Inject;
 
 import dagger.Lazy;
@@ -53,7 +60,9 @@ import lineageos.providers.LineageSettings;
  * keyboard is up or while anything else (an app window, an expanded bubble) has focus. Taps on
  * the launcher's At a Glance widget, search bar and dock are ignored as well: the At a Glance
  * area is taken from the bounds the launcher reports to SystemUI, with a fixed band as
- * fallback, and the search bar and dock use a fixed band at the bottom.
+ * fallback, and the search bar and dock use a fixed band at the bottom. Touches that land on
+ * another window above the launcher, such as Messenger chat heads, which are overlay windows
+ * and not tasks, are ignored too.
  */
 @SysUISingleton
 public final class DoubleTapToSleepController implements CoreStartable, TunerService.Tunable {
@@ -92,6 +101,14 @@ public final class DoubleTapToSleepController implements CoreStartable, TunerSer
     private InputChannelCompat.InputEventReceiver mInputEventReceiver;
 
     private GestureDetector mGestureDetector;
+
+    // Window list from SurfaceFlinger, only kept while the input monitor is registered.
+    private final WindowInfosListenerForTest mWindowInfosListener =
+            new WindowInfosListenerForTest();
+    private final BiConsumer<List<WindowInfo>, List<DisplayInfo>> mWindowInfosConsumer =
+            this::onWindowInfosChanged;
+    private volatile List<WindowInfo> mWindowInfos = Collections.emptyList();
+    private volatile Matrix mDisplayTransform = null;
 
     private final AtomicBoolean mEnabled = new AtomicBoolean(false);
 
@@ -311,6 +328,7 @@ public final class DoubleTapToSleepController implements CoreStartable, TunerSer
                     this::onInputEvent);
 
             mMonitoringActive = true;
+            registerWindowInfosListener();
             Log.d(TAG, "Input monitoring started");
         } catch (Exception e) {
             Log.e(TAG, "Failed to start input monitoring: " + e.getMessage());
@@ -322,6 +340,7 @@ public final class DoubleTapToSleepController implements CoreStartable, TunerSer
 
     private void stopInputMonitoring() {
         if (!mMonitoringActive) return;
+        unregisterWindowInfosListener();
         if (mInputEventReceiver != null) {
             mInputEventReceiver.dispose();
             mInputEventReceiver = null;
@@ -344,9 +363,11 @@ public final class DoubleTapToSleepController implements CoreStartable, TunerSer
         final int action = me.getActionMasked();
 
         if (action == MotionEvent.ACTION_DOWN) {
-            mTrackingTouch = me.getPointerCount() == 1 && isInAllowedRegion(me);
+            mTrackingTouch = me.getPointerCount() == 1 && isInAllowedRegion(me)
+                    && isLauncherWindowAt(me);
             if (!mTrackingTouch) {
-                // A tap on the search bar, widget area or dock must not pair with another tap.
+                // A tap on the search bar, widget area, dock or a window over the launcher must
+                // not pair with another tap.
                 mGestureDetector = createGestureDetector();
             }
         }
@@ -358,6 +379,64 @@ public final class DoubleTapToSleepController implements CoreStartable, TunerSer
         if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
             mTrackingTouch = false;
         }
+    }
+
+    private void registerWindowInfosListener() {
+        try {
+            mWindowInfosListener.addWindowInfosListener(mWindowInfosConsumer);
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to register window infos listener: " + e.getMessage());
+        }
+    }
+
+    private void unregisterWindowInfosListener() {
+        mWindowInfosListener.removeWindowInfosListener(mWindowInfosConsumer);
+        mWindowInfos = Collections.emptyList();
+        mDisplayTransform = null;
+    }
+
+    private void onWindowInfosChanged(List<WindowInfo> windows, List<DisplayInfo> displays) {
+        Matrix transform = null;
+        for (DisplayInfo display : displays) {
+            if (display.displayId == Display.DEFAULT_DISPLAY) {
+                transform = display.transform;
+                break;
+            }
+        }
+        mDisplayTransform = transform;
+        mWindowInfos = windows;
+    }
+
+    /**
+     * Whether the topmost touchable window under the touch is the launcher's. The task checks
+     * can't see overlay windows, such as Messenger chat heads, which sit above the launcher
+     * without being a task. True when the window list isn't available.
+     */
+    private boolean isLauncherWindowAt(MotionEvent me) {
+        final List<WindowInfo> windows = mWindowInfos;
+        final Matrix displayTransform = mDisplayTransform;
+        if (windows.isEmpty() || displayTransform == null) return true;
+
+        // Window regions are in physical display space, touches in logical display space.
+        final Matrix toPhysical = new Matrix();
+        if (!displayTransform.invert(toPhysical)) return true;
+        final float[] point = {me.getRawX(), me.getRawY()};
+        toPhysical.mapPoints(point);
+        final int x = Math.round(point[0]);
+        final int y = Math.round(point[1]);
+
+        // The list is ordered from the topmost window down. Trusted overlays are system windows
+        // such as input monitors, which are not what the user is touching.
+        for (WindowInfo window : windows) {
+            if (window.displayId != Display.DEFAULT_DISPLAY) continue;
+            if (!window.isVisible || !window.isTouchable || window.isTrustedOverlay) continue;
+            if (!window.touchableRegion.contains(x, y)) continue;
+
+            final boolean launcher = window.name.contains(LAUNCHER_PKG);
+            if (!launcher) Log.d(TAG, "Touch is on " + window.name);
+            return launcher;
+        }
+        return true;
     }
 
     private boolean isInAllowedRegion(MotionEvent me) {
