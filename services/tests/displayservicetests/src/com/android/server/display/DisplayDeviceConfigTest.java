@@ -368,6 +368,10 @@ public final class DisplayDeviceConfigTest {
     public void testConfigValuesFromConfigResource() {
         setupDisplayDeviceConfigFromConfigResourceFile();
         verifyConfigValuesFromConfigResource();
+        assertEquals(3000, mDisplayDeviceConfig.getAutoBrightnessBrighteningLightDebounce());
+        assertEquals(4000, mDisplayDeviceConfig.getAutoBrightnessDarkeningLightDebounce());
+        assertEquals(3000, mDisplayDeviceConfig.getAutoBrightnessBrighteningLightDebounceIdle());
+        assertEquals(4000, mDisplayDeviceConfig.getAutoBrightnessDarkeningLightDebounceIdle());
     }
 
     @Test
