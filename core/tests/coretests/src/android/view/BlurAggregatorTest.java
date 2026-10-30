@@ -90,6 +90,19 @@ public class BlurAggregatorTest {
     }
 
     @Test
+    public void testMaterialUpdatePropagatesToRenderThreadIfNeeded() {
+        mDrawable.setMaterial(BackgroundBlurDrawable.MATERIAL_NONE);
+        assertFalse(mAggregator.hasUpdates());
+
+        mDrawable.setMaterial(BackgroundBlurDrawable.MATERIAL_TILE_ACTIVE_DARK);
+        assertTrue(mAggregator.hasUpdates());
+        BlurRegion[] blurRegions = mAggregator.getBlurRegionsCopyForRT();
+        assertEquals(1, blurRegions.length);
+        assertEquals(BackgroundBlurDrawable.MATERIAL_TILE_ACTIVE_DARK, blurRegions[0].material);
+        assertFalse(mAggregator.hasUpdates());
+    }
+
+    @Test
     public void testAlphaUpdatePropagatesToRenderThreadIfNeeded() {
         mDrawable.setAlpha(20);
         assertTrue(mAggregator.hasUpdates());
