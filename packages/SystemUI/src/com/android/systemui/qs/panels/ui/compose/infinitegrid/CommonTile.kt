@@ -698,14 +698,22 @@ fun Modifier.tileTestTag(iconOnly: Boolean): Modifier {
  */
 @Composable
 fun Modifier.largeTilePadding(isDualTarget: Boolean = false): Modifier {
+    val colorOS = LocalColorOSQsStyle.current
     return padding(
         start =
-            if (LocalColorOSQsStyle.current) {
+            if (colorOS) {
                 CommonTileDefaults.ColorOSPillStartPadding
             } else {
                 CommonTileDefaults.StartPadding
             },
-        end = if (isDualTarget) CommonTileDefaults.DualTargetEndPadding else TileEndPadding,
+        end =
+            if (colorOS) {
+                CommonTileDefaults.ColorOSPillEndPadding
+            } else if (isDualTarget) {
+                CommonTileDefaults.DualTargetEndPadding
+            } else {
+                TileEndPadding
+            },
     )
 }
 
@@ -845,6 +853,12 @@ object CommonTileDefaults {
      */
     val ColorOSPillStartPadding = 10.5.dp
     val ColorOSPillArrangementPadding = 8.dp
+
+    /**
+     * Room at the end of a ColorOS pill. A network name that wraps over two lines with the status
+     * under it fills the pill from top to bottom, and its first line reaches into the rounded end.
+     */
+    val ColorOSPillEndPadding = 14.dp
     val TileLabelBlurWidth = 32.dp
     const val TILE_MARQUEE_ITERATIONS = 1
     const val TILE_INITIAL_DELAY_MILLIS = 2000
