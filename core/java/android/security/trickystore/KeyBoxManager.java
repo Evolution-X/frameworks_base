@@ -128,7 +128,8 @@ public class KeyBoxManager {
      * A truncated or keyless document leaves the previously loaded keyboxes untouched,
      * so one bad refresh can't take attestation down.
      *
-     * @return false if the document was rejected as incomplete, true otherwise
+     * @return false if the document was rejected as incomplete or holds no usable key,
+     *         true otherwise
      */
     public boolean parseKeybox(String xmlContent) {
         // Parse into a private map and publish it at the end, so a concurrent
@@ -140,6 +141,10 @@ public class KeyBoxManager {
             return true;
         }
         if (!parseInto(next, xmlContent)) return false;
+        if (next.isEmpty()) {
+            Log.e(TAG, "Keybox holds no usable key, keeping the loaded keyboxes");
+            return false;
+        }
         mKeyboxes = next;
         AttestationUtils.invalidateFallbackBootState();
         return true;
