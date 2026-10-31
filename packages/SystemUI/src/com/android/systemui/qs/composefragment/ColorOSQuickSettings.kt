@@ -189,6 +189,13 @@ internal fun colorOSFit(
     return ColorOSFit(columnSize, ColorOSGridRows, fits = false)
 }
 
+/**
+ * Least height to width ratio of a ColorOS slider. The sliders are one column wide, which is right
+ * on a phone, but on a wide panel the column grows and the module does not, so they would turn
+ * fat. They stop at this ratio and sit centered in their column instead.
+ */
+private const val ColorOSSliderAspect = 2.1f
+
 /** Corner radius of the glass slot behind the media card, playing or idle. */
 private val ColorOSMediaShape = RoundedCornerShape(32.dp)
 
@@ -284,12 +291,14 @@ internal fun ContentScope.ColorOSQuickSettingsLayout(
 
                 // Row 2: media + tall brightness + tall volume, on the same four columns as the round
             // tiles below: the media card covers columns 1-2 and each slider one of columns 3-4.
+            val moduleHeight = tileSize * 2 + ColorOSGap
+            val sliderWidth = minOf(columnSize, moduleHeight / ColorOSSliderAspect)
             Row(
                 horizontalArrangement = spacedBy(ColorOSGap),
                 modifier =
                     Modifier.colorOSModuleReveal(2, leaving)
                         .fillMaxWidth()
-                        .height(tileSize * 2 + ColorOSGap),
+                        .height(moduleHeight),
             ) {
                 Box(
                     modifier =
@@ -307,16 +316,20 @@ internal fun ContentScope.ColorOSQuickSettingsLayout(
                         ColorOSIdleMediaCard(Modifier.fillMaxSize())
                     }
                 }
-                ColorOSBrightnessSlider(
-                    viewModel = brightnessViewModel,
-                    glass = glass,
-                    modifier = Modifier.width(columnSize).fillMaxHeight(),
-                )
-                ColorOSVolumeSlider(
-                    audioVolumeInteractor = audioVolumeInteractor,
-                    glass = glass,
-                    modifier = Modifier.width(columnSize).fillMaxHeight(),
-                )
+                Box(Modifier.width(columnSize).fillMaxHeight(), Alignment.Center) {
+                    ColorOSBrightnessSlider(
+                        viewModel = brightnessViewModel,
+                        glass = glass,
+                        modifier = Modifier.width(sliderWidth).fillMaxHeight(),
+                    )
+                }
+                Box(Modifier.width(columnSize).fillMaxHeight(), Alignment.Center) {
+                    ColorOSVolumeSlider(
+                        audioVolumeInteractor = audioVolumeInteractor,
+                        glass = glass,
+                        modifier = Modifier.width(sliderWidth).fillMaxHeight(),
+                    )
+                }
             }
 
             // Row 3: ringer switch + mobile data. ColorOS keeps the ringer switch on the left next
