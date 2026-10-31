@@ -54,6 +54,7 @@ public class KeyBoxManager {
     
     private static final Pattern PEM_HEADER = Pattern.compile("-----BEGIN ([^-]+)-----");
     private static final Pattern XML_COMMENT = Pattern.compile("<!--.*?-->", Pattern.DOTALL);
+    private static final Pattern ZERO_WIDTH = Pattern.compile("[\\u200B-\\u200D\\u2060\\uFEFF]");
 
     /** @hide */
     public static class KeyBox {
@@ -341,16 +342,15 @@ public class KeyBoxManager {
 
             if (certificates.isEmpty()) return false;
 
-            X509Certificate issuer = (X509Certificate) certificates.get(0);
-            if (!normalizedAlgorithm.equalsIgnoreCase(issuer.getPublicKey().getAlgorithm())
-                    || !normalizedAlgorithm.equalsIgnoreCase(privateKey.getAlgorithm())) {
-                Log.e(TAG, "Private key or certificate has unexpected algorithm: "
-                        + normalizedAlgorithm);
+            if (!normalizedAlgorithm.equalsIgnoreCase(privateKey.getAlgorithm())) {
+                Log.e(TAG, "Private key has unexpected algorithm: " + normalizedAlgorithm);
                 return false;
             }
-            // A parsed private key is not necessarily the key for the first certificate.
-            // Sign and verify a random challenge to reject mismatched material early.
-            verifyPrivateKey(privateKey, issuer.getPublicKey(), normalizedAlgorithm);
+
+            // Chains aren't always leaf first, and the issuer subject is read from index 0.
+            // Finding the leaf also proves the private key belongs to one of the certificates.
+            certificates = orderChain(privateKey, normalizedAlgorithm, certificates);
+            X509Certificate issuer = (X509Certificate) certificates.get(0);
             validateCertificateChain(certificates);
 
             KeyPair keyPair = new KeyPair(issuer.getPublicKey(), privateKey);
@@ -385,6 +385,86 @@ public class KeyBoxManager {
             throw new java.security.InvalidKeyException(
                     "Private key does not correspond to keybox certificate");
         }
+    }
+
+    /**
+     * Returns [certificates] as a single leaf-to-root path for [privateKey]: the leaf is
+     * the one certificate whose public key matches the private key (proved by signing and
+     * verifying a challenge), and each following certificate is the one that issued the
+     * previous. Exact duplicates are dropped. An ambiguous leaf, or a certificate that
+     * isn't on the path, is rejected. The path isn't required to end in a self-signed
+     * root, so an incomplete chain loads as it always did.
+     */
+    private static List<Certificate> orderChain(PrivateKey privateKey, String algorithm,
+            List<Certificate> certificates) throws Exception {
+        List<X509Certificate> unique = new ArrayList<>();
+        for (Certificate certificate : certificates) {
+            X509Certificate candidate = (X509Certificate) certificate;
+            boolean seen = false;
+            for (X509Certificate known : unique) {
+                if (known.equals(candidate)) {
+                    seen = true;
+                    break;
+                }
+            }
+            if (!seen) unique.add(candidate);
+        }
+
+        X509Certificate leaf = null;
+        for (X509Certificate candidate : unique) {
+            if (!algorithm.equalsIgnoreCase(candidate.getPublicKey().getAlgorithm())) continue;
+            try {
+                verifyPrivateKey(privateKey, candidate.getPublicKey(), algorithm);
+            } catch (Exception e) {
+                continue;
+            }
+            if (leaf != null) {
+                throw new java.security.cert.CertificateException(
+                        "More than one certificate matches the private key");
+            }
+            leaf = candidate;
+        }
+        if (leaf == null) {
+            throw new java.security.cert.CertificateException(
+                    "No certificate matches the private key");
+        }
+
+        List<Certificate> ordered = new ArrayList<>();
+        List<X509Certificate> remaining = new ArrayList<>(unique);
+        X509Certificate current = leaf;
+        while (true) {
+            ordered.add(current);
+            remaining.remove(current);
+            if (current.getIssuerX500Principal().equals(current.getSubjectX500Principal())) {
+                try {
+                    current.verify(current.getPublicKey());
+                    break;
+                } catch (Exception ignored) {
+                    // Self-issued but not self-signed: a key rotation, keep walking.
+                }
+            }
+            X509Certificate next = null;
+            for (X509Certificate candidate : remaining) {
+                if (!candidate.getSubjectX500Principal()
+                        .equals(current.getIssuerX500Principal())) {
+                    continue;
+                }
+                try {
+                    current.verify(candidate.getPublicKey());
+                } catch (Exception e) {
+                    continue;
+                }
+                next = candidate;
+                break;
+            }
+            if (next == null) break;
+            current = next;
+        }
+        if (!remaining.isEmpty()) {
+            throw new java.security.cert.CertificateException(
+                    "Chain contains certificates that are not on the path from the leaf");
+        }
+        return ordered;
     }
 
     /**
@@ -497,6 +577,9 @@ public class KeyBoxManager {
                 content = content.substring(bom.length());
             }
         }
+        // Zero-width characters are invisible, survive copy and paste, and are used to
+        // watermark keyboxes. They break PEM decoding and strict parsers.
+        content = ZERO_WIDTH.matcher(content).replaceAll("");
         content = XML_COMMENT.matcher(content).replaceAll("");
         return content.trim();
     }
