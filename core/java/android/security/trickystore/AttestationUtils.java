@@ -418,29 +418,36 @@ public final class AttestationUtils {
                 TrickyStoreService.getInstance().getCustomPatchLevelForPackage(packages), isLong);
     }
 
+    /** Whether [value] is a YYYYMM or YYYYMMDD date, dashes optional, that exists. */
+    public static boolean isValidPatchLevel(String value) {
+        return parsePatchDate(value) != null;
+    }
+
+    /** {year, month, day} of a YYYYMM or YYYYMMDD value, dashes optional; null if invalid. */
+    private static int[] parsePatchDate(String value) {
+        if (value == null) return null;
+        String normalized = value.trim().replace("-", "");
+        if (normalized.length() != 8 && normalized.length() != 6) return null;
+        for (int i = 0; i < normalized.length(); i++) {
+            if (!Character.isDigit(normalized.charAt(i))) return null;
+        }
+        int year = Integer.parseInt(normalized.substring(0, 4));
+        int month = Integer.parseInt(normalized.substring(4, 6));
+        // A month-only value has no day; KeyMint's long form needs a real one.
+        int day = normalized.length() == 8 ? Integer.parseInt(normalized.substring(6, 8)) : 1;
+        return isValidPatchDate(year, month, day) ? new int[] {year, month, day} : null;
+    }
+
     private static Integer parsePatchLevel(String value, boolean isLong) {
         if (value == null || value.equalsIgnoreCase("no") || value.equalsIgnoreCase("prop")) {
             return null;
         }
-
-        String normalized = value.trim().replace("-", "");
-        try {
-            if (normalized.length() == 8 || normalized.length() == 6) {
-                int year = Integer.parseInt(normalized.substring(0, 4));
-                int month = Integer.parseInt(normalized.substring(4, 6));
-                // A month-only value has no day; KeyMint's long form needs a real one.
-                int day = normalized.length() == 8
-                        ? Integer.parseInt(normalized.substring(6, 8)) : 1;
-                if (!isValidPatchDate(year, month, day)) {
-                    Log.e(TAG, "Invalid patch level date: " + value);
-                    return null;
-                }
-                return isLong ? year * 10000 + month * 100 + day : year * 100 + month;
-            }
-        } catch (NumberFormatException e) {
-            Log.e(TAG, "Failed to parse patch level: " + value, e);
+        int[] date = parsePatchDate(value);
+        if (date == null) {
+            Log.e(TAG, "Invalid patch level: " + value);
+            return null;
         }
-        return null;
+        return isLong ? date[0] * 10000 + date[1] * 100 + date[2] : date[0] * 100 + date[1];
     }
 
     private static boolean isValidPatchDate(int year, int month, int day) {
