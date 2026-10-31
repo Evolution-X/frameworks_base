@@ -423,17 +423,19 @@ public final class AttestationUtils {
             return null;
         }
 
-        String normalized = value.replace("-", "");
+        String normalized = value.trim().replace("-", "");
         try {
-            if (normalized.length() == 8) {
+            if (normalized.length() == 8 || normalized.length() == 6) {
                 int year = Integer.parseInt(normalized.substring(0, 4));
                 int month = Integer.parseInt(normalized.substring(4, 6));
-                int day = Integer.parseInt(normalized.substring(6, 8));
+                // A month-only value has no day; KeyMint's long form needs a real one.
+                int day = normalized.length() == 8
+                        ? Integer.parseInt(normalized.substring(6, 8)) : 1;
+                if (!isValidPatchDate(year, month, day)) {
+                    Log.e(TAG, "Invalid patch level date: " + value);
+                    return null;
+                }
                 return isLong ? year * 10000 + month * 100 + day : year * 100 + month;
-            } else if (normalized.length() == 6) {
-                int year = Integer.parseInt(normalized.substring(0, 4));
-                int month = Integer.parseInt(normalized.substring(4, 6));
-                return isLong ? year * 10000 + month * 100 : year * 100 + month;
             }
         } catch (NumberFormatException e) {
             Log.e(TAG, "Failed to parse patch level: " + value, e);
@@ -441,20 +443,31 @@ public final class AttestationUtils {
         return null;
     }
 
+    private static boolean isValidPatchDate(int year, int month, int day) {
+        return year >= 1 && month >= 1 && month <= 12 && day >= 1
+                && day <= java.time.YearMonth.of(year, month).lengthOfMonth();
+    }
+
     public static int convertPatchLevel(String patchString, boolean isLong) {
         try {
             String[] parts = patchString.split("-");
-            if (isLong && parts.length >= 3) {
-                return Integer.parseInt(parts[0]) * 10000 + 
-                       Integer.parseInt(parts[1]) * 100 + 
-                       Integer.parseInt(parts[2]);
-            } else if (parts.length >= 2) {
-                return Integer.parseInt(parts[0]) * 100 + Integer.parseInt(parts[1]);
+            if (parts.length >= 2) {
+                int year = Integer.parseInt(parts[0]);
+                int month = Integer.parseInt(parts[1]);
+                int day = parts.length >= 3 ? Integer.parseInt(parts[2]) : 1;
+                if (isValidPatchDate(year, month, day)) {
+                    return isLong ? year * 10000 + month * 100 + day : year * 100 + month;
+                }
             }
         } catch (Exception e) {
-            Log.e(TAG, "Invalid patch level format: " + patchString, e);
+            // Falls through to the current date below.
         }
-        return 202404;
+        Log.e(TAG, "Invalid patch level format: " + patchString);
+        java.util.Calendar now = java.util.Calendar.getInstance(
+                java.util.TimeZone.getTimeZone("UTC"));
+        int year = now.get(java.util.Calendar.YEAR);
+        int month = now.get(java.util.Calendar.MONTH) + 1;
+        return isLong ? year * 10000 + month * 100 + 1 : year * 100 + month;
     }
 
     public static byte[] computeModuleHash() {
