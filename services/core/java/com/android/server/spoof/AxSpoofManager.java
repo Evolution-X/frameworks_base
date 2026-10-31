@@ -377,6 +377,10 @@ public class AxSpoofManager implements IAxSpoofManager {
     private void onPackageAdded(String pkg) {
         if (!mActivated) return;
         if (mResolver == null || TrickyStoreService.XPOSED_PACKAGES.contains(pkg)) return;
+        // Spoofing being active isn't enough: with TrickyStore switched off its target list
+        // is none of our business.
+        if (Settings.System.getIntForUser(
+                mResolver, TRICKYSTORE_ENABLED_KEY, 1, UserHandle.USER_SYSTEM) == 0) return;
 
         String current = Settings.Secure.getStringForUser(
                 mResolver, Settings.Secure.SPOOF_TRICKYSTORE_TARGET, UserHandle.USER_SYSTEM);
