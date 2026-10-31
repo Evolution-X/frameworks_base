@@ -343,9 +343,18 @@ public class TrickyStoreService {
         }
     }
 
+    // KeyBoxManager accepts algorithm="ec", single quotes and extra attributes, so the
+    // structural pre-check has to as well.
+    private static final java.util.regex.Pattern KEY_ECDSA = java.util.regex.Pattern.compile(
+            "<Key\\s[^>]*?algorithm\\s*=\\s*[\"'](?:ecdsa|ec)[\"']",
+            java.util.regex.Pattern.CASE_INSENSITIVE);
+    private static final java.util.regex.Pattern KEY_RSA = java.util.regex.Pattern.compile(
+            "<Key\\s[^>]*?algorithm\\s*=\\s*[\"']rsa[\"']",
+            java.util.regex.Pattern.CASE_INSENSITIVE);
+
     private boolean isValidKeyboxXml(String xml) {
-        boolean hasEcdsa = xml.contains("<Key algorithm=\"ecdsa\">");
-        boolean hasRsa = xml.contains("<Key algorithm=\"rsa\">");
+        boolean hasEcdsa = KEY_ECDSA.matcher(xml).find();
+        boolean hasRsa = KEY_RSA.matcher(xml).find();
         boolean hasId = xml.contains("<serial>") || xml.contains("DeviceID");
         if (!hasEcdsa && !hasRsa) {
             Log.e(TAG, "Keybox validation failed: no ECDSA or RSA key block found");
