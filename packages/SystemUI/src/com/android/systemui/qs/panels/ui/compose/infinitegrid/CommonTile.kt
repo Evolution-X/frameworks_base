@@ -26,7 +26,11 @@ import android.text.TextUtils
 import android.util.PathParser
 import androidx.annotation.VisibleForTesting
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable as ComposeAnimatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
@@ -55,6 +59,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -193,12 +198,24 @@ fun ClassicTileContent(
         }
     }
 
-    val animatedColor by animateColorAsState(colors.background, label = "QSTileCircleBgColor")
+    // The ColorOS style (the only one that passes a rim) eases the toggle over 200ms and pops the
+    // icon, instead of using the default springs.
+    val colorOS = rim != null
+    val animatedColor by animateToggleColor(colors.background, colorOS, "QSTileCircleBgColor")
     val animatedOutlineColor by animateColorAsState(colors.outline, label = "QSTileOutlineColor")
     // A tile that is on keeps the glass under its bubble. The bubble fades in over it instead of
     // replacing it, so the lit rim of the glass still shows around the edge.
     val glassBubbleAlpha by
-        animateFloatAsState(if (onGlass && active) 1f else 0f, label = "QSTileGlassBubble")
+        animateToggleFloat(if (onGlass && active) 1f else 0f, colorOS, "QSTileGlassBubble")
+    // The icon pops from 0.8 to 1 when the tile toggles. A Lottie clip animates itself instead.
+    val pop = remember { ComposeAnimatable(1f) }
+    var popActive by remember { mutableStateOf(active) }
+    LaunchedEffect(active) {
+        if (!colorOS || popActive == active) return@LaunchedEffect
+        popActive = active
+        pop.snapTo(ColorOSPopFrom)
+        pop.animateTo(1f, spring(dampingRatio = ColorOSPopDamping, stiffness = ColorOSPopStiffness))
+    }
 
     val iconBoxSize = CommonTileDefaults.TileHeight
     val iconSize = CommonTileDefaults.LargeTileIconSize
@@ -282,7 +299,14 @@ fun ClassicTileContent(
                     iconProvider = iconProvider,
                     color = if (!isNoBackground) colors.icon else animatedOutlineColor,
                     size = { iconSize },
-                    modifier = Modifier.align(Alignment.Center),
+                    modifier =
+                        Modifier.align(Alignment.Center).thenIf(colorOS) {
+                            Modifier.graphicsLayer {
+                                scaleX = pop.value
+                                scaleY = pop.value
+                            }
+                        },
+                    eased = colorOS,
                 )
             }
         }
@@ -302,6 +326,9 @@ fun ClassicTileContent(
                         fontWeight = FontWeight.SemiBold,
                         textAlign = TextAlign.Center,
                         hyphens = Hyphens.Auto,
+                        lineHeight =
+                            if (colorOSLabels) CommonTileDefaults.ColorOSLabelLineHeight
+                            else MaterialTheme.typography.labelMedium.lineHeight,
                     ),
                     modifier = Modifier
                         .padding(top = 4.dp)
@@ -531,10 +558,11 @@ fun SmallTileContent(
     modifier: Modifier = Modifier,
     size: @Composable () -> Dp = { CommonTileDefaults.SmallTileIconSize },
     animateToEnd: Boolean = false,
+    eased: Boolean = false,
 ) {
     val context = LocalContext.current
     val icon = iconProvider(context)
-    val animatedColor by animateColorAsState(color, label = "QSTileIconColor")
+    val animatedColor by animateToggleColor(color, eased, "QSTileIconColor")
     val sizeValue = size()
     val iconModifier =
         modifier
@@ -781,6 +809,12 @@ object CommonTileDefaults {
     /** Room under a classic round icon tile for its label, on top of [TileHeight]. */
     val ClassicLabelHeight = 32.dp
 
+    /**
+     * Line height of a ColorOS round tile label. Two lines have to fit in [ClassicLabelHeight]
+     * less the 4dp above the label, or the ellipsis cuts the label to one line.
+     */
+    val ColorOSLabelLineHeight = 13.sp
+
     val TileHeight: Dp
         @Composable
         @ReadOnlyComposable
@@ -870,3 +904,35 @@ private fun NonClippedImage(
         layout(constraints.minWidth, constraints.minHeight) {}
     }
 }
+
+private const val ColorOSToggleMillis = 200
+private const val ColorOSPopFrom = 0.8f
+private const val ColorOSPopDamping = 0.55f
+private const val ColorOSPopStiffness = 500f
+private val ColorOSToggleEase = CubicBezierEasing(0.33f, 0f, 0.67f, 1f)
+
+/** [animateColorAsState] with the ColorOS 200ms ease when [eased], the default spring otherwise. */
+@Composable
+private fun animateToggleColor(target: Color, eased: Boolean, label: String): State<Color> =
+    if (eased) {
+        animateColorAsState(
+            target,
+            animationSpec = tween(ColorOSToggleMillis, easing = ColorOSToggleEase),
+            label = label,
+        )
+    } else {
+        animateColorAsState(target, label = label)
+    }
+
+/** [animateFloatAsState] with the ColorOS 200ms ease when [eased], the default spring otherwise. */
+@Composable
+private fun animateToggleFloat(target: Float, eased: Boolean, label: String): State<Float> =
+    if (eased) {
+        animateFloatAsState(
+            target,
+            animationSpec = tween(ColorOSToggleMillis, easing = ColorOSToggleEase),
+            label = label,
+        )
+    } else {
+        animateFloatAsState(target, label = label)
+    }

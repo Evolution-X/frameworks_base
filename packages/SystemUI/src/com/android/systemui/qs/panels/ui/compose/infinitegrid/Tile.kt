@@ -26,6 +26,7 @@ import android.os.UserHandle
 import android.provider.Settings
 import android.service.quicksettings.Tile.STATE_ACTIVE
 import android.service.quicksettings.Tile.STATE_INACTIVE
+import android.service.quicksettings.Tile.STATE_UNAVAILABLE
 import androidx.annotation.VisibleForTesting
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
@@ -51,6 +52,7 @@ import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.State
@@ -64,6 +66,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
@@ -151,6 +154,9 @@ private val ColorOSRed = Color(0xFFF2453D)
 private val ColorOSInk = Color(0xFF1C1C1E)
 private val COLOROS_DATA_TILES = setOf("cell", "mobile_data", "mobiledata")
 private val COLOROS_WIFI_TILES = setOf("wifi")
+
+/** How much of a round tile that cannot be used is left, the whole tile fades, glass included. */
+private const val ColorOSUnavailableAlpha = 0.45f
 
 /** Tiles whose icon is dark ink on the white bubble of a dark panel, instead of blue. */
 private val COLOROS_INK_TILES = setOf("dnd", "dark", "night")
@@ -295,6 +301,17 @@ fun ContentScope.Tile(
         // of the round ones that are off is a blur region and not a flat fill.
         val glassBlur = LocalColorOSGlassBlur.current
         val glassPill = colorOSStyle && !classicStyle && glassBlur != null
+        // The glass is drawn by SurfaceFlinger and does not follow the alpha of a Compose layer,
+        // so the round tile that cannot be used scales the alpha of its own region as well.
+        val colorOSDimmed = colorOSStyle && iconOnly && uiState.visualState == STATE_UNAVAILABLE
+        val tileGlassBlur =
+            remember(glassBlur, colorOSDimmed) {
+                if (glassBlur != null && colorOSDimmed) {
+                    ColorOSGlassBlur { glassBlur.alpha() * ColorOSUnavailableAlpha }
+                } else {
+                    glassBlur
+                }
+            }
         val outerShape = if (wantCircle && !classicStyle) RoundedCornerShape(0.dp) else tileShape
         val outerColor: () -> Color =
             if (wantCircle || classicStyle || glassPill) { { Color.Transparent } }
@@ -470,25 +487,39 @@ fun ContentScope.Tile(
                                         },
                                 )
                             } else {
-                                ClassicTileContent(
-                                    label = uiState.label,
-                                    secondaryLabel = uiState.secondaryLabel,
-                                    iconProvider = iconProvider,
-                                    iconShapeKey = iconShapeKey,
-                                    colors = colors,
-                                    labelHide = labelHide,
-                                    rim = if (colorOSStyle) ColorOSTileRim else null,
-                                    glass = colorOSStyle && glassBlur != null,
-                                    chevron =
-                                        colorOSStyle && tile.spec.spec in COLOROS_DROPDOWN_TILES,
-                                    pressSource = interactionSource.takeIf { colorOSStyle },
-                                    lottieSpec = tile.spec.spec.takeIf { colorOSStyle },
-                                    active = uiState.visualState == STATE_ACTIVE,
-                                    modifier =
-                                        Modifier.align(Alignment.TopCenter).bounceScale {
-                                            currentBounceableInfo.bounceable.iconBounceScale
-                                        },
-                                )
+                                CompositionLocalProvider(
+                                    LocalColorOSGlassBlur provides tileGlassBlur
+                                ) {
+                                    ClassicTileContent(
+                                        label = uiState.label,
+                                        secondaryLabel = uiState.secondaryLabel,
+                                        iconProvider = iconProvider,
+                                        iconShapeKey = iconShapeKey,
+                                        colors = colors,
+                                        labelHide = labelHide,
+                                        rim = if (colorOSStyle) ColorOSTileRim else null,
+                                        glass = colorOSStyle && glassBlur != null,
+                                        chevron =
+                                            colorOSStyle &&
+                                                tile.spec.spec in COLOROS_DROPDOWN_TILES,
+                                        pressSource = interactionSource.takeIf { colorOSStyle },
+                                        lottieSpec = tile.spec.spec.takeIf { colorOSStyle },
+                                        active = uiState.visualState == STATE_ACTIVE,
+                                        modifier =
+                                            Modifier.align(Alignment.TopCenter)
+                                                .bounceScale {
+                                                    currentBounceableInfo.bounceable
+                                                        .iconBounceScale
+                                                }
+                                                .then(
+                                                    if (colorOSDimmed) {
+                                                        Modifier.alpha(ColorOSUnavailableAlpha)
+                                                    } else {
+                                                        Modifier
+                                                    }
+                                                ),
+                                    )
+                                }
                             }
                         }
                     }
@@ -1163,6 +1194,17 @@ private object TileDefaults {
         // The labels of a dark panel are softer than full white, like in ColorOS.
         val primary = if (darkPanel) onSurface.copy(alpha = 0.90f) else onSurface
         val secondary = onSurface.copy(alpha = if (darkPanel) 0.60f else 0.70f)
+        val inactive =
+            TileColors(
+                background = glass,
+                iconBackground = bubbleOff,
+                label = primary,
+                secondaryLabel = secondary,
+                icon = onSurface,
+                outline = onSurface,
+                classicLabel = primary,
+                classicSecondaryLabel = secondary,
+            )
         return when (uiState.visualState) {
             STATE_ACTIVE ->
                 TileColors(
@@ -1175,18 +1217,10 @@ private object TileDefaults {
                     classicLabel = primary,
                     classicSecondaryLabel = secondary,
                 )
-            STATE_INACTIVE ->
-                TileColors(
-                    background = glass,
-                    iconBackground = bubbleOff,
-                    label = primary,
-                    secondaryLabel = secondary,
-                    icon = onSurface,
-                    outline = onSurface,
-                    classicLabel = primary,
-                    classicSecondaryLabel = secondary,
-                )
-            else -> unavailableTileColors()
+            STATE_INACTIVE -> inactive
+            // A round tile that cannot be used keeps the colours of one that is off and is faded
+            // as a whole by the caller. The wide tiles keep the greyed out colours.
+            else -> if (iconOnly) inactive else unavailableTileColors()
         }
     }
 

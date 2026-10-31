@@ -23,10 +23,18 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.android.systemui.qs.composefragment.ColorOSEditor
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSQsStyle
 import com.android.systemui.qs.panels.ui.viewmodel.EditModeViewModel
 
 @Composable
 fun EditMode(viewModel: EditModeViewModel, modifier: Modifier = Modifier) {
+    // The ColorOS panel has its own editor, the other styles keep the stock one.
+    if (LocalColorOSQsStyle.current) {
+        ColorOSEditor(viewModel, modifier)
+        return
+    }
+
     val gridLayout by viewModel.gridLayout.collectAsStateWithLifecycle()
     val tiles by viewModel.tiles.collectAsStateWithLifecycle(emptyList())
 

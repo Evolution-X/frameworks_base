@@ -1074,6 +1074,10 @@ constructor(
                                         modifier = Modifier.padding(horizontal = 23.dp),
                                         availableHeight = colorOSAvailableHeight,
                                         onFitChanged = { colorOSContentFits = it },
+                                        expansion = {
+                                            viewModel.expansionState.progress *
+                                                viewModel.panelExpansionFraction
+                                        },
                                         // The glass is drawn by SurfaceFlinger and does not
                                         // follow the alpha of this layer, so it follows the same
                                         // alpha and is hidden whenever the panel is.

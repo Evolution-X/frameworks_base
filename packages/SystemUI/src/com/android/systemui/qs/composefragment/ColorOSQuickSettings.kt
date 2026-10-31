@@ -112,6 +112,16 @@ private val COLOROS_WIFI_SPECS = listOf("internet", "wifi")
 private val COLOROS_DATA_SPECS = listOf("cell", "mobile_data", "mobiledata")
 private val COLOROS_BT_SPECS = listOf("bt", "bluetooth")
 
+/**
+ * The specs of the tiles the panel pins as cards, the Wi-Fi, Bluetooth and mobile data ones that
+ * are present. The grid and the editor leave them out.
+ */
+internal fun colorOSCardSpecsOf(present: Set<String>): Set<String> = buildSet {
+    COLOROS_WIFI_SPECS.firstOrNull { it in present }?.let(::add)
+    COLOROS_BT_SPECS.firstOrNull { it in present }?.let(::add)
+    COLOROS_DATA_SPECS.firstOrNull { it in present }?.let(::add)
+}
+
 /** The blue of the volume icon, as in the ColorOS panel. */
 private val ColorOSSliderBlue = Color(0xFF0068FF)
 
@@ -213,6 +223,7 @@ internal fun ContentScope.ColorOSQuickSettingsLayout(
     availableHeight: Dp = Dp.Unspecified,
     onFitChanged: (Boolean) -> Unit = {},
     glassAlpha: () -> Float = { 1f },
+    expansion: () -> Float = { 1f },
 ) {
     fun pick(specs: List<String>): TileViewModel? =
         specs.firstNotNullOfOrNull { spec -> tiles.firstOrNull { it.spec.spec == spec } }
@@ -227,7 +238,11 @@ internal fun ContentScope.ColorOSQuickSettingsLayout(
     TileListener(fixed, listening)
 
     // Null where SurfaceFlinger cannot blur behind the shade, the flat fills stay then.
-    val glassBlur = rememberColorOSGlassBlur(glassAlpha)
+    // The modules are revealed when the shade opens and hidden when it closes, and the glass goes
+    // out quickly with it.
+    val leaving = rememberColorOSLeaving(expansion)
+    val glassFade = rememberColorOSGlassFade(leaving)
+    val glassBlur = rememberColorOSGlassBlur { glassAlpha() * glassFade.value }
     val glass = colorOSGlass(blurred = glassBlur != null)
 
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
@@ -254,7 +269,10 @@ internal fun ContentScope.ColorOSQuickSettingsLayout(
             Column(Modifier.fillMaxWidth(), verticalArrangement = spacedBy(ColorOSGap)) {
                 // Row 1: Wi-Fi + Bluetooth
                 if (wifi != null || bt != null) {
-                    Row(horizontalArrangement = spacedBy(ColorOSGap)) {
+                    Row(
+                        horizontalArrangement = spacedBy(ColorOSGap),
+                        modifier = Modifier.colorOSModuleReveal(1, leaving),
+                    ) {
                         listOfNotNull(wifi, bt).forEach { tile ->
                             with(infiniteGridLayout) {
                                 ColorOSWideTile(tile, listening, Modifier.weight(1f))
@@ -268,7 +286,10 @@ internal fun ContentScope.ColorOSQuickSettingsLayout(
             // tiles below: the media card covers columns 1-2 and each slider one of columns 3-4.
             Row(
                 horizontalArrangement = spacedBy(ColorOSGap),
-                modifier = Modifier.fillMaxWidth().height(tileSize * 2 + ColorOSGap),
+                modifier =
+                    Modifier.colorOSModuleReveal(2, leaving)
+                        .fillMaxWidth()
+                        .height(tileSize * 2 + ColorOSGap),
             ) {
                 Box(
                     modifier =
@@ -300,7 +321,10 @@ internal fun ContentScope.ColorOSQuickSettingsLayout(
 
             // Row 3: ringer switch + mobile data. ColorOS keeps the ringer switch on the left next
                 // to the mobile data card, and on the right when there is no card to put beside it.
-                Row(horizontalArrangement = spacedBy(ColorOSGap)) {
+                Row(
+                    horizontalArrangement = spacedBy(ColorOSGap),
+                    modifier = Modifier.colorOSModuleReveal(3, leaving),
+                ) {
                     if (data == null) Box(Modifier.weight(1f))
                     ColorOSRingerSwitch(
                         audioVolumeInteractor = audioVolumeInteractor,
@@ -318,7 +342,10 @@ internal fun ContentScope.ColorOSQuickSettingsLayout(
                     with(gridLayout) {
                         TileGrid(
                             tiles = rest,
-                            modifier = Modifier.fillMaxWidth().padding(top = ColorOSGridTopPadding),
+                            modifier =
+                                Modifier.colorOSModuleReveal(4, leaving)
+                                    .fillMaxWidth()
+                                    .padding(top = ColorOSGridTopPadding),
                             listening = listening,
                             enableRevealEffect = false,
                         )
@@ -391,8 +418,10 @@ private fun ColorOSVerticalSlider(
     modifier: Modifier = Modifier,
     fullIconTint: Color? = null,
     snap: (Float) -> Float = { it },
+    onLongPress: (() -> Unit)? = null,
 ) {
     val view = LocalView.current
+    val scope = rememberCoroutineScope()
     var local by remember { mutableFloatStateOf(fraction) }
     var dragging by remember { mutableStateOf(false) }
     // After a release, [fraction] reports the values on the way to the one that was set, the one
@@ -417,6 +446,7 @@ private fun ColorOSVerticalSlider(
     val currentOnChange by rememberUpdatedState(onChange)
     val currentOnStop by rememberUpdatedState(onStop)
     val currentSnap by rememberUpdatedState(snap)
+    val currentOnLongPress by rememberUpdatedState(onLongPress)
     val shape = RoundedCornerShape(percent = 50)
 
     Box(
@@ -433,18 +463,44 @@ private fun ColorOSVerticalSlider(
                         down.consume()
                         val start = local
                         val height = size.height.coerceAtLeast(1)
+                        // A finger that stays down without moving does not set a level, it fires
+                        // the long press. Once that fired the rest of the gesture is ignored.
+                        val longPressTimeout = viewConfiguration.longPressTimeoutMillis
+                        var longPressed = false
+                        val longPressJob =
+                            if (currentOnLongPress != null) {
+                                scope.launch {
+                                    delay(longPressTimeout)
+                                    longPressed = true
+                                    currentOnLongPress?.invoke()
+                                }
+                            } else {
+                                null
+                            }
                         while (true) {
                             val event = awaitPointerEvent()
                             val change = event.changes.firstOrNull { it.id == down.id } ?: break
                             if (!change.pressed) break
+                            if (longPressed) {
+                                change.consume()
+                                continue
+                            }
+                            if ((change.position - down.position).getDistance() >
+                                viewConfiguration.touchSlop
+                            ) {
+                                longPressJob?.cancel()
+                            }
                             val delta = (down.position.y - change.position.y) / height
                             local = (start + delta).coerceIn(0f, 1f)
                             currentOnChange(local)
                             change.consume()
                         }
-                        local = currentSnap(local)
-                        settling = true
-                        currentOnStop(local)
+                        longPressJob?.cancel()
+                        if (!longPressed) {
+                            local = currentSnap(local)
+                            settling = true
+                            currentOnStop(local)
+                        }
                         dragging = false
                         view.parent?.requestDisallowInterceptTouchEvent(false)
                     }
@@ -506,6 +562,8 @@ private fun ColorOSVolumeSlider(
     glass: ColorOSGlass,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    val audioManager = remember(context) { context.getSystemService(AudioManager::class.java) }
     val stream = remember { AudioStream(AudioManager.STREAM_MUSIC) }
     val model by
         remember(audioVolumeInteractor) { audioVolumeInteractor.getAudioStream(stream) }
@@ -531,6 +589,13 @@ private fun ColorOSVolumeSlider(
         modifier = modifier,
         // The volume is in steps, so the fill rests on the step the volume gets set to.
         snap = { f -> ((toVolume(f) - min).toFloat() / span).coerceIn(0f, 1f) },
+        onLongPress = {
+            audioManager?.adjustStreamVolume(
+                AudioManager.STREAM_MUSIC,
+                AudioManager.ADJUST_TOGGLE_MUTE,
+                0,
+            )
+        },
     )
 }
 

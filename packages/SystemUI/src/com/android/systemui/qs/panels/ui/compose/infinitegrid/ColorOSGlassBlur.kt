@@ -15,6 +15,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,6 +33,7 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
@@ -200,7 +202,20 @@ internal fun Modifier.colorOSGlassBlur(shape: Shape, material: Int): Modifier {
             }
     }
 
-    return this.onGloballyPositioned { coordinates ->
+    // The panel is not placed once the shade is closed, so nothing is drawn, and the effect above
+    // hides the region a frame after the content is gone. That frame shows the glass over the app
+    // that was opened. The measure pass of the frame the panel goes out in is early enough for
+    // SurfaceFlinger to hear of it with the same buffer.
+    val hidden by remember(blur) {
+        derivedStateOf { blur.alpha().coerceIn(0f, 1f) < ColorOSGlassMinAlpha }
+    }
+
+    return this.layout { measurable, constraints ->
+            if (hidden) region.hide()
+            val placeable = measurable.measure(constraints)
+            layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+        }
+        .onGloballyPositioned { coordinates ->
             if (!coordinates.isAttached) return@onGloballyPositioned
             val clipped = coordinates.boundsInWindow()
             if (clipped.width <= 0f || clipped.height <= 0f) {

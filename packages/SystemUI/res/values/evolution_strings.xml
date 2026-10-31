@@ -324,4 +324,10 @@
 
     <!-- ColorOS style QS: shown in the media slot when nothing is playing -->
     <string name="qs_coloros_no_media">Not playing</string>
+    <!-- ColorOS style QS: title of the tile editor [CHAR LIMIT=20] -->
+    <string name="qs_coloros_edit_title">Edit</string>
+    <!-- ColorOS style QS: hint under the title of the tile editor [CHAR LIMIT=40] -->
+    <string name="qs_coloros_edit_hint">Hold and drag to rearrange</string>
+    <!-- ColorOS style QS: heading of the tiles that can be added in the editor [CHAR LIMIT=30] -->
+    <string name="qs_coloros_edit_more">More tiles</string>
 </resources>
