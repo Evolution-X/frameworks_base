@@ -119,6 +119,44 @@ public class TrickyStoreService {
             "com.topjohnwu.lsplant.manager",
             "me.weishu.exposed"
     );
+    // Apps that don't run integrity checks against the bootloader, so targeting them only
+    // adds work: root managers and tools, and a few general Google and utility apps. Taken
+    // from Tricky Addon's "unnecessary apps" list as shipped in Duck-ToolBox. Not applied
+    // to an existing target list, only offered by Evolver's picker and skipped when
+    // AxSpoofManager auto-targets a new install. Xposed managers are in XPOSED_PACKAGES.
+    public static final java.util.Set<String> UNNECESSARY_PACKAGES = java.util.Set.of(
+            // Root managers
+            "com.topjohnwu.magisk",
+            "io.github.vvb2060.magisk",
+            "io.github.huskydg.magisk",
+            "me.weishu.kernelsu",
+            "com.rifsxd.ksunext",
+            "com.sukisu.ultra",
+            "me.bmax.apatch",
+            "me.garfieldhan.apatch.next",
+            // Root related tools
+            "com.termux",
+            "bin.mt.plus",
+            "bin.mt.plus.canary",
+            "xzr.konabess",
+            "io.github.a13e300.ksuwebui",
+            "moe.shizuku.privileged.api",
+            "com.dergoogler.mmrl",
+            "com.dergoogler.mmrl.wx",
+            // General apps
+            "org.swiftapps.swiftbackup",
+            "com.google.android.apps.docs.editors.docs",
+            "com.google.android.apps.docs.editors.sheets",
+            "com.google.android.apps.docs.editors.slides",
+            "com.google.android.keep",
+            "com.google.android.apps.maps",
+            "com.google.earth",
+            "com.google.android.apps.translate",
+            "com.android.chrome",
+            "com.google.android.youtube",
+            "com.google.android.apps.youtube.music",
+            "org.zwanoo.android.speedtest"
+    );
     // Default TrickyStore targets, in the same syntax as SPOOF_TRICKYSTORE_TARGET:
     // "pkg" is AUTO, "pkg?" leaf hack, "pkg!" cert generation, "pkg-" skip.
     // AxSpoofManager writes this into a target setting that was never set, so a
