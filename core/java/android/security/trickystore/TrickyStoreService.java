@@ -447,18 +447,43 @@ public class TrickyStoreService {
         flushPatchSection(next, currentPackage, system, vendor, boot, all);
     }
 
+    // YYYY-MM[-DD] where any field may be the literal YYYY / MM / DD placeholder.
+    private static final java.util.regex.Pattern PATCH_TEMPLATE = java.util.regex.Pattern
+            .compile("^(YYYY|\\d{4})-(MM|\\d{2})(?:-(DD|\\d{2}))?$");
+
+    /**
+     * Resolves the "today" keyword and YYYY/MM/DD placeholders against the current UTC
+     * date. A fixed day is clamped to the length of a placeholder-resolved month. Anything
+     * that isn't a template, including plain dates, is returned unchanged.
+     */
     private static String resolvePatchTemplate(String value) {
         if (value == null) return null;
-        java.util.regex.Matcher m = java.util.regex.Pattern
-            .compile("^YYYY-MM-(\\d{2})$").matcher(value.trim());
-        if (!m.matches()) return value;
-        String day = m.group(1);
+        String v = value.trim();
         java.util.Calendar cal = java.util.Calendar.getInstance(
             java.util.TimeZone.getTimeZone("UTC"));
-        return String.format(java.util.Locale.US, "%04d-%02d-%s",
-            cal.get(java.util.Calendar.YEAR),
-            cal.get(java.util.Calendar.MONTH) + 1,
-            day);
+        int nowYear = cal.get(java.util.Calendar.YEAR);
+        int nowMonth = cal.get(java.util.Calendar.MONTH) + 1;
+        int nowDay = cal.get(java.util.Calendar.DAY_OF_MONTH);
+        if (v.equalsIgnoreCase("today")) {
+            return String.format(java.util.Locale.US, "%04d-%02d-%02d", nowYear, nowMonth, nowDay);
+        }
+        java.util.regex.Matcher m = PATCH_TEMPLATE.matcher(v);
+        if (!m.matches()) return value;
+        boolean yearTemplate = "YYYY".equals(m.group(1));
+        boolean monthTemplate = "MM".equals(m.group(2));
+        boolean dayTemplate = "DD".equals(m.group(3));
+        if (!yearTemplate && !monthTemplate && !dayTemplate) return value;
+
+        int year = yearTemplate ? nowYear : Integer.parseInt(m.group(1));
+        int month = monthTemplate ? nowMonth : Integer.parseInt(m.group(2));
+        if (m.group(3) == null) {
+            return String.format(java.util.Locale.US, "%04d-%02d", year, month);
+        }
+        int day = dayTemplate ? nowDay : Integer.parseInt(m.group(3));
+        if ((yearTemplate || monthTemplate) && month >= 1 && month <= 12) {
+            day = Math.min(day, java.time.YearMonth.of(year, month).lengthOfMonth());
+        }
+        return String.format(java.util.Locale.US, "%04d-%02d-%02d", year, month, day);
     }
 
     private void flushPatchSection(PatchConfigBuilder next,
