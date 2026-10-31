@@ -353,20 +353,30 @@ public class TrickyStoreService {
             java.util.regex.Pattern.CASE_INSENSITIVE);
 
     private boolean isValidKeyboxXml(String xml) {
-        boolean hasEcdsa = KEY_ECDSA.matcher(xml).find();
-        boolean hasRsa = KEY_RSA.matcher(xml).find();
-        boolean hasId = xml.contains("<serial>") || xml.contains("DeviceID");
-        if (!hasEcdsa && !hasRsa) {
-            Log.e(TAG, "Keybox validation failed: no ECDSA or RSA key block found");
+        String problem = keyboxProblem(xml);
+        if (problem != null) {
+            Log.e(TAG, "Keybox validation failed: " + problem);
             return false;
         }
-        if (!hasId) {
-            Log.e(TAG, "Keybox validation failed: no identifier field (serial/DeviceID)");
-            return false;
-        }
-        if (!hasEcdsa) Log.w(TAG, "Keybox warning: missing ECDSA key block");
-        if (!hasRsa)   Log.w(TAG, "Keybox warning: missing RSA key block");
+        if (!KEY_ECDSA.matcher(xml).find()) Log.w(TAG, "Keybox warning: missing ECDSA key block");
+        if (!KEY_RSA.matcher(xml).find())   Log.w(TAG, "Keybox warning: missing RSA key block");
         return true;
+    }
+
+    /**
+     * Structural check of a keybox document before it is parsed.
+     *
+     * @return null if acceptable, otherwise a short reason
+     */
+    public static String keyboxProblem(String xml) {
+        if (xml == null) return "Keybox is empty";
+        if (!KEY_ECDSA.matcher(xml).find() && !KEY_RSA.matcher(xml).find()) {
+            return "No ECDSA or RSA key block";
+        }
+        if (!xml.contains("<serial>") && !xml.contains("DeviceID")) {
+            return "No serial or DeviceID";
+        }
+        return null;
     }
 
     private static String sha256(String text) {
@@ -379,7 +389,11 @@ public class TrickyStoreService {
         }
     }
 
-    private String decodeKeybox(String payload) {
+    /**
+     * Returns the keybox XML text of a payload that is either the XML itself or its base64
+     * encoding, or null if it is neither.
+     */
+    public static String decodeKeybox(String payload) {
         String trimmed = payload.trim();
         if (trimmed.startsWith("<")) {
             return trimmed;
@@ -465,7 +479,7 @@ public class TrickyStoreService {
      * date. A fixed day is clamped to the length of a placeholder-resolved month. Anything
      * that isn't a template, including plain dates, is returned unchanged.
      */
-    private static String resolvePatchTemplate(String value) {
+    public static String resolvePatchTemplate(String value) {
         if (value == null) return null;
         String v = value.trim();
         java.util.Calendar cal = java.util.Calendar.getInstance(
@@ -493,6 +507,17 @@ public class TrickyStoreService {
             day = Math.min(day, java.time.YearMonth.of(year, month).lengthOfMonth());
         }
         return String.format(java.util.Locale.US, "%04d-%02d-%02d", year, month, day);
+    }
+
+    /**
+     * Whether [value] is acceptable as a patch level setting: "no", "prop", a date, or a
+     * template that resolves to a date (see {@link #resolvePatchTemplate}).
+     */
+    public static boolean isValidPatchValue(String value) {
+        if (value == null) return false;
+        String v = value.trim();
+        if (v.equalsIgnoreCase("no") || v.equalsIgnoreCase("prop")) return true;
+        return AttestationUtils.isValidPatchLevel(resolvePatchTemplate(v));
     }
 
     private void flushPatchSection(PatchConfigBuilder next,

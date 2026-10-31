@@ -139,7 +139,39 @@ public class KeyBoxManager {
             AttestationUtils.invalidateFallbackBootState();
             return true;
         }
+        if (!parseInto(next, xmlContent)) return false;
+        mKeyboxes = next;
+        AttestationUtils.invalidateFallbackBootState();
+        return true;
+    }
 
+    /**
+     * Dry run of {@link #parseKeybox}: runs the checks the framework applies when it loads a
+     * keybox, without loading anything. Lets a caller refuse a keybox up front instead of
+     * storing one that silently never takes effect. The work includes a sign and verify per
+     * key, so keep it off latency-sensitive paths.
+     *
+     * @param rawXml keybox XML text; decode a base64 payload with
+     *               {@link TrickyStoreService#decodeKeybox} first
+     * @return null if the keybox would load, otherwise a short reason
+     */
+    public static String validate(String rawXml) {
+        if (rawXml == null || rawXml.trim().isEmpty()) return "Keybox is empty";
+        String problem = TrickyStoreService.keyboxProblem(rawXml);
+        if (problem != null) return problem;
+        Map<String, KeyBox> parsed = new ConcurrentHashMap<>();
+        if (!new KeyBoxManager().parseInto(parsed, rawXml)) {
+            return "Incomplete or truncated keybox";
+        }
+        return parsed.isEmpty() ? "No key passed validation" : null;
+    }
+
+    /**
+     * Parses [xmlContent] into [next] without touching the loaded keyboxes.
+     *
+     * @return false if the document was rejected as incomplete, true if [next] is to be used
+     */
+    private boolean parseInto(Map<String, KeyBox> next, String xmlContent) {
         // Truncation is detected by well-formedness, not by NumberOfKeyboxes: the root
         // element must have closed for a parse failure to still be usable.
         int depth = 0;
@@ -293,8 +325,6 @@ public class KeyBoxManager {
                         + " key(s); NumberOfKeyboxes is advisory, using what parsed");
             }
 
-            mKeyboxes = next;
-            AttestationUtils.invalidateFallbackBootState();
             Log.i(TAG, "Parsed " + next.size() + " keyboxes");
             return true;
         } catch (Exception e) {
@@ -307,8 +337,6 @@ public class KeyBoxManager {
                 return false;
             }
             // Complete document with trailing garbage: everything before it parsed.
-            mKeyboxes = next;
-            AttestationUtils.invalidateFallbackBootState();
             return true;
         }
     }
@@ -569,7 +597,7 @@ public class KeyBoxManager {
         return Base64.getDecoder().decode(base64);
     }
 
-    private String sanitizeXml(String content) {
+    public static String sanitizeXml(String content) {
         content = content.trim();
         String[] boms = {"\uFEFF", "\uFFFE", "\u0000\uFEFF"};
         for (String bom : boms) {
