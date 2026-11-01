@@ -610,21 +610,29 @@ private fun DisplayCutout.topBoundingRectOrNull() =
 fun DisplayCutout.dynamicIslandHoleRect(): android.graphics.Rect? =
     topBoundingRectOrNull()?.let { dynamicIslandHoleWithin(it) }
 
-/** The camera hole inside [boundingRect], a bounding rect of this cutout on any edge. */
+/**
+ * The camera hole inside [boundingRect], a bounding rect of this cutout on any edge. The cutout
+ * path is clipped to [boundingRect] first, so a display with several holes (a dual punch-hole, or
+ * a hole plus a notch) reports only the one on this edge instead of the bounds of all of them.
+ */
 fun DisplayCutout.dynamicIslandHoleWithin(
     boundingRect: android.graphics.Rect
 ): android.graphics.Rect {
     val path = cutoutPath ?: return android.graphics.Rect(boundingRect)
+    val clip =
+        android.graphics.Path().apply {
+            addRect(android.graphics.RectF(boundingRect), android.graphics.Path.Direction.CW)
+        }
+    val clipped = android.graphics.Path(path)
+    if (!clipped.op(clip, android.graphics.Path.Op.INTERSECT) || clipped.isEmpty) {
+        return android.graphics.Rect(boundingRect)
+    }
     val pathBounds = android.graphics.RectF()
-    path.computeBounds(pathBounds, true)
+    clipped.computeBounds(pathBounds, true)
     if (pathBounds.isEmpty) return android.graphics.Rect(boundingRect)
     val hole = android.graphics.Rect()
     pathBounds.roundOut(hole)
-    return if (android.graphics.Rect.intersects(hole, boundingRect)) {
-        hole
-    } else {
-        android.graphics.Rect(boundingRect)
-    }
+    return hole
 }
 
 private fun PopupContentModel.isUtilityStatusContent(): Boolean {
