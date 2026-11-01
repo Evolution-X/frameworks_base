@@ -1203,8 +1203,10 @@ private object TileDefaults {
             }
         val glass =
             if (darkPanel) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.55f)
+        // The icon circle of a pill that is off is a flat, clearly lighter disc than the pill, as in
+        // ColorOS. The pill and the round tiles keep the glass.
         val bubbleOff =
-            if (darkPanel) Color.White.copy(alpha = 0.14f) else Color.Black.copy(alpha = 0.06f)
+            if (darkPanel) Color.White.copy(alpha = 0.28f) else Color.Black.copy(alpha = 0.06f)
         val bubbleOn = if (darkPanel) ColorOSActiveFill else accent
         val iconOn = if (darkPanel) accent else Color.White
         // The labels of a dark panel are softer than full white, like in ColorOS.
@@ -1235,8 +1237,11 @@ private object TileDefaults {
                 )
             STATE_INACTIVE -> inactive
             // A round tile that cannot be used keeps the colours of one that is off and is faded
-            // as a whole by the caller. The wide tiles keep the greyed out colours.
-            else -> if (iconOnly) inactive else unavailableTileColors()
+            // as a whole by the caller. The wide tiles keep the greyed out colours, with the icon
+            // circle of a pill that is off.
+            else ->
+                if (iconOnly) inactive
+                else unavailableTileColors().copy(iconBackground = bubbleOff)
         }
     }
 
