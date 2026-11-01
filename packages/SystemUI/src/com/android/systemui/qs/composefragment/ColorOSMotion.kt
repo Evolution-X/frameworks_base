@@ -35,6 +35,26 @@ private const val ColorOSRevealResponse = 0.2f
 private const val ColorOSRevealResponseStep = 0.01f
 private const val ColorOSHideResponse = 0.1f
 
+/** The launch of an activity from the shade has run this far before the glass starts to go out. */
+private const val ColorOSLaunchGlassFadeStart = 0.7f
+
+/** The glass is gone at this point of the launch, the app covers the panel by then. */
+private const val ColorOSLaunchGlassFadeEnd = 0.9f
+
+/**
+ * How much of the glass is left while an activity opens from the shade, [progress] is how far the
+ * launch has run. The glass is drawn by SurfaceFlinger, and it hears that a region is gone with
+ * the next frame the window draws. The shade is closed in a single step when the launch ends, and
+ * the window does not draw after that, so the regions would stay for a few frames over the app,
+ * without the content they belong to. They are taken out while the launch is still drawing
+ * frames, which the app covers.
+ */
+internal fun colorOSLaunchGlassFade(progress: Float): Float =
+    1f -
+        ((progress - ColorOSLaunchGlassFadeStart) /
+                (ColorOSLaunchGlassFadeEnd - ColorOSLaunchGlassFadeStart))
+            .coerceIn(0f, 1f)
+
 /** The glass comes back like the modules in the middle of the panel do. */
 private const val ColorOSGlassRevealIndex = 2
 
