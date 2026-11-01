@@ -25,6 +25,7 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
 import com.android.keyguard.KeyguardSliceView
 import com.android.keyguard.KeyguardSliceViewController
+import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Background
 import com.android.systemui.dagger.qualifiers.Main
 import com.android.systemui.dump.DumpManager
@@ -44,6 +45,7 @@ import com.android.systemui.statusbar.policy.ConfigurationController
 import javax.inject.Inject
 import kotlinx.coroutines.DisposableHandle
 
+@SysUISingleton
 class KeyguardSliceViewSection
 @Inject
 constructor(
@@ -61,18 +63,23 @@ constructor(
     val aodBurnInViewModel: AodBurnInViewModel,
     val keyguardSmartspaceViewModel: KeyguardSmartspaceViewModel,
 ) : KeyguardSection() {
-    private lateinit var sliceView: KeyguardSliceView
+    private var sliceView: KeyguardSliceView? = null
+    private var isOmniWeatherShown = false
     private var disposableHandle: DisposableHandle? = null
 
     override fun addViews(constraintLayout: ConstraintLayout) {
         if (smartspaceController.isEnabled) return
+        // Remember which weather source this build was made for, so the constraints stay
+        // consistent with the view even if the setting flips before the next rebuild.
+        isOmniWeatherShown = smartspaceController.isOmniWeatherEnabled
         sliceView =
-            layoutInflater.inflate(R.layout.keyguard_slice_view, null, false) as KeyguardSliceView
-        constraintLayout.addView(sliceView)
+            (layoutInflater.inflate(R.layout.keyguard_slice_view, null, false)
+                    as KeyguardSliceView)
+                .also { constraintLayout.addView(it) }
     }
 
     override fun bindData(constraintLayout: ConstraintLayout) {
-        if (smartspaceController.isEnabled) return
+        val sliceView = sliceView ?: return
         val controller =
             KeyguardSliceViewController(
                 handler,
@@ -99,7 +106,7 @@ constructor(
     }
 
     override fun applyConstraints(constraintSet: ConstraintSet) {
-        if (smartspaceController.isEnabled) return
+        if (sliceView == null) return
         val dateWeatherPaddingStart = KeyguardSmartspaceViewModel.getDateWeatherStartMargin(context)
         constraintSet.apply {
             connect(
@@ -128,7 +135,7 @@ constructor(
                 ConstraintSet.BOTTOM,
             )
 
-            if (!smartspaceController.isOmniWeatherEnabled) {
+            if (!isOmniWeatherShown) {
                 createBarrier(
                     R.id.smart_space_barrier_bottom,
                     Barrier.BOTTOM,
@@ -146,5 +153,10 @@ constructor(
         }
     }
 
-    override fun removeViews(constraintLayout: ConstraintLayout) {}
+    override fun removeViews(constraintLayout: ConstraintLayout) {
+        disposableHandle?.dispose()
+        disposableHandle = null
+        sliceView?.let { constraintLayout.removeView(it) }
+        sliceView = null
+    }
 }
