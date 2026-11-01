@@ -32,6 +32,9 @@ import com.android.systemui.keyguard.domain.interactor.KeyguardTransitionInterac
 import com.android.systemui.keyguard.shared.model.KeyguardState
 import com.android.systemui.lifecycle.HydratedActivatable
 import com.android.systemui.shade.domain.interactor.ShadeInteractor
+import com.android.systemui.shared.system.ActivityManagerWrapper
+import com.android.systemui.shared.system.TaskStackChangeListener
+import com.android.systemui.shared.system.TaskStackChangeListeners
 import com.android.systemui.statusbar.pipeline.shared.domain.interactor.StatusBarVisibilityInteractor
 import com.android.systemui.statusbar.quickactions.alarm.ui.viewmodel.AlarmPopupChipViewModel
 import com.android.systemui.statusbar.quickactions.assistant.StatusBarAssistantIcon
@@ -45,6 +48,7 @@ import com.android.systemui.statusbar.quickactions.media.ui.viewmodel.MediaContr
 import com.android.systemui.statusbar.quickactions.popups.StatusBarPopupChips
 import com.android.systemui.statusbar.quickactions.screenrecord.ui.viewmodel.LargeScreenRecordingChipViewModel
 import com.android.systemui.statusbar.quickactions.screenrecord.ui.viewmodel.ScreenRecordPopupChipViewModel
+import com.android.systemui.statusbar.quickactions.shared.model.PopupContentModel
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipId
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipModel
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionPanelModel
@@ -113,6 +117,34 @@ constructor(
         }
 
     private var isOnLockscreen by mutableStateOf(false)
+
+    /** Package of the top activity, so a chip is not shown over the app it stands for. */
+    private var foregroundPackage by mutableStateOf<String?>(null)
+
+    private val taskStackListener =
+        object : TaskStackChangeListener {
+            override fun onTaskStackChanged() {
+                updateForegroundPackage()
+            }
+        }
+
+    private fun updateForegroundPackage() {
+        val top = ActivityManagerWrapper.getInstance().runningTask?.topActivity?.packageName
+        if (top != foregroundPackage) {
+            foregroundPackage = top
+            // Opening or switching apps puts an opened island away.
+            currentShownPopupChipId = null
+        }
+    }
+
+    /**
+     * Whether this chip belongs to the app now in the foreground. Like an iOS Live Activity, the
+     * media chip steps aside while its own player is open.
+     */
+    private fun QuickActionChipModel.PopupChip.isOwnedByForegroundApp(): Boolean {
+        val open = foregroundPackage ?: return false
+        return (popupContent as? PopupContentModel.Media)?.model?.packageName == open
+    }
 
     /** Whether the notification shade or QS is expanding, expanded, or being dragged. */
     private var isShadeVisible by
@@ -185,6 +217,7 @@ constructor(
 
         candidateChips
             .filterIsInstance<QuickActionChipModel.PopupChip>()
+            .filterNot { it.isOwnedByForegroundApp() }
             .map { chip ->
                 val isShown =
                     (chip.chipId == currentActiveQuickActionId) ||
@@ -237,6 +270,9 @@ constructor(
                 UserHandle.USER_ALL,
             )
             dynamicIslandObserver.onChange(false)
+
+            TaskStackChangeListeners.getInstance().registerTaskStackListener(taskStackListener)
+            updateForegroundPackage()
 
             launch {
                 keyguardTransitionInteractor.isFinishedIn(KeyguardState.LOCKSCREEN)
@@ -299,6 +335,7 @@ constructor(
                 awaitCancellation()
             } finally {
                 context.contentResolver.unregisterContentObserver(dynamicIslandObserver)
+                TaskStackChangeListeners.getInstance().unregisterTaskStackListener(taskStackListener)
             }
         }
     }
