@@ -16,6 +16,12 @@
 
 package com.android.systemui.statusbar.quickactions.screenrecord.ui.compose
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,14 +38,17 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.quickactions.screenrecord.shared.model.ScreenRecordPopupModel
+import com.android.systemui.statusbar.quickactions.ui.compose.IslandAccents
+import com.android.systemui.statusbar.quickactions.ui.compose.IslandGlyphBadge
 import com.android.systemui.statusbar.quickactions.ui.compose.PopupSurface
 import com.android.systemui.statusbar.quickactions.ui.compose.rememberElapsedDurationText
 private val PopupShape = RoundedCornerShape(32.dp)
@@ -50,7 +59,24 @@ fun ScreenRecordPopup(
     model: ScreenRecordPopupModel,
     modifier: Modifier = Modifier,
 ) {
-    val accent = Color(0xFFFF5A5F)
+    val accent = IslandAccents.Recording
+    val pulse = rememberInfiniteTransition(label = "rec_pulse")
+    val pulseScale by
+        pulse.animateFloat(
+            initialValue = 0.9f,
+            targetValue = 1.15f,
+            animationSpec =
+                infiniteRepeatable(tween(800, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+            label = "rec_scale",
+        )
+    val pulseAlpha by
+        pulse.animateFloat(
+            initialValue = 0.3f,
+            targetValue = 0.95f,
+            animationSpec =
+                infiniteRepeatable(tween(800, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+            label = "rec_alpha",
+        )
     PopupSurface(
         shape = PopupShape,
         modifier = modifier.widthIn(min = 280.dp, max = 360.dp),
@@ -60,12 +86,21 @@ fun ScreenRecordPopup(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(
-                    modifier = Modifier.size(14.dp).background(accent, CircleShape),
-                )
+                IslandGlyphBadge(accent = accent, size = 42.dp) {
+                    Box(
+                        modifier =
+                            Modifier.size(16.dp)
+                                .graphicsLayer {
+                                    scaleX = pulseScale
+                                    scaleY = pulseScale
+                                    alpha = pulseAlpha
+                                }
+                                .background(accent, CircleShape),
+                    )
+                }
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         text = stringResource(R.string.screenrecord_ongoing_screen_only),
