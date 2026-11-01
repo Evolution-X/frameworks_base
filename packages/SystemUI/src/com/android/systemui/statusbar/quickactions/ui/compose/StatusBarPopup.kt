@@ -17,6 +17,7 @@
 package com.android.systemui.statusbar.quickactions.ui.compose
 
 import android.view.ViewTreeObserver
+import android.view.WindowManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -156,7 +157,10 @@ fun StatusBarPopup(
         onDismissRequest = { viewModel.hidePopup() },
         properties =
             PopupProperties(
-                focusable = false,
+                // Keep Back dismissal without taking IME focus from the app below the popup.
+                flags =
+                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+                        WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM,
                 dismissOnBackPress = true,
                 dismissOnClickOutside = true,
             ),
