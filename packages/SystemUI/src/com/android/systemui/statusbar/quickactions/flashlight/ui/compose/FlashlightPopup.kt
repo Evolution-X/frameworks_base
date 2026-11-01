@@ -32,7 +32,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
@@ -42,11 +41,12 @@ import com.android.systemui.common.ui.compose.Icon as StatusBarIcon
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.quickactions.flashlight.shared.model.FlashlightPopupModel
 import com.android.systemui.statusbar.quickactions.popups.shared.model.PopupActionModel
+import com.android.systemui.statusbar.quickactions.ui.compose.IslandAccents
+import com.android.systemui.statusbar.quickactions.ui.compose.IslandGlyphBadge
 import com.android.systemui.statusbar.quickactions.ui.compose.PopupActionChips
 import com.android.systemui.statusbar.quickactions.ui.compose.PopupSurface
 
 private val PopupShape = RoundedCornerShape(32.dp)
-private val AccentColor = Color(0xFFFFD166)
 
 /** Expanded flashlight card surfaced in the dynamic island. */
 @Composable
@@ -54,6 +54,7 @@ fun FlashlightPopup(
     model: FlashlightPopupModel,
     modifier: Modifier = Modifier,
 ) {
+    val accent = IslandAccents.Flashlight
     PopupSurface(
         shape = PopupShape,
         modifier = modifier.widthIn(min = 280.dp, max = 340.dp),
@@ -66,16 +67,20 @@ fun FlashlightPopup(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                StatusBarIcon(
-                    icon =
-                        Icon.Resource(
-                            resId = R.drawable.ic_dynamic_island_flashlight,
-                            contentDescription =
-                                ContentDescription.Resource(R.string.quick_settings_flashlight_label),
-                        ),
-                    modifier = Modifier.size(24.dp),
-                    tint = AccentColor,
-                )
+                IslandGlyphBadge(accent = accent) {
+                    StatusBarIcon(
+                        icon =
+                            Icon.Resource(
+                                resId = R.drawable.ic_dynamic_island_flashlight,
+                                contentDescription =
+                                    ContentDescription.Resource(
+                                        R.string.quick_settings_flashlight_label
+                                    ),
+                            ),
+                        modifier = Modifier.size(22.dp),
+                        tint = accent,
+                    )
+                }
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         text = stringResource(R.string.quick_settings_flashlight_label),
@@ -100,7 +105,7 @@ fun FlashlightPopup(
                     } ?: stringResource(R.string.dynamic_island_flashlight_short),
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold,
-                color = AccentColor,
+                color = accent,
             )
 
             PopupActionChips(
@@ -112,7 +117,7 @@ fun FlashlightPopup(
                             emphasized = true,
                         )
                     ),
-                accent = AccentColor,
+                accent = accent,
             )
         }
     }
