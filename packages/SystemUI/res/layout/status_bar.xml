@@ -28,6 +28,8 @@
     android:focusable="false"
     android:descendantFocusability="afterDescendants"
     android:accessibilityPaneTitle="@string/status_bar"
+    android:clipChildren="false"
+    android:clipToPadding="false"
     >
 
     <ImageView
@@ -194,6 +196,8 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:paddingTop="@dimen/status_bar_padding_top"
+        android:clipChildren="false"
+        android:clipToPadding="false"
         >
 
         <com.android.systemui.statusbar.policy.Clock
