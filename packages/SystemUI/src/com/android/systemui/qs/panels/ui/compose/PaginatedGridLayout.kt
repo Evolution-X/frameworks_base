@@ -195,21 +195,23 @@ private fun FooterBar(
     isVisible: () -> Boolean = { true },
 ) {
     // The ColorOS panel has no footer: the build number and the edit button are not shown (the
-    // panel buttons are in the header), only the page dots stay, centered below the grid.
+    // panel buttons are in the header), only the page dots stay, centered below the grid. They are
+    // round dots, the current page is not a wider pill, and a little larger than the stock ones.
     if (LocalColorOSQsStyle.current) {
         Box(
             modifier =
-                Modifier.requiredHeight(FooterHeight).fillMaxWidth().padding(top = 12.dp),
+                Modifier.requiredHeight(FooterHeight).fillMaxWidth().padding(top = 4.5.dp),
             contentAlignment = Alignment.TopCenter,
         ) {
             PagerDots(
                 pagerState = pagerState,
                 activeColor = MaterialTheme.colorScheme.onSurface,
                 nonActiveColor = MaterialTheme.colorScheme.onSurface.copy(alpha = .4f),
-                dotSize = 6.dp,
-                spaceSize = 8.dp,
+                dotSize = 7.5.dp,
+                spaceSize = 8.5.dp,
                 showArrows = false,
                 clickToCyclePages = true,
+                roundDots = true,
             )
         }
         return
