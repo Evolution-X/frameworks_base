@@ -36,6 +36,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -237,49 +238,11 @@ fun AudioReactiveBars(
             }
     }
 
-    val idleTransition = rememberInfiniteTransition(label = "visualizer_idle")
-    val idleFloats = Array(BAR_COUNT) { index ->
-        val cfg = IdleConfigs[index]
-        val start = if (index % 2 == 0) cfg.minLevel else cfg.maxLevel
-        val end = if (index % 2 == 0) cfg.maxLevel else cfg.minLevel
-        idleTransition.animateFloat(
-            initialValue = start,
-            targetValue = end,
-            animationSpec =
-                InfiniteRepeatableSpec(
-                    animation =
-                        tween(
-                            durationMillis = cfg.durationMs,
-                            delayMillis = cfg.phaseOffsetMs,
-                            easing = FastOutSlowInEasing,
-                        ),
-                    repeatMode = RepeatMode.Reverse,
-                ),
-            label = "idle_$index",
-        )
-    }
-
-    val playingTransition = rememberInfiniteTransition(label = "visualizer_playing")
-    val playingFloats = Array(BAR_COUNT) { index ->
-        val cfg = PlayingConfigs[index]
-        val start = if (index % 2 == 0) cfg.minLevel else cfg.maxLevel
-        val end = if (index % 2 == 0) cfg.maxLevel else cfg.minLevel
-        playingTransition.animateFloat(
-            initialValue = start,
-            targetValue = end,
-            animationSpec =
-                InfiniteRepeatableSpec(
-                    animation =
-                        tween(
-                            durationMillis = cfg.durationMs,
-                            delayMillis = cfg.phaseOffsetMs,
-                            easing = FastOutSlowInEasing,
-                        ),
-                    repeatMode = RepeatMode.Reverse,
-                ),
-            label = "playing_$index",
-        )
-    }
+    // Only the wave set for the current mode runs. Both used to be composed and read on every
+    // draw, so the set the current mode never showed kept animating and invalidating the chip.
+    val idleFloats = rememberWaveLevels(active = !isPlaying, configs = IdleConfigs, label = "idle")
+    val playingFloats =
+        rememberWaveLevels(active = isPlaying, configs = PlayingConfigs, label = "playing")
 
     val totalWidth = barWidth * BAR_COUNT + spacing * (BAR_COUNT - 1)
 
@@ -296,8 +259,8 @@ fun AudioReactiveBars(
 
         for (index in 0 until BAR_COUNT) {
             val springLevel = animatedLevels[index].value
-            val idleLevel = idleFloats[index].value
-            val playingLevel = playingFloats[index].value
+            val idleLevel = idleFloats?.get(index)?.value ?: PausedRestLevels[index]
+            val playingLevel = playingFloats?.get(index)?.value ?: PausedRestLevels[index]
 
             val hasActiveHardwareCapture =
                 isPlaying && (android.os.SystemClock.elapsedRealtime() - lastAudioCaptureMs < 1200L)
@@ -334,6 +297,40 @@ fun AudioReactiveBars(
                 cornerRadius = radius,
             )
         }
+    }
+}
+
+/**
+ * Per-bar looping levels for [configs], or null while [active] is false. Nothing is animated, and
+ * so nothing requests frames, while the set is not in use.
+ */
+@Composable
+private fun rememberWaveLevels(
+    active: Boolean,
+    configs: Array<BarWaveConfig>,
+    label: String,
+): List<State<Float>>? {
+    if (!active) return null
+    val transition = rememberInfiniteTransition(label = "visualizer_$label")
+    return List(BAR_COUNT) { index ->
+        val cfg = configs[index]
+        val start = if (index % 2 == 0) cfg.minLevel else cfg.maxLevel
+        val end = if (index % 2 == 0) cfg.maxLevel else cfg.minLevel
+        transition.animateFloat(
+            initialValue = start,
+            targetValue = end,
+            animationSpec =
+                InfiniteRepeatableSpec(
+                    animation =
+                        tween(
+                            durationMillis = cfg.durationMs,
+                            delayMillis = cfg.phaseOffsetMs,
+                            easing = FastOutSlowInEasing,
+                        ),
+                    repeatMode = RepeatMode.Reverse,
+                ),
+            label = "${label}_$index",
+        )
     }
 }
 
