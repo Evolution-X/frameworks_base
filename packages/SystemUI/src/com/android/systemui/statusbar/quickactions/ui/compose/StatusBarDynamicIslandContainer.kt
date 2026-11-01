@@ -56,8 +56,14 @@ fun StatusBarDynamicIslandContainer(
     onIslandActiveChanged: (Boolean) -> Unit = {},
     onIslandExpandedChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
+    sideEdge: DynamicIslandCutoutEdge? = null,
 ) {
-    val cutoutSpec = rememberDynamicIslandCutoutSpec()
+    val cutoutSpec =
+        if (sideEdge != null) {
+            rememberDynamicIslandSideCutoutSpec(sideEdge)
+        } else {
+            rememberDynamicIslandCutoutSpec()
+        }
     var selectedChipId by remember { mutableStateOf<QuickActionChipId?>(null) }
     var popupAnchorChip by remember { mutableStateOf<QuickActionChipModel.PopupChip?>(null) }
     var popupVisible by remember { mutableStateOf(false) }
@@ -129,8 +135,13 @@ fun StatusBarDynamicIslandContainer(
         modifier =
             modifier
                 .padding(
-                    start = if (cutoutSpec.anchor == DynamicIslandAnchor.START) 0.dp else 8.dp,
-                    end = 8.dp,
+                    start =
+                        if (sideEdge != null || cutoutSpec.anchor == DynamicIslandAnchor.START) {
+                            0.dp
+                        } else {
+                            8.dp
+                        },
+                    end = if (sideEdge != null) 0.dp else 8.dp,
                 )
                 .offset(x = cutoutSpec.horizontalOffset)
                 .onGloballyPositioned { coordinates ->
@@ -147,7 +158,10 @@ fun StatusBarDynamicIslandContainer(
                     } else {
                         onIslandBoundsChanged(android.graphics.Rect())
                     }
-                },
+                }
+                // Docked to a side camera: turn the whole pill with its edge. The reported bounds
+                // above are of the turned pill.
+                .rotatedLayout(sideEdge?.quarterTurns ?: 0),
         contentAlignment = Alignment.Center,
     ) {
         if (selectedChip == null) return@Box

@@ -23,6 +23,7 @@ import android.content.Context
 import android.graphics.Rect
 import android.graphics.RenderEffect
 import android.graphics.Shader
+import android.view.Display
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -51,6 +52,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -142,11 +144,14 @@ import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipI
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipModel
 import com.android.systemui.statusbar.quickactions.ui.compose.QuickActionChipsContainer
 import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings
+import com.android.systemui.statusbar.quickactions.ui.DynamicIslandSideEdgeHost
 import com.android.systemui.statusbar.quickactions.ui.compose.DynamicIslandAnchor
+import com.android.systemui.statusbar.quickactions.ui.compose.DynamicIslandEdge
 import com.android.systemui.statusbar.quickactions.ui.compose.StatusBarDynamicIslandContainer
 import com.android.systemui.statusbar.quickactions.ui.compose.dynamicIslandHoleRect
 import com.android.systemui.statusbar.quickactions.ui.compose.dynamicIslandStartEdgePx
 import com.android.systemui.statusbar.quickactions.ui.compose.resolveDynamicIslandAnchor
+import com.android.systemui.statusbar.quickactions.ui.compose.resolveDynamicIslandCutoutEdge
 import com.android.systemui.statusbar.pipeline.shared.ui.view.SystemStatusIconsLayoutHelper
 import com.android.systemui.statusbar.pipeline.shared.ui.viewmodel.HomeStatusBarViewModel
 import com.android.systemui.statusbar.pipeline.shared.ui.viewmodel.HomeStatusBarViewModel.HomeStatusBarViewModelFactory
@@ -422,6 +427,10 @@ fun StatusBarRoot(
                     )
                 }
 
+                // Edge holding the camera. Anything but TOP means the island is docked to a side
+                // camera by [sideEdgeHost] and this status bar copy stays out of composition.
+                val islandEdgeState = mutableStateOf(DynamicIslandEdge.TOP)
+
                 val composeView =
                     ComposeView(context).apply {
                         layoutParams =
@@ -441,26 +450,46 @@ fun StatusBarRoot(
                         )
 
                         setContent {
-                            StatusBarDynamicIslandContainer(
-                                chips = statusBarViewModel.popupChips.filterIsInstance<QuickActionChipModel.PopupChip>(),
-                                onMediaControlPopupVisibilityChanged = {},
-                                onIslandActiveChanged = { active ->
-                                    this@apply.visibility =
-                                        if (active) View.VISIBLE else View.GONE
-                                },
-                                onIslandExpandedChanged = { expanded ->
-                                    islandExpanded = expanded
+                            if (islandEdgeState.value == DynamicIslandEdge.TOP) {
+                                StatusBarDynamicIslandContainer(
+                                    chips = statusBarViewModel.popupChips.filterIsInstance<QuickActionChipModel.PopupChip>(),
+                                    onMediaControlPopupVisibilityChanged = {},
+                                    onIslandActiveChanged = { active ->
+                                        this@apply.visibility =
+                                            if (active) View.VISIBLE else View.GONE
+                                    },
+                                    onIslandExpandedChanged = { expanded ->
+                                        islandExpanded = expanded
+                                        publishIslandBounds()
+                                        islandExpandedHandler(expanded)
+                                    },
+                                    onIslandBoundsChanged = { bounds ->
+                                        lastIslandBoundsReported = bounds
+                                        publishIslandBounds()
+                                    },
+                                )
+                            } else {
+                                SideEffect {
+                                    this@apply.visibility = View.GONE
+                                    lastIslandBoundsReported = Rect()
                                     publishIslandBounds()
-                                    islandExpandedHandler(expanded)
-                                },
-                                onIslandBoundsChanged = { bounds ->
-                                    lastIslandBoundsReported = bounds
-                                    publishIslandBounds()
-                                },
-                            )
+                                }
+                            }
                         }
                     }
                 centeredArea.addView(composeView)
+
+                // Same island, in its own window, for a camera on the left or right edge.
+                val sideEdgeHost =
+                    DynamicIslandSideEdgeHost(context) { edge, onBoundsChanged, onActiveChanged ->
+                        StatusBarDynamicIslandContainer(
+                            chips = statusBarViewModel.popupChips.filterIsInstance<QuickActionChipModel.PopupChip>(),
+                            onMediaControlPopupVisibilityChanged = {},
+                            onIslandActiveChanged = onActiveChanged,
+                            onIslandBoundsChanged = onBoundsChanged,
+                            sideEdge = edge,
+                        )
+                    }
 
                 val startSideHost =
                     phoneStatusBarView.requireViewById<LinearLayout>(
@@ -521,6 +550,23 @@ fun StatusBarRoot(
                 fun placeIsland() {
                     val windowWidth = phoneStatusBarView.rootView.width
                     if (windowWidth <= 0) return
+                    // Camera on the left/right edge (landscape): dock the island to it in its own
+                    // window instead of centering it in the status bar, away from the camera.
+                    val sideEdge =
+                        resolveDynamicIslandCutoutEdge(phoneStatusBarView)?.takeIf {
+                            it.edge != DynamicIslandEdge.TOP &&
+                                phoneStatusBarView.display?.displayId == Display.DEFAULT_DISPLAY
+                        }
+                    islandEdgeState.value = sideEdge?.edge ?: DynamicIslandEdge.TOP
+                    if (sideEdge != null) {
+                        if (phoneStatusBarView.isAttachedToWindow && phoneStatusBarView.isShown) {
+                            sideEdgeHost.show(sideEdge)
+                        } else {
+                            sideEdgeHost.hide()
+                        }
+                        return
+                    }
+                    sideEdgeHost.hide()
                     val displayCutout =
                         phoneStatusBarView.rootWindowInsets?.displayCutout
                             ?: phoneStatusBarView.display?.cutout
@@ -637,6 +683,7 @@ fun StatusBarRoot(
 
                         override fun onViewDetachedFromWindow(v: View) {
                             islandResolver.unregisterContentObserver(islandOffsetObserver)
+                            sideEdgeHost.hide()
                         }
                     }
                 )
