@@ -583,11 +583,31 @@ fun rememberDynamicIslandCutoutSpec(): DynamicIslandCutoutSpec {
     }
 }
 
+/**
+ * Spec for an island docked to a camera on a side edge. The pill is laid out in its own rotated
+ * frame, where its main axis runs along the edge, so the camera gap is the hole's height.
+ */
+@Composable
+fun rememberDynamicIslandSideCutoutSpec(edge: DynamicIslandCutoutEdge): DynamicIslandCutoutSpec {
+    val density = LocalDensity.current.density
+    return remember(edge, density) {
+        DynamicIslandCutoutSpec(
+            embeddedGapWidth = embeddedGapFor(edge.hole.height(), density),
+            horizontalOffset = 0.dp,
+        )
+    }
+}
+
 private fun DisplayCutout.topBoundingRectOrNull() =
     getBoundingRectTop().takeUnless { it.isEmpty }
 
-fun DisplayCutout.dynamicIslandHoleRect(): android.graphics.Rect? {
-    val boundingRect = topBoundingRectOrNull() ?: return null
+fun DisplayCutout.dynamicIslandHoleRect(): android.graphics.Rect? =
+    topBoundingRectOrNull()?.let { dynamicIslandHoleWithin(it) }
+
+/** The camera hole inside [boundingRect], a bounding rect of this cutout on any edge. */
+fun DisplayCutout.dynamicIslandHoleWithin(
+    boundingRect: android.graphics.Rect
+): android.graphics.Rect {
     val path = cutoutPath ?: return android.graphics.Rect(boundingRect)
     val pathBounds = android.graphics.RectF()
     path.computeBounds(pathBounds, true)
