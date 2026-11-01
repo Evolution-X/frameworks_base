@@ -316,7 +316,8 @@ internal fun ContentScope.ColorOSQuickSettingsLayout(
     // out quickly with it.
     val leaving = rememberColorOSLeaving(expansion)
     val glassFade = rememberColorOSGlassFade(leaving)
-    val glassBlur = rememberColorOSGlassBlur { glassAlpha() * glassFade.value }
+    val reveal: () -> Float = { colorOSExpansionReveal(expansion()) }
+    val glassBlur = rememberColorOSGlassBlur { glassAlpha() * glassFade.value * reveal() }
     val glass = colorOSGlass(blurred = glassBlur != null)
 
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
@@ -352,7 +353,7 @@ internal fun ContentScope.ColorOSQuickSettingsLayout(
                 if (wifi != null || bt != null) {
                     Row(
                         horizontalArrangement = spacedBy(ColorOSGap),
-                        modifier = Modifier.colorOSModuleReveal(1, leaving),
+                        modifier = Modifier.colorOSModuleReveal(1, leaving, reveal),
                     ) {
                         listOfNotNull(wifi, bt).forEach { tile ->
                             with(infiniteGridLayout) {
@@ -370,7 +371,7 @@ internal fun ContentScope.ColorOSQuickSettingsLayout(
             Row(
                 horizontalArrangement = spacedBy(ColorOSGap),
                 modifier =
-                    Modifier.colorOSModuleReveal(2, leaving)
+                    Modifier.colorOSModuleReveal(2, leaving, reveal)
                         .fillMaxWidth()
                         .height(moduleHeight),
             ) {
@@ -410,7 +411,7 @@ internal fun ContentScope.ColorOSQuickSettingsLayout(
                 // Penguin does. A Wi-Fi only device has the fallback tile in the card.
                 Row(
                     horizontalArrangement = spacedBy(ColorOSGap),
-                    modifier = Modifier.colorOSModuleReveal(3, leaving),
+                    modifier = Modifier.colorOSModuleReveal(3, leaving, reveal),
                 ) {
                     if (thirdCard == null) Box(Modifier.weight(1f))
                     ColorOSRingerSwitch(
@@ -432,7 +433,7 @@ internal fun ContentScope.ColorOSQuickSettingsLayout(
                         TileGrid(
                             tiles = rest,
                             modifier =
-                                Modifier.colorOSModuleReveal(4, leaving)
+                                Modifier.colorOSModuleReveal(4, leaving, reveal)
                                     .fillMaxWidth()
                                     .padding(top = ColorOSGridTopPadding),
                             listening = listening,
