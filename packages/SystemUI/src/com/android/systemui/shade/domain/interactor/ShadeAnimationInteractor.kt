@@ -32,7 +32,15 @@ abstract class ShadeAnimationInteractor(
 
     fun setIsLaunchingActivity(launching: Boolean, logMessage: String) {
         shadeAnimationRepository.isLaunchingActivity.value = launching
+        if (!launching) shadeAnimationRepository.launchProgress.value = 0f
         shadeWindowLogger.logSetLaunchingActivity(launching, logMessage)
+    }
+
+    /** How far the launch animation of an activity from the shade has run, in [0, 1]. */
+    val launchProgress: StateFlow<Float> = shadeAnimationRepository.launchProgress.asStateFlow()
+
+    fun setLaunchProgress(progress: Float) {
+        shadeAnimationRepository.launchProgress.value = progress.coerceIn(0f, 1f)
     }
 
     /**

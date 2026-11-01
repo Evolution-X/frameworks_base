@@ -169,6 +169,7 @@ import com.android.systemui.qs.ui.composable.QuickSettingsShade.systemGestureExc
 import com.android.systemui.qs.ui.composable.QuickSettingsTheme
 import com.android.systemui.res.R
 import com.android.systemui.shade.ShadeDisplayAware
+import com.android.systemui.shade.domain.interactor.ShadeAnimationInteractor
 import com.android.systemui.statusbar.policy.ConfigurationController
 import com.android.systemui.statusbar.policy.ConfigurationController.ConfigurationListener
 import com.android.systemui.util.LifecycleFragment
@@ -205,6 +206,7 @@ constructor(
     private val mediaDataManager: MediaDataManager,
     private val activityStarter: ActivityStarter,
     private val mediaOutputDialogManager: MediaOutputDialogManager,
+    private val shadeAnimationInteractor: ShadeAnimationInteractor,
 ) : LifecycleFragment(), QS, Dumpable {
 
     private val scrollListener = MutableStateFlow<QS.ScrollListener?>(null)
@@ -331,6 +333,7 @@ constructor(
 
     @Composable
     private fun Content(modifier: Modifier = Modifier) {
+        val launchProgress by shadeAnimationInteractor.launchProgress.collectAsStateWithLifecycle()
         PlatformTheme(isDarkTheme = if (notificationShadeBlur()) isSystemInDarkTheme() else true) {
             ProvideShortcutHelperIndication(interactionsConfig = interactionsConfig()) {
                 Box(
@@ -367,7 +370,8 @@ constructor(
                         ColorOSBackdrop(
                             alpha = {
                                 if (viewModel.isQsVisibleAndAnyShadeExpanded) {
-                                    viewModel.panelExpansionFraction
+                                    viewModel.panelExpansionFraction *
+                                        colorOSLaunchGlassFade(launchProgress)
                                 } else {
                                     0f
                                 }
@@ -888,6 +892,7 @@ constructor(
 
     @Composable
     private fun ContentScope.QuickSettingsElement(modifier: Modifier = Modifier) {
+        val launchProgress by shadeAnimationInteractor.launchProgress.collectAsStateWithLifecycle()
         val qqsPadding = viewModel.qqsHeaderHeight
         // The ColorOS header is taller than the stock one. A large screen header (no qqs padding)
         // is not changed by the style.
@@ -1151,7 +1156,8 @@ constructor(
                                             if (viewModel.isQsVisibleAndAnyShadeExpanded &&
                                                 !viewModel.isEditing
                                             ) {
-                                                viewModel.viewAlpha
+                                                viewModel.viewAlpha *
+                                                    colorOSLaunchGlassFade(launchProgress)
                                             } else {
                                                 0f
                                             }
