@@ -80,6 +80,7 @@ class StatusBarTransitionAnimatorController(
         linearProgress: Float,
     ) {
         delegate.onTransitionAnimationProgress(state, progress, linearProgress)
+        shadeAnimationInteractor.setLaunchProgress(linearProgress)
         val hideIcons =
             getProgress(
                 ActivityTransitionAnimator.TIMINGS,
