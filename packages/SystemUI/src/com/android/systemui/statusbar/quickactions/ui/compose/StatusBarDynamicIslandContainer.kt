@@ -37,9 +37,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipId
@@ -69,6 +71,9 @@ fun StatusBarDynamicIslandContainer(
     var popupVisible by remember { mutableStateOf(false) }
     var knownChipIds by remember { mutableStateOf<List<QuickActionChipId>>(emptyList()) }
     var anchorBounds by remember { mutableStateOf<Rect?>(null) }
+    // Where the island was placed before it is shifted onto the camera; NaN until first placed.
+    var naturalCenterX by remember { mutableFloatStateOf(Float.NaN) }
+    val cameraCenterX = if (sideEdge == null) cutoutSpec.cutoutCenterX else null
 
     LaunchedEffect(chips) {
         val currentChipIds = chips.map { it.chipId }
@@ -143,7 +148,18 @@ fun StatusBarDynamicIslandContainer(
                         },
                     end = if (sideEdge != null) 0.dp else 8.dp,
                 )
-                .offset(x = cutoutSpec.horizontalOffset)
+                .then(
+                    if (cameraCenterX != null) {
+                        Modifier.onPlaced { naturalCenterX = it.boundsInWindow().center.x }
+                            .graphicsLayer {
+                                val natural = naturalCenterX
+                                translationX =
+                                    if (natural.isNaN()) 0f else cameraCenterX - natural
+                            }
+                    } else {
+                        Modifier.offset(x = cutoutSpec.horizontalOffset)
+                    }
+                )
                 .onGloballyPositioned { coordinates ->
                     if (selectedChip != null) {
                         val b = coordinates.boundsInWindow()
