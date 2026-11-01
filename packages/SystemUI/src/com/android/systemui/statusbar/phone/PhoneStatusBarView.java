@@ -88,6 +88,8 @@ public class PhoneStatusBarView extends FrameLayout {
 
     public PhoneStatusBarView(Context context, AttributeSet attrs) {
         super(context, attrs);
+        setClipChildren(false);
+        setClipToPadding(false);
     }
 
     void setLongPressGestureDetector(
@@ -127,6 +129,8 @@ public class PhoneStatusBarView extends FrameLayout {
     @Override
     public void onFinishInflate() {
         super.onFinishInflate();
+        setClipChildren(false);
+        setClipToPadding(false);
         mCutoutSpace = findViewById(R.id.cutout_space_view);
 
         updateResources();
@@ -411,6 +415,8 @@ public class PhoneStatusBarView extends FrameLayout {
         }
 
         Insets insets = mInsetsFetcher.fetchInsets();
+        setClipToPadding(false);
+        setClipChildren(false);
         setPadding(
                 insets.left,
                 insets.top,

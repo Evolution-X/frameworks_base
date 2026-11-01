@@ -409,9 +409,12 @@ fun StatusBarRoot(
 
                 // Add a composable container for `QuickActionChip`s (Music Ticker, etc.)
                 val centeredArea =
-                    phoneStatusBarView.requireViewById<AlphaOptimizedLinearLayout>(
-                        R.id.centered_area
-                    )
+                    phoneStatusBarView
+                        .requireViewById<AlphaOptimizedLinearLayout>(R.id.centered_area)
+                        .apply {
+                            clipChildren = false
+                            clipToPadding = false
+                        }
 
                 var islandExpanded = false
                 var lastIslandBoundsReported = Rect()
@@ -433,6 +436,8 @@ fun StatusBarRoot(
 
                 val composeView =
                     ComposeView(context).apply {
+                        clipChildren = false
+                        clipToPadding = false
                         layoutParams =
                             LinearLayout.LayoutParams(
                                 LinearLayout.LayoutParams.WRAP_CONTENT,
