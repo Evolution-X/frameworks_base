@@ -35,6 +35,26 @@ private const val ColorOSRevealResponse = 0.2f
 private const val ColorOSRevealResponseStep = 0.01f
 private const val ColorOSHideResponse = 0.1f
 
+/** The panel starts to show at this fraction of its expansion, glass and modules together. */
+private const val ColorOSExpandRevealStart = 0.25f
+
+/** The panel is fully shown at this fraction of its expansion. */
+private const val ColorOSExpandRevealEnd = 0.85f
+
+/**
+ * How much of the panel is shown for the given [expansion], 0 when closed and 1 when open. The
+ * modules and the glass fade in with the expansion, so they follow the drag from the quick
+ * settings to the panel and are never out of step: the glass is drawn by SurfaceFlinger and has no
+ * other way to know how far the panel has come.
+ */
+internal fun colorOSExpansionReveal(expansion: Float): Float {
+    val t =
+        ((expansion - ColorOSExpandRevealStart) /
+                (ColorOSExpandRevealEnd - ColorOSExpandRevealStart))
+            .coerceIn(0f, 1f)
+    return t * t * (3f - 2f * t)
+}
+
 /** The launch of an activity from the shade has run this far before the glass starts to go out. */
 private const val ColorOSLaunchGlassFadeStart = 0.7f
 
@@ -124,7 +144,11 @@ internal fun rememberColorOSGlassFade(leaving: State<Boolean>): State<Float> {
  * back out quickly when the panel is [leaving].
  */
 @Composable
-internal fun Modifier.colorOSModuleReveal(index: Int, leaving: State<Boolean>): Modifier {
+internal fun Modifier.colorOSModuleReveal(
+    index: Int,
+    leaving: State<Boolean>,
+    reveal: () -> Float,
+): Modifier {
     val isLeaving = leaving.value
     val scale = remember { Animatable(if (isLeaving) ColorOSRevealFrom else 1f) }
     val alpha = remember { Animatable(if (isLeaving) 0f else 1f) }
@@ -142,6 +166,6 @@ internal fun Modifier.colorOSModuleReveal(index: Int, leaving: State<Boolean>): 
     return graphicsLayer {
         scaleX = scale.value
         scaleY = scale.value
-        this.alpha = alpha.value
+        this.alpha = alpha.value * reveal()
     }
 }
