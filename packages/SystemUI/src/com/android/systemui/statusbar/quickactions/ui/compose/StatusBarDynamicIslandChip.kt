@@ -471,6 +471,13 @@ data class DynamicIslandCutoutSpec(
     val embeddedGapWidth: Dp,
     val horizontalOffset: Dp,
     val anchor: DynamicIslandAnchor = DynamicIslandAnchor.CENTER,
+    /**
+     * Window x of the camera hole's centre when the island is to be centred on it, or null when
+     * [horizontalOffset] (or no shift at all) applies. The status bar's centred area can have
+     * uneven side paddings, so an offset measured from the screen centre misses the camera;
+     * the container instead moves the island by the distance from where it was actually placed.
+     */
+    val cutoutCenterX: Float? = null,
 )
 
 private val DynamicIslandHoleSidePadding = 4.dp
@@ -558,11 +565,11 @@ fun rememberDynamicIslandCutoutSpec(): DynamicIslandCutoutSpec {
             val anchor =
                 resolveDynamicIslandAnchor(topCutout.exactCenterX(), rootWidthPx, snapshot.isRtl)
             val fraction = topCutout.exactCenterX() / rootWidthPx
+            val centreOnCamera =
+                anchor == DynamicIslandAnchor.CENTER &&
+                    fraction in DynamicIslandCenterMinFraction..DynamicIslandCenterMaxFraction
             val horizontalOffsetDp =
-                if (
-                    anchor == DynamicIslandAnchor.CENTER &&
-                        fraction in DynamicIslandCenterMinFraction..DynamicIslandCenterMaxFraction
-                ) {
+                if (centreOnCamera) {
                     (topCutout.exactCenterX() - (rootWidthPx / 2f)).toDp()
                 } else {
                     0.dp
@@ -576,6 +583,7 @@ fun rememberDynamicIslandCutoutSpec(): DynamicIslandCutoutSpec {
                     },
                 horizontalOffset = horizontalOffsetDp,
                 anchor = anchor,
+                cutoutCenterX = if (centreOnCamera) topCutout.exactCenterX() else null,
             )
         }
     }
