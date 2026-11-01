@@ -414,17 +414,19 @@ fun LargeTileContent(
         val animatedBackgroundColor by
             animateColorAsState(colors.iconBackground, label = "QSTileDualTargetBackgroundColor")
         val focusBorderColor = MaterialTheme.colorScheme.secondary
-        // The icon circle of a ColorOS pill is glass, like the round tiles: a blur region of its
-        // own that a white bubble fades in over while the tile is on, so the lit rim of the glass
-        // still shows around the bubble. Without blur it is the flat fill with the glass rim.
+        // The icon circle of a ColorOS pill that is on is glass, like the round tiles: a blur region
+        // of its own that a white bubble fades in over, so the lit rim of the glass still shows
+        // around the bubble. While the pill is off (or unavailable) the circle is a flat, lighter
+        // disc with no rim and no blur region of its own, as in ColorOS. Without blur it is the flat
+        // fill with the glass rim.
         val onGlass = colorOSStyle && LocalColorOSGlassBlur.current != null
-        val glassMaterial =
-            if (active) colorOSGlassActiveTileMaterial() else colorOSGlassTileMaterial()
+        val glassMaterial = colorOSGlassActiveTileMaterial()
         val glassBubbleAlpha by
             animateFloatAsState(if (onGlass && active) 1f else 0f, label = "QSTileGlassBubble")
         // colorOSGlassBlur is @Composable, so it is built here and not inside the thenIf lambda.
         val glassBlurModifier =
-            if (onGlass) Modifier.colorOSGlassBlur(iconShape, glassMaterial) else Modifier
+            if (onGlass && active) Modifier.colorOSGlassBlur(iconShape, glassMaterial)
+            else Modifier
         Box(
             modifier =
                 Modifier.size(CommonTileDefaults.ToggleTargetSize).thenIf(isDualTarget) {
@@ -433,6 +435,11 @@ fun LargeTileContent(
                         .then(glassBlurModifier)
                         .drawBehind {
                             if (onGlass) {
+                                // The flat disc of a pill that is off, it also stays under the
+                                // bubble that fades out while the pill turns off.
+                                if (!active) {
+                                    drawRect(animatedBackgroundColor)
+                                }
                                 if (glassBubbleAlpha > 0f) {
                                     drawRect(
                                         color = animatedBackgroundColor,
