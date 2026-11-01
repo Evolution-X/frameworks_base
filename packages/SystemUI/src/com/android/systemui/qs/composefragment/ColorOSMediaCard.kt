@@ -45,9 +45,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
 import androidx.core.graphics.drawable.toBitmap
 import com.android.systemui.media.controls.domain.pipeline.MediaDataManager
 import com.android.systemui.media.controls.shared.MediaControlDrawables
@@ -90,10 +92,22 @@ class ColorOSMediaSessions : MediaDataManager.Listener {
     }
 }
 
-private val ColorOSMediaArtSize = 46.dp
+private val ColorOSMediaArtSize = 50.dp
 private val ColorOSMediaArtShape = RoundedCornerShape(10.dp)
 private val ColorOSMediaButtonSize = 44.dp
 private val ColorOSMediaOutputIconSize = 24.dp
+
+/** The headphones of the output button are larger than its other icons, like in ColorOS. */
+private val ColorOSMediaHeadphonesIconSize = 32.dp
+
+/** The icon of the device the sound goes to, when it is not headphones. */
+private val ColorOSMediaDeviceIconSize = 26.dp
+
+/**
+ * How much larger the text of the idle card is than the title style it is set in. The playing
+ * card keeps its own title and artist sizes, only the idle text is scaled.
+ */
+private const val ColorOSIdleTextScale = 1.16f
 
 /** The icon of the app in the top left while the art fills the card, as big as the output one. */
 private val ColorOSMediaAppIconSize = ColorOSMediaOutputIconSize
@@ -139,7 +153,7 @@ internal fun ColorOSMediaCard(
     val buttons = data.semanticActions
     val playing = data.isPlaying == true
     val outputEnabled = data.device?.enabled != false && !data.resumption
-    val deviceIcon = rememberDrawableBitmap(data.device?.icon, ColorOSMediaOutputIconSize)
+    val deviceIcon = rememberDrawableBitmap(data.device?.icon, ColorOSMediaDeviceIconSize)
     val headphones = rememberColorOSHeadphonesOutput()
     // With the art filling the card the text and icons sit on the art and not on the glass, so they
     // are light whatever the theme is. Without art there is nothing to fill, the thumbnail layout
@@ -263,21 +277,21 @@ internal fun ColorOSMediaCard(
                                 painter = painterResource(R.drawable.ic_coloros_volume_headphones),
                                 contentDescription = null,
                                 tint = tint,
-                                modifier = Modifier.size(ColorOSMediaOutputIconSize),
+                                modifier = Modifier.size(ColorOSMediaHeadphonesIconSize),
                             )
                         } else if (deviceIcon != null) {
                             Icon(
                                 bitmap = deviceIcon,
                                 contentDescription = null,
                                 tint = tint,
-                                modifier = Modifier.size(ColorOSMediaOutputIconSize),
+                                modifier = Modifier.size(ColorOSMediaDeviceIconSize),
                             )
                         } else {
                             Icon(
                                 painter = painterResource(R.drawable.ic_media_home_devices),
                                 contentDescription = null,
                                 tint = tint,
-                                modifier = Modifier.size(ColorOSMediaOutputIconSize),
+                                modifier = Modifier.size(ColorOSMediaDeviceIconSize),
                             )
                         }
                     }
@@ -415,7 +429,7 @@ private fun ColorOSMediaLayout(
                     else onSurface.copy(alpha = 0.5f),
                 style =
                     if (title != null) MaterialTheme.typography.bodySmall
-                    else MaterialTheme.typography.titleSmall,
+                    else MaterialTheme.typography.titleSmall.scaled(ColorOSIdleTextScale),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -432,6 +446,13 @@ private fun ColorOSMediaLayout(
         Box(Modifier.align(Alignment.TopEnd).padding(top = 4.dp, end = 5.dp)) { output() }
     }
 }
+
+/** This style with the font size and the line height multiplied by [factor]. */
+private fun TextStyle.scaled(factor: Float): TextStyle =
+    copy(
+        fontSize = if (fontSize.isSpecified) fontSize * factor else fontSize,
+        lineHeight = if (lineHeight.isSpecified) lineHeight * factor else lineHeight,
+    )
 
 /** Placeholder for the album art: a faint tile with a music note. */
 @Composable
