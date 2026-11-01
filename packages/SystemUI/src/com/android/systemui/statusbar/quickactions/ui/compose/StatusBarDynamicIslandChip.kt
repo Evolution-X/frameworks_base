@@ -209,19 +209,21 @@ fun StatusBarDynamicIslandChip(
                 index == 0 &&
                     (viewModel.popupContent is PopupContentModel.Media ||
                         viewModel.popupContent is PopupContentModel.LiveScore)
-            Icon(
-                icon = chipIcon.icon,
-                modifier = Modifier
-                    .size(if (isArtworkLike) 18.dp else 16.dp)
-                    .then(
-                        if (isArtworkLike) {
-                            Modifier.clip(CircleShape)
-                        } else {
-                            Modifier
-                        }
-                    ),
-                tint = if (isArtworkLike) Color.Unspecified else chipContentColor,
-            )
+            UprightContent {
+                Icon(
+                    icon = chipIcon.icon,
+                    modifier = Modifier
+                        .size(if (isArtworkLike) 18.dp else 16.dp)
+                        .then(
+                            if (isArtworkLike) {
+                                Modifier.clip(CircleShape)
+                            } else {
+                                Modifier
+                            }
+                        ),
+                    tint = if (isArtworkLike) Color.Unspecified else chipContentColor,
+                )
+            }
         }
 
         viewModel.chipText
@@ -232,17 +234,21 @@ fun StatusBarDynamicIslandChip(
                     it.isNotBlank()
             }
             ?.let { text ->
-                Text(
-                    text = text,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = chipContentColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier =
-                        Modifier.widthIn(
-                            max = if (isStartAnchored) minOf(maxTextWidth, 88.dp) else maxTextWidth
-                        ),
-                )
+                UprightContent {
+                    Text(
+                        text = text,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = chipContentColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier =
+                            Modifier.widthIn(
+                                max =
+                                    if (isStartAnchored) minOf(maxTextWidth, 88.dp)
+                                    else maxTextWidth
+                            ),
+                    )
+                }
             }
 
         when (val popupContent = viewModel.popupContent) {
@@ -252,13 +258,15 @@ fun StatusBarDynamicIslandChip(
                         (popupContent.model.artworkIcon as? IconModel.Loaded)?.drawable
                     }
                 if (popupContent.model.isPlaying) {
-                    AudioReactiveBars(
-                        isPlaying = true,
-                        color = chipContentColor,
-                        artworkDrawable = artworkDrawable,
-                    )
+                    UprightContent {
+                        AudioReactiveBars(
+                            isPlaying = true,
+                            color = chipContentColor,
+                            artworkDrawable = artworkDrawable,
+                        )
+                    }
                 } else if (pageCount > 1) {
-                    SwipeHint(color = chipContentColor.copy(alpha = 0.72f))
+                    UprightContent { SwipeHint(color = chipContentColor.copy(alpha = 0.72f)) }
                 }
             }
             is PopupContentModel.ScreenRecord ->
@@ -288,7 +296,7 @@ fun StatusBarDynamicIslandChip(
                 )
             else -> {
                 if (pageCount > 1) {
-                    SwipeHint(color = chipContentColor.copy(alpha = 0.72f))
+                    UprightContent { SwipeHint(color = chipContentColor.copy(alpha = 0.72f)) }
                 }
             }
         }
@@ -359,52 +367,60 @@ private fun UtilityStatusIslandChip(
     ) {
         if (isStartAnchored) {
             Spacer(modifier = Modifier.width(cutoutSpec.embeddedGapWidth))
-            Icon(
-                icon = viewModel.icons.first().icon,
-                modifier = Modifier.size(16.dp),
-                tint = chipContentColor,
-            )
+            UprightContent {
+                Icon(
+                    icon = viewModel.icons.first().icon,
+                    modifier = Modifier.size(16.dp),
+                    tint = chipContentColor,
+                )
+            }
             Spacer(modifier = Modifier.width(6.dp * widthScale))
-            Text(
-                text = utilityText,
-                style = MaterialTheme.typography.labelLarge,
-                color = chipContentColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Start,
-                modifier =
-                    Modifier.widthIn(min = 36.dp * widthScale, max = rightSegmentWidth)
-                        .padding(vertical = 7.dp * heightScale),
-            )
-            Spacer(modifier = Modifier.width(10.dp * widthScale))
-        } else {
-            Spacer(modifier = Modifier.width(10.dp * widthScale))
-            Icon(
-                icon = viewModel.icons.first().icon,
-                modifier = Modifier.size(16.dp),
-                tint = chipContentColor,
-            )
-            Spacer(modifier = Modifier.width(cutoutSpec.embeddedGapWidth))
-            Box(
-                modifier =
-                    Modifier.width(rightSegmentWidth)
-                        .padding(
-                            start = 6.dp * widthScale,
-                            top = 7.dp * heightScale,
-                            bottom = 7.dp * heightScale,
-                            end = 6.dp * widthScale,
-                        ),
-                contentAlignment = Alignment.CenterEnd,
-            ) {
+            UprightContent {
                 Text(
                     text = utilityText,
                     style = MaterialTheme.typography.labelLarge,
                     color = chipContentColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.End,
-                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Start,
+                    modifier =
+                        Modifier.widthIn(min = 36.dp * widthScale, max = rightSegmentWidth)
+                            .padding(vertical = 7.dp * heightScale),
                 )
+            }
+            Spacer(modifier = Modifier.width(10.dp * widthScale))
+        } else {
+            Spacer(modifier = Modifier.width(10.dp * widthScale))
+            UprightContent {
+                Icon(
+                    icon = viewModel.icons.first().icon,
+                    modifier = Modifier.size(16.dp),
+                    tint = chipContentColor,
+                )
+            }
+            Spacer(modifier = Modifier.width(cutoutSpec.embeddedGapWidth))
+            UprightContent {
+                Box(
+                    modifier =
+                        Modifier.width(rightSegmentWidth)
+                            .padding(
+                                start = 6.dp * widthScale,
+                                top = 7.dp * heightScale,
+                                bottom = 7.dp * heightScale,
+                                end = 6.dp * widthScale,
+                            ),
+                    contentAlignment = Alignment.CenterEnd,
+                ) {
+                    Text(
+                        text = utilityText,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = chipContentColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
             Spacer(modifier = Modifier.width(10.dp * widthScale))
         }
@@ -417,18 +433,20 @@ private fun StatusContent(
     color: Color,
     showSwipeHint: Boolean,
 ) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelLarge,
-            color = color,
-            maxLines = 1,
-        )
-        if (showSwipeHint) {
-            SwipeHint(color = color.copy(alpha = 0.72f))
+    UprightContent {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge,
+                color = color,
+                maxLines = 1,
+            )
+            if (showSwipeHint) {
+                SwipeHint(color = color.copy(alpha = 0.72f))
+            }
         }
     }
 }

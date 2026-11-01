@@ -18,7 +18,10 @@ package com.android.systemui.statusbar.quickactions.ui.compose
 
 import android.graphics.Rect
 import android.view.View
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
@@ -70,6 +73,35 @@ fun resolveDynamicIslandCutoutEdge(view: View): DynamicIslandCutoutEdge? {
         return DynamicIslandCutoutEdge(DynamicIslandEdge.RIGHT, cutout.dynamicIslandHoleWithin(it))
     }
     return null
+}
+
+/**
+ * Clockwise quarter turns that the pill is currently turned by, as seen from inside it. Leaf
+ * content (artwork, visualizer, icons, text) reads this through [UprightContent] and turns back by
+ * the same amount, so it faces the same way as the rest of the system UI while the pill itself
+ * stays laid out along the camera edge.
+ */
+val LocalDynamicIslandPillTurns = compositionLocalOf { 0 }
+
+/**
+ * Keeps [content] upright on screen when the pill around it is turned onto a side edge. The pill
+ * layout still sees the content's turned size, so a wide label makes the pill thicker and a tall
+ * one makes it longer along the edge. A no-op for a top camera.
+ */
+@Composable
+fun UprightContent(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    val turns = LocalDynamicIslandPillTurns.current.mod(4)
+    if (turns == 0) {
+        content()
+    } else {
+        Box(modifier = modifier.rotatedLayout(-turns)) { content() }
+    }
+}
+
+/** Provides [turns] to [UprightContent] below. */
+@Composable
+fun ProvideDynamicIslandPillTurns(turns: Int, content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalDynamicIslandPillTurns provides turns, content = content)
 }
 
 /**
