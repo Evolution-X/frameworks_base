@@ -67,7 +67,7 @@ fun PagerDots(
     /** Color for the dots corresponding to the not current pages. */
     nonActiveColor: Color,
     modifier: Modifier = Modifier,
-    /** Size of each inactive dot. The active dot width is double this. */
+    /** Size of each inactive dot. The active dot width is double this, unless [roundDots]. */
     dotSize: Dp = 6.dp,
     /** Space between each dot. */
     spaceSize: Dp = 4.dp,
@@ -75,10 +75,12 @@ fun PagerDots(
     showArrows: Boolean = false,
     /** Whether to cycle through pages on click on the pager dots */
     clickToCyclePages: Boolean = false,
+    /** Whether the active dot is a round dot like the others, and not a wider pill. */
+    roundDots: Boolean = false,
 ) {
     if (pagerState.pageCount < 2) return
 
-    val activeDotWidth = dotSize * 2
+    val activeDotWidth = if (roundDots) dotSize else dotSize * 2
     // Active dot + inactive dots + spacing
     val totalWidth =
         activeDotWidth +
@@ -166,9 +168,11 @@ fun PagerDots(
                 var x = 0f
                 repeat(pagerState.pageCount) { page ->
                     val width =
-                        when (page) {
-                            impactedIndex -> dotSizePx + dotSizePx * offsetFraction
-                            pagerState.currentPage -> activeDotWidthPx - dotSizePx * offsetFraction
+                        when {
+                            roundDots -> dotSizePx
+                            page == impactedIndex -> dotSizePx + dotSizePx * offsetFraction
+                            page == pagerState.currentPage ->
+                                activeDotWidthPx - dotSizePx * offsetFraction
                             else -> dotSizePx
                         }
 
