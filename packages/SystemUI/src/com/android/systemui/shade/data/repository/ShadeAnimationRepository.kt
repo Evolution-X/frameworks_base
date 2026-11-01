@@ -24,4 +24,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 @SysUISingleton
 class ShadeAnimationRepository @Inject constructor() {
     val isLaunchingActivity = MutableStateFlow(false)
+
+    /** How far the launch animation of an activity from the shade has run, in [0, 1]. */
+    val launchProgress = MutableStateFlow(0f)
 }
