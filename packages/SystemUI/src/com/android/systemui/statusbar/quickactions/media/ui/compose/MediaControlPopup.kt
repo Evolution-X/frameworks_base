@@ -58,6 +58,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.graphics.toArgb
@@ -84,7 +85,9 @@ import com.android.systemui.media.remedia.ui.viewmodel.MediaCarouselVisibility
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.quickactions.media.shared.model.MediaControlChipModel
 import com.android.systemui.statusbar.quickactions.media.ui.viewmodel.MediaControlPopupViewModel
+import com.android.systemui.statusbar.quickactions.ui.compose.MediaArtFlip
 import com.android.systemui.statusbar.quickactions.ui.compose.PopupSurface
+import com.android.systemui.statusbar.quickactions.ui.compose.rememberAlbumArtAccent
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -149,7 +152,13 @@ fun MediaControlPopup(
     useWaveform: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    val accent = MaterialTheme.colorScheme.primary
+    val artworkDrawable =
+        remember(model.artworkIcon) { (model.artworkIcon as? UiIcon.Loaded)?.drawable }
+    val accent =
+        rememberAlbumArtAccent(artworkDrawable, fallback = MaterialTheme.colorScheme.primary)
+    val onAccent =
+        if (artworkDrawable == null) MaterialTheme.colorScheme.onPrimary
+        else if (accent.luminance() > 0.5f) Color.Black else Color.White
     PopupSurface(
         shape = PopupShape,
         modifier = modifier.widthIn(min = 320.dp, max = 400.dp),
@@ -170,7 +179,12 @@ fun MediaControlPopup(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                MediaArtwork(model = model)
+                MediaArtFlip(
+                    track = model.songName?.toString() to model.packageName,
+                    artwork = model.artworkIcon,
+                ) { artworkIcon ->
+                    MediaArtwork(model = model, artworkIcon = artworkIcon)
+                }
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -231,7 +245,7 @@ fun MediaControlPopup(
                 MediaActionButton(
                     action = model.playOrPause,
                     containerColor = accent,
-                    iconTint = MaterialTheme.colorScheme.onPrimary,
+                    iconTint = onAccent,
                     buttonSize = 72.dp,
                     iconSize = 28.dp,
                     emphasized = true,
@@ -248,10 +262,10 @@ fun MediaControlPopup(
 }
 
 @Composable
-private fun MediaArtwork(model: MediaControlChipModel) {
+private fun MediaArtwork(model: MediaControlChipModel, artworkIcon: UiIcon?) {
     val contentDescription = model.appName?.let { ContentDescription.Loaded(it) }
     val artwork =
-        model.artworkIcon
+        artworkIcon
             ?: model.appIcon
             ?: UiIcon.Resource(
                 resId = com.android.internal.R.drawable.ic_audio_media,
