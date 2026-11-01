@@ -66,6 +66,7 @@ import com.android.systemui.statusbar.quickactions.shared.model.PopupContentMode
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipModel
 import com.android.systemui.statusbar.quickactions.stopwatch.ui.compose.StopwatchPopup
 import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings.POPUP_COLOR_MODE_BLUR
+import kotlin.math.roundToInt
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
@@ -74,12 +75,17 @@ import kotlinx.coroutines.launch
  * status bar. When [chipBoundsInScreen] is provided, the popup grows out of the chip's on-screen
  * position and aspect ratio with an independent-axis squish animation, rather than a generic
  * uniform scale-in.
+ *
+ * With a [sideEdge] camera the island is docked to the left or right edge, so the popup opens
+ * beside the pill instead: next to it on the inner side and centered on the camera, growing out
+ * of the pill from that edge.
  */
 @Composable
 fun StatusBarPopup(
     viewModel: QuickActionChipModel.PopupChip,
     isVisible: Boolean,
     chipBoundsInScreen: Rect? = null,
+    sideEdge: DynamicIslandCutoutEdge? = null,
 ) {
     val density = Density(LocalContext.current)
     val yOffsetPx =
@@ -88,8 +94,10 @@ fun StatusBarPopup(
                 .getDimensionPixelSize(R.dimen.status_bar_height)
                 .plus(4.dp.roundToPx())
         }
+    val sideGapPx = with(density) { 4.dp.roundToPx() }
+    val sideMarginPx = with(density) { 4.dp.roundToPx() }
     val positionProvider =
-        remember(yOffsetPx) {
+        remember(yOffsetPx, sideEdge?.edge, chipBoundsInScreen, sideGapPx, sideMarginPx) {
             object : PopupPositionProvider {
                 override fun calculatePosition(
                     anchorBounds: IntRect,
@@ -98,11 +106,49 @@ fun StatusBarPopup(
                     popupContentSize: IntSize,
                 ): IntOffset {
                     val maxX = (windowSize.width - popupContentSize.width).coerceAtLeast(0)
+                    val chip = chipBoundsInScreen
+                    if (sideEdge != null && chip != null) {
+                        // The anchor is the turned pill, whose parent-reported bounds are not
+                        // reliable, so place against the pill's own on-screen bounds. The popup
+                        // window is parented to the full-screen island window, so these are
+                        // its coordinates.
+                        val x =
+                            when (sideEdge.edge) {
+                                DynamicIslandEdge.RIGHT ->
+                                    chip.left.roundToInt() - sideGapPx - popupContentSize.width
+                                else -> chip.right.roundToInt() + sideGapPx
+                            }.coerceIn(0, maxX)
+                        val maxY =
+                            (windowSize.height - popupContentSize.height - sideMarginPx)
+                                .coerceAtLeast(sideMarginPx)
+                        val y =
+                            (chip.center.y.roundToInt() - popupContentSize.height / 2)
+                                .coerceIn(sideMarginPx, maxY)
+                        return IntOffset(x, y)
+                    }
                     val x =
                         (anchorBounds.center.x - popupContentSize.width / 2).coerceIn(0, maxX)
                     return IntOffset(x, anchorBounds.top + yOffsetPx)
                 }
             }
+        }
+    // Direction the popup slides in from. Top camera: down from the status bar. Side camera:
+    // out from the edge the pill sits on.
+    val slideInPx = with(density) { 24.dp.toPx() }
+    val slideOutPx = with(density) { 16.dp.toPx() }
+    val enterOffset =
+        when (sideEdge?.edge) {
+            null,
+            DynamicIslandEdge.TOP -> Offset(0f, -24f)
+            DynamicIslandEdge.LEFT -> Offset(-slideInPx, 0f)
+            DynamicIslandEdge.RIGHT -> Offset(slideInPx, 0f)
+        }
+    val exitOffset =
+        when (sideEdge?.edge) {
+            null,
+            DynamicIslandEdge.TOP -> Offset(0f, -16f)
+            DynamicIslandEdge.LEFT -> Offset(-slideOutPx, 0f)
+            DynamicIslandEdge.RIGHT -> Offset(slideOutPx, 0f)
         }
     Popup(
         popupPositionProvider = positionProvider,
@@ -124,6 +170,19 @@ fun StatusBarPopup(
                 if (chip == null || popup == null || popup.width <= 0f) {
                     TransformOrigin(0.5f, 0f)
                 } else {
+                    if (sideEdge != null && sideEdge.edge != DynamicIslandEdge.TOP) {
+                        // Grow out of the pill on the edge: pivot on the popup side facing
+                        // it, level with the camera.
+                        val pivotX =
+                            ((chip.center.x - popup.left) / popup.width).coerceIn(0f, 1f)
+                        val pivotY =
+                            if (popup.height > 0f) {
+                                ((chip.center.y - popup.top) / popup.height).coerceIn(0f, 1f)
+                            } else {
+                                0.5f
+                            }
+                        TransformOrigin(pivotX, pivotY)
+                    } else {
                     val pivotX =
                         ((chip.center.x - popup.left) / popup.width).coerceIn(0.05f, 0.95f)
                     val pivotY =
@@ -133,6 +192,7 @@ fun StatusBarPopup(
                             0f
                         }
                     TransformOrigin(pivotX, pivotY)
+                    }
                 }
             }
         }
@@ -155,7 +215,8 @@ fun StatusBarPopup(
         val scaleX = remember { Animatable(initialScaleFromChip.x) }
         val scaleY = remember { Animatable(initialScaleFromChip.y) }
         val alpha = remember { Animatable(0f) }
-        val translationY = remember { Animatable(-24f) }
+        val translationX = remember { Animatable(enterOffset.x) }
+        val translationY = remember { Animatable(enterOffset.y) }
         val colorMode = rememberPopupColorMode()
         val skipMotionOnDismiss = colorMode == POPUP_COLOR_MODE_BLUR
 
@@ -164,7 +225,8 @@ fun StatusBarPopup(
                 scaleX.snapTo(initialScaleFromChip.x)
                 scaleY.snapTo(initialScaleFromChip.y)
                 alpha.snapTo(0f)
-                translationY.snapTo(-24f)
+                translationX.snapTo(enterOffset.x)
+                translationY.snapTo(enterOffset.y)
                 coroutineScope {
                     launch {
                         scaleX.animateTo(
@@ -176,6 +238,12 @@ fun StatusBarPopup(
                         scaleY.animateTo(
                             targetValue = 1f,
                             animationSpec = DynamicIslandMotion.OpenHeight,
+                        )
+                    }
+                    launch {
+                        translationX.animateTo(
+                            targetValue = 0f,
+                            animationSpec = DynamicIslandMotion.OpenPosition,
                         )
                     }
                     launch {
@@ -218,8 +286,14 @@ fun StatusBarPopup(
                         )
                     }
                     launch {
+                        translationX.animateTo(
+                            targetValue = exitOffset.x,
+                            animationSpec = DynamicIslandMotion.ClosePosition,
+                        )
+                    }
+                    launch {
                         translationY.animateTo(
-                            targetValue = -16f,
+                            targetValue = exitOffset.y,
                             animationSpec = DynamicIslandMotion.ClosePosition,
                         )
                     }
@@ -258,6 +332,7 @@ fun StatusBarPopup(
                             this.scaleX = scaleX.value
                             this.scaleY = scaleY.value
                             this.alpha = alpha.value
+                            this.translationX = translationX.value
                             this.translationY = translationY.value
                             this.transformOrigin = transformOrigin
                         }
