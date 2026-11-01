@@ -272,6 +272,13 @@ public final class BackgroundBlurDrawable extends Drawable {
 
     @Override
     public void setBounds(int left, int top, int right, int bottom) {
+        final Rect bounds = getBounds();
+        // Callers also set bounds while drawing. Keep the existing path generation when its
+        // geometry is unchanged, but rebuild an empty path after becoming visible again.
+        if (bounds.left == left && bounds.top == top && bounds.right == right
+                && bounds.bottom == bottom && !mRectPath.isEmpty()) {
+            return;
+        }
         super.setBounds(left, top, right, bottom);
         mRenderNode.setPosition(left, top, right, bottom);
         updatePath();
