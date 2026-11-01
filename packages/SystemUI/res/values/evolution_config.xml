@@ -80,4 +80,8 @@
 
     <!-- Notification counter -->
     <integer name="status_bar_notification_info_maxnum">999</integer>
+
+    <!-- Draw rounded corners in software instead of the HWC display decoration layer.
+         For composers that crash on a frame holding only the decoration mask. -->
+    <bool name="config_disableHwcScreenDecoration">false</bool>
 </resources>
