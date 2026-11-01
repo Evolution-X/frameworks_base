@@ -39,6 +39,7 @@ private fun extraBottomMarginPx(context: Context): Int =
     context.resources.getDimensionPixelSize(R.dimen.ax_dynamic_bar_keyguard_chip_extra_bottom_margin)
 
 private val HIDDEN_VIEW_IDS = listOf(
+    R.id.status_view_media_container,
     R.id.shared_notification_container,
     R.id.notificationShelf,
     R.id.bc_smartspace_view,
