@@ -1261,13 +1261,16 @@ private fun applyOverlapState(
     val loc = IntArray(2)
     var anyOverlap = false
     val hasIsland = !islandBounds.isEmpty
+    val density = statusIconContainer.resources.displayMetrics.density
 
     for (i in 0 until statusIconContainer.childCount) {
         val child = statusIconContainer.getChildAt(i)
         if (child.width == 0) continue
         child.getLocationInWindow(loc)
         childRect.set(loc[0], loc[1], loc[0] + child.width, loc[1] + child.height)
-        val overlaps = hasIsland && Rect.intersects(childRect, islandBounds)
+        val overlaps =
+            hasIsland &&
+                iconOverlapsIsland(childRect, islandBounds, density, child in hiddenByOverlap)
 
         if (overlaps) {
             if (child.visibility == View.VISIBLE) {
@@ -1318,6 +1321,23 @@ private fun clearOverlapState(
     }
 }
 
+/**
+ * Whether a status icon is under the island. A hidden icon needs a wider berth to come back than
+ * a shown one needs to go, so icons at the island's edge don't flicker while it resizes.
+ */
+private fun iconOverlapsIsland(icon: Rect, island: Rect, density: Float, hidden: Boolean): Boolean {
+    if (icon.isEmpty || island.isEmpty) return false
+    val margin = ((if (hidden) ICON_SHOW_MARGIN_DP else ICON_HIDE_MARGIN_DP) * density).toInt()
+    return icon.bottom > island.top &&
+        icon.top < island.bottom &&
+        icon.right > island.left - margin &&
+        icon.left < island.right + margin
+}
+
+private const val ICON_HIDE_MARGIN_DP = 6f
+private const val ICON_SHOW_MARGIN_DP = 10f
+private val IconHideEasing = PathInterpolator(0.4f, 0f, 1f, 1f)
+private val IconShowEasing = PathInterpolator(0f, 0f, 0.2f, 1f)
 private const val ICON_BLUR_DURATION_MS = 240L
 private const val ICON_BLUR_MAX_RADIUS_DP = 6f
 
@@ -1370,7 +1390,7 @@ private fun runIconBlur(
     val anim = IconBlurAnim(animator, hiding, originalAlpha).also { it.progress = from }
     iconBlurAnims[view] = anim
     animator.duration = ICON_BLUR_DURATION_MS
-    animator.interpolator = PathInterpolator(0.4f, 0f, 0.2f, 1f)
+    animator.interpolator = if (hiding) IconHideEasing else IconShowEasing
     animator.addUpdateListener {
         anim.progress = it.animatedValue as Float
         applyIconBlur(view, anim.progress, originalAlpha)
