@@ -66,14 +66,14 @@
     </Constraint>
 
     <!-- The head of a chain with the icons: carrier name at the start, icons at the end.
-         The start margin lines the name up with the center of the edit button. -->
+         The start margin puts the name where it is in the ColorOS panel, a little before the edit button. -->
     <Constraint
         android:id="@+id/carrier_group">
         <Layout
             android:layout_width="0dp"
             android:layout_height="@dimen/large_screen_shade_header_min_height"
             android:layout_marginTop="@dimen/qs_coloros_header_status_top"
-            android:layout_marginStart="33dp"
+            android:layout_marginStart="25dp"
             app:layout_constrainedWidth="true"
             app:layout_constraintWidth_min="48dp"
             app:layout_constraintWidth_default="wrap"

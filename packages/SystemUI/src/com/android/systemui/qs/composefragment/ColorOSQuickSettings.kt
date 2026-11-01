@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
@@ -166,6 +167,19 @@ private val ColorOSSliderBlue = Color(0xFF0068FF)
 
 /** An icon on the white fill of a slider is black at 70%, not solid black, as in ColorOS. */
 private val ColorOSSliderIconOnFill = Color(0xB3000000)
+
+/** Size of the icon at the foot of a ColorOS slider, the brightness sun. */
+private val ColorOSSliderIconSize = 28.dp
+
+/**
+ * Size of the headphones of the volume slider, they are drawn larger than the sun, as ColorOS does,
+ * and the other volume icons.
+ */
+private val ColorOSVolumeHeadphonesIconSize = 32.dp
+private val ColorOSVolumeIconSize = 28.dp
+
+/** Space between the foot of a ColorOS slider and its icon. */
+private val ColorOSSliderIconBottomInset = 18.dp
 
 /** Sun-icon colour at full brightness (the orange of the 🔆 emoji). */
 private val ColorOSBrightnessFull = Color(0xFFFF9F0A)
@@ -491,6 +505,7 @@ private fun ColorOSVerticalSlider(
     onChange: (Float) -> Unit,
     onStop: (Float) -> Unit,
     modifier: Modifier = Modifier,
+    iconSize: Dp = ColorOSSliderIconSize,
     fullIconTint: Color? = null,
     snap: (Float) -> Float = { it },
     onLongPress: (() -> Unit)? = null,
@@ -597,7 +612,10 @@ private fun ColorOSVerticalSlider(
                     local > 0.18f -> iconTint
                     else -> glass.iconOff
                 },
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp).size(26.dp),
+            modifier =
+                Modifier.align(Alignment.BottomCenter)
+                    .padding(bottom = ColorOSSliderIconBottomInset)
+                    .size(iconSize),
         )
     }
 }
@@ -663,6 +681,7 @@ private fun ColorOSVolumeSlider(
                 else -> R.drawable.ic_coloros_volume
             },
         iconTint = glass.accent,
+        iconSize = if (headphones) ColorOSVolumeHeadphonesIconSize else ColorOSVolumeIconSize,
         label = stringResource(R.string.stream_music),
         glass = glass,
         onChange = { f -> scope.launch { audioVolumeInteractor.setVolume(stream, toVolume(f)) } },
@@ -894,7 +913,20 @@ private fun ColorOSRingerButton(
 }
 
 /** Diameter of the two round buttons of the ColorOS header. */
-private val ColorOSHeaderButtonSize = 44.dp
+private val ColorOSHeaderButtonSize = 40.dp
+
+/** How far the two buttons sit in from the sides of the panel, ColorOS keeps them off its edge. */
+private val ColorOSHeaderButtonInset = 6.dp
+
+/** How far the row of the buttons is moved up, ColorOS puts it higher above the status row. */
+private val ColorOSHeaderButtonRaise = 5.5.dp
+
+/**
+ * The glyphs of the two header buttons are drawn at different sizes, as the ColorOS gear is larger
+ * in its circle than the pencil is.
+ */
+private val ColorOSHeaderEditIconSize = 21.dp
+private val ColorOSHeaderSettingsIconSize = 29.dp
 
 /**
  * The two buttons above the panel: edit on the start side and settings on the end side, round
@@ -913,13 +945,18 @@ internal fun ColorOSHeaderButtons(
     val showEdit by rememberSystemSettingEnabled(Settings.System.QS_FOOTER_SHOW_EDIT)
     val showSettings by rememberSystemSettingEnabled(Settings.System.QS_FOOTER_SHOW_SETTINGS)
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .offset(y = -ColorOSHeaderButtonRaise)
+                .padding(horizontal = ColorOSHeaderButtonInset),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Top,
     ) {
         if (showEdit) {
             ColorOSHeaderButton(
                 iconRes = R.drawable.ic_edit,
+                iconSize = ColorOSHeaderEditIconSize,
                 description = stringResource(R.string.accessibility_quick_settings_edit),
                 glass = glass,
                 onClick = onEdit,
@@ -930,6 +967,7 @@ internal fun ColorOSHeaderButtons(
         if (showSettings && onSettings != null) {
             ColorOSHeaderButton(
                 iconRes = R.drawable.ic_qs_footer_settings,
+                iconSize = ColorOSHeaderSettingsIconSize,
                 description = stringResource(R.string.accessibility_quick_settings_settings),
                 glass = glass,
                 onClick = onSettings,
@@ -943,6 +981,7 @@ internal fun ColorOSHeaderButtons(
 @Composable
 private fun ColorOSHeaderButton(
     iconRes: Int,
+    iconSize: Dp,
     description: String,
     glass: ColorOSGlass,
     onClick: (Expandable) -> Unit,
@@ -969,7 +1008,7 @@ private fun ColorOSHeaderButton(
                 painter = painterResource(iconRes),
                 contentDescription = null,
                 tint = glass.iconOff,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(iconSize),
             )
         }
     }
