@@ -405,7 +405,11 @@ fun StatusBarPopup(
                         }
                         is PopupContentModel.ScreenRecord -> ScreenRecordPopup(model = popupContent.model)
                         is PopupContentModel.LiveScore -> LiveScorePopup(model = popupContent.model)
-                        is PopupContentModel.Flashlight -> FlashlightPopup(model = popupContent.model)
+                        is PopupContentModel.Flashlight ->
+                            FlashlightPopup(
+                                model = popupContent.model,
+                                hapticsViewModelFactory = popupContent.hapticsViewModelFactory,
+                            )
                         is PopupContentModel.Stopwatch -> StopwatchPopup(model = popupContent.model)
                         is PopupContentModel.Alarm -> AlarmPopup(model = popupContent.model)
                         is PopupContentModel.Charging -> ChargingPopup(model = popupContent.model)
