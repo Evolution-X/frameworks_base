@@ -17,6 +17,8 @@
 package com.android.systemui.statusbar.quickactions.ui.compose
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -42,7 +44,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipId
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipModel
@@ -57,6 +62,7 @@ fun StatusBarDynamicIslandContainer(
     onIslandBoundsChanged: (android.graphics.Rect) -> Unit = {},
     onIslandActiveChanged: (Boolean) -> Unit = {},
     onIslandExpandedChanged: (Boolean) -> Unit = {},
+    appHandleBounds: List<android.graphics.Rect> = emptyList(),
     modifier: Modifier = Modifier,
     sideEdge: DynamicIslandCutoutEdge? = null,
 ) {
@@ -74,6 +80,24 @@ fun StatusBarDynamicIslandContainer(
     // Where the island was placed before it is shifted onto the camera; NaN until first placed.
     var naturalCenterX by remember { mutableFloatStateOf(Float.NaN) }
     val cameraCenterX = if (sideEdge == null) cutoutSpec.cutoutCenterX else null
+    // Tablets show the desktop-windowing app handle at the top centre, where the island sits.
+    // Step the island aside so the handle stays visible and tappable. Phones keep their layout.
+    val avoidAppHandles =
+        sideEdge == null && cameraCenterX == null && dynamicIslandAvoidsAppHandles()
+    var islandBounds by remember { mutableStateOf(Rect.Zero) }
+    val appHandleGapPx = with(LocalDensity.current) { AppHandleGap.toPx() }
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val appHandleShift by
+        animateFloatAsState(
+            targetValue =
+                if (avoidAppHandles) {
+                    appHandleClearance(islandBounds, appHandleBounds, appHandleGapPx, isRtl)
+                } else {
+                    0f
+                },
+            animationSpec = tween(300, easing = FastOutSlowInEasing),
+            label = "islandAppHandleShift",
+        )
 
     LaunchedEffect(chips) {
         val currentChipIds = chips.map { it.chipId }
@@ -158,6 +182,14 @@ fun StatusBarDynamicIslandContainer(
                             }
                     } else {
                         Modifier.offset(x = cutoutSpec.horizontalOffset)
+                    }
+                )
+                .then(
+                    if (avoidAppHandles) {
+                        Modifier.onPlaced { islandBounds = it.boundsInWindow() }
+                            .graphicsLayer { translationX = appHandleShift }
+                    } else {
+                        Modifier
                     }
                 )
                 .onGloballyPositioned { coordinates ->
@@ -255,4 +287,38 @@ fun StatusBarDynamicIslandContainer(
             )
         }
     }
+}
+
+private const val TABLET_MIN_WIDTH_DP = 600
+private val AppHandleGap = 8.dp
+
+/** Whether the island steps aside for app handles: tablets only, phones keep their layout. */
+@Composable
+internal fun dynamicIslandAvoidsAppHandles(): Boolean =
+    LocalConfiguration.current.smallestScreenWidthDp >= TABLET_MIN_WIDTH_DP
+
+/**
+ * How far to move an island at [island] so it clears every app handle it overlaps, stepping
+ * towards the end side and leaving [gapPx] between them. Zero when nothing overlaps.
+ */
+private fun appHandleClearance(
+    island: Rect,
+    appHandles: List<android.graphics.Rect>,
+    gapPx: Float,
+    isRtl: Boolean,
+): Float {
+    if (island.width <= 0f) return 0f
+    var left = island.left
+    repeat(appHandles.size) {
+        val hit =
+            appHandles.firstOrNull {
+                !it.isEmpty &&
+                    it.left < left + island.width &&
+                    it.right > left &&
+                    it.top < island.bottom &&
+                    it.bottom > island.top
+            } ?: return left - island.left
+        left = if (isRtl) hit.left - gapPx - island.width else hit.right + gapPx
+    }
+    return left - island.left
 }
