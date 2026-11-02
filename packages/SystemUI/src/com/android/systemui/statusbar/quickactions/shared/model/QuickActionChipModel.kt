@@ -163,6 +163,8 @@ sealed class QuickActionChipModel {
         val togglePopup: (Context, RectF) -> Unit = { _, _ -> },
         val showPopup: () -> Unit = {},
         val hidePopup: () -> Unit = {},
+        /** Swipes the chip away until what it shows changes. */
+        val hide: () -> Unit = {},
         val contentDescription: ContentDescription? = null,
         val popupViewModelFactory: StatusBarPopupViewModel.Factory? = null,
         val popupContent: PopupContentModel = PopupContentModel.None,

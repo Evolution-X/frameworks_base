@@ -25,6 +25,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
@@ -253,10 +255,13 @@ fun StatusBarDynamicIslandContainer(
                     cutoutSpec = cutoutSpec,
                     onChipBoundsChanged = { bounds -> anchorBounds = bounds },
                     modifier =
-                        Modifier.pointerInput(chips.size, chip.chipId) {
+                        Modifier.swipeUpToHide(chip.chipId, thresholdPx) { chip.hide() }
+                            .pointerInput(chips.size, chip.chipId) {
                             detectHorizontalDragGestures(
                                 onDragEnd = {
                                     when {
+                                        chips.size <= 1 && abs(horizontalDragPx) >= thresholdPx ->
+                                            chip.hide()
                                         horizontalDragPx <= -thresholdPx -> selectRelative(1)
                                         horizontalDragPx >= thresholdPx -> selectRelative(-1)
                                     }
@@ -322,3 +327,21 @@ private fun appHandleClearance(
     }
     return left - island.left
 }
+
+/** Hides the island on a swipe up; a pull down is left to the shade. */
+private fun Modifier.swipeUpToHide(key: Any, slopPx: Float, onHide: () -> Unit): Modifier =
+    pointerInput(key) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            var change = down
+            while (change.pressed) {
+                change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                val delta = change.position - down.position
+                if (-delta.y >= slopPx && -delta.y > abs(delta.x)) {
+                    change.consume()
+                    onHide()
+                    break
+                }
+            }
+        }
+    }
