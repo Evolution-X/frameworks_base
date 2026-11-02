@@ -152,6 +152,7 @@ import com.android.systemui.statusbar.quickactions.ui.compose.StatusBarDynamicIs
 import com.android.systemui.statusbar.quickactions.ui.compose.dynamicIslandHoleRect
 import com.android.systemui.statusbar.quickactions.ui.compose.dynamicIslandStartEdgePx
 import com.android.systemui.statusbar.quickactions.ui.compose.dynamicIslandAvoidsAppHandles
+import com.android.systemui.statusbar.quickactions.ui.compose.dynamicIslandCameraCenterOffsetYPx
 import com.android.systemui.statusbar.quickactions.ui.compose.resolveDynamicIslandAnchor
 import com.android.systemui.statusbar.quickactions.ui.compose.resolveDynamicIslandCutoutEdge
 import com.android.systemui.statusbar.pipeline.shared.ui.view.SystemStatusIconsLayoutHelper
@@ -534,6 +535,9 @@ fun StatusBarRoot(
 
                 var islandCorrections = 0
                 var islandOffsetXPx = 0f
+                // Vertical shift that puts the island on the camera when the camera is not at the
+                // vertical centre of the status bar; the user's offset is applied on top of it.
+                var islandAutoOffsetYPx = 0f
                 val islandResolver = context.contentResolver
 
                 fun applyIslandOffset() {
@@ -543,9 +547,13 @@ fun StatusBarRoot(
                         }
                     composeView.translationX = islandOffsetXPx
                     composeView.translationY =
-                        with(DynamicIslandFeatureSettings) {
-                            islandResolver.readDynamicIslandOffsetPx(OFFSET_Y_DP10, islandDensity)
-                        }
+                        islandAutoOffsetYPx +
+                            with(DynamicIslandFeatureSettings) {
+                                islandResolver.readDynamicIslandOffsetPx(
+                                    OFFSET_Y_DP10,
+                                    islandDensity,
+                                )
+                            }
                 }
 
                 var islandReleaseFraction = 0f
@@ -634,6 +642,13 @@ fun StatusBarRoot(
                             phoneStatusBarView,
                         )
                     }
+                    islandAutoOffsetYPx =
+                        dynamicIslandCameraCenterOffsetYPx(
+                            host,
+                            phoneStatusBarView,
+                            cutout,
+                            islandDensity,
+                        )
                     if (startAnchored && cutout != null) {
                         val baseLeft = dynamicIslandStartEdgePx(cutout, islandDensity)
                         // View location includes translationX, so compare against base + offset.
