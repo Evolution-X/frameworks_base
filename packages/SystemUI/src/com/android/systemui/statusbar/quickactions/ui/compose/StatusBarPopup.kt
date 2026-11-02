@@ -57,6 +57,7 @@ import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.quickactions.alarm.ui.compose.AlarmPopup
+import com.android.systemui.statusbar.quickactions.charging.ui.compose.ChargingPopup
 import com.android.systemui.statusbar.quickactions.flashlight.ui.compose.FlashlightPopup
 import com.android.systemui.statusbar.quickactions.livescore.ui.compose.LiveScorePopup
 import com.android.systemui.statusbar.quickactions.media.ui.compose.LyricsCard
@@ -360,6 +361,7 @@ fun StatusBarPopup(
                     is PopupContentModel.Flashlight -> FlashlightPopup(model = popupContent.model)
                     is PopupContentModel.Stopwatch -> StopwatchPopup(model = popupContent.model)
                     is PopupContentModel.Alarm -> AlarmPopup(model = popupContent.model)
+                    is PopupContentModel.Charging -> ChargingPopup(model = popupContent.model)
                     PopupContentModel.None -> Unit
                 }
             }

@@ -337,6 +337,14 @@
     <string name="dynamic_island_action_lap">Lap</string>
     <string name="dynamic_island_action_stop">Stop</string>
     <string name="dynamic_island_action_resume">Resume</string>
+    <string name="dynamic_island_charging_title">Charging</string>
+    <string name="dynamic_island_charging_wireless_title">Wireless charging</string>
+    <string name="dynamic_island_charging_battery_saver">Battery saver</string>
+    <string name="dynamic_island_charging_battery_settings">Battery settings</string>
+    <string name="dynamic_island_charging_max_current">Max current</string>
+    <string name="dynamic_island_charging_max_power">Max power</string>
+    <string name="dynamic_island_charging_max_voltage">Max voltage</string>
+    <string name="dynamic_island_charging_temperature">Temperature</string>
 
     <!-- ColorOS style QS: shown in the media slot when nothing is playing -->
     <string name="qs_coloros_no_media">Not playing</string>
