@@ -16,6 +16,7 @@
 
 package com.android.systemui.statusbar.quickactions.media.ui.compose
 
+import android.os.SystemClock
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,7 +34,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -44,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.android.systemui.statusbar.quickactions.media.shared.model.MediaControlChipModel
 import com.android.systemui.statusbar.quickactions.ui.compose.PopupSurface
+import kotlinx.coroutines.delay
 
 private val PopupShape = RoundedCornerShape(34.dp)
 
@@ -66,7 +70,22 @@ fun LyricsCard(
         modifier = modifier.widthIn(min = 320.dp, max = 400.dp).height(200.dp),
     ) {
         if (lyricLines.isNotEmpty()) {
-            val positionMs = model.positionMs
+            // The position only comes in once a second, and was read some time before it gets
+            // here, so it runs on from when it was read.
+            var positionMs by remember { mutableLongStateOf(model.positionMs) }
+            LaunchedEffect(model.positionMs, model.positionUpdatedAtMs, model.isPlaying) {
+                val readPositionMs = model.positionMs
+                if (!model.isPlaying) {
+                    positionMs = readPositionMs
+                    return@LaunchedEffect
+                }
+                val readAtMs =
+                    model.positionUpdatedAtMs.takeIf { it > 0L } ?: SystemClock.elapsedRealtime()
+                while (true) {
+                    positionMs = readPositionMs + (SystemClock.elapsedRealtime() - readAtMs)
+                    delay(100L)
+                }
+            }
             val activeIndex by remember(lyricLines, positionMs) {
                 derivedStateOf {
                     var index = -1
