@@ -123,6 +123,8 @@ sealed interface PopupContentModel {
         val prominentText: String? = null,
         val image: Icon? = null,
         val bluetoothBatteries: List<BluetoothBatteryModel> = emptyList(),
+        /** Wall-clock start of a connected call; shows a running timer in the popup. */
+        val callStartTimeMs: Long? = null,
     ) : PopupContentModel
 }
 
