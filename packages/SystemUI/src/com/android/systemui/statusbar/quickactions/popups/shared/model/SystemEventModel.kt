@@ -31,4 +31,5 @@ data class BluetoothBatteryModel(
     val label: String,
     val level: Int,
     val component: BluetoothBatteryComponent,
+    val isCharging: Boolean = false,
 )
