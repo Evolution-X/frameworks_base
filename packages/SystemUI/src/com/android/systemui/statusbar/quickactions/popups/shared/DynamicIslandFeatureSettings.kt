@@ -35,6 +35,7 @@ object DynamicIslandFeatureSettings {
     const val BLUETOOTH = "status_bar_dynamic_island_bluetooth"
     const val HOTSPOT = "status_bar_dynamic_island_hotspot"
     const val VPN = "status_bar_dynamic_island_vpn"
+    const val CALLS = "status_bar_dynamic_island_calls"
     const val FLASHLIGHT = "status_bar_dynamic_island_flashlight"
     const val STOPWATCH = "status_bar_dynamic_island_stopwatch"
     const val LIVE_SCORES = "status_bar_dynamic_island_live_scores"
