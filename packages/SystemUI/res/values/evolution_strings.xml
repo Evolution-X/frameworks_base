@@ -345,6 +345,13 @@
     <string name="dynamic_island_charging_max_power">Max power</string>
     <string name="dynamic_island_charging_max_voltage">Max voltage</string>
     <string name="dynamic_island_charging_temperature">Temperature</string>
+    <!-- Island chip text once the battery is at 100% [CHAR LIMIT=8] -->
+    <string name="dynamic_island_charging_full">Full</string>
+    <!-- Island alarm chip: time left until the next alarm [CHAR LIMIT=10] -->
+    <string name="dynamic_island_alarm_in_minutes">in <xliff:g id="minutes" example="42">%1$d</xliff:g>m</string>
+    <string name="dynamic_island_alarm_in_hours">in <xliff:g id="hours" example="7">%1$d</xliff:g>h</string>
+    <string name="dynamic_island_alarm_in_hours_minutes">in <xliff:g id="hours" example="7">%1$d</xliff:g>h <xliff:g id="minutes" example="5">%2$d</xliff:g>m</string>
+    <string name="dynamic_island_alarm_in_days">in <xliff:g id="days" example="2">%1$d</xliff:g>d</string>
 
     <!-- ColorOS style QS: shown in the media slot when nothing is playing -->
     <string name="qs_coloros_no_media">Not playing</string>

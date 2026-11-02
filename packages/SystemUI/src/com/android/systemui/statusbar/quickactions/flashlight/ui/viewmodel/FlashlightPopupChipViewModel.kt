@@ -133,7 +133,16 @@ constructor(
                             ),
                     )
                 ),
-            chipContent = ChipContent.Text(context.getString(R.string.dynamic_island_flashlight_short)),
+            // With an adjustable strength, the percentage goes after the lens and "ON" before it.
+            chipContent =
+                ChipContent.Text(
+                    model.strengthPercent?.let { "$it%" }
+                        ?: context.getString(R.string.dynamic_island_flashlight_short)
+                ),
+            startText =
+                context.getString(R.string.dynamic_island_flashlight_short).takeIf {
+                    model.strengthPercent != null
+                },
             colors = ChipColors.DynamicIsland,
             contentDescription = contentDescription,
             popupContent =
