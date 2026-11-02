@@ -4267,6 +4267,7 @@ public final class MediaCodecInfo {
                             case CodecProfileLevel.HEVCProfileMain:
                             case CodecProfileLevel.HEVCProfileMain10:
                             case CodecProfileLevel.HEVCProfileMainStill:
+                            case CodecProfileLevel.HEVCProfileMain10Still:
                             case CodecProfileLevel.HEVCProfileMain10HDR10:
                             case CodecProfileLevel.HEVCProfileMain10HDR10Plus:
                                 break;
@@ -5576,6 +5577,10 @@ public final class MediaCodecInfo {
         public static final int HEVCProfileMain        = 0x01;
         public static final int HEVCProfileMain10      = 0x02;
         public static final int HEVCProfileMainStill   = 0x04;
+        /** HEVC Main10 Still Picture Profile */
+        @SuppressLint("AllUpper")
+        @FlaggedApi(FLAG_FORMAT_400_444_SUPPORT)
+        public static final int HEVCProfileMain10Still = 0x20;
         public static final int HEVCProfileMain10HDR10 = 0x1000;
         public static final int HEVCProfileMain10HDR10Plus = 0x2000;
 
