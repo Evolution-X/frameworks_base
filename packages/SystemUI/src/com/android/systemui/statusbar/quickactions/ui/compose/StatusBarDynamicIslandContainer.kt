@@ -37,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -245,6 +246,12 @@ fun StatusBarDynamicIslandContainer(
             label = "dynamic_island_chip",
         ) { chipId ->
             val chip = chips.firstOrNull { it.chipId == chipId } ?: return@AnimatedContent
+            // The gesture handlers below keep running across recompositions, so they read the
+            // latest chip and pager state instead of what they were created with. Otherwise a
+            // chip that updates (the battery level, say) is hidden through a stale model, and a
+            // swipe pages through a list that has since changed.
+            val currentChip by rememberUpdatedState(chip)
+            val currentSelectRelative by rememberUpdatedState { direction: Int -> selectRelative(direction) }
             var horizontalDragPx by remember(chipId, chips.size) { mutableFloatStateOf(0f) }
             val thresholdPx = with(LocalDensity.current) { 36.dp.toPx() }
 
@@ -252,18 +259,20 @@ fun StatusBarDynamicIslandContainer(
                 StatusBarDynamicIslandChip(
                     viewModel = chip,
                     pageCount = chips.size,
+                    pageIndex = chips.indexOfFirst { it.chipId == chipId }.coerceAtLeast(0),
+                    onNextPage = { selectRelative(1) },
                     cutoutSpec = cutoutSpec,
                     onChipBoundsChanged = { bounds -> anchorBounds = bounds },
                     modifier =
-                        Modifier.swipeUpToHide(chip.chipId, thresholdPx) { chip.hide() }
+                        Modifier.swipeUpToHide(chip.chipId, thresholdPx) { currentChip.hide() }
                             .pointerInput(chips.size, chip.chipId) {
                             detectHorizontalDragGestures(
                                 onDragEnd = {
                                     when {
                                         chips.size <= 1 && abs(horizontalDragPx) >= thresholdPx ->
-                                            chip.hide()
-                                        horizontalDragPx <= -thresholdPx -> selectRelative(1)
-                                        horizontalDragPx >= thresholdPx -> selectRelative(-1)
+                                            currentChip.hide()
+                                        horizontalDragPx <= -thresholdPx -> currentSelectRelative(1)
+                                        horizontalDragPx >= thresholdPx -> currentSelectRelative(-1)
                                     }
                                     horizontalDragPx = 0f
                                 },
