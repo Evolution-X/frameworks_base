@@ -21,5 +21,7 @@ package com.android.systemui.statusbar.quickactions.popups.shared
  * settings, read through [DynamicIslandFeatureSettings], and is on unless it was turned off.
  */
 enum class SystemEventFeature(val settingKey: String) {
-    BLUETOOTH(DynamicIslandFeatureSettings.BLUETOOTH)
+    BLUETOOTH(DynamicIslandFeatureSettings.BLUETOOTH),
+    HOTSPOT(DynamicIslandFeatureSettings.HOTSPOT),
+    VPN(DynamicIslandFeatureSettings.VPN),
 }
