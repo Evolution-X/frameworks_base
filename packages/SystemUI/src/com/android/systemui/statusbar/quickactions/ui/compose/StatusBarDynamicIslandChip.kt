@@ -77,6 +77,7 @@ import com.android.systemui.common.shared.model.Icon as IconModel
 import com.android.systemui.common.ui.compose.Icon
 import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings
 import com.android.systemui.statusbar.quickactions.screenrecord.shared.model.ScreenRecordPopupModel
+import com.android.systemui.statusbar.quickactions.popups.shared.model.SystemEventKind
 import com.android.systemui.statusbar.quickactions.shared.model.PopupContentModel
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipModel
 import com.android.systemui.statusbar.quickactions.shared.model.chipText
@@ -260,6 +261,21 @@ fun StatusBarDynamicIslandChip(
                                     if (isStartAnchored) minOf(maxTextWidth, 88.dp)
                                     else maxTextWidth
                             ),
+                    )
+                }
+            }
+
+        // A connected Bluetooth device shows its Fast Pair artwork after the glyph, which puts it
+        // on the far side of the lens when the island is centred on a camera.
+        (viewModel.popupContent as? PopupContentModel.SystemEvent)
+            ?.takeIf { it.kind == SystemEventKind.Bluetooth }
+            ?.image
+            ?.let { artwork ->
+                UprightContent {
+                    Icon(
+                        icon = artwork,
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(20.dp),
                     )
                 }
             }
