@@ -169,3 +169,31 @@ fun DynamicIslandSideEdgeLayout(
         }
     }
 }
+
+/**
+ * Vertical shift, in px, that moves an island laid out centred in [host] onto the camera [hole].
+ * [host] centres the island vertically, so the shift is the distance between the hole's centre
+ * and the host's centre in the status bar window. Layout positions are summed instead of read
+ * from the screen so a status bar that is sliding in or out does not skew the result. Returns 0
+ * without a camera or before the host is laid out, and is capped so an odd cutout cannot push the
+ * island off the status bar.
+ */
+fun dynamicIslandCameraCenterOffsetYPx(
+    host: View,
+    statusBar: View,
+    hole: android.graphics.Rect?,
+    density: Float,
+): Float {
+    if (hole == null || host.height <= 0) return 0f
+    var top = 0
+    var current: View? = host
+    while (current != null && current !== statusBar) {
+        top += current.top
+        current = current.parent as? View
+    }
+    if (current == null) return 0f
+    val limit = DynamicIslandCameraAlignMaxOffset.value * density
+    return (hole.exactCenterY() - (top + host.height / 2f)).coerceIn(-limit, limit)
+}
+
+private val DynamicIslandCameraAlignMaxOffset = 24.dp
