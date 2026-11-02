@@ -23,6 +23,7 @@ import android.content.IntentFilter
 import android.os.BatteryManager
 import android.provider.Settings
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.Color
 import com.android.settingslib.fuelgauge.BatteryStatus
 import com.android.systemui.common.shared.model.ContentDescription
 import com.android.systemui.common.shared.model.Icon
@@ -254,12 +255,26 @@ constructor(
                             )
                     )
                 ),
-            chipContent = ChipContent.Text("${state.level}%"),
+            chipContent =
+                ChipContent.Text(
+                    if (state.level >= FULL_LEVEL) {
+                        context.getString(R.string.dynamic_island_charging_full)
+                    } else {
+                        "${state.level}%"
+                    }
+                ),
+            startText = state.details.chargerRating(),
+            contentTint = if (state.isPowerSave) BatterySaverTint else ChargingTint,
             colors = ChipColors.DynamicIsland,
             contentDescription = description,
             popupContent = PopupContentModel.Charging(model),
         )
     }
+
+    /** The charger's rating as short text such as `25W`, or null when it reports none. */
+    private fun List<ChargingDetail>.chargerRating(): String? =
+        firstOrNull { it.unit == "W" }
+            ?.let { it.value.trimEnd('0').trimEnd('.', ',') + it.unit }
 
     private fun openBatterySettings() {
         activityStarter.startActivity(
@@ -284,5 +299,8 @@ constructor(
     private companion object {
         const val MICRO_PER_MILLI = 1000f
         const val MICRO_PER_UNIT = 1_000_000f
+        const val FULL_LEVEL = 100
+        val ChargingTint = Color(0xFF4CD964)
+        val BatterySaverTint = Color(0xFFFFB300)
     }
 }
