@@ -24,6 +24,7 @@ import android.os.UserHandle
 import android.provider.Settings
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -49,6 +50,7 @@ import com.android.systemui.statusbar.quickactions.media.ui.viewmodel.MediaContr
 import com.android.systemui.statusbar.quickactions.popups.StatusBarPopupChips
 import com.android.systemui.statusbar.quickactions.screenrecord.ui.viewmodel.LargeScreenRecordingChipViewModel
 import com.android.systemui.statusbar.quickactions.screenrecord.ui.viewmodel.ScreenRecordPopupChipViewModel
+import com.android.systemui.statusbar.quickactions.popups.shared.model.SystemEventKind
 import com.android.systemui.statusbar.quickactions.shared.model.PopupContentModel
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipId
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipModel
@@ -177,6 +179,32 @@ constructor(
             traceName = "isShadeWindowOnThisDisplay"
         )
 
+    /** Chips swiped away, with what they showed then; they return once that changes. */
+    private val hiddenChips = mutableStateMapOf<QuickActionChipId, Any?>()
+
+    /** What a hidden chip has to change to come back: another song, or another stage of a call. */
+    private fun QuickActionChipModel.PopupChip.hideKey(): Any? =
+        when (val content = popupContent) {
+            is PopupContentModel.Media ->
+                listOf(
+                    content.model.packageName,
+                    content.model.songName?.toString(),
+                    content.model.artistName?.toString(),
+                )
+            is PopupContentModel.SystemEvent ->
+                if (content.kind == SystemEventKind.Call) {
+                    content.isRinging to (content.callStartTimeMs != null)
+                } else {
+                    null
+                }
+            else -> null
+        }
+
+    /** Privacy indicators say that a camera or the screen is in use and are never swiped away. */
+    private fun QuickActionChipId.isHideable(): Boolean =
+        this != QuickActionChipId.AvControlsIndicator &&
+            this != QuickActionChipId.ShareScreenPrivacyIndicator
+
     private val incomingQuickActionChipBundle: QuickActionChipBundle by derivedStateOf {
         QuickActionChipBundle(
             media = mediaControlChip.chip,
@@ -232,6 +260,9 @@ constructor(
         candidateChips
             .filterIsInstance<QuickActionChipModel.PopupChip>()
             .filterNot { it.isOwnedByForegroundApp() }
+            .filterNot { chip ->
+                chip.chipId in hiddenChips && hiddenChips[chip.chipId] == chip.hideKey()
+            }
             .map { chip ->
                 val isShown =
                     (chip.chipId == currentActiveQuickActionId) ||
@@ -244,6 +275,15 @@ constructor(
                             currentShownPopupChipId = null
                         }
                         quickActionsInteractor.close()
+                    },
+                    hide = {
+                        if (chip.chipId.isHideable()) {
+                            hiddenChips[chip.chipId] = chip.hideKey()
+                            if (currentShownPopupChipId == chip.chipId) {
+                                currentShownPopupChipId = null
+                            }
+                            quickActionsInteractor.close()
+                        }
                     },
                     togglePopup = { _, anchorBounds ->
                         chip.popupViewModelFactory?.let { factory ->
@@ -373,6 +413,30 @@ constructor(
             launch { systemEventChips.activate() }
             launch { peekChargingOnPlugIn() }
             launch { showRingingCall() }
+            launch {
+                // A swiped-away chip comes back once it ends or shows something new.
+                snapshotFlow {
+                        val bundle = incomingQuickActionChipBundle
+                        (listOf(
+                                bundle.media,
+                                bundle.screenRecord,
+                                bundle.liveScore,
+                                bundle.flashlight,
+                                bundle.stopwatch,
+                                bundle.alarm,
+                                bundle.charging,
+                            ) + systemEventChips.chips)
+                            .filterIsInstance<QuickActionChipModel.PopupChip>()
+                            .associate { it.chipId to it.hideKey() }
+                    }
+                    .collect { present ->
+                        hiddenChips.keys.toList().forEach { id ->
+                            if (id !in present || present[id] != hiddenChips[id]) {
+                                hiddenChips.remove(id)
+                            }
+                        }
+                    }
+            }
             if (StatusBarAssistantIcon.isEnabled) {
                 launch { assistantIcon.activate() }
             }
