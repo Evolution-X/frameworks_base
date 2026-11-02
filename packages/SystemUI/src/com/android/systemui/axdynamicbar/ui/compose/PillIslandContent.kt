@@ -1477,8 +1477,7 @@ private fun StopwatchText(event: IslandEvent.Stopwatch, modifier: Modifier, over
 
 @Composable
 private fun CallTimerText(event: IslandEvent.Call, modifier: Modifier, overrideColor: Color? = null) {
-    val isActive = event.callType == "Phone:active"
-    if (isActive) {
+    if (event.connected) {
         val text =
             rememberChronometerText(
                 Chronometer.Running(eventTimeFor(event.callStartTimeMs), isCountdown = false)
@@ -1486,7 +1485,10 @@ private fun CallTimerText(event: IslandEvent.Call, modifier: Modifier, overrideC
         val color = overrideColor ?: toneFor(event).tint
         ChronometerLabel(text ?: "00:00", color, modifier)
     } else {
-        MarqueeLabel(stringResource(R.string.ax_dynamic_bar_incoming_call), overrideColor ?: toneFor(event).tint, modifier)
+        val label =
+            if (event.callType == "Phone:incoming") R.string.ax_dynamic_bar_incoming_call
+            else R.string.ax_dynamic_bar_call
+        MarqueeLabel(stringResource(label), overrideColor ?: toneFor(event).tint, modifier)
     }
 }
 
