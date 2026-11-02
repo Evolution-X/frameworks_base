@@ -22,6 +22,7 @@ import com.android.systemui.common.shared.model.ContentDescription
 import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.statusbar.chips.ui.model.Chronometer
 import com.android.systemui.statusbar.quickactions.alarm.shared.model.AlarmPopupModel
+import com.android.systemui.statusbar.quickactions.charging.shared.model.ChargingPopupModel
 import com.android.systemui.statusbar.quickactions.flashlight.shared.model.FlashlightPopupModel
 import com.android.systemui.statusbar.quickactions.livescore.shared.model.LiveScoreChipModel
 import com.android.systemui.statusbar.quickactions.media.shared.model.MediaControlChipModel
@@ -47,6 +48,8 @@ sealed class QuickActionChipId(val value: String) {
     data object Stopwatch : QuickActionChipId("Stopwatch")
 
     data object Alarm : QuickActionChipId("Alarm")
+
+    data object Charging : QuickActionChipId("Charging")
 
     data object AvControlsIndicator : QuickActionChipId("AvControlsIndicator")
 
@@ -97,6 +100,8 @@ sealed interface PopupContentModel {
     data class Stopwatch(val model: StopwatchPopupModel) : PopupContentModel
 
     data class Alarm(val model: AlarmPopupModel) : PopupContentModel
+
+    data class Charging(val model: ChargingPopupModel) : PopupContentModel
 }
 
 /** Model for individual status bar quick action chips. */
