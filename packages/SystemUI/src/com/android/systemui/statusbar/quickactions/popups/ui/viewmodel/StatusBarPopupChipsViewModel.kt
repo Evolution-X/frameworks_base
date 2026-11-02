@@ -37,6 +37,7 @@ import com.android.systemui.shared.system.TaskStackChangeListener
 import com.android.systemui.shared.system.TaskStackChangeListeners
 import com.android.systemui.statusbar.pipeline.shared.domain.interactor.StatusBarVisibilityInteractor
 import com.android.systemui.statusbar.quickactions.alarm.ui.viewmodel.AlarmPopupChipViewModel
+import com.android.systemui.statusbar.quickactions.charging.ui.viewmodel.ChargingPopupChipViewModel
 import com.android.systemui.statusbar.quickactions.assistant.StatusBarAssistantIcon
 import com.android.systemui.statusbar.quickactions.assistant.ui.viewmodel.AssistantIconViewModel
 import com.android.systemui.statusbar.quickactions.av.ui.viewmodel.AvControlsChipViewModel
@@ -59,11 +60,14 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * View model deciding which system process chips to show in the status bar. Emits a list of
@@ -89,6 +93,7 @@ constructor(
     flashlightChipFactory: FlashlightPopupChipViewModel.Factory,
     stopwatchChipFactory: StopwatchPopupChipViewModel.Factory,
     alarmChipFactory: AlarmPopupChipViewModel.Factory,
+    chargingChipFactory: ChargingPopupChipViewModel.Factory,
 ) : HydratedActivatable() {
 
     private val mediaControlChip by lazy { mediaControlChipFactory.create() }
@@ -104,6 +109,7 @@ constructor(
     private val flashlightChip by lazy { flashlightChipFactory.create() }
     private val stopwatchChip by lazy { stopwatchChipFactory.create() }
     private val alarmChip by lazy { alarmChipFactory.create() }
+    private val chargingChip by lazy { chargingChipFactory.create() }
 
     private var isDynamicIslandEnabled by mutableStateOf(readDynamicIslandEnabled())
     private val dynamicIslandObserver =
@@ -178,6 +184,7 @@ constructor(
             flashlight = flashlightChip.chip,
             stopwatch = stopwatchChip.chip,
             alarm = alarmChip.chip,
+            charging = chargingChip.chip,
         )
     }
 
@@ -200,6 +207,7 @@ constructor(
                     bundle.stopwatch,
                     bundle.alarm,
                     bundle.media,
+                    bundle.charging,
                     bundle.privacy.takeIf { StatusBarPopupChips.isEnabled },
                     bundle.shareScreen.takeIf { StatusBarPopupChips.isEnabled },
                 )
@@ -259,6 +267,29 @@ constructor(
             })
     }
 
+    /**
+     * Opens the charging popup briefly when a charger is connected, then puts it away unless
+     * something else has taken over. Skipped while the island is not visible, so a charger
+     * connected with the screen locked is not announced later.
+     */
+    private suspend fun peekChargingOnPlugIn() {
+        chargingChip.plugIns.collectLatest {
+            if (!isDynamicIslandEnabled || isOnLockscreen || isShadeCoveringIsland) {
+                return@collectLatest
+            }
+            // The chip is built from the same battery flows and can land just after the event.
+            withTimeoutOrNull(CHARGING_PEEK_WAIT_MS) {
+                snapshotFlow { incomingQuickActionChipBundle.charging }
+                    .first { it is QuickActionChipModel.PopupChip }
+            } ?: return@collectLatest
+            currentShownPopupChipId = QuickActionChipId.Charging
+            delay(CHARGING_PEEK_MS)
+            if (currentShownPopupChipId == QuickActionChipId.Charging) {
+                currentShownPopupChipId = null
+            }
+        }
+    }
+
     override suspend fun onActivated() {
         coroutineScope {
             context.contentResolver.registerContentObserver(
@@ -304,6 +335,8 @@ constructor(
             launch { flashlightChip.activate() }
             launch { stopwatchChip.activate() }
             launch { alarmChip.activate() }
+            launch { chargingChip.activate() }
+            launch { peekChargingOnPlugIn() }
             if (StatusBarAssistantIcon.isEnabled) {
                 launch { assistantIcon.activate() }
             }
@@ -363,6 +396,8 @@ constructor(
             QuickActionChipModel.Hidden(chipId = QuickActionChipId.Stopwatch),
         val alarm: QuickActionChipModel =
             QuickActionChipModel.Hidden(chipId = QuickActionChipId.Alarm),
+        val charging: QuickActionChipModel =
+            QuickActionChipModel.Hidden(chipId = QuickActionChipId.Charging),
     ) {
         val asList: List<QuickActionChipModel>
             get() =
@@ -378,6 +413,7 @@ constructor(
                     flashlight,
                     stopwatch,
                     alarm,
+                    charging,
                 )
     }
 
@@ -393,5 +429,10 @@ constructor(
     @AssistedFactory
     interface Factory {
         fun create(displayId: Int): StatusBarPopupChipsViewModel
+    }
+
+    private companion object {
+        const val CHARGING_PEEK_MS = 3_500L
+        const val CHARGING_PEEK_WAIT_MS = 1_000L
     }
 }
