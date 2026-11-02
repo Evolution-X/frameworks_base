@@ -624,13 +624,33 @@ constructor(
             }
         }
 
-    fun startListening() {
+    private val listenOwners = mutableSetOf<Any>()
+
+    /**
+     * Starts listening for [owner]. The manager is shared by the dynamic bar and the dynamic island,
+     * so it keeps listening until every owner that started it has stopped it.
+     */
+    fun startListening(owner: Any = this) {
+        synchronized(listenOwners) {
+            listenOwners.add(owner)
+            startListeningLocked()
+        }
+    }
+
+    fun stopListening(owner: Any = this) {
+        synchronized(listenOwners) {
+            listenOwners.remove(owner)
+            if (listenOwners.isEmpty()) stopListeningLocked()
+        }
+    }
+
+    private fun startListeningLocked() {
         if (listening) return
         listening = true
         ScrimUtils.get().addListener(scrimListener)
     }
 
-    fun stopListening() {
+    private fun stopListeningLocked() {
         if (!listening) return
         listening = false
         ScrimUtils.get().removeListener(scrimListener)
