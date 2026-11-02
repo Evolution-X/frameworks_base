@@ -320,6 +320,7 @@ private fun UtilityStatusIslandChip(
         (when (viewModel.popupContent) {
             is PopupContentModel.Flashlight -> 52.dp
             is PopupContentModel.Alarm -> 72.dp
+            is PopupContentModel.Charging -> 56.dp
             else -> 80.dp
         }) * widthScale
     val connectedIslandWidth =
@@ -342,6 +343,7 @@ private fun UtilityStatusIslandChip(
                 popupContent.model.elapsedTimeText
                     ?: rememberElapsedDurationText(popupContent.model.baseElapsedRealtimeMs)
             is PopupContentModel.Alarm -> viewModel.chipText.orEmpty()
+            is PopupContentModel.Charging -> viewModel.chipText.orEmpty()
             is PopupContentModel.Flashlight -> viewModel.chipText.orEmpty()
             else -> ""
         }
@@ -657,6 +659,7 @@ private fun PopupContentModel.isUtilityStatusContent(): Boolean {
     return this is PopupContentModel.ScreenRecord ||
         this is PopupContentModel.Stopwatch ||
         this is PopupContentModel.Alarm ||
+        this is PopupContentModel.Charging ||
         this is PopupContentModel.Flashlight
 }
 
@@ -671,6 +674,7 @@ private fun compactIslandWidthFor(content: PopupContentModel): Dp? {
         is PopupContentModel.Stopwatch -> CompactTimerIslandWidth
         is PopupContentModel.Alarm -> CompactAlarmIslandWidth
         is PopupContentModel.Flashlight -> CompactUtilityIslandWidth
+        is PopupContentModel.Charging -> CompactUtilityIslandWidth
         else -> null
     }
 }
