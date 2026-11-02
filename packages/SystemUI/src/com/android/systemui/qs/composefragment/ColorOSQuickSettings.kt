@@ -116,6 +116,7 @@ import com.android.systemui.qs.panels.ui.compose.infinitegrid.colorOSPress
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.colorOSSpring
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSTileLabelHide
 import com.android.systemui.qs.panels.ui.viewmodel.TileViewModel
+import com.android.systemui.qs.shared.ui.QuickSettings
 import com.android.systemui.res.R
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -322,7 +323,14 @@ internal fun ContentScope.ColorOSQuickSettingsLayout(
     val leaving = rememberColorOSLeaving(expansion)
     val glassFade = rememberColorOSGlassFade(leaving)
     val reveal: () -> Float = { colorOSExpansionReveal(expansion()) }
-    val glassBlur = rememberColorOSGlassBlur { glassAlpha() * glassFade.value * reveal() }
+    // The glass is a blur region of the window, so it does not follow the alpha the scene
+    // transition gives the content. The content fades in later than the panel is revealed, and
+    // without its alpha the glass would show up before the tiles do.
+    val glassBlur =
+        rememberColorOSGlassBlur {
+            glassAlpha() * glassFade.value * reveal() *
+                (QuickSettings.Elements.QuickSettingsContent.currentAlpha() ?: 1f)
+        }
     val glass = colorOSGlass(blurred = glassBlur != null)
 
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
