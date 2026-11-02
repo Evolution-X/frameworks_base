@@ -18,6 +18,7 @@ package com.android.systemui.statusbar.quickactions.shared.model
 
 import android.content.Context
 import android.graphics.RectF
+import androidx.compose.ui.graphics.Color
 import com.android.systemui.common.shared.model.ContentDescription
 import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.haptics.slider.compose.ui.SliderHapticsViewModel
@@ -157,6 +158,13 @@ sealed class QuickActionChipModel {
         /** Icons shown on the chip when no specific hover behavior. */
         val icons: List<ChipIcon>,
         val chipContent: ChipContent? = null,
+        /**
+         * Text beside the icon, on the leading side of the camera. Fills the side that the single
+         * icon of a utility chip leaves empty.
+         */
+        val startText: String? = null,
+        /** Replaces the content color of a utility chip, e.g. to show the charging state. */
+        val contentTint: Color? = null,
         /** Determines the colors used for the chip. Defaults to system themed colors. */
         val colors: ChipColors = ChipColors.SystemTheme,
         val isPopupShown: Boolean = false,
