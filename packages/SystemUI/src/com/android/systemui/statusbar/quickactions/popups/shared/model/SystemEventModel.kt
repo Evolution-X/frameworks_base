@@ -18,7 +18,9 @@ package com.android.systemui.statusbar.quickactions.popups.shared.model
 
 /** Presentation categories of the system events shown by the dynamic island. */
 enum class SystemEventKind {
-    Bluetooth
+    Bluetooth,
+    Hotspot,
+    Vpn,
 }
 
 enum class BluetoothBatteryComponent {
