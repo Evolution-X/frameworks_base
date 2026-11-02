@@ -62,7 +62,7 @@ import com.android.systemui.statusbar.quickactions.shared.model.PopupContentMode
 
 private val EventPopupShape = RoundedCornerShape(32.dp)
 
-/** Popup for a system event; for now a connected Bluetooth device. */
+/** Popup for a system event: a connected Bluetooth device, the hotspot or a VPN connection. */
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SystemEventPopup(model: PopupContentModel.SystemEvent, modifier: Modifier = Modifier) {
@@ -130,7 +130,16 @@ private fun EventHeader(model: PopupContentModel.SystemEvent, accent: Color) {
         } else {
             IslandGlyphBadge(accent = accent, size = 44.dp) {
                 if (model.icon != null) {
-                    StatusBarIcon(icon = model.icon, tint = Color.Unspecified, modifier = Modifier.size(22.dp))
+                    // Glyphs shipped as resources are plain white and take the accent; icons loaded
+                    // from a device keep their own colors.
+                    StatusBarIcon(
+                        icon = model.icon,
+                        tint =
+                            if (model.icon is com.android.systemui.common.shared.model.Icon.Resource)
+                                accent
+                            else Color.Unspecified,
+                        modifier = Modifier.size(22.dp),
+                    )
                 } else {
                     Icon(
                         imageVector = Icons.Filled.Bluetooth,

@@ -92,24 +92,59 @@ constructor(
                 keyOf = { it.address },
                 clear = connectivity::clearBluetooth,
             )
+        val hotspot =
+            BriefEvent<IslandEvent.Hotspot>(
+                scope = this,
+                durationMs = HOTSPOT_CHIP_MS,
+                keyOf = { it.id },
+                clear = connectivity::clearHotspot,
+            )
+        val vpn =
+            BriefEvent<IslandEvent.Vpn>(
+                scope = this,
+                durationMs = VPN_CHIP_MS,
+                keyOf = { it.id },
+                clear = connectivity::clearVpn,
+            )
         try {
             launch {
                 enabledFeatures().collect { enabled ->
                     if (SystemEventFeature.BLUETOOTH in enabled) connectivity.startBluetooth()
                     else connectivity.stopBluetooth()
+                    if (SystemEventFeature.HOTSPOT in enabled) connectivity.startHotspot()
+                    else connectivity.stopHotspot()
+                    if (SystemEventFeature.VPN in enabled) connectivity.startVpn()
+                    else connectivity.stopVpn()
                 }
             }
-            connectivity.bluetoothEvent.collect { event ->
-                bluetooth.onEvent(event)
-                send(
-                    listOfNotNull(
-                        event?.let { mapper.toChip(it, connectivity::disconnectBluetooth) }
+            combine(
+                    connectivity.bluetoothEvent,
+                    connectivity.hotspotEvent,
+                    connectivity.vpnEvent,
+                ) { bluetoothEvent, hotspotEvent, vpnEvent ->
+                    Triple(bluetoothEvent, hotspotEvent, vpnEvent)
+                }
+                .collect { (bluetoothEvent, hotspotEvent, vpnEvent) ->
+                    bluetooth.onEvent(bluetoothEvent)
+                    hotspot.onEvent(hotspotEvent)
+                    vpn.onEvent(vpnEvent)
+                    send(
+                        listOfNotNull(
+                            bluetoothEvent?.let {
+                                mapper.toChip(it, connectivity::disconnectBluetooth)
+                            },
+                            hotspotEvent?.let { mapper.toChip(it) },
+                            vpnEvent?.let { mapper.toChip(it) },
+                        )
                     )
-                )
-            }
+                }
         } finally {
             bluetooth.cancel()
+            hotspot.cancel()
+            vpn.cancel()
             connectivity.stopBluetooth()
+            connectivity.stopHotspot()
+            connectivity.stopVpn()
         }
     }
 
@@ -155,5 +190,7 @@ constructor(
 
     private companion object {
         const val BLUETOOTH_CHIP_MS = 8_000L
+        const val HOTSPOT_CHIP_MS = 8_000L
+        const val VPN_CHIP_MS = 8_000L
     }
 }
