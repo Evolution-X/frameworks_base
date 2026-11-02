@@ -38,4 +38,6 @@ import com.android.systemui.media.controls.shared.model.MediaAction
         val packageName: String? = null,
         val lyrics: String? = null,
         val syncedLyrics: String? = null,
+        /** When [positionMs] was read, on the elapsedRealtime clock, or 0 if it is not known. */
+        val positionUpdatedAtMs: Long = 0L,
 )
