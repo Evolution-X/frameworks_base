@@ -35,4 +35,10 @@
     <string name="dynamic_island_event_connecting">Connecting</string>
     <!-- Dynamic island: button that opens the settings of an event [CHAR LIMIT=24] -->
     <string name="dynamic_island_event_settings">Settings</string>
+    <!-- Dynamic island: title of the call event [CHAR LIMIT=24] -->
+    <string name="dynamic_island_event_call">Call</string>
+    <!-- Dynamic island: state of a call that is ringing [CHAR LIMIT=24] -->
+    <string name="dynamic_island_event_incoming_call">Incoming call</string>
+    <!-- Dynamic island: state of a call that is being dialled [CHAR LIMIT=24] -->
+    <string name="dynamic_island_event_calling">Calling</string>
 </resources>
