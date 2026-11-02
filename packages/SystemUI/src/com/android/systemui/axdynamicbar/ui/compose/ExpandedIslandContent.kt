@@ -300,7 +300,7 @@ internal fun CallExpanded(event: IslandEvent.Call, interactor: IslandActions) {
             }
 
             // Call timer for active calls
-            if (!isIncoming && event.callStartTimeMs > 0L) {
+            if (event.connected && event.callStartTimeMs > 0L) {
                 CallElapsedTimer(event.callStartTimeMs, accent)
             }
         }
