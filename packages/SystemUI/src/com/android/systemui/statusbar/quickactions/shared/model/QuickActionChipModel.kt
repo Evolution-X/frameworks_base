@@ -125,6 +125,10 @@ sealed interface PopupContentModel {
         val bluetoothBatteries: List<BluetoothBatteryModel> = emptyList(),
         /** Wall-clock start of a connected call; shows a running timer in the popup. */
         val callStartTimeMs: Long? = null,
+        /** Whether this is a call that is still ringing; the island opens its popup for it. */
+        val isRinging: Boolean = false,
+        /** Package of the app the event stands for, so it steps aside while that app is open. */
+        val ownerPackage: String? = null,
     ) : PopupContentModel
 }
 
