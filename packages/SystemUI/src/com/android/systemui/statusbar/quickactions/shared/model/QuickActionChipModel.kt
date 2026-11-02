@@ -27,6 +27,9 @@ import com.android.systemui.statusbar.quickactions.charging.shared.model.Chargin
 import com.android.systemui.statusbar.quickactions.flashlight.shared.model.FlashlightPopupModel
 import com.android.systemui.statusbar.quickactions.livescore.shared.model.LiveScoreChipModel
 import com.android.systemui.statusbar.quickactions.media.shared.model.MediaControlChipModel
+import com.android.systemui.statusbar.quickactions.popups.shared.model.BluetoothBatteryModel
+import com.android.systemui.statusbar.quickactions.popups.shared.model.PopupActionModel
+import com.android.systemui.statusbar.quickactions.popups.shared.model.SystemEventKind
 import com.android.systemui.statusbar.quickactions.popups.ui.viewmodel.StatusBarPopupViewModel
 import com.android.systemui.statusbar.quickactions.screenrecord.shared.model.ScreenRecordPopupModel
 import com.android.systemui.statusbar.quickactions.stopwatch.shared.model.StopwatchPopupModel
@@ -51,6 +54,9 @@ sealed class QuickActionChipId(val value: String) {
     data object Alarm : QuickActionChipId("Alarm")
 
     data object Charging : QuickActionChipId("Charging")
+
+    /** A system event such as a call or a connected device, identified by its event id. */
+    data class SystemEvent(val eventId: String) : QuickActionChipId("SystemEvent:$eventId")
 
     data object AvControlsIndicator : QuickActionChipId("AvControlsIndicator")
 
@@ -106,6 +112,18 @@ sealed interface PopupContentModel {
     data class Alarm(val model: AlarmPopupModel) : PopupContentModel
 
     data class Charging(val model: ChargingPopupModel) : PopupContentModel
+
+    data class SystemEvent(
+        val kind: SystemEventKind,
+        val title: String,
+        val text: String,
+        val actions: List<PopupActionModel>,
+        val progress: Float? = null,
+        val icon: Icon? = null,
+        val prominentText: String? = null,
+        val image: Icon? = null,
+        val bluetoothBatteries: List<BluetoothBatteryModel> = emptyList(),
+    ) : PopupContentModel
 }
 
 /** Model for individual status bar quick action chips. */

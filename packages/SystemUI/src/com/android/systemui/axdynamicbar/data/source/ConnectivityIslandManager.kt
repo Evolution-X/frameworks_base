@@ -10,7 +10,6 @@ import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import android.util.Log
 import com.android.systemui.axdynamicbar.model.IslandEvent
-import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.dagger.qualifiers.Background
 import com.android.systemui.statusbar.policy.BluetoothController
@@ -27,7 +26,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-@SysUISingleton
 class ConnectivityIslandManager
 @Inject
 constructor(
