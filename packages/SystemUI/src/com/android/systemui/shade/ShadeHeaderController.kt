@@ -25,6 +25,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Insets
+import android.graphics.Rect
 import android.os.Bundle
 import android.os.Trace
 import android.os.Trace.TRACE_TAG_APP
@@ -283,6 +284,16 @@ constructor(
             v.pivotY = v.height.toFloat() / 2
         }
 
+    // Tells the shade where the status row is, to sample the header image behind it.
+    private val statusBoundsListener =
+        View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> publishStatusBounds() }
+
+    // Draws the status row dark when it is over a light part of the header image.
+    private val headerImageTintListener = Runnable { updateColors() }
+
+    private val headerImageLight
+        get() = QsHeaderImageTint.isLight(QsHeaderImageTint.Region.STATUS)
+
     private var singleCarrier = false
 
     /** Whether the ColorOS QS panel style is on, which gives the expanded header one row. */
@@ -409,15 +420,42 @@ constructor(
         privacyIconsController.onParentVisible()
     }
 
+    private fun publishStatusBounds() {
+        val loc = IntArray(2)
+        val bounds = Rect()
+        var first = true
+        for (v in listOf(systemIconsHoverContainer, mShadeCarrierGroup)) {
+            if (v.visibility == View.GONE || v.width == 0 || v.height == 0) continue
+            v.getLocationInWindow(loc)
+            if (first) {
+                bounds.set(loc[0], loc[1], loc[0] + v.width, loc[1] + v.height)
+                first = false
+            } else {
+                bounds.union(loc[0], loc[1], loc[0] + v.width, loc[1] + v.height)
+            }
+        }
+        QsHeaderImageTint.setBounds(
+            QsHeaderImageTint.Region.STATUS,
+            bounds.left,
+            bounds.top,
+            bounds.right,
+            bounds.bottom,
+        )
+    }
+
     private fun getBgColor() =
-        if (notificationShadeBlur()) {
+        if (headerImageLight) {
+            android.graphics.Color.WHITE
+        } else if (notificationShadeBlur()) {
             header.context.getColor(R.color.shade_header_text_color_bg)
         } else {
             android.graphics.Color.BLACK
         }
 
     private fun getFgColor() =
-        if (notificationShadeBlur()) {
+        if (headerImageLight) {
+            android.graphics.Color.BLACK
+        } else if (notificationShadeBlur()) {
             header.context.getColor(R.color.shade_header_text_color)
         } else {
             android.graphics.Color.WHITE
@@ -429,7 +467,10 @@ constructor(
                 PlatformTheme {
                     id = R.id.battery_meter_composable_view
                     val showBatteryEstimate by showBatteryEstimate.collectAsStateWithLifecycle()
-                    val dark = isSystemInDarkTheme()
+                    val imageLight by
+                        QsHeaderImageTint.lightFlow(QsHeaderImageTint.Region.STATUS)
+                            .collectAsStateWithLifecycle()
+                    val dark = isSystemInDarkTheme() && !imageLight
                     val viewModel =
                         rememberViewModel(traceName = "UnifiedBattery") {
                             unifiedBatteryViewModelFactory.create()
@@ -461,6 +502,9 @@ constructor(
         configurationController.addCallback(configurationControllerListener)
         demoModeController.addCallback(demoModeReceiver)
         statusBarIconController.addIconGroup(iconManager)
+        systemIconsHoverContainer.addOnLayoutChangeListener(statusBoundsListener)
+        mShadeCarrierGroup.addOnLayoutChangeListener(statusBoundsListener)
+        QsHeaderImageTint.addStatusListener(headerImageTintListener)
         nextAlarmController.addCallback(nextAlarmCallback)
         systemIconsHoverContainer.setOnHoverListener(
             statusOverlayHoverListenerFactory.createListener(systemIconsHoverContainer)
@@ -479,6 +523,9 @@ constructor(
         configurationController.removeCallback(configurationControllerListener)
         demoModeController.removeCallback(demoModeReceiver)
         statusBarIconController.removeIconGroup(iconManager)
+        systemIconsHoverContainer.removeOnLayoutChangeListener(statusBoundsListener)
+        mShadeCarrierGroup.removeOnLayoutChangeListener(statusBoundsListener)
+        QsHeaderImageTint.removeStatusListener(headerImageTintListener)
         nextAlarmController.removeCallback(nextAlarmCallback)
         systemIconsHoverContainer.setOnHoverListener(null)
         iconContainer.setIsUsingQs(false)
@@ -558,6 +605,10 @@ constructor(
     private fun updateColors() {
         clock.setTextAppearance(R.style.TextAppearance_QS_Status)
         date.setTextAppearance(R.style.TextAppearance_QS_Status)
+        if (headerImageLight) {
+            clock.setTextColor(getFgColor())
+            date.setTextColor(getFgColor())
+        }
         mShadeCarrierGroup.updateTextAppearanceAndTint(
             R.style.TextAppearance_QS_Status,
             getFgColor(),

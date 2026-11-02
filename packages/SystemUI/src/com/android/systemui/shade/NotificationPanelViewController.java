@@ -60,6 +60,8 @@ import android.content.Intent;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.database.ContentObserver;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Insets;
 import android.graphics.Rect;
@@ -576,6 +578,16 @@ public final class NotificationPanelViewController implements
     private float mShadeHeaderExpansion;
     private Drawable mCurrentBackground;
     private StatusBarHeaderMachine mStatusBarHeaderMachine;
+
+    // A small copy of the header image as it is shown, to tell which icons sit on a light part.
+    private static final int HEADER_SAMPLE_DIVISOR = 8;
+    private static final float HEADER_LIGHT_ON_LUMA = 0.62f;
+    private static final float HEADER_LIGHT_OFF_LUMA = 0.5f;
+    private static final float HEADER_BACKDROP_LUMA = 0.08f;
+    private Bitmap mHeaderSample;
+    private Drawable mHeaderSampleSource;
+    private int mHeaderSampleWidth;
+    private int mHeaderSampleHeight;
 
     private final NPVCDownEventState.Buffer mLastDownEvents;
     private final KeyguardClockInteractor mKeyguardClockInteractor;
@@ -3904,6 +3916,7 @@ public final class NotificationPanelViewController implements
                 mQsHeaderImageView.setImageDrawable(null);
                 mQsHeaderImageView.setVisibility(View.GONE);
                 mQsHeaderLayout.setVisibility(View.GONE);
+                QsHeaderImageTint.reset();
             });
         }
 
@@ -4727,10 +4740,106 @@ public final class NotificationPanelViewController implements
             }
 
             startHeaderAnimIfPossible();
+            updateHeaderImageTint();
         } else {
             mQsHeaderLayout.setVisibility(View.GONE);
             stopHeaderAnimIfRunning();
+            QsHeaderImageTint.reset();
         }
+    }
+
+    /**
+     * Tells which of the icons on the header image sit on a light part of it, so they are drawn
+     * dark. The image is sampled behind the bounds the icons report.
+     */
+    private void updateHeaderImageTint() {
+        int vw = mQsHeaderImageView.getWidth();
+        int vh = mQsHeaderImageView.getHeight();
+        if (mCurrentBackground == null || vw <= 0 || vh <= 0) {
+            QsHeaderImageTint.reset();
+            return;
+        }
+        if (mHeaderSample == null || mHeaderSampleSource != mCurrentBackground
+                || mHeaderSampleWidth != vw || mHeaderSampleHeight != vh) {
+            mHeaderSample = renderHeaderSample(mCurrentBackground, vw, vh);
+            mHeaderSampleSource = mCurrentBackground;
+            mHeaderSampleWidth = vw;
+            mHeaderSampleHeight = vh;
+        }
+        if (mHeaderSample == null) {
+            QsHeaderImageTint.reset();
+            return;
+        }
+        int[] loc = new int[2];
+        mQsHeaderImageView.getLocationInWindow(loc);
+        float alpha = (255 - mHeaderImageShadow) / 255f;
+        float fadeHeight = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
+                mBottomFadeHeight, mView.getResources().getDisplayMetrics());
+        Rect bounds = new Rect();
+        for (QsHeaderImageTint.Region region : QsHeaderImageTint.Region.values()) {
+            QsHeaderImageTint.getBounds(region, bounds);
+            bounds.offset(-loc[0], -loc[1]);
+            float luma = getHeaderSampleLuma(bounds, vw, vh);
+            if (luma < 0f) {
+                continue;
+            }
+            // The image is shaded and fades out at the bottom, the panel is dark behind it.
+            float visible = alpha;
+            float centerY = bounds.exactCenterY();
+            if (fadeHeight > 0f && centerY > vh - fadeHeight) {
+                visible *= Math.max(0f, Math.min(1f, (vh - centerY) / fadeHeight));
+            }
+            float effective = luma * visible + HEADER_BACKDROP_LUMA * (1f - visible);
+            float threshold = QsHeaderImageTint.isLight(region)
+                    ? HEADER_LIGHT_OFF_LUMA : HEADER_LIGHT_ON_LUMA;
+            QsHeaderImageTint.setLight(region, effective > threshold);
+        }
+    }
+
+    /** Draws the drawable the way the image view does, centered and cropped, but much smaller. */
+    private static Bitmap renderHeaderSample(Drawable dw, int vw, int vh) {
+        int sw = Math.max(1, vw / HEADER_SAMPLE_DIVISOR);
+        int sh = Math.max(1, vh / HEADER_SAMPLE_DIVISOR);
+        int iw = dw.getIntrinsicWidth() > 0 ? dw.getIntrinsicWidth() : sw;
+        int ih = dw.getIntrinsicHeight() > 0 ? dw.getIntrinsicHeight() : sh;
+        float scale = Math.max((float) sw / iw, (float) sh / ih);
+        Rect oldBounds = dw.copyBounds();
+        try {
+            Bitmap bmp = Bitmap.createBitmap(sw, sh, Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(bmp);
+            canvas.translate((sw - iw * scale) / 2f, (sh - ih * scale) / 2f);
+            canvas.scale(scale, scale);
+            dw.setBounds(0, 0, iw, ih);
+            dw.draw(canvas);
+            return bmp;
+        } catch (RuntimeException e) {
+            // Hardware bitmaps can't be drawn on a software canvas.
+            return null;
+        } finally {
+            dw.setBounds(oldBounds);
+        }
+    }
+
+    /** Average luminance of the sample behind the bounds (image view pixels), -1 if outside. */
+    private float getHeaderSampleLuma(Rect bounds, int vw, int vh) {
+        float sx = (float) mHeaderSample.getWidth() / vw;
+        float sy = (float) mHeaderSample.getHeight() / vh;
+        int l = Math.max(0, (int) Math.floor(bounds.left * sx));
+        int t = Math.max(0, (int) Math.floor(bounds.top * sy));
+        int r = Math.min(mHeaderSample.getWidth(), (int) Math.ceil(bounds.right * sx));
+        int b = Math.min(mHeaderSample.getHeight(), (int) Math.ceil(bounds.bottom * sy));
+        if (r <= l || b <= t) {
+            return -1f;
+        }
+        int[] px = new int[(r - l) * (b - t)];
+        mHeaderSample.getPixels(px, 0, r - l, l, t, r - l, b - t);
+        float sum = 0f;
+        for (int c : px) {
+            float luma = (0.299f * Color.red(c) + 0.587f * Color.green(c)
+                    + 0.114f * Color.blue(c)) / 255f;
+            sum += luma * (Color.alpha(c) / 255f);
+        }
+        return sum / px.length;
     }
 
     private void stopHeaderAnimIfRunning() {
