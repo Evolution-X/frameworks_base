@@ -91,6 +91,9 @@ sealed class IslandEvent(open val priority: Int, val id: String) : Comparable<Is
         val leftBatteryLevel: Int? = null,
         val rightBatteryLevel: Int? = null,
         val caseBatteryLevel: Int? = null,
+        val leftCharging: Boolean = false,
+        val rightCharging: Boolean = false,
+        val caseCharging: Boolean = false,
     ) : IslandEvent(priority = 60, id = "bluetooth") {
         // deviceImage stays in the comparison. It arrives after the event is first published, and
         // drawable-only updates are otherwise dropped before they reach the bar.

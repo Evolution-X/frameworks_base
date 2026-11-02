@@ -53,6 +53,7 @@ class SystemEventPopupMapper @Inject constructor(@Application private val contex
                             label = context.getString(R.string.dynamic_island_bluetooth_left_earbud),
                             level = it,
                             component = BluetoothBatteryComponent.LeftEarbud,
+                            isCharging = event.leftCharging,
                         )
                     },
                 event.rightBatteryLevel
@@ -62,6 +63,7 @@ class SystemEventPopupMapper @Inject constructor(@Application private val contex
                             label = context.getString(R.string.dynamic_island_bluetooth_right_earbud),
                             level = it,
                             component = BluetoothBatteryComponent.RightEarbud,
+                            isCharging = event.rightCharging,
                         )
                     },
                 event.caseBatteryLevel
@@ -71,6 +73,7 @@ class SystemEventPopupMapper @Inject constructor(@Application private val contex
                             label = context.getString(R.string.dynamic_island_bluetooth_case),
                             level = it,
                             component = BluetoothBatteryComponent.Case,
+                            isCharging = event.caseCharging,
                         )
                     },
             )
