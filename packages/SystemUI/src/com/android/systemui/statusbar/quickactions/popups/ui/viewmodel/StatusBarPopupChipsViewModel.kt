@@ -151,7 +151,11 @@ constructor(
      */
     private fun QuickActionChipModel.PopupChip.isOwnedByForegroundApp(): Boolean {
         val open = foregroundPackage ?: return false
-        return (popupContent as? PopupContentModel.Media)?.model?.packageName == open
+        return when (val content = popupContent) {
+            is PopupContentModel.Media -> content.model.packageName == open
+            is PopupContentModel.SystemEvent -> content.ownerPackage == open
+            else -> false
+        }
     }
 
     /** Whether the notification shade or QS is expanding, expanded, or being dragged. */
@@ -292,6 +296,34 @@ constructor(
         }
     }
 
+    /**
+     * Opens the popup of a call while it rings and puts it away once the call is picked up, ends or
+     * moves on. Like the charging peek it is skipped while the island is not visible, and the
+     * popup steps aside on the dialler's own screen through [isOwnedByForegroundApp].
+     */
+    private suspend fun showRingingCall() {
+        var held: QuickActionChipId? = null
+        snapshotFlow {
+                systemEventChips.chips
+                    .firstOrNull { (it.popupContent as? PopupContentModel.SystemEvent)?.isRinging == true }
+                    ?.chipId
+            }
+            .distinctUntilChanged()
+            .collect { ringingId ->
+                held?.let { if (currentShownPopupChipId == it) currentShownPopupChipId = null }
+                held = null
+                if (
+                    ringingId != null &&
+                        isDynamicIslandEnabled &&
+                        !isOnLockscreen &&
+                        !isShadeCoveringIsland
+                ) {
+                    currentShownPopupChipId = ringingId
+                    held = ringingId
+                }
+            }
+    }
+
     override suspend fun onActivated() {
         coroutineScope {
             context.contentResolver.registerContentObserver(
@@ -340,6 +372,7 @@ constructor(
             launch { chargingChip.activate() }
             launch { systemEventChips.activate() }
             launch { peekChargingOnPlugIn() }
+            launch { showRingingCall() }
             if (StatusBarAssistantIcon.isEnabled) {
                 launch { assistantIcon.activate() }
             }

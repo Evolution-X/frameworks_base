@@ -121,6 +121,8 @@ constructor(
                     icon = icon,
                     image = event.callerPhoto?.let { Icon.Loaded(it, null) },
                     callStartTimeMs = event.callStartTimeMs.takeIf { event.connected },
+                    isRinging = event.callType == "Phone:incoming",
+                    ownerPackage = event.sbn.packageName,
                 ),
         )
     }
