@@ -20,6 +20,7 @@ import android.content.Context
 import android.graphics.RectF
 import com.android.systemui.common.shared.model.ContentDescription
 import com.android.systemui.common.shared.model.Icon
+import com.android.systemui.haptics.slider.compose.ui.SliderHapticsViewModel
 import com.android.systemui.statusbar.chips.ui.model.Chronometer
 import com.android.systemui.statusbar.quickactions.alarm.shared.model.AlarmPopupModel
 import com.android.systemui.statusbar.quickactions.charging.shared.model.ChargingPopupModel
@@ -95,7 +96,10 @@ sealed interface PopupContentModel {
 
     data class LiveScore(val model: LiveScoreChipModel) : PopupContentModel
 
-    data class Flashlight(val model: FlashlightPopupModel) : PopupContentModel
+    data class Flashlight(
+        val model: FlashlightPopupModel,
+        val hapticsViewModelFactory: SliderHapticsViewModel.Factory,
+    ) : PopupContentModel
 
     data class Stopwatch(val model: StopwatchPopupModel) : PopupContentModel
 
