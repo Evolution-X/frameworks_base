@@ -20,6 +20,7 @@ import android.content.Context
 import android.provider.Settings
 import androidx.compose.runtime.getValue
 import com.android.systemui.axdynamicbar.data.source.ConnectivityIslandManager
+import com.android.systemui.axdynamicbar.data.source.NotificationIslandManager
 import com.android.systemui.axdynamicbar.model.IslandEvent
 import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.lifecycle.HydratedActivatable
@@ -52,6 +53,7 @@ class SystemEventPopupChipsViewModel
 constructor(
     @Application private val context: Context,
     private val connectivityProvider: Provider<ConnectivityIslandManager>,
+    private val notificationProvider: Provider<NotificationIslandManager>,
     private val mapper: SystemEventPopupMapper,
 ) : HydratedActivatable() {
 
@@ -83,6 +85,7 @@ constructor(
 
     private fun connectivityChips(): Flow<List<QuickActionChipModel.PopupChip>> = channelFlow {
         val connectivity = connectivityProvider.get()
+        val notifications = notificationProvider.get()
         // The source keeps the event for as long as the device stays connected, so each
         // connection is shown for a short while rather than for as long as it lasts.
         val bluetooth =
@@ -115,16 +118,28 @@ constructor(
                     else connectivity.stopHotspot()
                     if (SystemEventFeature.VPN in enabled) connectivity.startVpn()
                     else connectivity.stopVpn()
+                    if (SystemEventFeature.CALLS in enabled) {
+                        notifications.startListening(this@SystemEventPopupChipsViewModel)
+                    } else {
+                        notifications.stopListening(this@SystemEventPopupChipsViewModel)
+                    }
                 }
             }
             combine(
                     connectivity.bluetoothEvent,
                     connectivity.hotspotEvent,
                     connectivity.vpnEvent,
-                ) { bluetoothEvent, hotspotEvent, vpnEvent ->
-                    Triple(bluetoothEvent, hotspotEvent, vpnEvent)
+                    notifications.callEvents,
+                    enabledFeatures(),
+                ) { bluetoothEvent, hotspotEvent, vpnEvent, calls, enabled ->
+                    Events(
+                        bluetoothEvent,
+                        hotspotEvent,
+                        vpnEvent,
+                        calls.takeIf { SystemEventFeature.CALLS in enabled }.orEmpty(),
+                    )
                 }
-                .collect { (bluetoothEvent, hotspotEvent, vpnEvent) ->
+                .collect { (bluetoothEvent, hotspotEvent, vpnEvent, calls) ->
                     bluetooth.onEvent(bluetoothEvent)
                     hotspot.onEvent(hotspotEvent)
                     vpn.onEvent(vpnEvent)
@@ -135,7 +150,7 @@ constructor(
                             },
                             hotspotEvent?.let { mapper.toChip(it) },
                             vpnEvent?.let { mapper.toChip(it) },
-                        )
+                        ) + calls.map { mapper.toChip(it) }
                     )
                 }
         } finally {
@@ -145,8 +160,16 @@ constructor(
             connectivity.stopBluetooth()
             connectivity.stopHotspot()
             connectivity.stopVpn()
+            notifications.stopListening(this@SystemEventPopupChipsViewModel)
         }
     }
+
+    private data class Events(
+        val bluetooth: IslandEvent.Bluetooth?,
+        val hotspot: IslandEvent.Hotspot?,
+        val vpn: IslandEvent.Vpn?,
+        val calls: List<IslandEvent.Call>,
+    )
 
     /**
      * Clears an event [durationMs] after it first shows up, and again for every later event whose
