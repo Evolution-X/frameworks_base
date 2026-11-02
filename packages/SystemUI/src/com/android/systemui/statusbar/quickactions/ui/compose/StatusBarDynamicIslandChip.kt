@@ -360,6 +360,9 @@ private fun UtilityStatusIslandChip(
                 CompactUtilityConnectedIslandMinWidth * widthScale,
                 CompactUtilityConnectedIslandMaxWidth * widthScale,
             )
+    // Centred on a camera, the two sides have to be as wide as each other, or the gap drifts off
+    // the lens towards the shorter side and the text ends up behind it.
+    val splitAroundCamera = !isStartAnchored && cutoutSpec.cutoutCenterX != null
     val utilityText =
         when (val popupContent = viewModel.popupContent) {
             is PopupContentModel.ScreenRecord ->
@@ -377,7 +380,9 @@ private fun UtilityStatusIslandChip(
             else -> ""
         }
 
-    Row(
+    CameraSplitRow(
+        leadingCount = 1,
+        cameraGap = cutoutSpec.embeddedGapWidth.takeIf { splitAroundCamera },
         modifier =
             modifier
                 .graphicsLayer {
@@ -386,17 +391,46 @@ private fun UtilityStatusIslandChip(
                 }
                 .defaultMinSize(minHeight = 32.dp * heightScale)
                 .then(
-                    if (isStartAnchored) Modifier else Modifier.width(connectedIslandWidth)
+                    when {
+                        isStartAnchored -> Modifier
+                        splitAroundCamera ->
+                            Modifier.widthIn(
+                                min = CompactUtilityConnectedIslandMinWidth * widthScale,
+                                max = CompactUtilityCameraSplitMaxWidth * widthScale,
+                            )
+                        else -> Modifier.width(connectedIslandWidth)
+                    }
                 )
                 .clip(RoundedCornerShape(50))
                 .background(Color.Black)
                 .border(width = 1.dp, color = chipOutline, shape = RoundedCornerShape(50))
                 .clickable(onClick = onTap)
-                .graphicsLayer { alpha = collapseState.contentAlpha },
+                .graphicsLayer { alpha = collapseState.contentAlpha }
+                .then(
+                    if (splitAroundCamera) Modifier.padding(horizontal = 10.dp * widthScale)
+                    else Modifier
+                ),
         horizontalArrangement = Arrangement.spacedBy(0.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (isStartAnchored) {
+        if (splitAroundCamera) {
+            UprightContent {
+                Icon(
+                    icon = viewModel.icons.first().icon,
+                    modifier = Modifier.size(16.dp),
+                    tint = chipContentColor,
+                )
+            }
+            UprightContent {
+                Text(
+                    text = utilityText,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = chipContentColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        } else if (isStartAnchored) {
             Spacer(modifier = Modifier.width(cutoutSpec.embeddedGapWidth))
             UprightContent {
                 Icon(
@@ -577,6 +611,7 @@ private val CompactUtilityIslandWidth = 74.dp
 private val CompactUtilityConnectedIslandChromeWidth = 42.dp
 private val CompactUtilityConnectedIslandMinWidth = 132.dp
 private val CompactUtilityConnectedIslandMaxWidth = 188.dp
+private val CompactUtilityCameraSplitMaxWidth = 232.dp
 private val DynamicIslandEmbeddedGapFallbackWidth = 38.dp
 private val DynamicIslandEmbeddedGapMinWidth = 34.dp
 private val DynamicIslandEmbeddedGapMaxWidth = 88.dp
