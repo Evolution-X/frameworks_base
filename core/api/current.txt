@@ -24764,6 +24764,7 @@ package android.media {
     field public static final int HEVCProfileMain10 = 2; // 0x2
     field public static final int HEVCProfileMain10HDR10 = 4096; // 0x1000
     field public static final int HEVCProfileMain10HDR10Plus = 8192; // 0x2000
+    field @FlaggedApi("android.media.codec.format_400_444_support") public static final int HEVCProfileMain10Still = 32; // 0x20
     field @FlaggedApi("android.media.codec.format_400_444_support") public static final int HEVCProfileMain400 = 8; // 0x8
     field @FlaggedApi("android.media.codec.format_400_444_support") public static final int HEVCProfileMain444 = 16; // 0x10
     field public static final int HEVCProfileMainStill = 4; // 0x4
