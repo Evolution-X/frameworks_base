@@ -18,6 +18,21 @@ package com.android.systemui.statusbar.quickactions.flashlight.shared.model
 
 /** Popup content for the flashlight page in the dynamic island. */
 data class FlashlightPopupModel(
-    val levelPercent: Int?,
+    /** Current strength step, or null when the flashlight only switches on and off. */
+    val level: Int? = null,
+    /** Highest strength step the hardware supports. */
+    val maxLevel: Int? = null,
     val turnOff: () -> Unit,
-)
+    /** Applies [level] while it is being dragged, without saving it as the new default. */
+    val setLevelTemporary: (Int) -> Unit = {},
+    /** Applies [level] and keeps it as the strength for the next time. */
+    val setLevel: (Int) -> Unit = {},
+) {
+    /** The strength as a percentage, or null when there is no adjustable strength. */
+    val strengthPercent: Int?
+        get() {
+            val maximum = maxLevel?.takeIf { it > 1 } ?: return null
+            val current = level ?: return null
+            return kotlin.math.round(current.coerceIn(0, maximum) * 100f / maximum).toInt()
+        }
+}
