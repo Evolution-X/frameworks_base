@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+-->
+<resources>
+    <!-- Dynamic island: label of a Bluetooth device that reports no device type [CHAR LIMIT=24] -->
+    <string name="dynamic_island_event_connected">Connected</string>
+    <!-- Dynamic island: button that disconnects a Bluetooth device [CHAR LIMIT=24] -->
+    <string name="dynamic_island_event_disconnect">Disconnect</string>
+    <!-- Dynamic island: battery of the left earbud [CHAR LIMIT=24] -->
+    <string name="dynamic_island_bluetooth_left_earbud">Left earbud</string>
+    <!-- Dynamic island: battery of the right earbud [CHAR LIMIT=24] -->
+    <string name="dynamic_island_bluetooth_right_earbud">Right earbud</string>
+    <!-- Dynamic island: battery of the earbuds case [CHAR LIMIT=24] -->
+    <string name="dynamic_island_bluetooth_case">Case</string>
+</resources>
