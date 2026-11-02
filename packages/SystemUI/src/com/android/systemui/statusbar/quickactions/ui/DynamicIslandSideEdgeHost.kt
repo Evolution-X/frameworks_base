@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.unit.IntOffset
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -65,6 +66,7 @@ class DynamicIslandSideEdgeHost(
     private val appContext = context.applicationContext
     private val windowManager = appContext.getSystemService(WindowManager::class.java)
     private val edgeState = mutableStateOf<DynamicIslandCutoutEdge?>(null)
+    private val offsetState = mutableStateOf(IntOffset.Zero)
     private val touchableBounds = Rect()
     private var view: ComposeView? = null
     private var lifecycleOwner: HostLifecycleOwner? = null
@@ -75,9 +77,13 @@ class DynamicIslandSideEdgeHost(
             info.touchableRegion.set(touchableBounds)
         }
 
-    /** Docks the island to [edge], adding the window if it is not there yet. */
-    fun show(edge: DynamicIslandCutoutEdge) {
+    /**
+     * Docks the island to [edge], adding the window if it is not there yet. [offset] moves it from
+     * the camera, in screen px.
+     */
+    fun show(edge: DynamicIslandCutoutEdge, offset: IntOffset = IntOffset.Zero) {
         edgeState.value = edge
+        offsetState.value = offset
         if (view != null) return
 
         val owner =
@@ -96,7 +102,7 @@ class DynamicIslandSideEdgeHost(
                     PlatformTheme {
                         val current = edgeState.value
                         if (current != null) {
-                            DynamicIslandSideEdgeLayout(current) {
+                            DynamicIslandSideEdgeLayout(current, offset = offsetState.value) {
                                 content(
                                     current,
                                     this@DynamicIslandSideEdgeHost::onBoundsChanged,
