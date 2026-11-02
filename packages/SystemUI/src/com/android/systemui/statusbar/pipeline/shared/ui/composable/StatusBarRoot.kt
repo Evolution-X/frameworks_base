@@ -603,7 +603,27 @@ fun StatusBarRoot(
                     islandEdgeState.value = sideEdge?.edge ?: DynamicIslandEdge.TOP
                     if (sideEdge != null) {
                         if (phoneStatusBarView.isAttachedToWindow && phoneStatusBarView.isShown) {
-                            sideEdgeHost.show(sideEdge)
+                            val sideOffsetX =
+                                with(DynamicIslandFeatureSettings) {
+                                    islandResolver.readDynamicIslandOffsetPx(
+                                        OFFSET_X_DP10,
+                                        islandDensity,
+                                    )
+                                }
+                            val sideOffsetY =
+                                with(DynamicIslandFeatureSettings) {
+                                    islandResolver.readDynamicIslandOffsetPx(
+                                        OFFSET_Y_DP10,
+                                        islandDensity,
+                                    )
+                                }
+                            sideEdgeHost.show(
+                                sideEdge,
+                                sideEdge.rotateOffset(
+                                    sideOffsetX.roundToInt(),
+                                    sideOffsetY.roundToInt(),
+                                ),
+                            )
                         } else {
                             sideEdgeHost.hide()
                         }
