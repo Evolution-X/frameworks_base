@@ -748,7 +748,8 @@ public class AxSpoofManager implements IAxSpoofManager {
         final String product = firstNonEmpty(
                 fields.get("PRODUCT"), head != null ? head[1] : null);
         final String release = firstNonEmpty(
-                fields.get("RELEASE"), tail != null ? tail[0] : null);
+                fields.get("RELEASE"),
+                PixelDeviceRepository.releaseFromFingerprint(fields.get("FINGERPRINT")));
         final String incremental = firstNonEmpty(
                 fields.get("INCREMENTAL"), tail != null ? tail[2] : null);
         final boolean haveDescription = product != null && type != null && release != null
