@@ -18,6 +18,7 @@ package com.android.systemui.statusbar.quickactions.ui.compose
 
 import android.view.ViewTreeObserver
 import android.view.WindowManager
+import android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -29,6 +30,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -73,10 +75,10 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
 /**
- * Displays a popup in the status bar area. The offset is calculated to draw the popup below the
- * status bar. When [chipBoundsInScreen] is provided, the popup grows out of the chip's on-screen
- * position and aspect ratio with an independent-axis squish animation, rather than a generic
- * uniform scale-in.
+ * Displays a popup in the status bar area. When [chipBoundsInScreen] is provided, the popup opens
+ * from the chip's own top edge, over the status bar and around the camera, and grows out of the
+ * chip's on-screen position and aspect ratio with an independent-axis squish animation. Without
+ * it the popup is drawn below the status bar.
  *
  * With a [sideEdge] camera the island is docked to the left or right edge, so the popup opens
  * beside the pill instead: next to it on the inner side and centered on the camera, growing out
@@ -98,8 +100,30 @@ fun StatusBarPopup(
         }
     val sideGapPx = with(density) { 4.dp.roundToPx() }
     val sideMarginPx = with(density) { 4.dp.roundToPx() }
+    val edgePaddingPx = with(density) { PopupEdgePadding.roundToPx() }
+    val cameraBottomPx =
+        LocalView.current.rootWindowInsets?.displayCutout?.let { cutout ->
+            cutout.boundingRectTop.takeUnless { it.isEmpty }?.bottom
+        }
+    // Only a popup under a top camera opens from the island's edge; side-docked ones sit beside it.
+    val popupTopPx = if (sideEdge == null) chipBoundsInScreen?.top?.toInt() else null
+    // How far the popup's content has to be pushed down so it starts below the camera.
+    val cameraClearance =
+        if (popupTopPx != null && cameraBottomPx != null) {
+            with(density) { (cameraBottomPx - popupTopPx).coerceAtLeast(0).toDp() }
+        } else {
+            0.dp
+        }
     val positionProvider =
-        remember(yOffsetPx, sideEdge?.edge, chipBoundsInScreen, sideGapPx, sideMarginPx) {
+        remember(
+            yOffsetPx,
+            sideEdge?.edge,
+            chipBoundsInScreen,
+            sideGapPx,
+            sideMarginPx,
+            popupTopPx,
+            edgePaddingPx,
+        ) {
             object : PopupPositionProvider {
                 override fun calculatePosition(
                     anchorBounds: IntRect,
@@ -130,7 +154,13 @@ fun StatusBarPopup(
                     }
                     val x =
                         (anchorBounds.center.x - popupContentSize.width / 2).coerceIn(0, maxX)
-                    return IntOffset(x, anchorBounds.top + yOffsetPx)
+                    val y =
+                        if (popupTopPx != null) {
+                            popupTopPx - edgePaddingPx
+                        } else {
+                            anchorBounds.top + yOffsetPx
+                        }
+                    return IntOffset(x, y)
                 }
             }
         }
@@ -166,6 +196,16 @@ fun StatusBarPopup(
             ),
     ) {
         val popupView = LocalView.current
+        // Let the popup window reach into the camera cutout so it can open from the island.
+        DisposableEffect(popupView) {
+            val root = popupView.rootView
+            val lp = root.layoutParams as? WindowManager.LayoutParams
+            if (lp != null && lp.layoutInDisplayCutoutMode != LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS) {
+                lp.layoutInDisplayCutoutMode = LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                root.context.getSystemService(WindowManager::class.java)?.updateViewLayout(root, lp)
+            }
+            onDispose {}
+        }
         var popupBoundsInScreen by remember { mutableStateOf<Rect?>(null) }
 
         val transformOrigin by remember {
@@ -326,52 +366,58 @@ fun StatusBarPopup(
             enter = fadeIn(animationSpec = tween(60)),
             exit = fadeOut(animationSpec = tween(160)),
         ) {
-            Box(
-                modifier =
-                    Modifier.padding(8.dp)
-                        .wrapContentSize()
-                        .onGloballyPositioned { coordinates ->
-                            popupBoundsInScreen = coordinates.boundsInScreen(popupView)
-                        }
-                        .graphicsLayer {
-                            this.scaleX = scaleX.value
-                            this.scaleY = scaleY.value
-                            this.alpha = alpha.value
-                            this.translationX = translationX.value
-                            this.translationY = translationY.value
-                            this.transformOrigin = transformOrigin
-                        }
-            ) {
-                when (val popupContent = viewModel.popupContent) {
-                    is PopupContentModel.Media -> {
-                        val model = popupContent.model
-                        val useWaveform = popupContent.useWaveform
-                        val hasLyrics =
-                            !model.lyrics.isNullOrBlank() || !model.syncedLyrics.isNullOrBlank()
-                        if (hasLyrics) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                MediaControlPopup(model = model, useWaveform = useWaveform)
-                                LyricsCard(model = model)
+            CompositionLocalProvider(LocalPopupCameraClearance provides cameraClearance) {
+                Box(
+                    modifier =
+                        Modifier.padding(PopupEdgePadding)
+                            .wrapContentSize()
+                            .onGloballyPositioned { coordinates ->
+                                popupBoundsInScreen = coordinates.boundsInScreen(popupView)
                             }
-                        } else {
-                            MediaControlPopup(model = model, useWaveform = useWaveform)
+                            .graphicsLayer {
+                                this.scaleX = scaleX.value
+                                this.scaleY = scaleY.value
+                                this.alpha = alpha.value
+                                this.translationX = translationX.value
+                                this.translationY = translationY.value
+                                this.transformOrigin = transformOrigin
+                            }
+                ) {
+                    when (val popupContent = viewModel.popupContent) {
+                        is PopupContentModel.Media -> {
+                            val model = popupContent.model
+                            val useWaveform = popupContent.useWaveform
+                            val hasLyrics =
+                                !model.lyrics.isNullOrBlank() || !model.syncedLyrics.isNullOrBlank()
+                            if (hasLyrics) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    MediaControlPopup(model = model, useWaveform = useWaveform)
+                                    CompositionLocalProvider(LocalPopupCameraClearance provides 0.dp) {
+                                        LyricsCard(model = model)
+                                    }
+                                }
+                            } else {
+                                MediaControlPopup(model = model, useWaveform = useWaveform)
+                            }
                         }
+                        is PopupContentModel.ScreenRecord -> ScreenRecordPopup(model = popupContent.model)
+                        is PopupContentModel.LiveScore -> LiveScorePopup(model = popupContent.model)
+                        is PopupContentModel.Flashlight -> FlashlightPopup(model = popupContent.model)
+                        is PopupContentModel.Stopwatch -> StopwatchPopup(model = popupContent.model)
+                        is PopupContentModel.Alarm -> AlarmPopup(model = popupContent.model)
+                        is PopupContentModel.Charging -> ChargingPopup(model = popupContent.model)
+                        PopupContentModel.None -> Unit
                     }
-                    is PopupContentModel.ScreenRecord -> ScreenRecordPopup(model = popupContent.model)
-                    is PopupContentModel.LiveScore -> LiveScorePopup(model = popupContent.model)
-                    is PopupContentModel.Flashlight -> FlashlightPopup(model = popupContent.model)
-                    is PopupContentModel.Stopwatch -> StopwatchPopup(model = popupContent.model)
-                    is PopupContentModel.Alarm -> AlarmPopup(model = popupContent.model)
-                    is PopupContentModel.Charging -> ChargingPopup(model = popupContent.model)
-                    PopupContentModel.None -> Unit
                 }
             }
         }
     }
 }
+
+private val PopupEdgePadding = 8.dp
 
 private fun LayoutCoordinates.boundsInScreen(view: android.view.View): Rect {
     val location = IntArray(2)
