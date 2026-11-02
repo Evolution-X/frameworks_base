@@ -413,6 +413,7 @@ fun StatusBarPopup(
                         is PopupContentModel.Stopwatch -> StopwatchPopup(model = popupContent.model)
                         is PopupContentModel.Alarm -> AlarmPopup(model = popupContent.model)
                         is PopupContentModel.Charging -> ChargingPopup(model = popupContent.model)
+                        is PopupContentModel.SystemEvent -> SystemEventPopup(model = popupContent)
                         PopupContentModel.None -> Unit
                     }
                 }

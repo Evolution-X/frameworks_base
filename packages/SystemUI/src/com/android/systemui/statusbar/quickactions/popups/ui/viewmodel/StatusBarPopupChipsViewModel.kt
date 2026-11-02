@@ -94,6 +94,7 @@ constructor(
     stopwatchChipFactory: StopwatchPopupChipViewModel.Factory,
     alarmChipFactory: AlarmPopupChipViewModel.Factory,
     chargingChipFactory: ChargingPopupChipViewModel.Factory,
+    systemEventChipsFactory: SystemEventPopupChipsViewModel.Factory,
 ) : HydratedActivatable() {
 
     private val mediaControlChip by lazy { mediaControlChipFactory.create() }
@@ -110,6 +111,7 @@ constructor(
     private val stopwatchChip by lazy { stopwatchChipFactory.create() }
     private val alarmChip by lazy { alarmChipFactory.create() }
     private val chargingChip by lazy { chargingChipFactory.create() }
+    private val systemEventChips by lazy { systemEventChipsFactory.create() }
 
     private var isDynamicIslandEnabled by mutableStateOf(readDynamicIslandEnabled())
     private val dynamicIslandObserver =
@@ -210,7 +212,7 @@ constructor(
                     bundle.charging,
                     bundle.privacy.takeIf { StatusBarPopupChips.isEnabled },
                     bundle.shareScreen.takeIf { StatusBarPopupChips.isEnabled },
-                )
+                ) + systemEventChips.chips
             } else if (StatusBarPopupChips.isEnabled) {
                 listOfNotNull(
                     bundle.media,
@@ -336,6 +338,7 @@ constructor(
             launch { stopwatchChip.activate() }
             launch { alarmChip.activate() }
             launch { chargingChip.activate() }
+            launch { systemEventChips.activate() }
             launch { peekChargingOnPlugIn() }
             if (StatusBarAssistantIcon.isEnabled) {
                 launch { assistantIcon.activate() }
