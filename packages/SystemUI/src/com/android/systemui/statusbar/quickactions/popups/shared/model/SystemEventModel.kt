@@ -21,6 +21,7 @@ enum class SystemEventKind {
     Bluetooth,
     Hotspot,
     Vpn,
+    Call,
 }
 
 enum class BluetoothBatteryComponent {

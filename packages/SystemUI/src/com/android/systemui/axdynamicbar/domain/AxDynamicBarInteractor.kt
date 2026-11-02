@@ -139,6 +139,10 @@ constructor(
 
         applicationScope.launch {
             repository.notification.notificationFlow.collect { notification ->
+                // The manager is shared with the dynamic island, which can have it listening
+                // while the bar is off. The bar's own notification events are then not wanted,
+                // and the heads up is not suppressed, so showing the card would overlap it.
+                if (!settings.isNotificationEventsActive()) return@collect
                 repository.notification.coalesceNotification(notification)
                 showNotificationAlert(notification)
             }

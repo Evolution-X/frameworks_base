@@ -28,6 +28,7 @@ import com.android.systemui.res.R
 import com.android.systemui.statusbar.quickactions.popups.shared.model.BluetoothBatteryComponent
 import com.android.systemui.statusbar.quickactions.popups.shared.model.BluetoothBatteryModel
 import com.android.systemui.statusbar.quickactions.popups.shared.model.PopupActionModel
+import com.android.systemui.statusbar.quickactions.popups.shared.toSendAction
 import com.android.systemui.statusbar.quickactions.popups.shared.model.SystemEventKind
 import com.android.systemui.statusbar.quickactions.shared.model.ChipContent
 import com.android.systemui.statusbar.quickactions.shared.model.ChipIcon
@@ -82,6 +83,47 @@ constructor(
             chipContent = null,
             settingsAction = Settings.ACTION_VPN_SETTINGS,
         )
+
+    /**
+     * A call. The chip carries the call glyph; the popup shows who is calling, whether the call is
+     * ringing, dialling or connected (with a running timer) and the notification's own actions,
+     * such as answer and decline.
+     */
+    fun toChip(event: IslandEvent.Call): QuickActionChipModel.PopupChip {
+        val title =
+            event.callerName?.toString()?.takeIf { it.isNotBlank() }
+                ?: context.getString(R.string.dynamic_island_event_call)
+        val text =
+            when {
+                event.connected -> event.number?.toString().orEmpty()
+                event.callType == "Phone:incoming" ->
+                    context.getString(R.string.dynamic_island_event_incoming_call)
+                else -> context.getString(R.string.dynamic_island_event_calling)
+            }
+        val icon = Icon.Resource(R.drawable.ic_call, null)
+        return QuickActionChipModel.PopupChip(
+            chipId = QuickActionChipId.SystemEvent(event.id),
+            icons = listOf(ChipIcon(icon = icon)),
+            colors = ChipColors.DynamicIsland,
+            contentDescription = ContentDescription.Loaded("$title: $text"),
+            popupContent =
+                PopupContentModel.SystemEvent(
+                    kind = SystemEventKind.Call,
+                    title = title,
+                    text = text,
+                    actions =
+                        event.actions.map { action ->
+                            PopupActionModel(
+                                label = action.label.toString(),
+                                onClick = action.action.actionIntent.toSendAction() ?: {},
+                            )
+                        },
+                    icon = icon,
+                    image = event.callerPhoto?.let { Icon.Loaded(it, null) },
+                    callStartTimeMs = event.callStartTimeMs.takeIf { event.connected },
+                ),
+        )
+    }
 
     private fun settingsChip(
         event: IslandEvent,

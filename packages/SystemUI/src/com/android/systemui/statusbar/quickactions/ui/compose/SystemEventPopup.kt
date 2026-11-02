@@ -158,6 +158,18 @@ private fun EventHeader(model: PopupContentModel.SystemEvent, accent: Color) {
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
+            model.callStartTimeMs?.let { startMs ->
+                val base =
+                    android.os.SystemClock.elapsedRealtime() -
+                        (System.currentTimeMillis() - startMs).coerceAtLeast(0L)
+                Text(
+                    rememberElapsedDurationText(base),
+                    style =
+                        MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
+                    color = LocalContentColor.current.copy(alpha = 0.73f),
+                    maxLines = 1,
+                )
+            }
             if (model.text.isNotBlank()) {
                 Text(
                     model.text,
