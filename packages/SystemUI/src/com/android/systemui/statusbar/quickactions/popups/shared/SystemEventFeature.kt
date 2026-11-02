@@ -24,4 +24,5 @@ enum class SystemEventFeature(val settingKey: String) {
     BLUETOOTH(DynamicIslandFeatureSettings.BLUETOOTH),
     HOTSPOT(DynamicIslandFeatureSettings.HOTSPOT),
     VPN(DynamicIslandFeatureSettings.VPN),
+    CALLS(DynamicIslandFeatureSettings.CALLS),
 }
