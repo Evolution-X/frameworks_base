@@ -6,6 +6,7 @@
 package com.android.internal.util.evolution;
 
 import android.content.Context;
+import android.os.Build;
 import android.provider.Settings;
 import android.util.Log;
 
@@ -276,6 +277,25 @@ public final class PixelDeviceRepository {
         if (month < 1 || month > 12 || day < 1 || day > 31) return null;
         return "20" + yymmdd.substring(0, 2) + "-" + yymmdd.substring(2, 4) + "-"
                 + yymmdd.substring(4, 6);
+    }
+
+    /**
+     * Android release to report for [fingerprint] (brand/product/device:release/id/...).
+     * A Canary fingerprint carries the literal "CANARY" where the release goes, which no
+     * app can read as a version, so that case takes this ROM's own release instead. Null
+     * when there is neither.
+     */
+    public static String releaseFromFingerprint(String fingerprint) {
+        if (fingerprint != null) {
+            final int colon = fingerprint.indexOf(':');
+            final int slash = colon < 0 ? -1 : fingerprint.indexOf('/', colon + 1);
+            if (slash > colon + 1) {
+                final String release = fingerprint.substring(colon + 1, slash);
+                if (!release.equalsIgnoreCase("CANARY")) return release;
+            }
+        }
+        final String own = Build.VERSION.RELEASE;
+        return own == null || own.isEmpty() ? null : own;
     }
 
     /**
