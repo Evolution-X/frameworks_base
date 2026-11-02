@@ -27,6 +27,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -871,9 +872,29 @@ public final class CachedAppOptimizerTest {
                 /*shouldBeCalled*/ false);
     }
 
-    @SuppressWarnings("GuardedBy")
+    @EnableFlags({
+            com.android.server.am.Flags.FLAG_ENABLE_ZRAM_WRITEBACK,
+            com.android.server.am.Flags.FLAG_LOG_ZRAM_WRITEBACK_EVENTS})
+    @Test
+    public void zramWritebackNotInitiatedForKilledProcess() throws Exception {
+        initActivityManagerService();
+        setFlag(CachedAppOptimizer.KEY_ZRAM_WRITEBACK_ENABLED, "true", true);
+        long[] rssAfter =
+                new long[]{/*totalRSS*/ 9000, /*fileRSS*/ 9000, /*anonRSS*/ 11000, /*swap*/9000};
+        verifyZramWriteback(rssAfter, /*hasActivities*/ true, /*supportsZramOps*/ true,
+                /*isKilled*/ true, /*shouldBeCalled*/ false);
+        verify(mKernelAllocProvider, never()).getDmabufSizeForProcessKb(anyInt());
+    }
+
     private void verifyZramWriteback(long[] rssAfter, boolean hasActivities,
             boolean supportsZramOps, boolean shouldBeCalled) throws Exception {
+        verifyZramWriteback(rssAfter, hasActivities, supportsZramOps, /*isKilled*/ false,
+                shouldBeCalled);
+    }
+
+    @SuppressWarnings("GuardedBy")
+    private void verifyZramWriteback(long[] rssAfter, boolean hasActivities,
+            boolean supportsZramOps, boolean isKilled, boolean shouldBeCalled) throws Exception {
         initActivityManagerService();
         setFlag(CachedAppOptimizer.KEY_USE_COMPACTION, "true", true);
         setFlag(CachedAppOptimizer.KEY_COMPACT_FULL_DELTA_RSS_THROTTLE_KB, "12000", false);
@@ -884,6 +905,7 @@ public final class CachedAppOptimizerTest {
         int pid = 1;
         ProcessRecord processRecord = spy(makeProcessRecord(pid, 2, 3, "p1", "app1"));
         doReturn(hasActivities).when(processRecord).hasActivities();
+        doReturn(isKilled).when(processRecord).isKilled();
         doReturn(supportsZramOps).when(mIMmd).supportsProcessMemoryZramOps();
 
         mProcessDependencies.setRss(rssBefore);

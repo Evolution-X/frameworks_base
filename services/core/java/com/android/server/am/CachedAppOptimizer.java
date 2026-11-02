@@ -1819,6 +1819,13 @@ public class CachedAppOptimizer {
         if (!Flags.logZramWritebackEvents() && !zramWritebackEnabled) {
             return;
         }
+        synchronized (mProcLock) {
+            // This runs mZramWritebackWaitSeconds after the compaction that queued it, by which
+            // time the process may be gone and its pid reused.
+            if (app.isKilled() || app.getPid() != pid) {
+                return;
+            }
+        }
         int eventTypeToLog =
                 FrameworkStatsLog.ZRAM_WRITEBACK_EVENT__EVENT_TYPE__SKIPPED_OTHER_REASONS;
         String processNameForLogging =
