@@ -27,6 +27,7 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
@@ -53,6 +54,18 @@ data class DynamicIslandCutoutEdge(val edge: DynamicIslandEdge, val hole: Rect) 
                 DynamicIslandEdge.LEFT -> 3
                 DynamicIslandEdge.RIGHT -> 1
             }
+
+    /**
+     * Carries an offset given for the upright portrait pill ([x] along it, [y] down from the top
+     * edge) onto this edge by the same quarter turns as the pill, so a positive [y] still moves the
+     * pill away from the camera edge and a positive [x] along it.
+     */
+    fun rotateOffset(x: Int, y: Int): IntOffset =
+        when (quarterTurns) {
+            1 -> IntOffset(-y, x)
+            3 -> IntOffset(y, -x)
+            else -> IntOffset(x, y)
+        }
 }
 
 /**
@@ -146,6 +159,7 @@ private val DynamicIslandSideEdgeMargin = 4.dp
 fun DynamicIslandSideEdgeLayout(
     edge: DynamicIslandCutoutEdge,
     modifier: Modifier = Modifier,
+    offset: IntOffset = IntOffset.Zero,
     content: @Composable () -> Unit,
 ) {
     val marginPx = with(LocalDensity.current) { DynamicIslandSideEdgeMargin.roundToPx() }
@@ -159,10 +173,12 @@ fun DynamicIslandSideEdgeLayout(
                 val x =
                     (edge.hole.exactCenterX() - it.width / 2f)
                         .roundToInt()
+                        .plus(offset.x)
                         .coerceIn(marginPx, (width - it.width - marginPx).coerceAtLeast(marginPx))
                 val y =
                     (edge.hole.exactCenterY() - it.height / 2f)
                         .roundToInt()
+                        .plus(offset.y)
                         .coerceIn(0, (height - it.height).coerceAtLeast(0))
                 it.place(x, y)
             }
