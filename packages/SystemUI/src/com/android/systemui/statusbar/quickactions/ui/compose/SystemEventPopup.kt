@@ -33,6 +33,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearWavyProgressIndicator
@@ -47,9 +48,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.android.systemui.common.ui.compose.Icon as StatusBarIcon
 import com.android.systemui.res.R
@@ -175,6 +178,7 @@ private fun EventHeader(model: PopupContentModel.SystemEvent, accent: Color) {
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
                     )
+                    if (battery.isCharging) ChargingBolt(accent, size = 14.dp)
                     Text(
                         text = "${battery.level}%",
                         style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"),
@@ -186,6 +190,16 @@ private fun EventHeader(model: PopupContentModel.SystemEvent, accent: Color) {
             }
         }
     }
+}
+
+@Composable
+private fun ChargingBolt(tint: Color, size: Dp) {
+    Icon(
+        imageVector = Icons.Filled.Bolt,
+        contentDescription = stringResource(R.string.dynamic_island_charging_title),
+        tint = tint,
+        modifier = Modifier.size(size),
+    )
 }
 
 @Composable
@@ -230,16 +244,22 @@ private fun EarbudBatteries(batteries: List<BluetoothBatteryModel>, accent: Colo
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                             )
-                            Text(
-                                text = "${battery.level}%",
-                                style =
-                                    MaterialTheme.typography.titleMedium.copy(
-                                        fontFeatureSettings = "tnum"
-                                    ),
-                                fontWeight = FontWeight.SemiBold,
-                                color = accent,
-                                maxLines = 1,
-                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                if (battery.isCharging) ChargingBolt(accent, size = 16.dp)
+                                Text(
+                                    text = "${battery.level}%",
+                                    style =
+                                        MaterialTheme.typography.titleMedium.copy(
+                                            fontFeatureSettings = "tnum"
+                                        ),
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = accent,
+                                    maxLines = 1,
+                                )
+                            }
                         }
                     }
                 }
