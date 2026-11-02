@@ -14,7 +14,7 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<resources>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!-- Dynamic island: label of a Bluetooth device that reports no device type [CHAR LIMIT=24] -->
     <string name="dynamic_island_event_connected">Connected</string>
     <!-- Dynamic island: button that disconnects a Bluetooth device [CHAR LIMIT=24] -->
@@ -25,4 +25,14 @@
     <string name="dynamic_island_bluetooth_right_earbud">Right earbud</string>
     <!-- Dynamic island: battery of the earbuds case [CHAR LIMIT=24] -->
     <string name="dynamic_island_bluetooth_case">Case</string>
+    <!-- Dynamic island: title of the hotspot event [CHAR LIMIT=24] -->
+    <string name="dynamic_island_event_hotspot">Hotspot</string>
+    <!-- Dynamic island: number of devices connected to the hotspot [CHAR LIMIT=32] -->
+    <string name="dynamic_island_event_connected_devices">Connected devices: <xliff:g id="count" example="2">%1$d</xliff:g></string>
+    <!-- Dynamic island: title of the VPN event [CHAR LIMIT=24] -->
+    <string name="dynamic_island_event_vpn">VPN</string>
+    <!-- Dynamic island: state of a VPN that is still connecting [CHAR LIMIT=24] -->
+    <string name="dynamic_island_event_connecting">Connecting</string>
+    <!-- Dynamic island: button that opens the settings of an event [CHAR LIMIT=24] -->
+    <string name="dynamic_island_event_settings">Settings</string>
 </resources>
