@@ -46,6 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -62,6 +63,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -89,6 +92,7 @@ import com.android.systemui.brightness.domain.model.GammaBrightness
 import com.android.systemui.brightness.ui.viewmodel.BrightnessSliderViewModel
 import com.android.systemui.brightness.ui.viewmodel.Drag
 import com.android.systemui.qs.footer.ui.compose.rememberSystemSettingEnabled
+import com.android.systemui.shade.QsHeaderImageTint
 import com.android.systemui.qs.panels.ui.compose.GridLayout
 import com.android.systemui.qs.panels.ui.compose.TileListener
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSActiveFill
@@ -114,6 +118,7 @@ import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSTileLabe
 import com.android.systemui.qs.panels.ui.viewmodel.TileViewModel
 import com.android.systemui.res.R
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -929,6 +934,9 @@ private val ColorOSHeaderButtonRaise = 5.5.dp
 private val ColorOSHeaderEditIconSize = 21.dp
 private val ColorOSHeaderSettingsIconSize = 29.dp
 
+/** The glyph of a header button over a light part of the header image. */
+private val ColorOSHeaderIconOnLightImage = Color.Black
+
 /**
  * The two buttons above the panel: edit on the start side and settings on the end side, round
  * glass like the tiles that are off. A missing [onSettings], or a button that the footer settings
@@ -958,6 +966,7 @@ internal fun ColorOSHeaderButtons(
             ColorOSHeaderButton(
                 iconRes = R.drawable.ic_edit,
                 iconSize = ColorOSHeaderEditIconSize,
+                region = QsHeaderImageTint.Region.EDIT,
                 description = stringResource(R.string.accessibility_quick_settings_edit),
                 glass = glass,
                 onClick = onEdit,
@@ -969,6 +978,7 @@ internal fun ColorOSHeaderButtons(
             ColorOSHeaderButton(
                 iconRes = R.drawable.ic_qs_footer_settings,
                 iconSize = ColorOSHeaderSettingsIconSize,
+                region = QsHeaderImageTint.Region.SETTINGS,
                 description = stringResource(R.string.accessibility_quick_settings_settings),
                 glass = glass,
                 onClick = onSettings,
@@ -983,11 +993,13 @@ internal fun ColorOSHeaderButtons(
 private fun ColorOSHeaderButton(
     iconRes: Int,
     iconSize: Dp,
+    region: QsHeaderImageTint.Region,
     description: String,
     glass: ColorOSGlass,
     onClick: (Expandable) -> Unit,
 ) {
     val pressSource = remember { MutableInteractionSource() }
+    val onLightImage by QsHeaderImageTint.lightFlow(region).collectAsState()
     Expandable(
         color = Color.Unspecified,
         shape = CircleShape,
@@ -997,6 +1009,17 @@ private fun ColorOSHeaderButton(
         defaultMinSize = false,
         modifier =
             Modifier.size(ColorOSHeaderButtonSize)
+                .onGloballyPositioned {
+                    // Where the header image is sampled to tell if the glyph has to be dark.
+                    val b = it.boundsInWindow()
+                    QsHeaderImageTint.setBounds(
+                        region,
+                        b.left.roundToInt(),
+                        b.top.roundToInt(),
+                        b.right.roundToInt(),
+                        b.bottom.roundToInt(),
+                    )
+                }
                 .colorOSPress(pressSource)
                 .semantics {
                     role = Role.Button
@@ -1008,7 +1031,7 @@ private fun ColorOSHeaderButton(
             Icon(
                 painter = painterResource(iconRes),
                 contentDescription = null,
-                tint = glass.iconOff,
+                tint = if (onLightImage) ColorOSHeaderIconOnLightImage else glass.iconOff,
                 modifier = Modifier.size(iconSize),
             )
         }
