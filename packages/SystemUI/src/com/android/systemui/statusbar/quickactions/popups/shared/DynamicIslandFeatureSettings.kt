@@ -45,6 +45,7 @@ object DynamicIslandFeatureSettings {
     const val POPUP_COLOR_MODE = "status_bar_dynamic_island_popup_color_mode"
     const val OFFSET_X_DP10 = "status_bar_dynamic_island_offset_x_dp10"
     const val OFFSET_Y_DP10 = "status_bar_dynamic_island_offset_y_dp10"
+    const val LANDSCAPE_TOP = "status_bar_dynamic_island_landscape_top"
     private const val OFFSET_DP10_LIMIT = 200
 
     const val SCALE_MIN = 0.7f
