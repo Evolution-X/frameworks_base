@@ -365,7 +365,7 @@ public final class CertificateHacker {
         }
 
         byte[] bootHash = rootOfTrustOctet(originalRootOfTrust, 3);
-        if (bootHash == null) {
+        if (AttestationUtils.isNullOrZeroBootHash(bootHash)) {
             bootHash = AttestationUtils.getBootHash();
         }
 
