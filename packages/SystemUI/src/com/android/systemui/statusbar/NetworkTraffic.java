@@ -19,6 +19,7 @@ package com.android.systemui.statusbar;
 import static com.android.systemui.statusbar.StatusBarIconView.STATE_ICON;
 
 import android.content.Context;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.Typeface;
@@ -557,8 +558,7 @@ public class NetworkTraffic extends TextView implements TunerService.Tunable,
                 if (mEnabled) {
                     setLines(2);
                     setMaxLines(2);
-                    String txtFont = getResources().getString(com.android.internal.R.string.config_bodyFontFamily);
-                    setTypeface(Typeface.create(txtFont, Typeface.BOLD));
+                    applyBoldTypeface();
                     setLineSpacing(0f, 0.95f);
                     setLayoutDirection(View.LAYOUT_DIRECTION_LOCALE);
                     setTextDirection(View.TEXT_DIRECTION_LOCALE);
@@ -604,6 +604,28 @@ public class NetworkTraffic extends TextView implements TunerService.Tunable,
                 break;
             default:
                 break;
+        }
+    }
+
+    private void applyBoldTypeface() {
+        final String txtFont = getResources().getString(
+                com.android.internal.R.string.config_bodyFontFamily);
+        final Typeface base = Typeface.create(txtFont, Typeface.NORMAL);
+        // Request an explicit weight instead of the BOLD style bit so variable/multi-weight
+        // families resolve to a real bold instance. TextView#setTypeface() adds the
+        // "Bold text" accessibility adjustment on top of this.
+        final Typeface bold = Typeface.create(base, 700, false);
+        setTypeface(bold);
+        // If the family has no heavy instance, fall back to synthetic bold.
+        getPaint().setFakeBoldText(getTypeface() != null && getTypeface().getWeight() < 600);
+    }
+
+    @Override
+    protected void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        // Font weight adjustment (Bold text) / font changes arrive via configuration.
+        if (mEnabled) {
+            applyBoldTypeface();
         }
     }
 
