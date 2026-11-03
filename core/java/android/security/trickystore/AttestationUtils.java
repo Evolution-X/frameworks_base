@@ -95,6 +95,10 @@ public final class AttestationUtils {
         return true;
     }
 
+    public static boolean isNullOrZeroBootHash(byte[] hash) {
+        return isNullOrZeroBootKey(hash);
+    }
+
     public static byte[] getBootKey() {
         byte[] key = sBootKey;
         if (!isNullOrZeroBootKey(key)) return key;
@@ -194,22 +198,22 @@ public final class AttestationUtils {
 
     public static byte[] getBootHash() {
         byte[] hash = sBootHash;
-        if (hash != null) return hash;
+        if (!isNullOrZeroBootHash(hash)) return hash;
         synchronized (AttestationUtils.class) {
             hash = sBootHash;
-            if (hash == null) {
+            if (isNullOrZeroBootHash(hash)) {
                 hash = getBootHashFromProp();
-                if (hash == null) hash = readPersisted(HBK_FILE);
-                if (hash == null && !sTeeBroken) {
+                if (isNullOrZeroBootHash(hash)) hash = readPersisted(HBK_FILE);
+                if (isNullOrZeroBootHash(hash) && !sTeeBroken) {
                     hash = extractBootHashFromTee();
-                    if (hash != null) writePersisted(HBK_FILE, hash);
+                    if (!isNullOrZeroBootHash(hash)) writePersisted(HBK_FILE, hash);
                 }
                 boolean fromKeybox = false;
-                if (hash == null) {
+                if (isNullOrZeroBootHash(hash)) {
                     hash = deriveBootHashFromKeybox();
                     fromKeybox = hash != null;
                 }
-                if (hash == null) {
+                if (isNullOrZeroBootHash(hash)) {
                     Log.w(TAG, "Failed to get boot hash from prop, disk, TEE, and keybox, using random bytes");
                     hash = generateRandomBytes(32);
                     writePersisted(HBK_FILE, hash);
@@ -230,14 +234,14 @@ public final class AttestationUtils {
             return;
         }
         hash = readPersisted(HBK_FILE);
-        if (hash != null) {
+        if (!isNullOrZeroBootHash(hash)) {
             sBootHash = hash;
             Log.i(TAG, "initBootHash: Boot hash loaded from disk: " + bytesToHex(hash));
             return;
         }
         Log.i(TAG, "initBootHash: No prop or disk state, attempting TEE extraction");
         hash = extractBootHashFromTee();
-        if (hash != null) {
+        if (!isNullOrZeroBootHash(hash)) {
             sBootHashFallback = false;
             sBootHash = hash;
             writePersisted(HBK_FILE, hash);
@@ -346,7 +350,8 @@ public final class AttestationUtils {
             return null;
         }
         try {
-            return hexStringToByteArray(digest);
+            byte[] hash = hexStringToByteArray(digest);
+            return isNullOrZeroBootHash(hash) ? null : hash;
         } catch (Exception e) {
             Log.e(TAG, "Failed to parse vbmeta.digest", e);
             return null;
