@@ -87,19 +87,27 @@ public final class AttestationUtils {
         if (sBootHashFallback) sBootHash = null;
     }
 
+    public static boolean isNullOrZeroBootKey(byte[] key) {
+        if (key == null) return true;
+        for (byte value : key) {
+            if (value != 0) return false;
+        }
+        return true;
+    }
+
     public static byte[] getBootKey() {
         byte[] key = sBootKey;
-        if (key != null) return key;
+        if (!isNullOrZeroBootKey(key)) return key;
         synchronized (AttestationUtils.class) {
             key = sBootKey;
-            if (key == null) {
+            if (isNullOrZeroBootKey(key)) {
                 key = getBootKeyFromProp();
                 boolean fromKeybox = false;
-                if (key == null) {
+                if (isNullOrZeroBootKey(key)) {
                     key = getBootKeyFromKeybox();
                     fromKeybox = key != null;
                 }
-                if (key == null) key = loadOrCreatePersisted(BOOT_KEY_FILE);
+                if (isNullOrZeroBootKey(key)) key = loadOrCreatePersisted(BOOT_KEY_FILE);
                 sBootKeyFallback = fromKeybox;
                 sBootKey = key;
             }
