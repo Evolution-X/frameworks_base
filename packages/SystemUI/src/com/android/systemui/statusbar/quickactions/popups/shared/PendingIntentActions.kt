@@ -16,6 +16,8 @@
 
 package com.android.systemui.statusbar.quickactions.popups.shared
 
+import android.app.ActivityOptions
+import android.app.BroadcastOptions
 import android.app.PendingIntent
 import android.util.Log
 import com.android.systemui.ActivityIntentHelper
@@ -54,7 +56,19 @@ fun PendingIntent?.toActivityLaunchAction(
 fun PendingIntent?.toSendAction(): (() -> Unit)? {
     return this?.let { pendingIntent ->
         {
-            runCatching { pendingIntent.send() }
+            // Sent like a tap in the shade: the user tapped it, so the app may start an
+            // activity. Without this, Answer on a call card is "BAL blocked".
+            runCatching {
+                    pendingIntent.send(
+                        BroadcastOptions.makeBasic()
+                            .apply {
+                                isInteractive = true
+                                pendingIntentBackgroundActivityStartMode =
+                                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS
+                            }
+                            .toBundle()
+                    )
+                }
                 .onFailure {
                     Log.w("DynamicIsland", "Unable to deliver pending intent action", it)
                 }
