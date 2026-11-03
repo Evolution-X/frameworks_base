@@ -595,9 +595,18 @@ fun StatusBarRoot(
                     if (windowWidth <= 0) return
                     // Camera on the left/right edge (landscape): dock the island to it in its own
                     // window instead of centering it in the status bar, away from the camera.
+                    // With the landscape-top switch on, leave it in the status bar instead.
+                    val keepOnTop =
+                        with(DynamicIslandFeatureSettings) {
+                            islandResolver.readDynamicIslandFeatureEnabled(
+                                LANDSCAPE_TOP,
+                                defaultValue = false,
+                            )
+                        }
                     val sideEdge =
                         resolveDynamicIslandCutoutEdge(phoneStatusBarView)?.takeIf {
-                            it.edge != DynamicIslandEdge.TOP &&
+                            !keepOnTop &&
+                                it.edge != DynamicIslandEdge.TOP &&
                                 phoneStatusBarView.display?.displayId == Display.DEFAULT_DISPLAY
                         }
                     islandEdgeState.value = sideEdge?.edge ?: DynamicIslandEdge.TOP
@@ -739,6 +748,7 @@ fun StatusBarRoot(
                             listOf(
                                     DynamicIslandFeatureSettings.OFFSET_X_DP10,
                                     DynamicIslandFeatureSettings.OFFSET_Y_DP10,
+                                    DynamicIslandFeatureSettings.LANDSCAPE_TOP,
                                 )
                                 .forEach {
                                     islandResolver.registerContentObserver(
