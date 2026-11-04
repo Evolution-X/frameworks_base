@@ -24,6 +24,7 @@ import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.util.ScrimUtils
 import java.util.Objects
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -165,7 +166,18 @@ constructor(
 
     var activeMediaPackageProvider: (() -> String?)? = null
 
-    private val seenSignatures = mutableMapOf<String, Long>()
+    /**
+     * Last content signature per posted key. Concurrent because stopListening() clears it from
+     * another thread.
+     */
+    private val seenSignatures: MutableMap<String, Long> = ConcurrentHashMap()
+
+    /**
+     * Keys that may still be shown. Cleared on removal and on dismiss so a late coalesce cannot
+     * put the notification back (and pin its sbn/bitmaps). A later post adds the key again.
+     */
+    private val activeNotificationKeys: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    private val notificationLock = Any()
 
     var onTimerEvent: ((IslandEvent.Timer) -> Unit)? = null
     var onAlarmEvent: ((IslandEvent.Alarm) -> Unit)? = null
@@ -235,8 +247,11 @@ constructor(
                     _nowPlayingEvent.value = null
                 }
 
-                _notificationEvents.value =
-                    _notificationEvents.value.filter { it.sbn.key != sbn.key }
+                synchronized(notificationLock) {
+                    activeNotificationKeys.remove(sbn.key)
+                    _notificationEvents.value =
+                        _notificationEvents.value.filter { it.sbn.key != sbn.key }
+                }
 
                 notificationRemovedFlow.tryEmit(sbn.key)
             }
@@ -619,6 +634,7 @@ constructor(
                         groupKey = groupKey,
                         notificationImage = notificationImage,
                     )
+                activeNotificationKeys.add(sbn.key)
                 notificationFlow.tryEmit(event)
                 onNotificationPosted?.invoke(event)
             }
@@ -655,6 +671,7 @@ constructor(
         listening = false
         ScrimUtils.get().removeListener(scrimListener)
         seenSignatures.clear()
+        activeNotificationKeys.clear()
         timerJob?.cancel()
         timerJob = null
         timerNotificationKey = null
@@ -687,15 +704,21 @@ constructor(
     }
 
     fun dismissNotification(event: IslandEvent.Notification) {
-        _notificationEvents.value = _notificationEvents.value.filter { it.id != event.id }
+        synchronized(notificationLock) {
+            activeNotificationKeys.remove(event.sbn.key)
+            _notificationEvents.value = _notificationEvents.value.filter { it.id != event.id }
+        }
     }
 
     fun coalesceNotification(event: IslandEvent.Notification) {
         if (!listening) return
-        val current = _notificationEvents.value.toMutableList()
-        current.removeAll { it.id == event.id }
-        current.add(0, event)
-        _notificationEvents.value = current
+        synchronized(notificationLock) {
+            if (event.sbn.key !in activeNotificationKeys) return
+            val current = _notificationEvents.value.toMutableList()
+            current.removeAll { it.id == event.id }
+            current.add(0, event)
+            _notificationEvents.value = current
+        }
     }
 
     fun dismissAudioRecording() {
