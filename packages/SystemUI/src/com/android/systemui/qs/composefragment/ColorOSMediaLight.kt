@@ -12,6 +12,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.produceState
@@ -19,8 +21,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.luminance
@@ -29,6 +34,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.google.ux.material.libmonet.hct.Hct
 import com.google.ux.material.libmonet.scheme.SchemeContent
 import kotlinx.coroutines.Dispatchers
@@ -109,6 +115,45 @@ internal fun Modifier.colorOSMediaLight(
             drawContent()
         }
 }
+
+/** How far the halo around the media card reaches, as the elevation of its shadow. */
+private val ColorOSMediaHaloElevation = 28.dp
+
+/**
+ * Where the media card reports the color of its album art, for the halo around the glass slot it
+ * sits in. The card is clipped to the slot, so the halo cannot be drawn by the card itself.
+ */
+internal val LocalColorOSMediaHalo = compositionLocalOf<MutableState<Color>?> { null }
+
+/** Reports the color of [artwork] to [LocalColorOSMediaHalo], and takes it back when it is gone. */
+@Composable
+internal fun ColorOSMediaHaloColor(artwork: ImageBitmap?) {
+    val halo = LocalColorOSMediaHalo.current ?: return
+    val night = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val art = rememberColorOSMediaArt(artwork, night)
+    DisposableEffect(halo, art.color) {
+        halo.value = if (art.color == 0) Color.Unspecified else Color(art.color)
+        onDispose { halo.value = Color.Unspecified }
+    }
+}
+
+/**
+ * A halo in the color of the album art around the media card, as MiraCLO has it. Nothing is drawn
+ * while [color] is unspecified. The shadow only shows outside of [shape], and it fades with the
+ * content of the panel, as it is a layer of it.
+ */
+internal fun Modifier.colorOSMediaHalo(color: Color, shape: Shape): Modifier =
+    if (color == Color.Unspecified) {
+        this
+    } else {
+        shadow(
+            elevation = ColorOSMediaHaloElevation,
+            shape = shape,
+            clip = false,
+            ambientColor = color,
+            spotColor = color,
+        )
+    }
 
 @Composable
 private fun rememberColorOSMediaArt(artwork: ImageBitmap?, night: Boolean): ColorOSMediaArt {

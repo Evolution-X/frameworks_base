@@ -160,6 +160,7 @@ internal fun ColorOSMediaCard(
     // stays.
     val art = artwork
     val fillArt = artFill && art != null
+    ColorOSMediaHaloColor(art)
     // The thumbnail is gone while the art fills the card, the icon of the app takes its place.
     val appIcon by
         produceState<Drawable?>(initialValue = null, data.appIcon, fillArt) {
