@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
@@ -41,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.integerResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -63,6 +65,7 @@ import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSGridHeadroo
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSGridRows
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSQsStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingQSMaxContentWidth
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSTileLayout
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQuadTiles
 import com.android.systemui.qs.panels.ui.compose.toolbar.EditModeButton
@@ -155,6 +158,8 @@ constructor(
             }
 
         val pagerState = rememberPagerState(0) { pages.size }
+        val pagerMaxWidth =
+            if (nothingStyle) rememberNothingQSMaxContentWidth() else Dp.Unspecified
 
         LaunchedEffect(listening, pagerState) {
             snapshotFlow { listening() }
@@ -205,6 +210,15 @@ constructor(
                 state = pagerState,
                 modifier =
                     Modifier.sysuiResTag("qs_pager")
+                        .then(
+                            if (nothingStyle) {
+                                Modifier.fillMaxWidth()
+                                    .wrapContentWidth()
+                                    .widthIn(max = pagerMaxWidth)
+                            } else {
+                                Modifier
+                            }
+                        )
                         .padding(horizontal = { -contentPaddingValue.roundToPx() })
                         .nestedScroll(nestedScrollConnection),
                 contentPadding = contentPadding,
