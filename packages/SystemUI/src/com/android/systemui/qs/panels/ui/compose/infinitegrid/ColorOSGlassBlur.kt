@@ -9,6 +9,7 @@ import android.app.ActivityManager
 import android.os.SystemProperties
 import android.view.CrossWindowBlurListeners
 import android.view.View
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -29,10 +30,12 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.toRect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.boundsInWindow
@@ -101,6 +104,12 @@ private object ColorOSGlassBlurTune {
 
 /** Below this alpha a region is not worth keeping in SurfaceFlinger. */
 private const val ColorOSGlassMinAlpha = 0.01f
+
+/**
+ * The veil over the glass of the light panel: the pale blue-grey MiraCLO lays over the blur of its
+ * light ColorOS panel while the glass is on.
+ */
+private val ColorOSLightPanelTint = Color(0x40F0F2F7)
 
 /**
  * Returns the glass of the panel while SurfaceFlinger can blur behind the shade, and null when it
@@ -325,12 +334,14 @@ internal fun Modifier.colorOSGlassBlur(
 /**
  * The glass behind the whole shade, the notifications and the panel alike: a region of the panel
  * material over the full window, which the glass of the pills, the tiles and the sliders is drawn
- * over. [alpha] is how much of the shade is out, 0 hides it. Nothing is drawn where SurfaceFlinger
- * cannot blur, and the scrim of the shade keeps its own colour then.
+ * over. The light panel has [ColorOSLightPanelTint] over it. [alpha] is how much of the shade is
+ * out, 0 hides it. Nothing is drawn where SurfaceFlinger cannot blur, and the scrim of the shade
+ * keeps its own colour then.
  */
 @Composable
 internal fun ColorOSBackdrop(alpha: () -> Float, modifier: Modifier = Modifier) {
     val blur = rememberColorOSGlassBlur(alpha) ?: return
+    val tintAlpha = alpha
     CompositionLocalProvider(LocalColorOSGlassBlur provides blur) {
         Spacer(
             modifier.colorOSGlassBlur(
@@ -339,5 +350,12 @@ internal fun ColorOSBackdrop(alpha: () -> Float, modifier: Modifier = Modifier) 
                 wholeWindow = true,
             )
         )
+        if (!colorOSDarkPanel()) {
+            Spacer(
+                modifier
+                    .graphicsLayer { this.alpha = tintAlpha().coerceIn(0f, 1f) }
+                    .background(ColorOSLightPanelTint)
+            )
+        }
     }
 }
