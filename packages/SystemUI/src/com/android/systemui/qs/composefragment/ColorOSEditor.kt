@@ -66,9 +66,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSIconRowGap
-import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSTileRim
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.SmallTileContent
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.colorOSTileRim
 import com.android.systemui.qs.panels.ui.viewmodel.EditModeViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.EditTileViewModel
 import com.android.systemui.qs.pipeline.shared.TileSpec
@@ -334,7 +334,7 @@ private fun EditorTile(tile: EditTileViewModel, badge: @Composable (EditTileView
                 Modifier.size(CommonTileDefaults.ColorOSTileHeight)
                     .clip(CircleShape)
                     .background(fill, CircleShape)
-                    .border(1.dp, ColorOSTileRim, CircleShape),
+                    .border(1.dp, colorOSTileRim(), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 SmallTileContent(

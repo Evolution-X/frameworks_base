@@ -83,10 +83,12 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorProducer
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.DefaultAlpha
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
@@ -154,6 +156,19 @@ internal val ColorOSTileRim =
         0.7f to Color.White.copy(alpha = 0.05f),
         1f to Color.White.copy(alpha = 0.22f),
     )
+
+/**
+ * Glass rim of ColorOS tiles on the light panel: a thin, almost opaque white edge, which is what
+ * separates the pale glass from the light blur behind it, as it does in MiraCLO. The faint lit rim
+ * of [ColorOSTileRim] does not show against a light background.
+ */
+internal val ColorOSTileRimLight = SolidColor(Color.White.copy(alpha = 0.95f))
+
+/** The rim of ColorOS tiles that are drawn without a blur region, for the theme of the panel. */
+@Composable
+internal fun colorOSTileRim(): Brush =
+    if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) ColorOSTileRim
+    else ColorOSTileRimLight
 
 /**
  * Diameter of the ColorOS round tiles, which is also the height of the pills and the width of the
