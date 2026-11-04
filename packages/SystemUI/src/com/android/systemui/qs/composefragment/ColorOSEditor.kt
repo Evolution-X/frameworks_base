@@ -8,13 +8,19 @@ package com.android.systemui.qs.composefragment
 import android.os.UserHandle
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -38,6 +44,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -47,11 +54,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInParent
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -74,44 +84,90 @@ import com.android.systemui.qs.panels.ui.viewmodel.EditTileViewModel
 import com.android.systemui.qs.pipeline.shared.TileSpec
 import com.android.systemui.res.R
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
 
 private const val QS_TILES_SETTING = "sysui_qs_tiles"
-
-/** The value of [QS_TILES_SETTING] that stands for the default tiles, not for a tile. */
 private const val QS_TILES_DEFAULT = "default"
 
 private val EditorBadge = 22.dp
-private val EditorCellMin = 88.dp
+private val EditorCellMin = 84.dp
 private val EditorBadgeFill = Color(0xFF5B5B60)
-private val EditorAccent = Color(0xFF4D8BFF)
+private val EditorAccent = Color(0xFF0068FF) // ColorOS Accent Blue
+private val EditorRemoveTint = Color(0xFFFF453A)
+
+private enum class DragSection {
+    ACTIVE,
+    AVAILABLE,
+}
 
 /**
- * The ColorOS editor on the edit model of Quick Settings, so every shade that edits tiles shows
- * the same one. The tiles the panel pins as cards (see [colorOSCardSpecsOf]) stay out of the grid
- * and are written back in front of the rest when the order is saved.
+ * Encapsulates the live drag-and-drop state across both the active and available tile grids.
+ */
+private class ColorOSEditDragState {
+    var draggingSpec by mutableStateOf<TileSpec?>(null)
+    var dragSection by mutableStateOf<DragSection?>(null)
+    var initialIndex by mutableIntStateOf(-1)
+    var dragItemOffset by mutableStateOf(Offset.Zero)
+    var hoverActiveIndex by mutableStateOf<Int?>(null)
+    var isHoveringAvailable by mutableStateOf(false)
+    var activeGridBounds by mutableStateOf(Rect.Zero)
+    var availableGridBounds by mutableStateOf(Rect.Zero)
+
+    val isDragging: Boolean
+        get() = draggingSpec != null
+
+    fun reset() {
+        draggingSpec = null
+        dragSection = null
+        initialIndex = -1
+        dragItemOffset = Offset.Zero
+        hoverActiveIndex = null
+        isHoveringAvailable = false
+    }
+}
+
+/**
+ * Native ColorOS Quick Settings Tile Editor.
+ *
+ * Provides complete tile management matching authentic ColorOS 13/14/15 behavior:
+ * - Fluid drag-and-drop reordering within Active tiles.
+ * - Dragging an Available tile up into Active to insert at any slot.
+ * - Dragging an Active tile down into Available to remove it.
+ * - Tapping '-' to remove, tapping '+' or the tile body to add.
+ * - Smooth spring animations for non-dragged items dynamically opening/closing insertion slots.
+ * - Auto-scrolling when hovering near top/bottom screen edges.
+ * - Disabling parent vertical scrolling while dragging to prevent touch gesture conflicts.
+ * - Preserving hidden and unmounted tile specifications across SystemUI restarts and device reboots.
  */
 @Composable
 internal fun ColorOSEditor(editViewModel: EditModeViewModel, modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val density = LocalDensity.current
+    val haptics = LocalHapticFeedback.current
+
     BackHandler { editViewModel.stopEditing() }
-    // Dismissing the shade disposes the editor, don't reopen Quick Settings still editing.
     DisposableEffect(Unit) { onDispose { editViewModel.stopEditing() } }
 
-    val tiles by editViewModel.tiles.collectAsStateWithLifecycle(emptyList())
-    val current = remember(tiles) { tiles.filter { it.isCurrent } }
-    val cards = remember(current) { colorOSCardSpecsOf(current.map { it.tileSpec.spec }.toSet()) }
-    val gridTiles = remember(current, cards) { current.filterNot { it.tileSpec.spec in cards } }
-    val available = remember(tiles) { tiles.filterNot { it.isCurrent } }
-    val bySpec = remember(tiles) { tiles.associateBy { it.tileSpec } }
+    val allTiles by editViewModel.tiles.collectAsStateWithLifecycle(emptyList())
+    val currentTiles = remember(allTiles) { allTiles.filter { it.isCurrent } }
+    val availableTiles = remember(allTiles) { allTiles.filterNot { it.isCurrent } }
+    val bySpec = remember(allTiles) { allTiles.associateBy { it.tileSpec } }
 
-    var order by remember { mutableStateOf(gridTiles.map { it.tileSpec }) }
-    var dragging by remember { mutableStateOf<TileSpec?>(null) }
-    LaunchedEffect(gridTiles) { if (dragging == null) order = gridTiles.map { it.tileSpec } }
+    var activeSpecs by remember { mutableStateOf(currentTiles.map { it.tileSpec }) }
+    val dragState = remember { ColorOSEditDragState() }
 
-    fun commit(grid: List<TileSpec>) {
-        val cardSpecs = current.map { it.tileSpec }.filter { it.spec in cards }
-        // Tiles that are saved but not available on this device are not in the edit model, keep
-        // them where the saved list has them.
+    // Keep activeSpecs in sync when view model emits and no drag is active
+    LaunchedEffect(currentTiles) {
+        if (!dragState.isDragging) {
+            activeSpecs = currentTiles.map { it.tileSpec }
+        }
+    }
+
+    fun commit(newActive: List<TileSpec>) {
+        val distinctActive = newActive.distinct()
+        activeSpecs = distinctActive
+
+        // Preserve unmounted or third-party tile specs in Settings not in bySpec
         val hidden =
             Settings.Secure.getStringForUser(
                     context.contentResolver,
@@ -124,214 +180,496 @@ internal fun ColorOSEditor(editViewModel: EditModeViewModel, modifier: Modifier 
                 .filter { it.isNotEmpty() && it != QS_TILES_DEFAULT }
                 .map(TileSpec::create)
                 .filter { it !in bySpec }
-        editViewModel.setTiles(cardSpecs + grid + hidden)
+
+        editViewModel.setTiles((distinctActive + hidden).distinct())
     }
 
-    val label = MaterialTheme.colorScheme.onSurface
-    Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            EditorTextButton(stringResource(R.string.reset), label.copy(alpha = 0.85f)) {
-                val defaults =
-                    context.resources
-                        .getString(R.string.quick_settings_tiles_default)
-                        .split(",")
-                        .map { it.trim() }
-                        .filter { it.isNotEmpty() }
-                        .map(TileSpec::create)
-                editViewModel.setTiles(defaults)
-            }
-            Text(
-                text = stringResource(R.string.qs_coloros_edit_title),
-                color = label,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Medium,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.weight(1f),
-            )
-            EditorTextButton(stringResource(R.string.quick_settings_done), EditorAccent) {
-                editViewModel.stopEditing()
+    val scrollState = rememberScrollState()
+
+    // Auto-scroll when dragging near viewport boundaries
+    LaunchedEffect(dragState.isDragging, dragState.dragItemOffset) {
+        if (dragState.isDragging) {
+            val yInViewport = dragState.dragItemOffset.y - scrollState.value
+            val topThreshold = with(density) { 90.dp.toPx() }
+            val bottomThreshold = with(density) { 520.dp.toPx() }
+            if (yInViewport < topThreshold && scrollState.value > 0) {
+                val speed = ((topThreshold - yInViewport) / topThreshold).coerceIn(0.1f, 1f)
+                scrollState.scrollBy(-18f * speed)
+            } else if (yInViewport > bottomThreshold && scrollState.value < scrollState.maxValue) {
+                val speed = ((yInViewport - bottomThreshold) / 90f).coerceIn(0.1f, 1f)
+                scrollState.scrollBy(18f * speed)
             }
         }
-        Text(
-            text = stringResource(R.string.qs_coloros_edit_hint),
-            color = label.copy(alpha = 0.55f),
-            fontSize = 13.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 12.dp),
-        )
-
-        EditorGrid(
-            specs = order,
-            bySpec = bySpec,
-            dragging = dragging,
-            onDragStart = { dragging = it },
-            onMove = { from, to -> order = order.toMutableList().apply { add(to, removeAt(from)) } },
-            onDragEnd = {
-                dragging = null
-                commit(order)
-            },
-            badge = { tile ->
-                if (tile.isRemovable) {
-                    EditorBadgeIcon(R.drawable.ic_remove) { editViewModel.removeTile(tile.tileSpec) }
-                }
-            },
-            onTap = null,
-        )
-
-        if (available.isNotEmpty()) {
-            Text(
-                text = stringResource(R.string.qs_coloros_edit_more),
-                color = label.copy(alpha = 0.7f),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.padding(start = 20.dp, top = 24.dp, bottom = 8.dp),
-            )
-            EditorGrid(
-                specs = available.map { it.tileSpec },
-                bySpec = bySpec,
-                dragging = null,
-                onDragStart = null,
-                onMove = { _, _ -> },
-                onDragEnd = {},
-                badge = { tile ->
-                    EditorBadgeIcon(R.drawable.ic_add) { editViewModel.addTile(tile.tileSpec) }
-                },
-                onTap = { editViewModel.addTile(it.tileSpec) },
-            )
-        }
-        Spacer(Modifier.height(24.dp))
     }
-}
 
-@Composable
-private fun EditorGrid(
-    specs: List<TileSpec>,
-    bySpec: Map<TileSpec, EditTileViewModel>,
-    dragging: TileSpec?,
-    onDragStart: ((TileSpec) -> Unit)?,
-    onMove: (Int, Int) -> Unit,
-    onDragEnd: () -> Unit,
-    badge: @Composable (EditTileViewModel) -> Unit,
-    onTap: ((EditTileViewModel) -> Unit)?,
-) {
-    val density = LocalDensity.current
-    val haptics = LocalHapticFeedback.current
-    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
-        val columns = (maxWidth / EditorCellMin).toInt().coerceIn(4, 8)
+    val labelColor = MaterialTheme.colorScheme.onSurface
+
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val columns = 4 // ColorOS standard phone grid is 4 columns
         val cellW = maxWidth / columns
-        // A round tile and its label, the way the panel stacks them.
         val cellH =
             CommonTileDefaults.ColorOSTileHeight +
                 CommonTileDefaults.ClassicLabelHeight +
                 ColorOSIconRowGap
-        val rows = (specs.size + columns - 1) / columns
         val cellWPx = with(density) { cellW.toPx() }
         val cellHPx = with(density) { cellH.toPx() }
-        var dragOffset by remember { mutableStateOf(Offset.Zero) }
-        var dragOrigin by remember { mutableStateOf(Offset.Zero) }
 
         fun slotOf(index: Int) = Offset((index % columns) * cellWPx, (index / columns) * cellHPx)
 
-        Box(Modifier.fillMaxWidth().height(cellH * rows)) {
-            specs.forEachIndexed { index, spec ->
-                val tile = bySpec[spec] ?: return@forEachIndexed
-                key(spec) {
-                    val isDragged = spec == dragging
-                    val slot = slotOf(index)
-                    val animated by
-                        animateIntOffsetAsState(
-                            IntOffset(slot.x.roundToInt(), slot.y.roundToInt()),
-                            spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow),
-                            label = "coloros edit slot",
-                        )
-                    val latestIndex by rememberUpdatedState(index)
-                    val latestSpecs by rememberUpdatedState(specs)
-                    Box(
-                        Modifier.offset {
-                                if (isDragged) {
-                                    IntOffset(
-                                        (dragOrigin.x + dragOffset.x).roundToInt(),
-                                        (dragOrigin.y + dragOffset.y).roundToInt(),
-                                    )
+        // Root vertical scroll container. Disabled while dragging to avoid gesture interception.
+        Column(
+            Modifier.fillMaxWidth()
+                .verticalScroll(scrollState, enabled = !dragState.isDragging)
+                .padding(horizontal = 8.dp)
+        ) {
+            // Header Bar: Reset | Title | Done
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                EditorTextButton(stringResource(R.string.reset), labelColor.copy(alpha = 0.85f)) {
+                    val defaults =
+                        context.resources
+                            .getString(R.string.quick_settings_tiles_default)
+                            .split(",")
+                            .map { it.trim() }
+                            .filter { it.isNotEmpty() }
+                            .map(TileSpec::create)
+                    commit(defaults)
+                }
+                Text(
+                    text = stringResource(R.string.qs_coloros_edit_title),
+                    color = labelColor,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+                EditorTextButton(stringResource(R.string.quick_settings_done), EditorAccent) {
+                    editViewModel.stopEditing()
+                }
+            }
+
+            // Subtitle / Hint
+            Text(
+                text = stringResource(R.string.qs_coloros_edit_hint),
+                color = labelColor.copy(alpha = 0.55f),
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 10.dp),
+            )
+
+            // Section 1 Header: Added tiles
+            Text(
+                text = stringResource(R.string.qs_coloros_edit_added),
+                color = labelColor.copy(alpha = 0.7f),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 8.dp),
+            )
+
+            // Section 1: Active Tiles Grid
+            val activeRows = ((activeSpecs.size + (if (dragState.dragSection == DragSection.AVAILABLE && dragState.hoverActiveIndex != null) 1 else 0)) + columns - 1) / columns
+            val activeGridHeight = cellH * activeRows.coerceAtLeast(1)
+
+            Box(
+                Modifier.fillMaxWidth()
+                    .height(activeGridHeight)
+                    .onGloballyPositioned { coordinates ->
+                        dragState.activeGridBounds = coordinates.boundsInParent()
+                    }
+            ) {
+                if (activeSpecs.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.qs_coloros_edit_empty_added),
+                        color = labelColor.copy(alpha = 0.45f),
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.align(Alignment.Center).padding(horizontal = 24.dp),
+                    )
+                }
+
+                activeSpecs.forEachIndexed { index, spec ->
+                    val tile = bySpec[spec] ?: return@forEachIndexed
+                    val isBeingDragged = dragState.draggingSpec == spec
+
+                    // Calculate virtual slot accounting for ongoing drag displacements
+                    val virtualSlotIndex =
+                        when (dragState.dragSection) {
+                            DragSection.ACTIVE -> {
+                                val from = dragState.initialIndex
+                                val hover = dragState.hoverActiveIndex
+                                if (isBeingDragged) {
+                                    from
+                                } else if (dragState.isHoveringAvailable) {
+                                    if (index > from) index - 1 else index
+                                } else if (hover != null && hover != from) {
+                                    if (from < hover) {
+                                        if (index in (from + 1)..hover) index - 1 else index
+                                    } else {
+                                        if (index in hover until from) index + 1 else index
+                                    }
                                 } else {
-                                    animated
+                                    index
                                 }
                             }
-                            .zIndex(if (isDragged) 1f else 0f)
-                            .width(cellW)
-                            .height(cellH)
-                            .graphicsLayer {
-                                val s = if (isDragged) 1.08f else 1f
-                                scaleX = s
-                                scaleY = s
+                            DragSection.AVAILABLE -> {
+                                val hover = dragState.hoverActiveIndex
+                                if (hover != null && index >= hover) index + 1 else index
                             }
-                            .then(
-                                if (onDragStart != null) {
-                                    Modifier.pointerInput(spec) {
-                                        detectDragGesturesAfterLongPress(
-                                            onDragStart = {
-                                                haptics.performHapticFeedback(
-                                                    HapticFeedbackType.LongPress
-                                                )
-                                                dragOrigin = slotOf(latestIndex)
-                                                dragOffset = Offset.Zero
-                                                onDragStart(spec)
-                                            },
-                                            onDrag = { change, amount ->
-                                                change.consume()
-                                                dragOffset += amount
-                                                val center =
-                                                    dragOrigin +
-                                                        dragOffset +
-                                                        Offset(cellWPx / 2f, cellHPx / 2f)
-                                                val col =
-                                                    (center.x / cellWPx)
-                                                        .toInt()
-                                                        .coerceIn(0, columns - 1)
-                                                val row = (center.y / cellHPx).toInt().coerceAtLeast(0)
-                                                val target =
-                                                    (row * columns + col)
-                                                        .coerceIn(0, latestSpecs.lastIndex)
-                                                if (target != latestIndex) {
-                                                    onMove(latestIndex, target)
+                            null -> index
+                        }
+
+                    val slot = slotOf(virtualSlotIndex)
+                    val animatedOffset by
+                        animateIntOffsetAsState(
+                            targetValue = IntOffset(slot.x.roundToInt(), slot.y.roundToInt()),
+                            animationSpec =
+                                spring(
+                                    dampingRatio = 0.8f,
+                                    stiffness = Spring.StiffnessMediumLow,
+                                ),
+                            label = "coloros active slot $spec",
+                        )
+
+                    key(spec) {
+                        Box(
+                            Modifier.offset { animatedOffset }
+                                .width(cellW)
+                                .height(cellH)
+                                .graphicsLayer {
+                                    alpha = if (isBeingDragged) 0.22f else 1f
+                                }
+                                .pointerInput(spec) {
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = {
+                                            haptics.performHapticFeedback(
+                                                HapticFeedbackType.LongPress
+                                            )
+                                            val startRoot =
+                                                dragState.activeGridBounds.topLeft + slotOf(index)
+                                            dragState.draggingSpec = spec
+                                            dragState.dragSection = DragSection.ACTIVE
+                                            dragState.initialIndex = index
+                                            dragState.dragItemOffset = startRoot
+                                            dragState.hoverActiveIndex = index
+                                            dragState.isHoveringAvailable = false
+                                        },
+                                        onDrag = { change, dragAmount ->
+                                            change.consume()
+                                            dragState.dragItemOffset += dragAmount
+
+                                            val centerRoot =
+                                                dragState.dragItemOffset +
+                                                    Offset(cellWPx / 2f, cellHPx / 2f)
+
+                                            // Check if tile is dragged down past the active grid
+                                            if (centerRoot.y > dragState.activeGridBounds.bottom + cellHPx * 0.25f) {
+                                                if (!dragState.isHoveringAvailable) {
+                                                    dragState.isHoveringAvailable = true
+                                                    dragState.hoverActiveIndex = null
                                                     haptics.performHapticFeedback(
                                                         HapticFeedbackType.TextHandleMove
                                                     )
                                                 }
-                                            },
-                                            onDragEnd = onDragEnd,
-                                            onDragCancel = onDragEnd,
-                                        )
-                                    }
-                                } else {
-                                    Modifier
+                                            } else {
+                                                dragState.isHoveringAvailable = false
+                                                val centerActive =
+                                                    centerRoot - dragState.activeGridBounds.topLeft
+                                                val col =
+                                                    (centerActive.x / cellWPx)
+                                                        .toInt()
+                                                        .coerceIn(0, columns - 1)
+                                                val row =
+                                                    (centerActive.y / cellHPx)
+                                                        .toInt()
+                                                        .coerceAtLeast(0)
+                                                val target =
+                                                    (row * columns + col)
+                                                        .coerceIn(0, activeSpecs.lastIndex)
+
+                                                if (target != dragState.hoverActiveIndex) {
+                                                    dragState.hoverActiveIndex = target
+                                                    haptics.performHapticFeedback(
+                                                        HapticFeedbackType.TextHandleMove
+                                                    )
+                                                }
+                                            }
+                                        },
+                                        onDragEnd = {
+                                            if (dragState.isHoveringAvailable) {
+                                                // Remove tile from active
+                                                val newActive = activeSpecs.toMutableList().apply {
+                                                    removeAt(dragState.initialIndex)
+                                                }
+                                                commit(newActive)
+                                                haptics.performHapticFeedback(
+                                                    HapticFeedbackType.TextHandleMove
+                                                )
+                                            } else {
+                                                val target = dragState.hoverActiveIndex
+                                                if (target != null && target != dragState.initialIndex) {
+                                                    val newActive = activeSpecs.toMutableList().apply {
+                                                        add(target, removeAt(dragState.initialIndex))
+                                                    }
+                                                    commit(newActive)
+                                                    haptics.performHapticFeedback(
+                                                        HapticFeedbackType.TextHandleMove
+                                                    )
+                                                }
+                                            }
+                                            dragState.reset()
+                                        },
+                                        onDragCancel = { dragState.reset() },
+                                    )
                                 }
+                        ) {
+                            EditorTile(
+                                tile = tile,
+                                badge = {
+                                    if (tile.isRemovable) {
+                                        EditorBadgeIcon(
+                                            iconRes = R.drawable.ic_remove,
+                                            backgroundColor = EditorBadgeFill,
+                                            contentDescription = "Remove ${tile.label.text}",
+                                        ) {
+                                            val newActive = activeSpecs.toMutableList().apply {
+                                                remove(spec)
+                                            }
+                                            commit(newActive)
+                                        }
+                                    }
+                                },
                             )
-                            .then(
-                                if (onTap != null) Modifier.clickable { onTap(tile) } else Modifier
-                            )
-                    ) {
-                        EditorTile(tile, badge)
+                        }
                     }
+                }
+            }
+
+            // Section 2 Header: More tiles / Removal Drop Zone
+            Row(
+                Modifier.fillMaxWidth().padding(start = 12.dp, top = 28.dp, bottom = 8.dp, end = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text =
+                        if (dragState.isHoveringAvailable) {
+                            stringResource(R.string.qs_coloros_edit_remove_hint)
+                        } else {
+                            stringResource(R.string.qs_coloros_edit_more)
+                        },
+                    color =
+                        if (dragState.isHoveringAvailable) {
+                            EditorRemoveTint
+                        } else {
+                            labelColor.copy(alpha = 0.7f)
+                        },
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+
+            // Section 2: Available Tiles Grid
+            val availableSpecs = availableTiles.map { it.tileSpec }
+            val availableRows = (availableSpecs.size + columns - 1) / columns
+            val availableGridHeight = cellH * availableRows.coerceAtLeast(1)
+
+            Box(
+                Modifier.fillMaxWidth()
+                    .height(availableGridHeight)
+                    .clip(RoundedCornerShape(16.dp))
+                    .border(
+                        width = if (dragState.isHoveringAvailable) 2.dp else 0.dp,
+                        color = if (dragState.isHoveringAvailable) EditorRemoveTint.copy(alpha = 0.6f) else Color.Transparent,
+                        shape = RoundedCornerShape(16.dp),
+                    )
+                    .onGloballyPositioned { coordinates ->
+                        dragState.availableGridBounds = coordinates.boundsInParent()
+                    }
+            ) {
+                if (availableSpecs.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.qs_coloros_edit_empty_more),
+                        color = labelColor.copy(alpha = 0.45f),
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.align(Alignment.Center).padding(horizontal = 24.dp),
+                    )
+                }
+
+                availableSpecs.forEachIndexed { index, spec ->
+                    val tile = bySpec[spec] ?: return@forEachIndexed
+                    val isBeingDragged = dragState.draggingSpec == spec
+                    val slot = slotOf(index)
+
+                    key(spec) {
+                        Box(
+                            Modifier.offset {
+                                    IntOffset(slot.x.roundToInt(), slot.y.roundToInt())
+                                }
+                                .width(cellW)
+                                .height(cellH)
+                                .graphicsLayer {
+                                    alpha = if (isBeingDragged) 0.22f else 1f
+                                }
+                                .pointerInput(spec) {
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = {
+                                            haptics.performHapticFeedback(
+                                                HapticFeedbackType.LongPress
+                                            )
+                                            val startRoot =
+                                                dragState.availableGridBounds.topLeft + slotOf(index)
+                                            dragState.draggingSpec = spec
+                                            dragState.dragSection = DragSection.AVAILABLE
+                                            dragState.initialIndex = index
+                                            dragState.dragItemOffset = startRoot
+                                            dragState.hoverActiveIndex = null
+                                            dragState.isHoveringAvailable = false
+                                        },
+                                        onDrag = { change, dragAmount ->
+                                            change.consume()
+                                            dragState.dragItemOffset += dragAmount
+
+                                            val centerRoot =
+                                                dragState.dragItemOffset +
+                                                    Offset(cellWPx / 2f, cellHPx / 2f)
+
+                                            // Check if available tile is dragged UP into the active grid
+                                            if (centerRoot.y <= dragState.activeGridBounds.bottom + cellHPx * 0.25f &&
+                                                centerRoot.y >= dragState.activeGridBounds.top - cellHPx * 0.25f
+                                            ) {
+                                                val centerActive =
+                                                    centerRoot - dragState.activeGridBounds.topLeft
+                                                val col =
+                                                    (centerActive.x / cellWPx)
+                                                        .toInt()
+                                                        .coerceIn(0, columns - 1)
+                                                val row =
+                                                    (centerActive.y / cellHPx)
+                                                        .toInt()
+                                                        .coerceAtLeast(0)
+                                                val target =
+                                                    (row * columns + col)
+                                                        .coerceIn(0, activeSpecs.size)
+
+                                                if (target != dragState.hoverActiveIndex) {
+                                                    dragState.hoverActiveIndex = target
+                                                    haptics.performHapticFeedback(
+                                                        HapticFeedbackType.TextHandleMove
+                                                    )
+                                                }
+                                            } else {
+                                                if (dragState.hoverActiveIndex != null) {
+                                                    dragState.hoverActiveIndex = null
+                                                }
+                                            }
+                                        },
+                                        onDragEnd = {
+                                            val target = dragState.hoverActiveIndex
+                                            if (target != null) {
+                                                // Insert tile into active at target slot
+                                                val newActive = activeSpecs.toMutableList().apply {
+                                                    add(target.coerceIn(0, size), spec)
+                                                }
+                                                commit(newActive)
+                                                haptics.performHapticFeedback(
+                                                    HapticFeedbackType.TextHandleMove
+                                                )
+                                            }
+                                            dragState.reset()
+                                        },
+                                        onDragCancel = { dragState.reset() },
+                                    )
+                                }
+                                .clickable {
+                                    // Tapping an available tile adds it to the end of active tiles
+                                    if (!activeSpecs.contains(spec)) {
+                                        commit(activeSpecs + spec)
+                                    }
+                                }
+                        ) {
+                            EditorTile(
+                                tile = tile,
+                                badge = {
+                                    EditorBadgeIcon(
+                                        iconRes = R.drawable.ic_add,
+                                        backgroundColor = EditorAccent,
+                                        contentDescription = "Add ${tile.label.text}",
+                                    ) {
+                                        if (!activeSpecs.contains(spec)) {
+                                            commit(activeSpecs + spec)
+                                        }
+                                    }
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(36.dp))
+        }
+
+        // Floating Drag Overlay: Renders above all composables when an item is being dragged
+        if (dragState.isDragging && dragState.draggingSpec != null) {
+            val draggedTile = bySpec[dragState.draggingSpec]
+            if (draggedTile != null) {
+                Box(
+                    Modifier.offset {
+                            IntOffset(
+                                dragState.dragItemOffset.x.roundToInt(),
+                                (dragState.dragItemOffset.y - scrollState.value).roundToInt(),
+                            )
+                        }
+                        .zIndex(200f)
+                        .width(cellW)
+                        .height(cellH)
+                        .graphicsLayer {
+                            scaleX = 1.12f
+                            scaleY = 1.12f
+                            alpha = 0.95f
+                        }
+                ) {
+                    EditorTile(
+                        tile = draggedTile,
+                        badge = null,
+                        isLifted = true,
+                    )
                 }
             }
         }
     }
 }
 
+/**
+ * Authentic ColorOS circular Quick Settings tile inside the editor.
+ */
 @Composable
-private fun EditorTile(tile: EditTileViewModel, badge: @Composable (EditTileViewModel) -> Unit) {
+private fun EditorTile(
+    tile: EditTileViewModel,
+    badge: (@Composable () -> Unit)?,
+    isLifted: Boolean = false,
+) {
     val onSurface = MaterialTheme.colorScheme.onSurface
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    // There is no blur behind the editor, so the circle is the flat glass of the tiles that are off.
-    val fill = if (dark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.55f)
+
+    // Frosted glass appearance matching ColorOS QS tiles
+    val fill =
+        if (isLifted) {
+            if (dark) Color.White.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.85f)
+        } else {
+            if (dark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.55f)
+        }
+
+    val elevation = if (isLifted) 10.dp else 0.dp
+
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Box {
             Box(
                 Modifier.size(CommonTileDefaults.ColorOSTileHeight)
+                    .shadow(elevation, CircleShape)
                     .clip(CircleShape)
                     .background(fill, CircleShape)
                     .border(1.dp, colorOSTileRim(), CircleShape),
@@ -343,7 +681,11 @@ private fun EditorTile(tile: EditTileViewModel, badge: @Composable (EditTileView
                     size = { CommonTileDefaults.LargeTileIconSize },
                 )
             }
-            Box(Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = (-4).dp)) { badge(tile) }
+            if (badge != null) {
+                Box(Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = (-4).dp)) {
+                    badge()
+                }
+            }
         }
         Text(
             text = tile.label.text,
@@ -358,25 +700,36 @@ private fun EditorTile(tile: EditTileViewModel, badge: @Composable (EditTileView
     }
 }
 
+/**
+ * ColorOS tile badge indicator (- to remove, + to add).
+ */
 @Composable
-private fun EditorBadgeIcon(iconRes: Int, onClick: () -> Unit) {
+private fun EditorBadgeIcon(
+    iconRes: Int,
+    backgroundColor: Color,
+    contentDescription: String? = null,
+    onClick: () -> Unit,
+) {
     Box(
         Modifier.size(EditorBadge)
-            .shadow(2.dp, CircleShape)
+            .shadow(3.dp, CircleShape)
             .clip(CircleShape)
-            .background(EditorBadgeFill)
+            .background(backgroundColor)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             painter = painterResource(iconRes),
-            contentDescription = null,
+            contentDescription = contentDescription,
             tint = Color.White,
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.size(15.dp),
         )
     }
 }
 
+/**
+ * Text button for Reset / Done actions in ColorOS styling.
+ */
 @Composable
 private fun EditorTextButton(text: String, color: Color, onClick: () -> Unit) {
     Text(
