@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -89,17 +90,36 @@ private const val ColorOSGlassBlurRadiusProperty = "debug.evolution.lg.cos_blur"
 /** How close to the edge of the window counts as touching it, in pixels. */
 private const val ColorOSGlassEdgeSlop = 0.5f
 
-/** The radius override in pixels, 0 for none. Read once and again when a system property changes. */
+/**
+ * Overrides the alpha, 0 to 255, of the white tint on the glass of the light panel, to match it by
+ * eye on a device: `setprop debug.evolution.lg.cos_light_tile 120`. Unset or negative keeps
+ * [ColorOSLightTileTint]. It is followed live like the blur radius.
+ */
+private const val ColorOSLightTileTintProperty = "debug.evolution.lg.cos_light_tile"
+
+/** The radius and tint overrides. Read once and again when a system property changes. */
 private object ColorOSGlassBlurTune {
+    /** The radius override in pixels, 0 for none. */
     @Volatile
-    var overridePx = read()
+    var overridePx = readRadius()
+        private set
+
+    /** The alpha override of the light tile tint, negative for none. */
+    @Volatile
+    var lightTileAlpha = readLightTileAlpha()
         private set
 
     init {
-        SystemProperties.addChangeCallback { overridePx = read() }
+        SystemProperties.addChangeCallback {
+            overridePx = readRadius()
+            lightTileAlpha = readLightTileAlpha()
+        }
     }
 
-    private fun read(): Int = SystemProperties.getInt(ColorOSGlassBlurRadiusProperty, 0)
+    private fun readRadius(): Int = SystemProperties.getInt(ColorOSGlassBlurRadiusProperty, 0)
+
+    private fun readLightTileAlpha(): Int =
+        SystemProperties.getInt(ColorOSLightTileTintProperty, -1)
 }
 
 /** Below this alpha a region is not worth keeping in SurfaceFlinger. */
@@ -109,7 +129,23 @@ private const val ColorOSGlassMinAlpha = 0.01f
  * The veil over the glass of the light panel: the pale blue-grey MiraCLO lays over the blur of its
  * light ColorOS panel while the glass is on.
  */
-private val ColorOSLightPanelTint = Color(0x40F0F2F7)
+private val ColorOSLightPanelTint = Color(0x59F0F2F7)
+
+/**
+ * The white laid over the blur behind the glass of the light panel's pills, tiles that are off,
+ * sliders and media card. The material SurfaceFlinger draws for them is faint over the pale blur of
+ * the light panel, so the glass reads as flat. ColorOS shows them as clearly lighter than the panel
+ * around them. The dark panel and the tiles that are on are not tinted.
+ */
+private val ColorOSLightTileTint = Color(0x66FFFFFF)
+
+/** The tint the region of [material] gets, as ARGB, 0 for none. */
+private fun colorOSGlassTint(material: Int): Int {
+    if (material != BackgroundBlurDrawable.MATERIAL_TILE_LIGHT) return 0
+    val override = ColorOSGlassBlurTune.lightTileAlpha
+    return if (override >= 0) (override.coerceAtMost(255) shl 24) or 0x00FFFFFF
+    else ColorOSLightTileTint.toArgb()
+}
 
 /**
  * Returns the glass of the panel while SurfaceFlinger can blur behind the shade, and null when it
@@ -314,7 +350,7 @@ internal fun Modifier.colorOSGlassBlur(
                 }
             drawable.setVisible(true, false)
             drawable.setMaterial(material)
-            drawable.setColor(0)
+            drawable.setColor(colorOSGlassTint(material))
             drawable.setBlurRadius(
                 ColorOSGlassBlurTune.overridePx.takeIf { it > 0 } ?: defaultRadius
             )
