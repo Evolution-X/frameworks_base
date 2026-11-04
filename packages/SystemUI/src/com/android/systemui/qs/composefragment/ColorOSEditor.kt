@@ -99,11 +99,7 @@ internal fun ColorOSEditor(editViewModel: EditModeViewModel, modifier: Modifier 
 
     val tiles by editViewModel.tiles.collectAsStateWithLifecycle(emptyList())
     val current = remember(tiles) { tiles.filter { it.isCurrent } }
-    val dataCapable = rememberColorOSDataCapable()
-    val cards =
-        remember(current, dataCapable) {
-            colorOSCardSpecsOf(current.map { it.tileSpec.spec }.toSet(), dataCapable)
-        }
+    val cards = remember(current) { colorOSCardSpecsOf(current.map { it.tileSpec.spec }.toSet()) }
     val gridTiles = remember(current, cards) { current.filterNot { it.tileSpec.spec in cards } }
     val available = remember(tiles) { tiles.filterNot { it.isCurrent } }
     val bySpec = remember(tiles) { tiles.associateBy { it.tileSpec } }
