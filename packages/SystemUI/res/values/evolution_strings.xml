@@ -359,8 +359,16 @@
     <string name="qs_coloros_edit_title">Edit</string>
     <!-- ColorOS style QS: hint under the title of the tile editor [CHAR LIMIT=40] -->
     <string name="qs_coloros_edit_hint">Hold and drag to rearrange</string>
+    <!-- ColorOS style QS: heading of current active tiles in the editor [CHAR LIMIT=30] -->
+    <string name="qs_coloros_edit_added">Added tiles</string>
     <!-- ColorOS style QS: heading of the tiles that can be added in the editor [CHAR LIMIT=30] -->
     <string name="qs_coloros_edit_more">More tiles</string>
+    <!-- ColorOS style QS: hint for removing a tile via drag [CHAR LIMIT=40] -->
+    <string name="qs_coloros_edit_remove_hint">Drag here to remove</string>
+    <!-- ColorOS style QS: empty state for added tiles [CHAR LIMIT=50] -->
+    <string name="qs_coloros_edit_empty_added">No active tiles. Tap or drag tiles from below to add.</string>
+    <!-- ColorOS style QS: empty state for available tiles [CHAR LIMIT=50] -->
+    <string name="qs_coloros_edit_empty_more">All tiles added</string>
     <!-- ColorOS style QS: title of the pill that opens the Bluetooth devices [CHAR LIMIT=20] -->
     <string name="qs_coloros_my_devices">My Devices</string>
     <!-- ColorOS style QS: hint under the title of the My Devices pill [CHAR LIMIT=20] -->
