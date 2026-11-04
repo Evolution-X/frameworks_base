@@ -6,7 +6,6 @@
 package com.android.systemui.qs.composefragment
 
 import android.media.AudioManager
-import android.telephony.TelephonyManager
 import android.provider.Settings
 import androidx.annotation.DrawableRes
 import androidx.annotation.RawRes
@@ -17,6 +16,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -42,6 +42,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -74,8 +75,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.airbnb.lottie.LottieProperty
 import com.airbnb.lottie.compose.LottieAnimation
@@ -125,48 +129,17 @@ import kotlinx.coroutines.launch
 
 /** Tile specs that ColorOS pins to the fixed wide slots, in order of preference. */
 private val COLOROS_WIFI_SPECS = listOf("internet", "wifi")
-private val COLOROS_DATA_SPECS = listOf("cell", "mobile_data", "mobiledata")
 private val COLOROS_BT_SPECS = listOf("bt", "bluetooth")
 
 /**
- * The tiles that fill the third card on a device that cannot use mobile data, in order of
- * preference, so the row is not left with an empty slot on a Wi-Fi only device.
+ * The specs of the tiles the panel pins as cards, the Wi-Fi and Bluetooth ones that are present.
+ * The grid and the editor leave them out, and the editor keeps them at the front of the list. The
+ * mobile data tile is a round tile of the grid, the third card is My Devices.
  */
-private val COLOROS_THIRD_CARD_FALLBACK_SPECS =
-    listOf("dnd", "dark", "rotation", "hotspot", "cast", "airplane")
-
-/** Whether the device can use mobile data, which a Wi-Fi only one cannot. */
-@Composable
-internal fun rememberColorOSDataCapable(): Boolean {
-    val context = LocalContext.current
-    return remember(context) {
-        context.getSystemService(TelephonyManager::class.java)?.isDataCapable == true
-    }
+internal fun colorOSCardSpecsOf(present: Set<String>): Set<String> = buildSet {
+    COLOROS_WIFI_SPECS.firstOrNull { it in present }?.let(::add)
+    COLOROS_BT_SPECS.firstOrNull { it in present }?.let(::add)
 }
-
-/**
- * The spec that fills the third card of a device that cannot use mobile data, or null on one that
- * can, whether or not its data tile is in the list: the card is the data tile's then.
- */
-private fun colorOSFallbackCardSpec(present: Set<String>, dataCapable: Boolean): String? =
-    if (dataCapable || COLOROS_DATA_SPECS.any { it in present }) {
-        null
-    } else {
-        COLOROS_THIRD_CARD_FALLBACK_SPECS.firstOrNull { it in present }
-    }
-
-/**
- * The specs of the tiles the panel pins as cards, the Wi-Fi, Bluetooth and mobile data ones that
- * are present, or the fallback one on a device that cannot use mobile data ([dataCapable]). The
- * grid and the editor leave them out, and the editor keeps them at the front of the list.
- */
-internal fun colorOSCardSpecsOf(present: Set<String>, dataCapable: Boolean): Set<String> =
-    buildSet {
-        COLOROS_WIFI_SPECS.firstOrNull { it in present }?.let(::add)
-        COLOROS_BT_SPECS.firstOrNull { it in present }?.let(::add)
-        COLOROS_DATA_SPECS.firstOrNull { it in present }?.let(::add)
-        colorOSFallbackCardSpec(present, dataCapable)?.let(::add)
-    }
 
 /** The blue of the volume icon, as in the ColorOS panel. */
 private val ColorOSSliderBlue = Color(0xFF0068FF)
@@ -264,7 +237,7 @@ private val ColorOSMediaShape = RoundedCornerShape(32.dp)
  * ```
  * [ Wi-Fi         ][ Bluetooth     ]
  * [ Media        ][ ☀ ][ 🔊 ]          tall brightness + media volume sliders
- * [ 🔔  📳  🔕     ][ Mobile data   ]   ringer switch, mobile data card
+ * [ My Devices   ][ 🔔  📳  🔕     ]   Bluetooth devices, ringer switch
  * ( ) ( ) ( ) ( )                       every other tile: round, label below
  *
  * The media card spans the first two columns of the round tile grid and each slider is one
@@ -272,7 +245,7 @@ private val ColorOSMediaShape = RoundedCornerShape(32.dp)
  * ```
  *
  * The fixed tiles are the real tile view models, so they behave exactly like their stock
- * versions. Anything missing on a device (e.g. no mobile data tile) simply leaves its slot out.
+ * versions. Anything missing on a device (e.g. no Bluetooth tile) simply leaves its slot out.
  */
 @Composable
 internal fun ContentScope.ColorOSQuickSettingsLayout(
@@ -292,30 +265,18 @@ internal fun ContentScope.ColorOSQuickSettingsLayout(
     expansion: () -> Float = { 1f },
     headerHeight: Dp = 0.dp,
     header: @Composable () -> Unit = {},
+    onOpenDevices: () -> Unit = {},
 ) {
     fun pick(specs: List<String>): TileViewModel? =
         specs.firstNotNullOfOrNull { spec -> tiles.firstOrNull { it.spec.spec == spec } }
 
     val wifi = pick(COLOROS_WIFI_SPECS)
     val bt = pick(COLOROS_BT_SPECS)
-    val data = pick(COLOROS_DATA_SPECS)
-    // The mobile data tile is the third card whenever it is in the list, with or without a SIM. A
-    // device that cannot use mobile data (Wi-Fi only) has another tile in the card, so the slot
-    // is not empty. A device that can never gets one, the card is the data tile's.
-    val dataCapable = rememberColorOSDataCapable()
-    val fallbackCard =
-        remember(tiles, dataCapable) {
-            val present = tiles.mapTo(HashSet()) { it.spec.spec }
-            colorOSFallbackCardSpec(present, dataCapable)?.let { spec ->
-                tiles.firstOrNull { it.spec.spec == spec }
-            }
-        }
-    val thirdCard = data ?: fallbackCard
-    val fixed = listOfNotNull(wifi, bt, thirdCard)
+    val fixed = listOfNotNull(wifi, bt)
     val rest = remember(tiles, fixed) { tiles.filterNot { it in fixed } }
 
     // The fixed tiles are not part of a grid, so make them listen ourselves.
-    TileListener(listOfNotNull(wifi, bt, data, fallbackCard), listening)
+    TileListener(fixed, listening)
 
     // Null where SurfaceFlinger cannot blur behind the shade, the flat fills stay then.
     // The modules are revealed when the shade opens and hidden when it closes, and the glass goes
@@ -420,24 +381,24 @@ internal fun ContentScope.ColorOSQuickSettingsLayout(
                 }
             }
 
-            // Row 3: ringer switch + third card, the mobile data tile whenever it is there, as
-                // Penguin does. A Wi-Fi only device has the fallback tile in the card.
+            // Row 3: My Devices + ringer switch, as ColorOS 17 has them. The mobile data tile is
+                // one of the round tiles below.
                 Row(
                     horizontalArrangement = spacedBy(ColorOSGap),
                     modifier = Modifier.colorOSModuleReveal(3, leaving, reveal),
                 ) {
-                    if (thirdCard == null) Box(Modifier.weight(1f))
+                    ColorOSMyDevices(
+                        glass = glass,
+                        height = tileSize,
+                        onClick = onOpenDevices,
+                        modifier = Modifier.weight(1f),
+                    )
                     ColorOSRingerSwitch(
                         audioVolumeInteractor = audioVolumeInteractor,
                         glass = glass,
                         height = tileSize,
                         modifier = Modifier.weight(1f),
                     )
-                    if (thirdCard != null) {
-                        with(infiniteGridLayout) {
-                            ColorOSWideTile(thirdCard, listening, Modifier.weight(1f))
-                        }
-                    }
                 }
 
                 // Everything else: round icon tiles with labels (the grid handles paging + listening)
@@ -498,6 +459,74 @@ private fun Modifier.glassSurface(glass: ColorOSGlass, shape: Shape): Modifier =
     } else {
         this.clip(shape).background(glass.fill, shape).border(1.dp, ColorOSTileRim, shape)
     }
+
+/**
+ * "My Devices" of ColorOS 17: a glass pill with a bubble that holds the orbit glyph, which opens
+ * the Bluetooth devices. It is the left half of the ringer row.
+ */
+@Composable
+private fun ColorOSMyDevices(
+    glass: ColorOSGlass,
+    height: Dp,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val pressSource = remember { MutableInteractionSource() }
+    val shape = RoundedCornerShape(percent = 50)
+    val bubble = height * ColorOSRingerBubbleRatio
+    val inset = (height - bubble) / 2
+    Row(
+        modifier =
+            modifier
+                .height(height)
+                .colorOSPress(pressSource)
+                .glassSurface(glass, shape)
+                .clickable(
+                    interactionSource = pressSource,
+                    indication = null,
+                    role = Role.Button,
+                    onClick = onClick,
+                )
+                .padding(horizontal = inset),
+        horizontalArrangement = spacedBy(inset),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier =
+                Modifier.size(bubble)
+                    .clip(CircleShape)
+                    .background(
+                        if (glass.dark) Color.White.copy(alpha = 0.12f)
+                        else Color.Black.copy(alpha = 0.06f)
+                    ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_coloros_my_devices),
+                contentDescription = null,
+                tint = glass.iconOff,
+                modifier = Modifier.size(bubble * 0.6f),
+            )
+        }
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.qs_coloros_my_devices),
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = stringResource(R.string.qs_coloros_my_devices_hint),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
 
 /** How long a released slider waits for the value it set to be reported back. */
 private const val ColorOSSliderSettleMillis = 400L
