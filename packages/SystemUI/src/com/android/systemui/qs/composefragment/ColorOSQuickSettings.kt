@@ -743,10 +743,20 @@ private fun ColorOSVolumeSlider(
 }
 
 /**
- * ColorOS colours the selected sound mode red whichever mode it is. Light panel: red bubble with a
- * white icon. Dark panel: white bubble with a red icon, the same pairing the active QS tiles use.
+ * ColorOS colours the selected sound mode red. Dark panel: white bubble with a red icon, the same
+ * pairing the active QS tiles use.
  */
 private val ColorOSRingerRed = Color(0xFFF2453D)
+
+/** The ring mode has a blue bubble on the light panel, as it does in MiraCLO. */
+private val ColorOSRingerBlue = Color(0xFF1A7CFF)
+
+/**
+ * The bubble of the selected mode on the light panel, which has a white icon on it: blue for ring,
+ * red for vibrate and silent.
+ */
+private fun colorOSRingerLightBubble(mode: Int): Color =
+    if (mode == AudioManager.RINGER_MODE_NORMAL) ColorOSRingerBlue else ColorOSRingerRed
 
 /** How far the end buttons are pulled towards the middle, in segments, by the selected bubble. */
 private const val ColorOSRingerNudge = 0.1f
@@ -805,6 +815,12 @@ private fun ColorOSRingerSwitch(
     val bubble = height * ColorOSRingerBubbleRatio
     val selected = modes.indexOfFirst { it.mode == ringerMode.value }.coerceAtLeast(0)
     val last = modes.lastIndex
+    val bubbleColor by
+        animateColorAsState(
+            if (glass.dark) ColorOSActiveFill else colorOSRingerLightBubble(modes[selected].mode),
+            colorOSSpring(0f, 0.3f),
+            label = "colorOSRingerBubbleColor",
+        )
 
     BoxWithConstraints(
         modifier = modifier.height(height).glassSurface(glass, shape),
@@ -827,7 +843,7 @@ private fun ColorOSRingerSwitch(
         Box(
             Modifier.graphicsLayer { translationX = indicatorX }
                 .requiredSize(bubble)
-                .background(if (glass.dark) ColorOSActiveFill else ColorOSRingerRed, CircleShape)
+                .background(bubbleColor, CircleShape)
         )
         Row(Modifier.fillMaxSize()) {
             modes.forEachIndexed { index, mode ->
@@ -852,7 +868,7 @@ private fun ColorOSRingerSwitch(
 
 /**
  * One mode of the ringer switch. Its icon is red on the white bubble of a dark panel and white on
- * the red bubble of a light one, it grows a little and plays its animation when it gets selected.
+ * the colored bubble of a light one, it grows a little and plays its animation when it gets selected.
  */
 @Composable
 private fun ColorOSRingerButton(
