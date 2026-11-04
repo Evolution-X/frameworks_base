@@ -18,6 +18,7 @@ package com.android.systemui.qs.composefragment
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.database.ContentObserver
 import android.graphics.Canvas
@@ -27,6 +28,7 @@ import android.graphics.Rect
 import android.os.Bundle
 import android.os.Trace
 import android.os.UserHandle
+import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -1143,6 +1145,12 @@ constructor(
                                             ColorOSHeaderButtons(
                                                 onEdit = { editButton.onButtonClick() },
                                                 onSettings = settings?.onClick,
+                                            )
+                                        },
+                                        onOpenDevices = {
+                                            activityStarter.postStartActivityDismissingKeyguard(
+                                                Intent(Settings.ACTION_BLUETOOTH_SETTINGS),
+                                                /* delay= */ 0,
                                             )
                                         },
                                         expansion = {
