@@ -731,23 +731,31 @@ private fun PlaybackState.toPlayPauseAction(
     context: Context,
     controller: MediaController,
 ): MediaAction? {
-    val transportControls = controller.transportControls
     return when {
         NotificationMediaManager.isPlayingState(state) && supportsPlaybackAction(PlaybackState.ACTION_PAUSE) ->
             MediaAction(
                 icon = context.getDrawable(R.drawable.ic_media_pause_button),
-                action = Runnable { transportControls.pause() },
+                action = Runnable { controller.togglePlayPause() },
                 contentDescription = context.getString(R.string.controls_media_button_pause),
                 background = context.getDrawable(R.drawable.ic_media_pause_button_container),
             )
         supportsPlaybackAction(PlaybackState.ACTION_PLAY) ->
             MediaAction(
                 icon = context.getDrawable(R.drawable.ic_media_play_button),
-                action = Runnable { transportControls.play() },
+                action = Runnable { controller.togglePlayPause() },
                 contentDescription = context.getString(R.string.controls_media_button_play),
                 background = context.getDrawable(R.drawable.ic_media_play_button_container),
             )
         else -> null
+    }
+}
+
+// The action outlives the playback state it was built for, so decide at click time.
+private fun MediaController.togglePlayPause() {
+    if (playbackState?.let { NotificationMediaManager.isPlayingState(it.state) } == true) {
+        transportControls.pause()
+    } else {
+        transportControls.play()
     }
 }
 
