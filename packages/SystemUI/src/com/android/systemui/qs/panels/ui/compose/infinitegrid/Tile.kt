@@ -360,7 +360,7 @@ fun ContentScope.Tile(
                             } else if (colorOSStyle && !classicStyle) {
                                 Modifier.border(
                                     width = 1.dp,
-                                    brush = ColorOSTileRim,
+                                    brush = colorOSTileRim(),
                                     shape = tileShape,
                                 )
                             } else {
@@ -513,7 +513,7 @@ fun ContentScope.Tile(
                                         iconShapeKey = iconShapeKey,
                                         colors = colors,
                                         labelHide = labelHide,
-                                        rim = if (colorOSStyle) ColorOSTileRim else null,
+                                        rim = if (colorOSStyle) colorOSTileRim() else null,
                                         glass = colorOSStyle && glassBlur != null,
                                         chevron =
                                             colorOSStyle &&
