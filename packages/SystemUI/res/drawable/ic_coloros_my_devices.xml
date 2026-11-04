@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 The Evolution X Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+-->
+<!-- My Devices of the ColorOS panel: a dot with two rings around it and a small dot on each ring. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M12,2 A10,10 0 1 1 12,22 A10,10 0 1 1 12,2"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeAlpha="0.55"
+        android:strokeWidth="1.1" />
+    <path
+        android:pathData="M6.11,8.6 A6.8,6.8 0 1 1 6.11,15.4"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeAlpha="0.55"
+        android:strokeWidth="1.1"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M12,9.3 A2.7,2.7 0 1 1 12,14.7 A2.7,2.7 0 1 1 12,9.3 Z"
+        android:fillColor="#FFFFFFFF" />
+    <path
+        android:pathData="M5.8,2.65 A1.5,1.5 0 1 1 5.8,5.65 A1.5,1.5 0 1 1 5.8,2.65 Z"
+        android:fillColor="#FFFFFFFF" />
+    <path
+        android:pathData="M5.35,18 A1.5,1.5 0 1 1 5.35,21 A1.5,1.5 0 1 1 5.35,18 Z"
+        android:fillColor="#FFFFFFFF" />
+    <path
+        android:pathData="M18.03,7.35 A1.5,1.5 0 1 1 18.03,10.35 A1.5,1.5 0 1 1 18.03,7.35 Z"
+        android:fillColor="#FFFFFFFF" />
+</vector>
