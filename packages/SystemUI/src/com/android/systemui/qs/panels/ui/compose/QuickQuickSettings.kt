@@ -37,6 +37,7 @@ import com.android.systemui.grid.ui.compose.calculate2DPlacements
 import com.android.systemui.qs.composefragment.ui.GridAnchor
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSQsStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalQSBluetoothDevices
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalQSQuadTiles
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.Tile
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSPanelStyle
@@ -174,7 +175,10 @@ private fun ContentScope.NothingQuickQuickSettings(
         ) { spanIndex, _ ->
             val it = qqsTiles[spanIndex]
             Element(it.spec.toElementKey(), Modifier) {
-                CompositionLocalProvider(LocalQSQuadTiles provides quadTiles) {
+                CompositionLocalProvider(
+                    LocalQSQuadTiles provides quadTiles,
+                    LocalQSBluetoothDevices provides viewModel.connectedBluetoothDevices,
+                ) {
                     Tile(
                         tile = it,
                         iconOnly = !largeTiles.contains(it.spec) && !quadTiles.contains(it.spec),
