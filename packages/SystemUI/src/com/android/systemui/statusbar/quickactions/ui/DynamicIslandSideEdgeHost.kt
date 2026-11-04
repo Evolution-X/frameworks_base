@@ -48,8 +48,9 @@ import com.android.systemui.statusbar.quickactions.ui.compose.DynamicIslandSideE
  * a pill that has to stay on a camera sitting mid-height on a side edge.
  *
  * The window covers the display but only the pill is touchable: the touchable region follows the
- * bounds the island reports, everything else falls through to the windows below. The window is
- * [View.GONE] (so it has no surface) whenever the island has nothing to show.
+ * bounds the island reports, everything else falls through to the windows below. It is a trusted
+ * overlay, or the input dispatcher would block those touches as occluded by another app's window.
+ * The window is [View.GONE] (so it has no surface) whenever the island has nothing to show.
  *
  * Must be used from the main thread.
  */
@@ -162,6 +163,9 @@ class DynamicIslandSideEdgeHost(
             .apply {
                 title = "DynamicIslandSideEdge"
                 gravity = Gravity.TOP or Gravity.START
+                // TYPE_STATUS_BAR_SUB_PANEL is not trusted by type, and an untrusted window over
+                // the whole display makes every touch outside the pill fail on occlusion
+                setTrustedOverlay()
                 layoutInDisplayCutoutMode =
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
                 setFitInsetsTypes(0)
