@@ -133,14 +133,33 @@ private val COLOROS_WIFI_SPECS = listOf("internet", "wifi")
 private val COLOROS_BT_SPECS = listOf("bt", "bluetooth")
 
 /**
- * The specs of the tiles the panel pins as cards, the Wi-Fi and Bluetooth ones that are present.
- * The grid and the editor leave them out, and the editor keeps them at the front of the list. The
- * mobile data tile is a round tile of the grid, the third card is My Devices.
+ * What fills a pinned slot whose own tile is not in the panel, in order of preference. ColorOS
+ * always shows two cards in the first row, so a panel without a Wi-Fi tile or without a Bluetooth
+ * tile takes the first of these that it has instead of leaving a hole.
  */
-internal fun colorOSCardSpecsOf(present: Set<String>): Set<String> = buildSet {
-    COLOROS_WIFI_SPECS.firstOrNull { it in present }?.let(::add)
-    COLOROS_BT_SPECS.firstOrNull { it in present }?.let(::add)
+private val COLOROS_CARD_FALLBACK_SPECS = listOf("cell", "hotspot", "nfc", "cast", "airplane")
+
+/**
+ * The specs of the two cards of the first row, the Wi-Fi one first and the Bluetooth one second. A
+ * slot with no tile of its own gets a fallback, which no other slot uses, and stays null when there
+ * is none.
+ */
+internal fun colorOSCardSlotsOf(present: Set<String>): List<String?> {
+    val fallbacks = COLOROS_CARD_FALLBACK_SPECS.filter { it in present }.iterator()
+    fun fallback(): String? = if (fallbacks.hasNext()) fallbacks.next() else null
+    val wifi = COLOROS_WIFI_SPECS.firstOrNull { it in present }
+    val bt = COLOROS_BT_SPECS.firstOrNull { it in present }
+    return listOf(wifi ?: fallback(), bt ?: fallback())
 }
+
+/**
+ * The specs of the tiles the panel pins as cards, the Wi-Fi and Bluetooth ones that are present and
+ * the fallbacks of the ones that are not. The grid and the editor leave them out, and the editor
+ * keeps them at the front of the list. The mobile data tile is a round tile of the grid unless it
+ * stands in for a missing Wi-Fi tile, the third card is My Devices.
+ */
+internal fun colorOSCardSpecsOf(present: Set<String>): Set<String> =
+    colorOSCardSlotsOf(present).filterNotNull().toSet()
 
 /** The blue of the volume icon, as in the ColorOS panel. */
 private val ColorOSSliderBlue = Color(0xFF0068FF)
@@ -275,12 +294,12 @@ internal fun ContentScope.ColorOSQuickSettingsLayout(
     header: @Composable () -> Unit = {},
     onOpenDevices: () -> Unit = {},
 ) {
-    fun pick(specs: List<String>): TileViewModel? =
-        specs.firstNotNullOfOrNull { spec -> tiles.firstOrNull { it.spec.spec == spec } }
-
-    val wifi = pick(COLOROS_WIFI_SPECS)
-    val bt = pick(COLOROS_BT_SPECS)
-    val fixed = listOfNotNull(wifi, bt)
+    val cardSlots =
+        remember(tiles) {
+            val bySpec = tiles.associateBy { it.spec.spec }
+            colorOSCardSlotsOf(bySpec.keys).map { spec -> spec?.let(bySpec::get) }
+        }
+    val fixed = remember(cardSlots) { cardSlots.filterNotNull() }
     val rest = remember(tiles, fixed) { tiles.filterNot { it in fixed } }
 
     // The fixed tiles are not part of a grid, so make them listen ourselves.
@@ -331,18 +350,18 @@ internal fun ContentScope.ColorOSQuickSettingsLayout(
                     Box(Modifier.fillMaxWidth().height(headerHeight - ColorOSGap)) { header() }
                 }
 
-                // Row 1: Wi-Fi + Bluetooth
-                if (wifi != null || bt != null) {
+                // Row 1: Wi-Fi + Bluetooth, or what stands in for the one that is missing
+                if (fixed.isNotEmpty()) {
                     Row(
                         horizontalArrangement = spacedBy(ColorOSGap),
                         modifier = Modifier.colorOSModuleReveal(1, leaving, reveal),
                     ) {
-                        listOfNotNull(wifi, bt).forEach { tile ->
+                        fixed.forEach { tile ->
                             with(infiniteGridLayout) {
                                 ColorOSWideTile(tile, listening, Modifier.weight(1f))
                             }
                         }
-                        if (wifi == null || bt == null) Box(Modifier.weight(1f))
+                        if (fixed.size < 2) Box(Modifier.weight(1f))
                     }
                 }
 
