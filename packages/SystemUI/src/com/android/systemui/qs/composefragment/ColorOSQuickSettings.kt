@@ -58,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
@@ -106,10 +107,10 @@ import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSGridHeadroo
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSGridRows
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSMinGridRows
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSSliderFill
-import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSTileRim
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSGlassBlur
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.colorOSGlassBlur
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.colorOSGlassTileMaterial
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.colorOSTileRim
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberColorOSGlassBlur
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.InfiniteGridLayout
@@ -230,6 +231,13 @@ private const val ColorOSSliderAspect = 2.1f
 
 /** Corner radius of the glass slot behind the media card, playing or idle. */
 private val ColorOSMediaShape = RoundedCornerShape(32.dp)
+
+/** The soft light along the top of the glass of the light panel, where there is no blur region. */
+private val ColorOSLightGlassHighlight =
+    Brush.verticalGradient(
+        0f to Color.White.copy(alpha = 0.18f),
+        0.5f to Color.Transparent,
+    )
 
 /**
  * ColorOS-style expanded Quick Settings.
@@ -457,7 +465,15 @@ private fun Modifier.glassSurface(glass: ColorOSGlass, shape: Shape): Modifier =
     if (glass.blurred) {
         this.clip(shape).colorOSGlassBlur(shape, glass.material)
     } else {
-        this.clip(shape).background(glass.fill, shape).border(1.dp, ColorOSTileRim, shape)
+        // Without blur the light panel has no glass behind it to catch the light, so its glass
+        // gets the white rim and the light along the top of the light panel of MiraCLO.
+        this.clip(shape)
+            .background(glass.fill, shape)
+            .then(
+                if (glass.dark) Modifier
+                else Modifier.background(ColorOSLightGlassHighlight, shape)
+            )
+            .border(1.dp, colorOSTileRim(), shape)
     }
 
 /**
