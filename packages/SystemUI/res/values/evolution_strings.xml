@@ -361,4 +361,8 @@
     <string name="qs_coloros_edit_hint">Hold and drag to rearrange</string>
     <!-- ColorOS style QS: heading of the tiles that can be added in the editor [CHAR LIMIT=30] -->
     <string name="qs_coloros_edit_more">More tiles</string>
+    <!-- ColorOS style QS: title of the pill that opens the Bluetooth devices [CHAR LIMIT=20] -->
+    <string name="qs_coloros_my_devices">My Devices</string>
+    <!-- ColorOS style QS: hint under the title of the My Devices pill [CHAR LIMIT=20] -->
+    <string name="qs_coloros_my_devices_hint">Tap to add</string>
 </resources>
