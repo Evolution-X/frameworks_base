@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastMap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.compose.animation.scene.ContentScope
+import com.android.systemui.bluetooth.connecteddevices.ConnectedBluetoothDevicesInteractor
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.grid.ui.compose.GridSpan
 import com.android.systemui.grid.ui.compose.TwoDimensionalSpannedGrid
@@ -113,6 +114,7 @@ constructor(
     override val viewModelFactory: InfiniteGridViewModel.Factory,
     private val textFeedbackContentViewModelFactory: TextFeedbackContentViewModel.Factory,
     private val tileHapticsViewModelFactory: TileHapticsViewModel.Factory,
+    private val connectedBluetoothDevicesInteractor: ConnectedBluetoothDevicesInteractor,
 ) : PaginatableGridLayout {
 
     @Composable
@@ -278,7 +280,10 @@ constructor(
         ) { spanIndex, _ ->
             val it = tiles[spanIndex]
             Element(it.spec.toElementKey(), Modifier) {
-                CompositionLocalProvider(LocalQSQuadTiles provides quadTiles) {
+                CompositionLocalProvider(
+                    LocalQSQuadTiles provides quadTiles,
+                    LocalQSBluetoothDevices provides connectedBluetoothDevicesInteractor.devices,
+                ) {
                     Tile(
                         tile = it,
                         iconOnly = !largeTiles.contains(it.spec) && !quadTiles.contains(it.spec),
