@@ -600,7 +600,7 @@ fun StatusBarRoot(
                         with(DynamicIslandFeatureSettings) {
                             islandResolver.readDynamicIslandFeatureEnabled(
                                 LANDSCAPE_TOP,
-                                defaultValue = false,
+                                defaultValue = true,
                             )
                         }
                     val sideEdge =
