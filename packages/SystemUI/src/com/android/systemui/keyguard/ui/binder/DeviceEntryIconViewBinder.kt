@@ -60,6 +60,9 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.SharingStarted
 import android.provider.Settings
@@ -68,6 +71,7 @@ import com.android.internal.util.evolution.Utils
 
 object DeviceEntryIconViewBinder {
     private const val TAG = "DeviceEntryIconViewBinder"
+    private const val LOCKSCREEN_HIDE_LOCK_ICON = "lockscreen_hide_lock_icon"
 
     private final val UDFPS_ICON: String =
             "system:" + Settings.System.UDFPS_ICON
@@ -123,6 +127,64 @@ object DeviceEntryIconViewBinder {
             started = SharingStarted.Eagerly,
             initialValue = false
         )
+
+        val hideLockIcon =
+            callbackFlow<Boolean> {
+                    val tunerService = Dependency.get(TunerService::class.java)
+                    val callback =
+                        object : TunerService.Tunable {
+                            override fun onTuningChanged(key: String, newValue: String?) {
+                                if (key == LOCKSCREEN_HIDE_LOCK_ICON) {
+                                    trySend(TunerService.parseIntegerSwitch(newValue, false))
+                                }
+                            }
+                        }
+                    tunerService.addTunable(callback, LOCKSCREEN_HIDE_LOCK_ICON)
+                    awaitClose { tunerService.removeTunable(callback) }
+                }
+                .distinctUntilChanged()
+                .shareIn(
+                    tunerScope,
+                    SharingStarted.WhileSubscribed(replayExpirationMillis = 0),
+                    replay = 1,
+                )
+
+        val isLockIconHidden =
+            combine(viewModel.iconType, hideLockIcon) { type, hide ->
+                    hide &&
+                        (type == DeviceEntryIconView.IconType.LOCK ||
+                            type == DeviceEntryIconView.IconType.UNLOCK)
+                }
+                .distinctUntilChanged()
+
+        val isIconVisible =
+            combine(viewModel.isVisible, isLockIconHidden) { visible, hidden -> visible && !hidden }
+        val isLongPressEnabled =
+            combine(viewModel.isLongPressEnabled, isLockIconHidden) { enabled, hidden ->
+                enabled && !hidden
+            }
+        val accessibilityState =
+            combine(
+                viewModel.accessibilityDelegateHint,
+                viewModel.isVisible,
+                isLockIconHidden,
+            ) { hint, visible, hidden ->
+                val effectiveHint =
+                    if (hidden) DeviceEntryIconView.AccessibilityHintType.NONE else hint
+                effectiveHint to (visible && !hidden)
+            }
+        val foregroundViewModel =
+            combine(fgViewModel.viewModel, hideLockIcon) { model, hide ->
+                if (
+                    hide &&
+                        (model.type == DeviceEntryIconView.IconType.LOCK ||
+                            model.type == DeviceEntryIconView.IconType.UNLOCK)
+                ) {
+                    model.copy(type = DeviceEntryIconView.IconType.NONE)
+                } else {
+                    model
+                }
+            }
 
         val touchHandlingView = view.touchHandlingView
         val fgIconView = view.iconView
@@ -216,13 +278,12 @@ object DeviceEntryIconViewBinder {
                 // of the transition.
                 repeatOnLifecycle(Lifecycle.State.CREATED) {
                     launch("$TAG#viewModel.isVisible") {
-                        viewModel.isVisible.collect { isVisible ->
+                        isIconVisible.collect { isVisible ->
                             touchHandlingView.isInvisible = !isVisible
-                            view.isClickable = isVisible
                         }
                     }
                     launch("$TAG#viewModel.isLongPressEnabled") {
-                        viewModel.isLongPressEnabled.collect { isEnabled ->
+                        isLongPressEnabled.collect { isEnabled ->
                             touchHandlingView.setLongPressHandlingEnabled(isEnabled)
                         }
                     }
@@ -247,7 +308,7 @@ object DeviceEntryIconViewBinder {
                         }
                     }
                     launch("$TAG#viewModel.accessibilityDelegateHint") {
-                        viewModel.accessibilityDelegateHint.collect { hint ->
+                        accessibilityState.collect { (hint, isVisible) ->
                             view.accessibilityHintType = hint
                             if (hint != DeviceEntryIconView.AccessibilityHintType.NONE) {
                                 view.setOnClickListener {
@@ -279,6 +340,7 @@ object DeviceEntryIconViewBinder {
                                 view.isClickable = false
                                 view.focusable = View.NOT_FOCUSABLE
                             }
+                            view.isClickable = isVisible
                         }
                     }
 
@@ -301,18 +363,20 @@ object DeviceEntryIconViewBinder {
                     Log.d(TAG, "Initializing device entry fgIconView")
                     fgIconView.setImageState(StateSet.NOTHING, /* merge */ false)
                     launch("$TAG#fpIconView.viewModel") {
-                        fgViewModel.viewModel.collect { viewModel ->
+                        foregroundViewModel.collect { viewModel ->
                             Log.d(TAG, "Updating device entry icon image state $viewModel")
                             fgIconView.setImageState(
                                 view.getIconState(viewModel.type, viewModel.useAodVariant),
                                 /* merge */ false,
                             )
-                            if (viewModel.type.contentDescriptionResId != -1) {
-                                fgIconView.contentDescription =
+                            fgIconView.contentDescription =
+                                if (viewModel.type.contentDescriptionResId != -1) {
                                     fgIconView.resources.getString(
                                         viewModel.type.contentDescriptionResId
                                     )
-                            }
+                                } else {
+                                    null
+                                }
                             fgIconView.imageTintList =
                                 ColorStateList.valueOf(overrideColor?.toArgb() ?: viewModel.tint)
                             if (fgIconView.drawable.current !is UdfpsIconDrawable) {
