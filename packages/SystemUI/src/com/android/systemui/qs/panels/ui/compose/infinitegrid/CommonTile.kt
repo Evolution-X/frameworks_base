@@ -35,6 +35,7 @@ import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
@@ -97,6 +98,7 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -631,7 +633,8 @@ fun NothingPillTileContent(
     val icon = iconProvider(context)
     val isActive = visualState == android.service.quicksettings.Tile.STATE_ACTIVE
     val contentColor = if (isActive) Color.Black else Color.White
-    val dividerColor = if (isActive) Color(0x33000000) else Color(0x33FFFFFF)
+    val dividerColor =
+        colorResource(if (isActive) R.color.nothing_qs_divider_on_active else R.color.nothing_qs_divider)
     val iconSize = 26.dp
 
     val loadedDrawable = remember(icon, context) {

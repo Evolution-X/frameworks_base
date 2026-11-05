@@ -24,10 +24,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
@@ -42,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -66,9 +65,9 @@ val LocalQSBluetoothDevices = compositionLocalOf { NoConnectedBluetoothDevices }
 private val QuadIconButtonSize = 54.dp
 private val QuadIconSize = 28.dp
 private val QuadContentPadding = 16.dp
+private val QuadIconLabelSpacing = 12.dp
 private val PagerDotSize = 5.dp
 private val PagerDotSpacing = 4.dp
-private val QuadInactiveButtonColor = Color(0xFF383838)
 private const val SECONDARY_TEXT_ALPHA = 0.65f
 private const val INACTIVE_DOT_ALPHA = 0.35f
 
@@ -89,28 +88,34 @@ fun NothingBluetoothQuadTileContent(
     val buttonIconProvider: Context.() -> Icon =
         if (deviceIconRes != null) ({ Icon.Resource(deviceIconRes, null) }) else iconProvider
 
-    Column(
-        modifier = modifier.fillMaxSize().padding(QuadContentPadding),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween,
-    ) {
-        NothingQuadIconButton(
-            iconProvider = buttonIconProvider,
-            isActive = isActive,
-            onClick = onClick,
-        )
-        if (connectedDevices.isEmpty()) {
-            NothingQuadTileLabels(label, secondaryLabel, isActive)
-        } else {
-            HorizontalPager(state = pagerState, modifier = Modifier.fillMaxWidth()) { page ->
-                val device = connectedDevices[page]
-                NothingQuadLabels(primary = device.name, secondary = device.statusText())
+    Box(modifier = modifier.fillMaxSize().padding(QuadContentPadding)) {
+        // The icon and the labels are one group, centered in the tile. The pager dots are pinned
+        // to the bottom so that they do not move the group when a second device connects.
+        Column(
+            modifier = Modifier.align(Alignment.Center).fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(QuadIconLabelSpacing),
+        ) {
+            NothingQuadIconButton(
+                iconProvider = buttonIconProvider,
+                isActive = isActive,
+                onClick = onClick,
+            )
+            if (connectedDevices.isEmpty()) {
+                NothingQuadTileLabels(label, secondaryLabel, isActive)
+            } else {
+                HorizontalPager(state = pagerState, modifier = Modifier.fillMaxWidth()) { page ->
+                    val device = connectedDevices[page]
+                    NothingQuadLabels(primary = device.name, secondary = device.statusText())
+                }
             }
         }
         if (connectedDevices.size > 1) {
-            PagerDots(count = connectedDevices.size, currentPage = pagerState.currentPage)
-        } else {
-            Spacer(modifier = Modifier.height(PagerDotSize))
+            PagerDots(
+                count = connectedDevices.size,
+                currentPage = pagerState.currentPage,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
         }
     }
 }
@@ -125,7 +130,11 @@ fun NothingQuadIconButton(
         modifier =
             Modifier.size(QuadIconButtonSize)
                 .clip(CircleShape)
-                .background(if (isActive) Color.White else QuadInactiveButtonColor)
+                .background(
+                    colorResource(
+                        if (isActive) R.color.nothing_qs_active else R.color.nothing_qs_icon_circle
+                    )
+                )
                 .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -182,8 +191,9 @@ fun NothingQuadTileLabels(label: String, secondaryLabel: String?, isActive: Bool
 }
 
 @Composable
-private fun PagerDots(count: Int, currentPage: Int) {
+private fun PagerDots(count: Int, currentPage: Int, modifier: Modifier = Modifier) {
     Row(
+        modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(PagerDotSpacing),
         verticalAlignment = Alignment.CenterVertically,
     ) {

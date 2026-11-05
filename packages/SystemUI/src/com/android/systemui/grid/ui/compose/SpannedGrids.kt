@@ -357,6 +357,7 @@ fun calculate2DPlacements(
     maxRowsPerPage: Int = 0,
     maxRows: Int = 0,
     preferredPlacements: Map<Int, Pair<Int, Int>>? = null,
+    reserved: List<PlacedGridItem> = emptyList(),
 ): List<PlacedGridItem> {
     val occupied = mutableListOf<BooleanArray>()
     fun isOccupied(r: Int, c: Int): Boolean {
@@ -368,6 +369,16 @@ fun calculate2DPlacements(
             occupied.add(BooleanArray(columns))
         }
         occupied[r][c] = true
+    }
+
+    // Cells held by items the caller places itself. They are not part of the result and do not
+    // move the search start row, so the other items still flow from the top around them.
+    for (item in reserved) {
+        for (dr in 0 until item.rowSpan) {
+            for (dc in 0 until item.colSpan) {
+                if (item.col + dc in 0 until columns) setOccupied(item.row + dr, item.col + dc)
+            }
+        }
     }
 
     val result = ArrayList<PlacedGridItem>(spans.size)
@@ -470,6 +481,7 @@ fun TwoDimensionalSpannedGrid(
     preferredPlacements: Map<Int, Pair<Int, Int>>? = null,
     maxRows: Int = 0,
     rowHeight: Dp = Dp.Unspecified,
+    rowHeights: Map<Int, Dp> = emptyMap(),
     useSquareCells: Boolean = false,
     horizontalPadding: Dp = 0.dp,
     targetCellSize: Dp = Dp.Unspecified,
@@ -534,6 +546,21 @@ fun TwoDimensionalSpannedGrid(
             rowHeight.roundToPx()
         }
 
+        // Rows in [rowHeights] have their own height, every other row uses rowHeightPx.
+        val rowHeightsPx = IntArray(totalRows) { r ->
+            rowHeights[r]?.roundToPx() ?: rowHeightPx
+        }
+        val rowTops = IntArray(totalRows)
+        var rowTop = 0
+        for (r in 0 until totalRows) {
+            rowTops[r] = rowTop
+            rowTop += rowHeightsPx[r] + rowSpacingPx
+        }
+        fun heightOf(placement: PlacedGridItem): Int {
+            val last = placement.row + placement.rowSpan - 1
+            return rowTops[last] + rowHeightsPx[last] - rowTops[placement.row]
+        }
+
         val colWidths = IntArray(columns) { c ->
             baseColWidth + if (c < remainder) 1 else 0
         }
@@ -551,7 +578,7 @@ fun TwoDimensionalSpannedGrid(
                 itemWidth += colWidths[c]
             }
             itemWidth += (placement.colSpan - 1) * colSpacingPx
-            val itemHeight = placement.rowSpan * rowHeightPx + (placement.rowSpan - 1) * rowSpacingPx
+            val itemHeight = heightOf(placement)
 
             val (finalWidth, finalHeight) = if (useSquareCells && placement.colSpan == 1 && placement.rowSpan == 1) {
                 val s = minOf(itemWidth, itemHeight)
@@ -565,9 +592,7 @@ fun TwoDimensionalSpannedGrid(
             )
         }
 
-        val totalHeight = if (totalRows == 0) 0 else {
-            totalRows * rowHeightPx + (totalRows - 1) * rowSpacingPx
-        }
+        val totalHeight = if (totalRows == 0) 0 else rowTops[totalRows - 1] + rowHeightsPx[totalRows - 1]
 
         layout(totalWidth, totalHeight) {
             placeables.forEachIndexed { i, placeable ->
@@ -577,10 +602,10 @@ fun TwoDimensionalSpannedGrid(
                     slotWidth += colWidths[c]
                 }
                 slotWidth += (placement.colSpan - 1) * colSpacingPx
-                val slotHeight = placement.rowSpan * rowHeightPx + (placement.rowSpan - 1) * rowSpacingPx
+                val slotHeight = heightOf(placement)
 
                 val x = colPositions[placement.col] + (slotWidth - placeable.width) / 2
-                val y = placement.row * (rowHeightPx + rowSpacingPx) + (slotHeight - placeable.height) / 2
+                val y = rowTops[placement.row] + (slotHeight - placeable.height) / 2
                 placeable.placeRelative(x, y)
             }
         }
