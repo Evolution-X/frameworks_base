@@ -1706,15 +1706,21 @@ public final class NotificationPanelViewController implements
     }
 
     boolean flingExpandsQs(float vel) {
+        boolean isLandscape = mView.getResources().getConfiguration().orientation
+                == Configuration.ORIENTATION_LANDSCAPE;
+        float threshold = isLandscape ? 0.25f : 0.5f;
         if (Math.abs(vel) < mFlingAnimationUtils.getMinVelocityPxPerSecond()) {
-            return mQsController.computeExpansionFraction() > 0.5f;
+            return mQsController.computeExpansionFraction() > threshold;
         } else {
             return vel > 0;
         }
     }
 
     private boolean shouldExpandWhenNotFlinging() {
-        if (getExpandedFraction() > 0.5f) {
+        boolean isLandscape = mView.getResources().getConfiguration().orientation
+                == Configuration.ORIENTATION_LANDSCAPE;
+        float threshold = isLandscape ? 0.25f : 0.5f;
+        if (getExpandedFraction() > threshold) {
             return true;
         }
         if (mAllowExpandForSmallExpansion) {
@@ -1793,9 +1799,12 @@ public final class NotificationPanelViewController implements
                     ? QUICK_SETTINGS : (
                     mKeyguardStateController.canDismissLockScreen() ? UNLOCK : BOUNCER_UNLOCK);
             if (!isFalseTouch(x, y, interactionType)) {
+                boolean isLandscape = mView.getResources().getConfiguration().orientation
+                        == Configuration.ORIENTATION_LANDSCAPE;
+                float threshold = isLandscape ? 0.25f : 0.5f;
                 mShadeLog.logFlingExpands(vel, vectorVel, interactionType,
                         this.mFlingAnimationUtils.getMinVelocityPxPerSecond(),
-                        mExpandedFraction > 0.5f, mAllowExpandForSmallExpansion);
+                        mExpandedFraction > threshold, mAllowExpandForSmallExpansion);
                 if (Math.abs(vectorVel) < this.mFlingAnimationUtils.getMinVelocityPxPerSecond()) {
                     expands = shouldExpandWhenNotFlinging();
                 } else {
