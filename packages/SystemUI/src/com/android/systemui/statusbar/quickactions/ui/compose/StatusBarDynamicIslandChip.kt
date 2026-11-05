@@ -47,6 +47,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -830,6 +831,17 @@ private fun readDynamicIslandCutoutSnapshot(view: View): DynamicIslandCutoutSnap
 fun rememberDynamicIslandCutoutSpec(): DynamicIslandCutoutSpec {
     val density = LocalDensity.current
     val view = LocalView.current
+    var windowLayout by remember { mutableIntStateOf(0) }
+    DisposableEffect(view) {
+        val root = view.rootView
+        val listener =
+            View.OnLayoutChangeListener { _, l, t, r, b, oldL, oldT, oldR, oldB ->
+                if (r - l != oldR - oldL || b - t != oldB - oldT) windowLayout++
+            }
+        root.addOnLayoutChangeListener(listener)
+        onDispose { root.removeOnLayoutChangeListener(listener) }
+    }
+    @Suppress("UNUSED_EXPRESSION") windowLayout
     var snapshot by remember { mutableStateOf(readDynamicIslandCutoutSnapshot(view)) }
     DisposableEffect(view) {
         val listener =
