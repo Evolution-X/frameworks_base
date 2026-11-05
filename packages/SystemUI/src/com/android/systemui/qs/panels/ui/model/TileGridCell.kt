@@ -19,7 +19,6 @@ package com.android.systemui.qs.panels.ui.model
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.runtime.Immutable
 import com.android.systemui.qs.panels.shared.model.SizedTile
-import com.android.systemui.qs.panels.shared.model.autoArrangeTiles
 import com.android.systemui.qs.panels.shared.model.splitInRowsSequence
 import com.android.systemui.qs.panels.ui.viewmodel.EditTileViewModel
 import com.android.systemui.qs.shared.model.CategoryAndName
@@ -72,6 +71,8 @@ data class SpacerGridCell(
  *
  * @param startingRow The row index the grid is built from, used in cases where only end rows need
  *   to be regenerated
+ * @param isNothingStyle Whether the NothingOS grid rules (quad tiles, preferred positions) apply.
+ *   Callers that do not pass it get the default sequential layout.
  */
 fun List<SizedTile<EditTileViewModel>>.toGridCells(
     columns: Int,
@@ -79,11 +80,14 @@ fun List<SizedTile<EditTileViewModel>>.toGridCells(
     quadTiles: Set<TileSpec> = emptySet(),
     preferredPositions: Map<TileSpec, Pair<Int, Int>> = emptyMap(),
     prioritySpec: TileSpec? = null,
-    isNothingStyle: Boolean = true,
+    isNothingStyle: Boolean = false,
+    blockedCells: Set<Pair<Int, Int>> = emptySet(),
 ): List<GridCell> {
-    if (!isNothingStyle || (quadTiles.isEmpty() && preferredPositions.isEmpty())) {
-        val arrangedTiles = if (!isNothingStyle) autoArrangeTiles(this, columns) else this
-        return splitInRowsSequence(arrangedTiles, columns)
+    if (
+        !isNothingStyle ||
+            (quadTiles.isEmpty() && preferredPositions.isEmpty() && blockedCells.isEmpty())
+    ) {
+        return splitInRowsSequence(this, columns)
             .flatMapIndexed { rowIndex, sizedTiles ->
                 val correctedRowIndex = rowIndex + startingRow
                 var column = 0
@@ -95,14 +99,10 @@ fun List<SizedTile<EditTileViewModel>>.toGridCells(
                         }
                     }
 
-                // Fill incomplete rows with spacers ONLY if isNothingStyle is true
-                if (isNothingStyle) {
-                    val numSpacers = columns - sizedTiles.sumOf { it.width }
-                    row.toMutableList().apply {
-                        repeat(numSpacers) { c -> add(SpacerGridCell(correctedRowIndex, column + c)) }
-                    }
-                } else {
-                    row
+                // Fill the incomplete rows with spacers
+                val numSpacers = columns - sizedTiles.sumOf { it.width }
+                row.toMutableList().apply {
+                    repeat(numSpacers) { c -> add(SpacerGridCell(correctedRowIndex, column + c)) }
                 }
             }
             .toList()
@@ -118,6 +118,14 @@ fun List<SizedTile<EditTileViewModel>>.toGridCells(
             occupied.add(BooleanArray(columns))
         }
         occupied[r][c] = true
+    }
+
+    // Cells held by something else, like a slider, are never given to a tile. They are not
+    // spacers either, so the cell stays empty in the result.
+    for ((blockedRow, blockedCol) in blockedCells) {
+        if (blockedRow - startingRow >= 0 && blockedCol in 0 until columns) {
+            setOccupied(blockedRow - startingRow, blockedCol)
+        }
     }
 
     val placedCells = mutableListOf<TileGridCell>()
