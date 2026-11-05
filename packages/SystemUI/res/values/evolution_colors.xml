@@ -10,4 +10,14 @@
 
     <!-- Notification counter -->
     <color name="notification_number_text_color">#ff000000</color>
+
+    <!-- NothingOS style Quick Settings -->
+    <color name="nothing_qs_surface">#ff262626</color>
+    <color name="nothing_qs_active">#ffffffff</color>
+    <color name="nothing_qs_slider_fill">#ffe2e2e2</color>
+    <color name="nothing_qs_alert">#ffd71921</color>
+    <color name="nothing_qs_divider">#33ffffff</color>
+    <color name="nothing_qs_divider_on_active">#33000000</color>
+    <color name="nothing_qs_slider_icon_on_fill">#ff1e1e1e</color>
+    <color name="nothing_qs_icon_circle">#ff383838</color>
 </resources>

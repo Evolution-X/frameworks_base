@@ -138,15 +138,6 @@ class ResizingState(
         anchoredDraggableState.animateTo(anchor)
     }
 
-    suspend fun updateCurrentValue(isIcon: Boolean, isQuad: Boolean = false) {
-        val anchor = when {
-            allowQuad && isQuad -> QSDragAnchor.Quad
-            isIcon -> QSDragAnchor.Icon
-            else -> QSDragAnchor.Large
-        }
-        anchoredDraggableState.animateTo(anchor)
-    }
-
     suspend fun toggleCurrentValue() {
         val current = anchoredDraggableState.settledValue
         val nextAnchor = if (allowQuad) {

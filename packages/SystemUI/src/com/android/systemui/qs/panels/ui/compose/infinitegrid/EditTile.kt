@@ -19,7 +19,6 @@
 package com.android.systemui.qs.panels.ui.compose.infinitegrid
 
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSPanelStyle
-import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQuadTiles
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.togetherWith
@@ -48,6 +47,7 @@ import androidx.compose.foundation.clipScrollableContainer
 import androidx.compose.foundation.draganddrop.dragAndDropTarget
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberScrollableState
 import androidx.compose.foundation.gestures.scrollable
@@ -149,6 +149,7 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
@@ -657,11 +658,19 @@ private fun CurrentTilesGrid(
 ) {
     val isNothingStyle = LocalNothingQsStyle.current
     if (isNothingStyle) {
-        NothingCurrentTilesGrid(
-            listState = listState,
-            selectionState = selectionState,
-            onEditAction = onEditAction,
-        )
+        Column {
+            NothingCurrentTilesGrid(
+                listState = listState,
+                selectionState = selectionState,
+                onEditAction = onEditAction,
+            )
+            NothingSliderControls(
+                listState = listState,
+                onChanged = {
+                    onEditAction(EditAction.SetTiles(listState.tileSpecs(), listState.tilePositions()))
+                },
+            )
+        }
         return
     }
 
@@ -762,7 +771,12 @@ private fun NothingCurrentTilesGrid(
     val cellSize = with(density) { cellSizePx.toDp() }
 
     val placedTiles = listState.tiles.filterIsInstance<TileGridCell>()
-    val maxRow = maxOf(3, placedTiles.maxOfOrNull { it.row + if (it.isQuad) 1 else 0 } ?: 3)
+    val maxRow =
+        maxOf(
+            3,
+            placedTiles.maxOfOrNull { it.row + if (it.isQuad) 1 else 0 } ?: 3,
+            listState.sliders.maxOfOrNull { it.row } ?: 0,
+        )
     val numRows = maxRow + 2
     val baseGridHeight = cellSize * numRows + spacing * (numRows - 1).coerceAtLeast(0) + CurrentTilesGridPadding * 2
     val totalHeight by animateDpAsState(
@@ -883,6 +897,8 @@ private fun NothingCurrentTilesGrid(
                     val rSpan = if (tile.isQuad) 2 else 1
                     val cSpan = tile.width
                     r in tile.row until (tile.row + rSpan) && c in tile.column until (tile.column + cSpan)
+                } || listState.sliders.any { slider ->
+                    r == slider.row && c in slider.col until (slider.col + slider.span)
                 }
                 if (!isOccupied) {
                     key("spacer-$r-$c") {
@@ -982,6 +998,173 @@ private fun NothingCurrentTilesGrid(
                 }
             }
         }
+
+        // Render the sliders
+        listState.sliders.forEach { slider ->
+            key(slider.kind) {
+                NothingEditSlider(
+                    item = slider,
+                    cellSizePx = cellSizePx,
+                    spacingPx = spacingPx,
+                    x = colOffset(slider.col),
+                    y = rowOffset(slider.row),
+                    onPlace = { row, col, span ->
+                        currentListState.placeSlider(slider.kind, row, col, span)
+                        onEditAction(
+                            EditAction.SetTiles(
+                                currentListState.tileSpecs(),
+                                currentListState.tilePositions(),
+                            )
+                        )
+                    },
+                    onRemove = {
+                        currentListState.removeSlider(slider.kind)
+                        onEditAction(
+                            EditAction.SetTiles(
+                                currentListState.tileSpecs(),
+                                currentListState.tilePositions(),
+                            )
+                        )
+                    },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * A slider of the Nothing grid in edit mode. Tap it to switch between the full width and half of
+ * it, press and hold to drag it to another row, and use its remove button to take it out.
+ */
+@Composable
+private fun NothingEditSlider(
+    item: NothingSliderItem,
+    cellSizePx: Int,
+    spacingPx: Int,
+    x: Int,
+    y: Int,
+    onPlace: (row: Int, col: Int, span: Int) -> Unit,
+    onRemove: () -> Unit,
+) {
+    val density = LocalDensity.current
+    var drag by remember { mutableStateOf(Offset.Zero) }
+    var dragging by remember { mutableStateOf(false) }
+    val step = cellSizePx + spacingPx
+    val widthPx = item.span * cellSizePx + (item.span - 1) * spacingPx
+    val label =
+        stringResource(
+            if (item.kind == NothingSliderKind.Brightness) {
+                R.string.qs_nothing_slider_brightness
+            } else {
+                R.string.qs_nothing_slider_volume
+            }
+        )
+
+    Box(
+        modifier =
+            Modifier.offset { IntOffset(x + drag.x.roundToInt(), y + drag.y.roundToInt()) }
+                .size(
+                    with(density) { widthPx.toDp() },
+                    with(density) { cellSizePx.toDp() },
+                )
+                .zIndex(if (dragging) 1f else 0f)
+                .pointerInput(item) {
+                    detectTapGestures(
+                        onTap = { onPlace(item.row, item.col, if (item.span == 4) 2 else 4) }
+                    )
+                }
+                .pointerInput(item, step) {
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = { dragging = true },
+                        onDrag = { change, amount ->
+                            change.consume()
+                            drag += amount
+                        },
+                        onDragEnd = {
+                            val rowDelta = (drag.y / step).roundToInt()
+                            val colDelta = (drag.x / step).roundToInt()
+                            dragging = false
+                            drag = Offset.Zero
+                            onPlace(item.row + rowDelta, item.col + colDelta, item.span)
+                        },
+                        onDragCancel = {
+                            dragging = false
+                            drag = Offset.Zero
+                        },
+                    )
+                },
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(
+            modifier =
+                Modifier.fillMaxWidth()
+                    .height(dimensionResource(R.dimen.qs_nothing_brightness_slider_height))
+                    .background(
+                        color = colorResource(R.color.nothing_qs_surface),
+                        shape = RoundedCornerShape(32.dp),
+                    )
+                    .padding(horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            BasicText(
+                text = label,
+                color = { Color.White },
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            BasicText(
+                text = stringResource(R.string.qs_customize_remove),
+                color = { Color.White },
+                style = MaterialTheme.typography.labelLarge,
+                modifier =
+                    Modifier.background(
+                            color = colorResource(R.color.nothing_qs_icon_circle),
+                            shape = RoundedCornerShape(50),
+                        )
+                        .clickable(onClick = onRemove)
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+            )
+        }
+    }
+}
+
+/** Buttons that add the sliders that are not in the Nothing grid yet. */
+@Composable
+private fun NothingSliderControls(listState: EditTileListState, onChanged: () -> Unit) {
+    val missing = NothingSliderKind.entries.filter { kind -> listState.sliders.none { it.kind == kind } }
+    if (missing.isEmpty()) return
+    // The color lambda of BasicText is not composable, so read the theme color here
+    val labelColor = MaterialTheme.colorScheme.onSecondaryContainer
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        horizontalArrangement = spacedBy(8.dp),
+    ) {
+        missing.forEach { kind ->
+            BasicText(
+                text =
+                    stringResource(
+                        if (kind == NothingSliderKind.Brightness) {
+                            R.string.qs_nothing_slider_add_brightness
+                        } else {
+                            R.string.qs_nothing_slider_add_volume
+                        }
+                    ),
+                color = { labelColor },
+                style = MaterialTheme.typography.labelLarge,
+                modifier =
+                    Modifier.background(
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            shape = RoundedCornerShape(50),
+                        )
+                        .clickable {
+                            listState.addSlider(kind)
+                            onChanged()
+                        }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+            )
+        }
     }
 }
 
@@ -1001,11 +1184,12 @@ private fun NothingTileCell(
     val stateDescription = stringResource(id = R.string.accessibility_qs_edit_position, index + 1)
     val tileState by rememberTileState(cell.tile, selectionState)
     val isQuad = cell.isQuad
+    val surfaceColor = colorResource(R.color.nothing_qs_surface)
     val resizingState = rememberResizingState(
         cell.tile.tileSpec,
         cell.isIcon,
         startsAsQuad = isQuad,
-        allowQuad = true,
+        allowQuad = cell.tile.tileSpec.supportsNothingQuad(),
     )
 
     if (tileState == TileState.Selected) {
@@ -1158,7 +1342,7 @@ private fun NothingTileCell(
                 .tileBackground(
                     cornerRadius = animatedTileCornerRadius,
                     alpha = { containerAlpha },
-                    color = { Color(0xFF262626) },
+                    color = { surfaceColor },
                     iconOnly = cell.isIcon,
                 )
                 .keyboardShortcuts(cell.tile.tileSpec, selectionState) {
@@ -1195,15 +1379,18 @@ private fun TileLazyGrid(
     modifier: Modifier = Modifier,
     state: LazyGridState = rememberLazyGridState(),
     contentPadding: PaddingValues = PaddingValues(0.dp),
+    userScrollEnabled: Boolean = false,
+    verticalArrangement: Arrangement.Vertical = spacedBy(TileArrangementPadding),
+    horizontalArrangement: Arrangement.Horizontal = spacedBy(TileArrangementPadding),
     content: LazyGridScope.() -> Unit,
 ) {
     LazyVerticalGrid(
         state = state,
         columns = columns,
-        verticalArrangement = spacedBy(TileArrangementPadding),
-        horizontalArrangement = spacedBy(TileArrangementPadding),
+        verticalArrangement = verticalArrangement,
+        horizontalArrangement = horizontalArrangement,
         contentPadding = contentPadding,
-        userScrollEnabled = false,
+        userScrollEnabled = userScrollEnabled,
         modifier = modifier,
         content = content,
     )
@@ -1447,14 +1634,12 @@ private fun LazyGridItemScope.TileGridCell(
 ) {
     val stateDescription = stringResource(id = R.string.accessibility_qs_edit_position, index + 1)
     val tileState by rememberTileState(cell.tile, selectionState)
-    val isNothingStyle = LocalNothingQsStyle.current
     val isQuad = cell.isQuad
     val resizingState =
         rememberResizingState(
             cell.tile.tileSpec,
             cell.isIcon,
             startsAsQuad = isQuad,
-            allowQuad = isNothingStyle,
         )
     val panelStyle = rememberQSPanelStyle()
     val progress: () -> Float = {
@@ -1543,33 +1728,18 @@ private fun LazyGridItemScope.TileGridCell(
     // Don't apply the placementSpec to the selected tile as it interferes with
     // the resizing animation. The selection can't change positions without selecting a
     // different tile, so this isn't needed regardless.
-    val placementSpec = if (isNothingStyle) TilePlacementSpec else TilePlacementSpec.takeIf { resizingState.isIdle }
+    val placementSpec = TilePlacementSpec.takeIf { resizingState.isIdle }
 
     val removeTile = {
         selectionState.unSelect()
         onRemoveTile(cell.tile.tileSpec)
     }
-    val targetTileHeight = if (isNothingStyle && isQuad) {
-        64.dp * 2 + 16.dp
-    } else if (isNothingStyle) {
-        64.dp
-    } else {
-        TileHeight
-    }
-    val animatedTileHeight by animateDpAsState(
-        targetValue = targetTileHeight,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioLowBouncy,
-            stiffness = Spring.StiffnessMediumLow,
-        ),
-        label = "TileHeightAnimation",
-    )
     InteractiveTileContainer(
         tileState = tileState,
         resizingState = resizingState,
         modifier =
             modifier
-                .height(if (isNothingStyle) animatedTileHeight else targetTileHeight)
+                .height(TileHeight)
                 .fillMaxWidth()
                 .animateItem(placementSpec = placementSpec)
                 .tileTestTag(cell.isIcon),
@@ -1603,19 +1773,6 @@ private fun LazyGridItemScope.TileGridCell(
         val toggleSelectionLabel = stringResource(R.string.accessibility_qs_edit_toggle_selection)
         val placeTileLabel = stringResource(R.string.accessibility_qs_edit_place_tile_action)
         val containerAlpha by animateFloatAsState(if (tileState == TileState.GreyedOut) .4f else 1f)
-        val targetTileCornerRadius = if (isNothingStyle && isQuad) {
-            28.dp
-        } else if (isNothingStyle) {
-            32.dp
-        } else {
-            InactiveTileCornerRadius
-        }
-        val animatedTileCornerRadius by animateDpAsState(
-            targetValue = targetTileCornerRadius,
-            animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-            label = "TileCornerRadiusAnimation",
-        )
-        val currentTileCornerRadius = if (isNothingStyle) animatedTileCornerRadius else targetTileCornerRadius
         Box(
             Modifier.fillMaxSize()
                 .clearAndSetSemantics {
@@ -1659,13 +1816,13 @@ private fun LazyGridItemScope.TileGridCell(
                 }
                 .borderOnFocus(
                     MaterialTheme.colorScheme.secondary,
-                    CornerSize(currentTileCornerRadius),
+                    CornerSize(InactiveTileCornerRadius),
                 )
                 .thenIf(isSelectable) { draggableModifier }
                 .tileBackground(
-                    cornerRadius = currentTileCornerRadius,
+                    cornerRadius = InactiveTileCornerRadius,
                     alpha = { containerAlpha },
-                    color = { if (isNothingStyle) Color(0xFF262626) else colors.background },
+                    color = { colors.background },
                     iconOnly = cell.isIcon,
                 )
                 .keyboardShortcuts(cell.tile.tileSpec, selectionState) {
@@ -1673,30 +1830,7 @@ private fun LazyGridItemScope.TileGridCell(
                 }
                 .thenIf(isSelectable) { selectableModifier }
         ) {
-            if (isNothingStyle) {
-                AnimatedContent(
-                    targetState =
-                        when {
-                            isQuad -> 2
-                            !cell.isIcon -> 1
-                            else -> 0
-                        },
-                    transitionSpec = {
-                        fadeIn(animationSpec = tween(180, delayMillis = 40)) togetherWith
-                            fadeOut(animationSpec = tween(120))
-                    },
-                    label = "NothingEditTileContent",
-                    modifier = Modifier.fillMaxSize(),
-                ) { mode ->
-                    when (mode) {
-                        2 -> NothingEditQuadTile(cell.tile)
-                        1 -> NothingEditPillTile(cell.tile)
-                        else -> NothingEditCircleTile(cell.tile)
-                    }
-                }
-            } else {
-                EditTile(tile = cell.tile, state = resizingState, progress = progress)
-            }
+            EditTile(tile = cell.tile, state = resizingState, progress = progress)
         }
     }
 }
@@ -2125,7 +2259,7 @@ private fun NothingEditPillTile(
             modifier = Modifier
                 .width(1.dp)
                 .height(22.dp)
-                .background(Color(0x33FFFFFF))
+                .background(colorResource(R.color.nothing_qs_divider))
         )
         Spacer(modifier = Modifier.width(14.dp))
         Column(
@@ -2175,7 +2309,7 @@ private fun NothingEditQuadTile(
             modifier = Modifier
                 .size(54.dp)
                 .clip(CircleShape)
-                .background(Color(0xFF383838)),
+                .background(colorResource(R.color.nothing_qs_icon_circle)),
             contentAlignment = Alignment.Center,
         ) {
             SmallTileContent(

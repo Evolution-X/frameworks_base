@@ -24,6 +24,8 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.geometry.Offset
 import com.android.systemui.qs.panels.shared.model.SizedTile
 import com.android.systemui.qs.panels.shared.model.SizedTileImpl
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.NothingSliderItem
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.NothingSliderKind
 import com.android.systemui.qs.panels.ui.compose.selection.PlacementEvent
 import com.android.systemui.qs.panels.ui.model.GridCell
 import com.android.systemui.qs.panels.ui.model.SpacerGridCell
@@ -44,6 +46,7 @@ class EditTileListState(
     val isNothingStyle: Boolean = false,
     initialQuadTiles: Set<TileSpec> = emptySet(),
     initialPositions: Map<TileSpec, Pair<Int, Int>> = emptyMap(),
+    initialSliders: List<NothingSliderItem> = emptyList(),
 ) : DragAndDropState {
     override var draggedCell by mutableStateOf<SizedTile<EditTileViewModel>?>(null)
         private set
@@ -72,6 +75,10 @@ class EditTileListState(
         (if (isNothingStyle) initialPositions else emptyMap()).toMutableMap()
         private set
 
+    /** Sliders placed in the Nothing grid. They hold cells but are not tiles. */
+    var sliders by mutableStateOf(if (isNothingStyle) initialSliders else emptyList())
+        private set
+
     private val _tiles: SnapshotStateList<GridCell> =
         initialTiles.toGridCells(initialLargeTiles, quadTilesSpecs, tilePositions).toMutableStateList()
     val tiles: List<GridCell> = _tiles
@@ -90,7 +97,9 @@ class EditTileListState(
         largeTiles: Set<TileSpec>,
         quadTiles: Set<TileSpec> = if (isNothingStyle) quadTilesSpecs else emptySet(),
         positions: Map<TileSpec, Pair<Int, Int>> = if (isNothingStyle) tilePositions else emptyMap(),
+        newSliders: List<NothingSliderItem> = sliders,
     ) {
+        sliders = if (isNothingStyle) newSliders else emptyList()
         largeTilesSpecs = largeTiles
         quadTilesSpecs = if (isNothingStyle) quadTiles else emptySet()
         tilePositions = (if (isNothingStyle) positions else emptyMap()).toMutableMap()
@@ -280,6 +289,7 @@ class EditTileListState(
                 quadTiles = if (isNothingStyle) quadTiles else emptySet(),
                 preferredPositions = if (isNothingStyle) positions else emptyMap(),
                 isNothingStyle = isNothingStyle,
+                blockedCells = sliderCells(),
             )
     }
 
@@ -292,12 +302,17 @@ class EditTileListState(
         val safeCol = targetCol.coerceIn(0, columns - colSpan)
         val safeRow = targetRow.coerceAtLeast(0)
 
+        // A tile cannot be dropped on a slider
+        if (overlapsSlider(safeRow, safeCol, rowSpan, colSpan)) return
+
         val currentPos = tilePositions[spec]
-        if (currentPos == (safeRow to safeCol)) {
+        val fromIndex = indexOf(spec)
+        // A tile that was taken out of the grid when the drag left it must be added back even
+        // when it comes back on the cell it had
+        if (fromIndex != INVALID_INDEX && currentPos == (safeRow to safeCol)) {
             return
         }
 
-        val fromIndex = indexOf(spec)
         if (fromIndex == INVALID_INDEX) {
             tilePositions[spec] = safeRow to safeCol
             _tiles.add(
@@ -333,6 +348,7 @@ class EditTileListState(
 
             fun isCellOccupied(r: Int, c: Int, h: Int, w: Int): Boolean {
                 if (c < 0 || c + w > columns || r < 0) return true
+                if (overlapsSlider(r, c, h, w)) return true
                 return placedRects.any { (_, pos, size) ->
                     val pr = pos.first
                     val pc = pos.second
@@ -382,8 +398,10 @@ class EditTileListState(
 
                 // 4. Find the nearest empty slot (search right and down)
                 if (newPos == null) {
+                    // Rows past the lowest occupied one are always free, so stop there
+                    val lastRow = maxOf(placedRects.maxOf { it.second.first + it.third.first }, safeRow)
                     var r = safeRow
-                    while (newPos == null) {
+                    while (newPos == null && r <= lastRow) {
                         for (c in 0..(columns - oWidth)) {
                             if (!isCellOccupied(r, c, oHeight, oWidth)) {
                                 newPos = r to c
@@ -392,6 +410,7 @@ class EditTileListState(
                         }
                         r++
                     }
+                    if (newPos == null) newPos = lastRow to 0
                 }
 
                 tilePositions[oSpec] = newPos
@@ -400,6 +419,90 @@ class EditTileListState(
         }
         regenerateGrid(prioritySpec = spec)
     }
+
+    /** Every (row, column) cell held by a slider. */
+    private fun sliderCells(): Set<Pair<Int, Int>> =
+        sliders.flatMap { slider -> (slider.col until slider.col + slider.span).map { slider.row to it } }
+            .toSet()
+
+    private fun overlapsSlider(row: Int, col: Int, height: Int, width: Int): Boolean =
+        sliders.any {
+            it.row < row + height && it.row + 1 > row && it.col < col + width && it.col + it.span > col
+        }
+
+    /** Adds the slider of [kind] on the first row from [MIN_SLIDER_ROW] with room for it. */
+    fun addSlider(kind: NothingSliderKind) {
+        if (!isNothingStyle || sliders.any { it.kind == kind }) return
+        var row = MIN_SLIDER_ROW
+        while (overlapsSlider(row, 0, 1, columns) || tileCellsOverlap(row, 0, 1, columns)) row++
+        sliders = sliders + NothingSliderItem(kind, row, 0, columns)
+    }
+
+    fun removeSlider(kind: NothingSliderKind) {
+        val removed = sliders.firstOrNull { it.kind == kind } ?: return
+        sliders = sliders.filter { it.kind != kind }
+        // Tiles behind the slider lose their saved cell, so they move forward into its place
+        tilePositions.entries.removeAll { it.value.isAfter(removed.row, removed.col) }
+        regenerateGrid()
+    }
+
+    /**
+     * The saved cells of the tiles that stay after [spec] is removed. Tiles behind the removed one
+     * lose their saved cell, so they flow forward into the place it leaves.
+     */
+    fun positionsWithoutTile(spec: TileSpec): Map<TileSpec, Pair<Int, Int>> {
+        val removed = tilePositions[spec]
+        return tilePositions.filter { (other, position) ->
+            other != spec && (removed == null || !position.isAfter(removed.first, removed.second))
+        }
+    }
+
+    /** Whether this (row, column) cell comes after the given one in reading order. */
+    private fun Pair<Int, Int>.isAfter(row: Int, column: Int): Boolean =
+        first > row || (first == row && second > column)
+
+    /**
+     * Moves the slider of [kind] to [row] and [col] and gives it [span] columns (2 or 4). Tiles
+     * under it lose their saved cell and flow to the next free one, a slider never goes on
+     * another slider and stays out of the first rows, which the collapsed panel shows.
+     */
+    fun placeSlider(kind: NothingSliderKind, row: Int, col: Int, span: Int) {
+        val current = sliders.firstOrNull { it.kind == kind } ?: return
+        val newSpan = if (span == 2) 2 else columns
+        val target =
+            NothingSliderItem(
+                kind,
+                row.coerceAtLeast(MIN_SLIDER_ROW),
+                col.coerceIn(0, columns - newSpan),
+                newSpan,
+            )
+        if (target == current) return
+        val others = sliders.filter { it.kind != kind }
+        if (others.any { it.row == target.row && it.col < target.col + newSpan && it.col + it.span > target.col }) {
+            return
+        }
+        sliders = others + target
+        _tiles.filterIsInstance<TileGridCell>()
+            .filter {
+                tileCellsOverlap(target.row, target.col, 1, newSpan, only = it)
+            }
+            .forEach { tilePositions.remove(it.tile.tileSpec) }
+        regenerateGrid()
+    }
+
+    private fun tileCellsOverlap(
+        row: Int,
+        col: Int,
+        height: Int,
+        width: Int,
+        only: TileGridCell? = null,
+    ): Boolean =
+        (only?.let { listOf(it) } ?: _tiles.filterIsInstance<TileGridCell>()).any {
+            it.row < row + height &&
+                it.row + (if (it.isQuad) 2 else 1) > row &&
+                it.column < col + width &&
+                it.column + it.width > col
+        }
 
     /** Regenerate the list of [GridCell] with their new potential rows */
     private fun regenerateGrid(prioritySpec: TileSpec? = null) {
@@ -417,6 +520,7 @@ class EditTileListState(
             preferredPositions = tilePositions,
             prioritySpec = prioritySpec,
             isNothingStyle = true,
+            blockedCells = sliderCells(),
         ).let {
             _tiles.clear()
             _tiles.addAll(it)
@@ -448,6 +552,7 @@ class EditTileListState(
             quadTiles = currentQuads,
             preferredPositions = tilePositions,
             isNothingStyle = true,
+            blockedCells = sliderCells(),
         ).let {
             _tiles.clear()
             _tiles.addAll(pre)
@@ -460,5 +565,8 @@ class EditTileListState(
 
     companion object {
         const val INVALID_INDEX = -1
+
+        /** The collapsed panel shows the first two rows, so sliders start below them. */
+        const val MIN_SLIDER_ROW = 2
     }
 }

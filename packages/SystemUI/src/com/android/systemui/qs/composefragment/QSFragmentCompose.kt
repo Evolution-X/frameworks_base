@@ -123,7 +123,9 @@ import com.android.systemui.Dumpable
 import com.android.systemui.Flags
 import com.android.systemui.Flags.notificationShadeBlur
 import com.android.systemui.brightness.ui.compose.BrightnessSliderContainer
+import com.android.systemui.brightness.ui.compose.BrightnessSliderDimensions
 import com.android.systemui.brightness.ui.compose.ContainerColors
+import com.android.systemui.brightness.ui.compose.SliderPart
 import com.android.systemui.compose.modifiers.sysUiResTagContainer
 import com.android.systemui.compose.modifiers.sysuiResTag
 import com.android.systemui.dagger.qualifiers.Background
@@ -164,6 +166,9 @@ import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSBackdrop
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.InfiniteGridLayout
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSQsStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingSliderContent
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.NothingSliderKind
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingLayout
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSColorOSMediaArtFill
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSColorOSStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSNothingStyle
@@ -1179,17 +1184,48 @@ constructor(
                                     )
                                 }
                             } else {
-                                QuickSettingsLayout(
-                                    brightness =
-                                        if (viewModel.isBrightnessSliderVisible) {
-                                            BrightnessSlider
-                                        } else {
-                                            {}
-                                        },
-                                    tiles = TileGrid,
-                                    media = Media,
-                                    mediaInRow = viewModel.qsMediaInRow,
-                                )
+                                // The Nothing style draws the sliders inside its tile grid when
+                                // the layout has slider entries, instead of the top or bottom one.
+                                val nothingSlidersInGrid =
+                                    LocalNothingQsStyle.current &&
+                                        rememberNothingLayout().sliders.isNotEmpty()
+                                val nothingSliderContent: @Composable (NothingSliderKind) -> Unit =
+                                    remember(viewModel, layoutState) {
+                                        @Composable { kind: NothingSliderKind ->
+                                            BrightnessSlider(
+                                                viewModel,
+                                                layoutState,
+                                                part =
+                                                    if (kind == NothingSliderKind.Brightness) {
+                                                        SliderPart.BrightnessOnly
+                                                    } else {
+                                                        SliderPart.VolumeOnly
+                                                    },
+                                                dimensions =
+                                                    BrightnessSliderDimensions.Default.copy(
+                                                        verticalPadding = 0.dp
+                                                    ),
+                                            )
+                                        }
+                                    }
+                                CompositionLocalProvider(
+                                    LocalNothingSliderContent provides nothingSliderContent
+                                ) {
+                                    QuickSettingsLayout(
+                                        brightness =
+                                            if (
+                                                viewModel.isBrightnessSliderVisible &&
+                                                    !nothingSlidersInGrid
+                                            ) {
+                                                BrightnessSlider
+                                            } else {
+                                                {}
+                                            },
+                                        tiles = TileGrid,
+                                        media = Media,
+                                        mediaInRow = viewModel.qsMediaInRow,
+                                    )
+                                }
                             }
                         }
                     }
@@ -1214,6 +1250,8 @@ constructor(
     private fun BrightnessSlider(
         viewModel: QSFragmentComposeViewModel,
         layoutState: SceneTransitionLayoutState,
+        part: SliderPart = SliderPart.Both,
+        dimensions: BrightnessSliderDimensions = BrightnessSliderDimensions.Default,
     ) {
         Box(
             Modifier.systemGestureExclusionInShade(
@@ -1241,6 +1279,8 @@ constructor(
                             ContainerColors.defaultContainerColor,
                         ),
                     modifier = Modifier.fillMaxWidth(),
+                    dimensions = dimensions,
+                    part = part,
                 )
             }
         }

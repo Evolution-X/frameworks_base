@@ -56,4 +56,7 @@
 
     <!-- Largest cell of the Nothing style Quick Settings grid, 0dp for no limit -->
     <dimen name="qs_nothing_max_cell_size">0dp</dimen>
+
+    <!-- Height of the Nothing style brightness slider -->
+    <dimen name="qs_nothing_brightness_slider_height">52dp</dimen>
 </resources>
