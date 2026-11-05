@@ -16,17 +16,8 @@
 
 package com.android.systemui.volume.panel.domain.interactor
 
-import com.android.systemui.deviceentry.domain.interactor.deviceEntryInteractor
 import com.android.systemui.kosmos.Kosmos
-import com.android.systemui.kosmos.applicationCoroutineScope
-import com.android.systemui.plugins.activityStarter
 import com.android.systemui.volume.panel.data.repository.volumePanelGlobalStateRepository
 
-val Kosmos.volumePanelGlobalStateInteractor: VolumePanelGlobalStateInteractor by Kosmos.Fixture {
-    VolumePanelGlobalStateInteractor(
-        coroutineScope = applicationCoroutineScope,
-        activityStarter = activityStarter,
-        deviceEntryInteractor = deviceEntryInteractor,
-        repository = volumePanelGlobalStateRepository,
-    )
-}
+val Kosmos.volumePanelGlobalStateInteractor: VolumePanelGlobalStateInteractor by
+    Kosmos.Fixture { VolumePanelGlobalStateInteractor(volumePanelGlobalStateRepository) }
