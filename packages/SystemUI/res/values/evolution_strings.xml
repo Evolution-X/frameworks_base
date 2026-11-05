@@ -373,4 +373,16 @@
     <string name="qs_coloros_my_devices">My Devices</string>
     <!-- ColorOS style QS: hint under the title of the My Devices pill [CHAR LIMIT=20] -->
     <string name="qs_coloros_my_devices_hint">Tap to add</string>
+    <!-- NothingOS style QS: ringer slider label for silent mode [CHAR LIMIT=20] -->
+    <string name="qs_nothing_ringer_silent">Silent</string>
+    <!-- NothingOS style QS: ringer slider label for vibrate mode [CHAR LIMIT=20] -->
+    <string name="qs_nothing_ringer_vibrate">Vibrate</string>
+    <!-- NothingOS style QS: ringer slider label for normal (ring) mode [CHAR LIMIT=20] -->
+    <string name="qs_nothing_ringer_normal">Normal</string>
+
+    <!-- Nothing style QS edit mode: sliders that can be placed between the tile rows -->
+    <string name="qs_nothing_slider_brightness">Brightness</string>
+    <string name="qs_nothing_slider_volume">Volume</string>
+    <string name="qs_nothing_slider_add_brightness">Add brightness slider</string>
+    <string name="qs_nothing_slider_add_volume">Add volume slider</string>
 </resources>
