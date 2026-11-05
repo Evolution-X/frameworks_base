@@ -163,11 +163,18 @@ fun DynamicIslandSideEdgeLayout(
     content: @Composable () -> Unit,
 ) {
     val marginPx = with(LocalDensity.current) { DynamicIslandSideEdgeMargin.roundToPx() }
+    val maxThicknessPx = with(LocalDensity.current) { 56.dp.roundToPx() }
+    val maxLengthPx = with(LocalDensity.current) { 240.dp.roundToPx() }
     Layout(content = content, modifier = modifier) { measurables, constraints ->
         val width = constraints.maxWidth
         val height = constraints.maxHeight
         val placeable =
-            measurables.firstOrNull()?.measure(Constraints(maxWidth = width, maxHeight = height))
+            measurables.firstOrNull()?.measure(
+                Constraints(
+                    maxWidth = minOf(width, maxThicknessPx),
+                    maxHeight = minOf(height, maxLengthPx),
+                )
+            )
         layout(width, height) {
             placeable?.let {
                 val x =
