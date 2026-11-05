@@ -27,7 +27,6 @@ import com.android.systemui.media.remedia.ui.compose.MediaUiBehavior
 import com.android.systemui.media.remedia.ui.viewmodel.MediaCarouselVisibility
 import com.android.systemui.qs.panels.domain.interactor.QuickQuickSettingsRowInteractor
 import com.android.systemui.qs.panels.shared.model.SizedTileImpl
-import com.android.systemui.qs.panels.shared.model.autoArrangeTiles
 import com.android.systemui.qs.panels.shared.model.splitInRowsSequence
 import com.android.systemui.qs.pipeline.domain.interactor.CurrentTilesInteractor
 import com.android.systemui.qs.pipeline.shared.TileSpec
@@ -88,7 +87,6 @@ constructor(
     val tileViewModels by derivedStateOf {
         currentTiles
             .map { SizedTileImpl(TileViewModel(it.tile, it.spec, it.expandable), it.spec.width()) }
-            .let { autoArrangeTiles(it, columns, largeTilesSpan) }
             .let { splitInRowsSequence(it, columns).take(rows).toList().flatten() }
     }
 
