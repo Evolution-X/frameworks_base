@@ -80,6 +80,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -155,9 +156,16 @@ private const val QS_PANEL_STYLE_NOTHING = 3
 internal val LocalNothingQsStyle = compositionLocalOf { false }
 
 /** Tiles that the Nothing style draws as a 2x2 quad tile. */
+/** Page-relative (row, column) of each tile as placed by the paginated Nothing grid, if any. */
+internal val LocalNothingPagePlacements = compositionLocalOf<Map<TileSpec, Pair<Int, Int>>?> { null }
 internal val LocalQSQuadTiles = compositionLocalOf { emptySet<TileSpec>() }
 
-private val NothingSurface = Color(0xFF262626)
+/** Draws a Nothing style slider inside its grid cell. Null where the host cannot draw them. */
+internal val LocalNothingSliderContent =
+    compositionLocalOf<(@Composable (NothingSliderKind) -> Unit)?> { null }
+
+/** Sliders of the page being drawn, with rows relative to the page, if the pager set them. */
+internal val LocalNothingPageSliders = compositionLocalOf<List<NothingSliderItem>?> { null }
 
 /** ColorOS-style Quick Settings (glass tiles, round icon tiles with labels below). */
 internal val LocalColorOSQsStyle = compositionLocalOf { false }
@@ -1036,51 +1044,96 @@ fun rememberQSNothingStyle(): Boolean {
     return nothingStyleEnabled
 }
 
+/** Sliders the Nothing style can place in its grid. They are layout entries, not tiles. */
+enum class NothingSliderKind(val spec: String) {
+    Brightness("nothing_brightness"),
+    Volume("nothing_volume");
+
+    companion object {
+        fun fromSpec(spec: String): NothingSliderKind? = entries.firstOrNull { it.spec == spec }
+    }
+}
+
+/** A slider at [row], [col] spanning [span] (2 or 4) columns of the Nothing grid. */
+data class NothingSliderItem(
+    val kind: NothingSliderKind,
+    val row: Int,
+    val col: Int,
+    val span: Int,
+)
+
+/**
+ * Specs the Nothing style draws as a 2x2 quad tile, the saved position of every tile and the
+ * sliders placed in the grid.
+ */
+data class NothingLayout(
+    val quadTiles: Set<TileSpec>,
+    val tileLayout: Map<TileSpec, Pair<Int, Int>>,
+    val sliders: List<NothingSliderItem> = emptyList(),
+) {
+    companion object {
+        val None = NothingLayout(emptySet(), emptyMap())
+    }
+}
+
+/** Nothing OS only lets the Bluetooth tile grow to 2x2. */
+fun TileSpec.supportsNothingQuad(): Boolean = spec == "bt"
+
+/**
+ * Reads the Nothing style quad tiles (Bluetooth by default) and tile layout with a single
+ * [ContentObserver] for both settings.
+ */
 @Composable
-private fun rememberSecureStringSetting(key: String, defaultValue: String = ""): String {
+fun rememberNothingLayout(): NothingLayout {
     val context = LocalContext.current
-    val value by produceState(
-        initialValue = Settings.Secure.getStringForUser(
-            context.contentResolver, key, UserHandle.USER_CURRENT
-        ) ?: defaultValue
-    ) {
+
+    fun readRaw(): Pair<String, String> {
+        val resolver = context.contentResolver
+        return Pair(
+            Settings.Secure.getStringForUser(resolver, QS_TILE_QUAD_SPECS, UserHandle.USER_CURRENT)
+                ?: "bt",
+            Settings.Secure.getStringForUser(resolver, QS_TILE_LAYOUT, UserHandle.USER_CURRENT)
+                ?: "",
+        )
+    }
+
+    val raw by produceState(initialValue = readRaw()) {
+        val resolver = context.contentResolver
         val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) {
-                value = Settings.Secure.getStringForUser(
-                    context.contentResolver, key, UserHandle.USER_CURRENT
-                ) ?: defaultValue
+                value = readRaw()
             }
         }
-        context.contentResolver.registerContentObserver(
-            Settings.Secure.getUriFor(key), false, observer, UserHandle.USER_ALL
+        resolver.registerContentObserver(
+            Settings.Secure.getUriFor(QS_TILE_QUAD_SPECS), false, observer, UserHandle.USER_ALL
         )
-        awaitCancellation()
+        resolver.registerContentObserver(
+            Settings.Secure.getUriFor(QS_TILE_LAYOUT), false, observer, UserHandle.USER_ALL
+        )
+        try {
+            awaitCancellation()
+        } finally {
+            resolver.unregisterContentObserver(observer)
+        }
     }
-    return value
-}
 
-/** Specs the Nothing style draws as a 2x2 quad tile, Bluetooth by default. */
-@Composable
-fun rememberQuadTiles(): Set<TileSpec> {
-    val raw = rememberSecureStringSetting("qs_tile_quad_specs", "bt")
-    return remember(raw) {
-        if (raw.isBlank()) emptySet()
-        else raw.split(",").mapNotNull { it.trim().takeIf(String::isNotEmpty)?.let(TileSpec::create) }.toSet()
+    val quadTiles = remember(raw.first) {
+        if (raw.first.isBlank()) emptySet()
+        else
+            raw.first
+                .split(",")
+                .mapNotNull { it.trim().takeIf(String::isNotEmpty)?.let(TileSpec::create) }
+                .filter { it.supportsNothingQuad() }
+                .toSet()
     }
-}
-
-/** Saved row and column of every tile in the Nothing style grid. */
-@Composable
-fun rememberQSTileLayout(): Map<TileSpec, Pair<Int, Int>> {
-    val raw = rememberSecureStringSetting("qs_tile_layout", "")
-    return remember(raw) {
-        if (raw.isBlank()) {
+    val tileLayout = remember(raw.second) {
+        if (raw.second.isBlank()) {
             emptyMap()
         } else {
-            raw.split(",")
+            raw.second.split(",")
                 .mapNotNull { item ->
                     val parts = item.trim().split(":")
-                    if (parts.size == 3) {
+                    if (parts.size == 3 && NothingSliderKind.fromSpec(parts[0]) == null) {
                         val row = parts[1].toIntOrNull()
                         val col = parts[2].toIntOrNull()
                         if (row != null && col != null) TileSpec.create(parts[0]) to (row to col)
@@ -1092,14 +1145,58 @@ fun rememberQSTileLayout(): Map<TileSpec, Pair<Int, Int>> {
                 .toMap()
         }
     }
+    val sliders = remember(raw.second) { parseNothingSliders(raw.second) }
+    return remember(quadTiles, tileLayout, sliders) {
+        NothingLayout(quadTiles, tileLayout, sliders)
+    }
 }
+
+/**
+ * Reads the slider entries of the layout string, `nothing_brightness:row:col:span`. The span is 2
+ * or 4 columns (4 when missing or invalid) and each slider appears at most once.
+ */
+private fun parseNothingSliders(raw: String): List<NothingSliderItem> {
+    if (raw.isBlank()) return emptyList()
+    return raw.split(",")
+        .mapNotNull { item ->
+            val parts = item.trim().split(":")
+            val kind = NothingSliderKind.fromSpec(parts[0])
+            val row = parts.getOrNull(1)?.toIntOrNull()
+            val col = parts.getOrNull(2)?.toIntOrNull()
+            if (kind == null || row == null || col == null || row < 0) {
+                null
+            } else {
+                val span = parts.getOrNull(3)?.toIntOrNull()?.takeIf { it == 2 || it == 4 } ?: 4
+                NothingSliderItem(kind, row, col.coerceIn(0, 4 - span), span)
+            }
+        }
+        .distinctBy { it.kind }
+}
+
+private const val QS_TILE_QUAD_SPECS = "qs_tile_quad_specs"
+private const val QS_TILE_LAYOUT = "qs_tile_layout"
 
 fun saveQSTileLayout(
     resolver: android.content.ContentResolver,
     layout: Map<TileSpec, Pair<Int, Int>>,
+    sliders: List<NothingSliderItem>? = null,
 ) {
-    val serialized = layout.entries.joinToString(",") { "${it.key.spec}:${it.value.first}:${it.value.second}" }
-    Settings.Secure.putStringForUser(resolver, "qs_tile_layout", serialized, UserHandle.USER_CURRENT)
+    val tiles = layout.entries.map { "${it.key.spec}:${it.value.first}:${it.value.second}" }
+    // Without a slider list the slider entries already stored are kept as they are.
+    val sliderEntries =
+        sliders?.map { "${it.kind.spec}:${it.row}:${it.col}:${it.span}" }
+            ?: (Settings.Secure.getStringForUser(resolver, QS_TILE_LAYOUT, UserHandle.USER_CURRENT)
+                    ?: "")
+                .split(",")
+                .map { it.trim() }
+                .filter { NothingSliderKind.fromSpec(it.substringBefore(":")) != null }
+    putSecureStringIfChanged(resolver, QS_TILE_LAYOUT, (tiles + sliderEntries).joinToString(","))
+}
+
+/** Writes a [Settings.Secure] string for the current user only when it differs from the stored one. */
+fun putSecureStringIfChanged(resolver: android.content.ContentResolver, key: String, value: String) {
+    if (Settings.Secure.getStringForUser(resolver, key, UserHandle.USER_CURRENT) == value) return
+    Settings.Secure.putStringForUser(resolver, key, value, UserHandle.USER_CURRENT)
 }
 
 @Composable
@@ -1440,7 +1537,8 @@ private object TileDefaults {
     @ReadOnlyComposable
     fun nothingColorsForState(uiState: TileUiState, isQuad: Boolean): TileColors {
         val active = uiState.visualState == STATE_ACTIVE && !isQuad
-        val background = if (active) Color.White else NothingSurface
+        val background =
+            colorResource(if (active) R.color.nothing_qs_active else R.color.nothing_qs_surface)
         val content = if (active) Color.Black else Color.White
         return TileColors(
             background = background,
