@@ -148,6 +148,9 @@ private const val QS_PANEL_STYLE_COLOROS = 2
 /** ColorOS-style Quick Settings (glass tiles, round icon tiles with labels below). */
 internal val LocalColorOSQsStyle = compositionLocalOf { false }
 
+/** Separate Notification and Control Center (Dual Shade). */
+internal val LocalDualShade = compositionLocalOf { false }
+
 private val ColorOSBlue = Color(0xFF0068FF)
 private val ColorOSGreen = Color(0xFF16A34A)
 private val ColorOSRed = Color(0xFFF2453D)
@@ -964,6 +967,46 @@ fun rememberQSColorOSStyle(): Boolean {
     }
 
     return colorOSStyleEnabled
+}
+
+@Composable
+fun rememberQSDualShade(): Boolean {
+    val context = LocalContext.current
+    val contentResolver = context.contentResolver
+
+    fun readDualShadeEnabled(): Boolean {
+        return try {
+            Settings.Secure.getIntForUser(
+                contentResolver, Settings.Secure.DUAL_SHADE, 0,
+                UserHandle.USER_CURRENT
+            ) == 1
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    var dualShadeEnabled by remember { mutableStateOf(readDualShadeEnabled()) }
+
+    DisposableEffect(contentResolver) {
+        val observer = object : ContentObserver(null) {
+            override fun onChange(selfChange: Boolean) {
+                context.mainExecutor.execute {
+                    dualShadeEnabled = readDualShadeEnabled()
+                }
+            }
+        }
+
+        contentResolver.registerContentObserver(
+            Settings.Secure.getUriFor(Settings.Secure.DUAL_SHADE),
+            false, observer, UserHandle.USER_ALL
+        )
+
+        onDispose {
+            contentResolver.unregisterContentObserver(observer)
+        }
+    }
+
+    return dualShadeEnabled
 }
 
 @Composable

@@ -163,8 +163,10 @@ import com.android.systemui.qs.panels.ui.compose.TileGrid
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSBackdrop
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.InfiniteGridLayout
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSQsStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalDualShade
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSColorOSMediaArtFill
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSColorOSStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSDualShade
 import com.android.systemui.qs.shared.ui.QuickSettings.Elements
 import com.android.systemui.qs.ui.composable.QuickSettingsShade
 import com.android.systemui.qs.ui.composable.QuickSettingsShade.systemGestureExclusionInShade
@@ -285,8 +287,12 @@ constructor(
                         initOnBackPressedDispatcherOwner(this@repeatWhenAttached.lifecycle)
                         setContent {
                             val colorOSStyle = rememberQSColorOSStyle()
+                            val dualShade = rememberQSDualShade()
                             SideEffect { colorOSQsStyle = colorOSStyle }
-                            CompositionLocalProvider(LocalColorOSQsStyle provides colorOSStyle) {
+                            CompositionLocalProvider(
+                                LocalColorOSQsStyle provides colorOSStyle,
+                                LocalDualShade provides dualShade,
+                            ) {
                                 this@QSFragmentCompose.Content(Modifier.sysUiResTagContainer())
                             }
                         }
@@ -483,7 +489,16 @@ constructor(
                 LaunchedEffect(Unit) { viewModel.onQQSOpen() }
                 // Cannot pass the element modifier in because the top element has a `testTag`
                 // and this would overwrite it.
-                Element(QuickQuickSettings.rootElementKey, Modifier) { QuickQuickSettingsElement() }
+                Element(QuickQuickSettings.rootElementKey, Modifier) {
+                    val isDualShade = LocalDualShade.current
+                    if (isDualShade) {
+                        SideEffect {
+                            qqsPositionOnRoot.setEmpty()
+                        }
+                    } else {
+                        QuickQuickSettingsElement()
+                    }
+                }
             }
 
             scene(SceneKeys.EditMode) {

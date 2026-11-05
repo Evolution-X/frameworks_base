@@ -159,10 +159,12 @@ constructor(
         isDualShadeEnabled: Boolean,
         isFullWidthShade: Boolean,
     ): ShadeMode {
-        return if (DualShadeFlag.isEnabled) {
-            if (isDualShadeEnabled) ShadeMode.Dual else ShadeMode.Single
+        return if (isDualShadeEnabled) {
+            ShadeMode.Dual
+        } else if (isFullWidthShade) {
+            ShadeMode.Single
         } else {
-            if (isFullWidthShade) ShadeMode.Single else ShadeMode.Split
+            ShadeMode.Split
         }
     }
 

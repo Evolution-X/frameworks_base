@@ -71,14 +71,10 @@ constructor(
      * [isDualShadeEnabledByDefault].
      */
     val isDualShadeSettingEnabled: Flow<Boolean> =
-        if (SceneContainerFlag.isEnabled) {
-            isDualShadeEnabledByDefault.flatMapLatest { defaultValue ->
-                secureSettingsRepository
-                    .boolSetting(Settings.Secure.DUAL_SHADE, defaultValue = defaultValue)
-                    .flowOn(backgroundDispatcher)
-            }
-        } else {
-            flowOf(false)
+        isDualShadeEnabledByDefault.flatMapLatest { defaultValue ->
+            secureSettingsRepository
+                .boolSetting(Settings.Secure.DUAL_SHADE, defaultValue = defaultValue)
+                .flowOn(backgroundDispatcher)
         }
 
     /**
@@ -87,8 +83,7 @@ constructor(
      * (including any shortcuts to them), the user preference value is ignored, and
      * [isDualShadeEnabledByDefault] is used.
      */
-    val useDualShadeSetting: Flow<Boolean> =
-        booleanConfigFlow(com.android.settingslib.R.bool.config_useDualShadeSetting)
+    val useDualShadeSetting: Flow<Boolean> = flowOf(true)
 
     /**
      * Whether notifications shade should be in the top end position (e.g. the right side of the
