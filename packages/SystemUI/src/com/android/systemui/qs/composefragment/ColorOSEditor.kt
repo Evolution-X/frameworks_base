@@ -90,6 +90,7 @@ private const val QS_TILES_SETTING = "sysui_qs_tiles"
 private const val QS_TILES_DEFAULT = "default"
 
 private val EditorBadge = 22.dp
+private val EditorHorizontalPadding = 8.dp
 private val EditorCellMin = 84.dp
 private val EditorBadgeFill = Color(0xFF5B5B60)
 private val EditorAccent = Color(0xFF0068FF) // ColorOS Accent Blue
@@ -206,7 +207,9 @@ internal fun ColorOSEditor(editViewModel: EditModeViewModel, modifier: Modifier 
 
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val columns = 4 // ColorOS standard phone grid is 4 columns
-        val cellW = maxWidth / columns
+        // The grid lives inside the padded scroll column, so size cells from the inner width,
+        // otherwise the last column overflows and gets clipped at the screen edge.
+        val cellW = (maxWidth - EditorHorizontalPadding * 2) / columns
         val cellH =
             CommonTileDefaults.ColorOSTileHeight +
                 CommonTileDefaults.ClassicLabelHeight +
@@ -220,7 +223,7 @@ internal fun ColorOSEditor(editViewModel: EditModeViewModel, modifier: Modifier 
         Column(
             Modifier.fillMaxWidth()
                 .verticalScroll(scrollState, enabled = !dragState.isDragging)
-                .padding(horizontal = 8.dp)
+                .padding(horizontal = EditorHorizontalPadding)
         ) {
             // Header Bar: Reset | Title | Done
             Row(
@@ -478,7 +481,6 @@ internal fun ColorOSEditor(editViewModel: EditModeViewModel, modifier: Modifier 
             Box(
                 Modifier.fillMaxWidth()
                     .height(availableGridHeight)
-                    .clip(RoundedCornerShape(16.dp))
                     .border(
                         width = if (dragState.isHoveringAvailable) 2.dp else 0.dp,
                         color = if (dragState.isHoveringAvailable) EditorRemoveTint.copy(alpha = 0.6f) else Color.Transparent,
