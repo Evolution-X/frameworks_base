@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.android.systemui.res.R
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.*
 import kotlin.math.roundToInt
@@ -107,12 +108,16 @@ class RingerModeInteractorImpl(
 
     override fun getAvailableRingerModes(): List<RingerModeOption> {
         val modes = mutableListOf(
-            RingerModeOption(AudioManager.RINGER_MODE_SILENT, Icons.Filled.VolumeOff, "Silent"),
-            RingerModeOption(AudioManager.RINGER_MODE_NORMAL, Icons.Filled.VolumeUp, "Normal")
+            RingerModeOption(AudioManager.RINGER_MODE_SILENT, Icons.Filled.VolumeOff, context.getString(R.string.qs_nothing_ringer_silent)),
+            RingerModeOption(AudioManager.RINGER_MODE_NORMAL, Icons.Filled.VolumeUp, context.getString(R.string.qs_nothing_ringer_normal))
         )
 
         if (hasVibrator) {
-            modes.add(1, RingerModeOption(AudioManager.RINGER_MODE_VIBRATE, Icons.Filled.Vibration, "Vibrate"))
+            modes.add(1, RingerModeOption(
+                    AudioManager.RINGER_MODE_VIBRATE,
+                    Icons.Filled.Vibration,
+                    context.getString(R.string.qs_nothing_ringer_vibrate),
+                ))
         }
 
         return modes
