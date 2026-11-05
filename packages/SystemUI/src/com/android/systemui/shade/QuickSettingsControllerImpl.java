@@ -35,6 +35,7 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.app.Fragment;
+import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Insets;
 import android.graphics.Rect;
@@ -43,6 +44,7 @@ import android.provider.Settings;
 import android.util.IndentingPrintWriter;
 import android.util.Log;
 import android.util.MathUtils;
+import android.util.TypedValue;
 import android.view.Display;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
@@ -733,6 +735,10 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
     }
 
     int getFalsingThreshold() {
+        if (mPanelView != null && mPanelView.getContext().getResources().getConfiguration().orientation
+                == Configuration.ORIENTATION_LANDSCAPE) {
+            return mFalsingThreshold / 2;
+        }
         return mFalsingThreshold;
     }
 
@@ -1709,7 +1715,14 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
             mShadeLog.logMotionEvent(event, "handleQsTouch: touch outside QS");
             return false;
         }
-        boolean isInStatusBar = event.getY(event.getActionIndex()) < mStatusBarMinHeight;
+        int statusBarTouchTarget = mStatusBarMinHeight;
+        if (mPanelView != null && mPanelView.getContext().getResources().getConfiguration().orientation
+                == Configuration.ORIENTATION_LANDSCAPE) {
+            statusBarTouchTarget = Math.max(mStatusBarMinHeight, (int) TypedValue.applyDimension(
+                    TypedValue.COMPLEX_UNIT_DIP, 48,
+                    mPanelView.getContext().getResources().getDisplayMetrics()));
+        }
+        boolean isInStatusBar = event.getY(event.getActionIndex()) < statusBarTouchTarget;
         if (isInStatusBar && !isSwipeDisabled) {
             if (Flags.statusBarLongPressGestureDetectorPerDisplay()) {
                 int shadeDisplayId = mShadeDisplaysInteractorLazy.get().getDisplayId().getValue();
