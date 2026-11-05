@@ -151,7 +151,7 @@ public class DozeUiTest extends SysuiTestCase {
     }
 
     @Test
-    public void onPulseStarted_quickPickupRequestsPulsingWithoutUI() {
+    public void onPulseStarted_quickPickupRequestsPulsingAuthUI() {
         mDozeUi.transitionTo(UNINITIALIZED, INITIALIZED);
         mDozeUi.transitionTo(INITIALIZED, DOZE_AOD);
 
@@ -161,7 +161,7 @@ public class DozeUiTest extends SysuiTestCase {
         capturePulseCallback(DozeLog.REASON_SENSOR_QUICK_PICKUP);
 
         mPulseCallbackCaptor.getValue().onPulseStarted();
-        verify(mMachine).requestState(DozeMachine.State.DOZE_PULSING_WITHOUT_UI);
+        verify(mMachine).requestState(DozeMachine.State.DOZE_PULSING_AUTH_UI);
     }
 
     @Test
