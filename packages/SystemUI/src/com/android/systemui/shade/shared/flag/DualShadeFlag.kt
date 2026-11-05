@@ -40,7 +40,7 @@ object DualShadeFlag {
     /** Whether the feature is enabled. */
     @JvmStatic
     inline val isEnabled
-        get() = (dualShade() || isDesktopDevice) && SceneContainerFlag.isEnabled
+        get() = true
 
     /**
      * Called to ensure code is only run when the flag is enabled. This protects users from the

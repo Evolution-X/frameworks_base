@@ -1475,6 +1475,9 @@ public final class NotificationPanelViewController implements
     }
 
     public void expandToQs() {
+        if (mQsController.isDualShadeEnabled()) {
+            mQsController.setControlCenterActive(true);
+        }
         if (mQsController.isExpansionEnabled()) {
             mQsController.setExpandImmediate(true);
             setShowShelfOnly(true);
@@ -1504,6 +1507,9 @@ public final class NotificationPanelViewController implements
 
     @Override
     public void expandToNotifications() {
+        if (mQsController.isDualShadeEnabled()) {
+            mQsController.setControlCenterActive(false);
+        }
         if (mSplitShadeEnabled && (isShadeFullyExpanded() || isExpandingOrCollapsing())) {
             return;
         }
@@ -2048,10 +2054,20 @@ public final class NotificationPanelViewController implements
         updatePanelExpanded();
         updateGestureExclusionRect();
 
-        if (mQsController.isExpandImmediate() && !mQsController.getFullyExpanded()) {
-            mNotificationStackScrollLayoutController.getView().setAlpha(0f);
+        if (mQsController.isDualShadeEnabled()) {
+            if (mQsController.isControlCenterActive() || mQsController.getExpanded()) {
+                mNotificationStackScrollLayoutController.getView().setVisibility(View.GONE);
+                mNotificationStackScrollLayoutController.getView().setAlpha(0f);
+            } else {
+                mNotificationStackScrollLayoutController.getView().setVisibility(View.VISIBLE);
+                mNotificationStackScrollLayoutController.getView().setAlpha(1f);
+            }
         } else {
-            mNotificationStackScrollLayoutController.getView().setAlpha(1f);
+            if (mQsController.isExpandImmediate() && !mQsController.getFullyExpanded()) {
+                mNotificationStackScrollLayoutController.getView().setAlpha(0f);
+            } else {
+                mNotificationStackScrollLayoutController.getView().setAlpha(1f);
+            }
         }
 
         if (mHeaderImageEnabled) {
@@ -2415,6 +2431,14 @@ public final class NotificationPanelViewController implements
         setClosingWithAlphaFadeout(false);
         if (!MediaControlsInComposeFlag.isEnabled()) {
             mMediaHierarchyManager.closeGuts();
+        }
+        if (mQsController.isDualShadeEnabled()) {
+            mQsController.setControlCenterActive(false);
+            if (mNotificationStackScrollLayoutController != null
+                    && mNotificationStackScrollLayoutController.getView() != null) {
+                mNotificationStackScrollLayoutController.getView().setVisibility(View.VISIBLE);
+                mNotificationStackScrollLayoutController.getView().setAlpha(1f);
+            }
         }
     }
 
@@ -4265,6 +4289,15 @@ public final class NotificationPanelViewController implements
                 case MotionEvent.ACTION_MOVE:
                     final float h = y - mInitialExpandY;
                     addMovement(event);
+                    if (mQsController.isDualShadeEnabled() && isFullyExpanded()
+                            && mBarState == StatusBarState.SHADE) {
+                        float xDiff = Math.abs(x - mInitialExpandX);
+                        float yDiff = Math.abs(h);
+                        float touchSlop = getTouchSlop(event);
+                        if (xDiff > touchSlop * 2 && xDiff > yDiff * 1.5f) {
+                            return true;
+                        }
+                    }
                     final boolean openShadeWithoutHun =
                             mPanelClosedOnDown && !mCollapsedAndHeadsUpOnDown;
                     if (canCollapsePanel || mTouchStartedInEmptyArea || mAnimatingOnDown
@@ -4571,6 +4604,30 @@ public final class NotificationPanelViewController implements
                     if (QuickStepContract.ALLOW_BACK_GESTURE_IN_SHADE && mAnimateBack
                             && mQsController.shouldBackBypassQuickSettings(x)) {
                         return false;
+                    }
+                    if (mQsController.isDualShadeEnabled() && isFullyExpanded()
+                            && mBarState == StatusBarState.SHADE) {
+                        float xDiff = x - mInitialExpandX;
+                        float yDiff = y - mInitialExpandY;
+                        float xAbs = Math.abs(xDiff);
+                        float yAbs = Math.abs(yDiff);
+                        float touchSlop = getTouchSlop(event);
+                        if (xAbs > touchSlop * 2 && xAbs > yAbs * 1.5f) {
+                            boolean isRtl = mView.isLayoutRtl();
+                            boolean swipeToRight = isRtl ? (xDiff < 0) : (xDiff > 0);
+                            boolean swipeToLeft = isRtl ? (xDiff > 0) : (xDiff < 0);
+                            if (swipeToLeft && !mQsController.isControlCenterActive()) {
+                                mInitialExpandX = x;
+                                mInitialExpandY = y;
+                                expandToQs();
+                                return true;
+                            } else if (swipeToRight && mQsController.isControlCenterActive()) {
+                                mInitialExpandX = x;
+                                mInitialExpandY = y;
+                                expandToNotifications();
+                                return true;
+                            }
+                        }
                     }
                     if (isFullyCollapsed()) {
                         // If panel is fully collapsed, reset haptic effect before adding movement.

@@ -146,6 +146,7 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
 
     private static final String STATUS_BAR_QUICK_QS_PULLDOWN =
             "lineagesystem:" + LineageSettings.System.STATUS_BAR_QUICK_QS_PULLDOWN;
+    private static final String DUAL_SHADE = Settings.Secure.DUAL_SHADE;
     private static final String NOTIFICATION_ROW_TRANSPARENCY =
             Settings.Secure.NOTIFICATION_ROW_TRANSPARENCY;
     private static final String NOTIFICATION_ROW_TRANSPARENCY_LOCKSCREEN =
@@ -315,6 +316,8 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
     private long mNotificationBoundsAnimationDuration;
 
     private int mOneFingerQuickSettingsIntercept;
+    private boolean mDualShade;
+    private boolean mControlCenterActive;
 
     private final Region mInterceptRegion = new Region();
     /** The end bounds of a clipping animation. */
@@ -640,25 +643,52 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
                         MotionEvent.BUTTON_SECONDARY) || event.isButtonPressed(
                         MotionEvent.BUTTON_TERTIARY));
 
-        final float w = mQs.getView().getMeasuredWidth();
+        final float w;
+        if (mQs != null && mQs.getView() != null && mQs.getView().getMeasuredWidth() > 0) {
+            w = mQs.getView().getMeasuredWidth();
+        } else if (mPanelView != null && mPanelView.getWidth() > 0) {
+            w = mPanelView.getWidth();
+        } else {
+            w = mPanelView != null ? mPanelView.getResources().getDisplayMetrics().widthPixels : 1080f;
+        }
         final float x = event.getX();
         float region = w * 1.f / 4.f; // TODO overlay region fraction?
         boolean showQsOverride = false;
 
-        switch (mOneFingerQuickSettingsIntercept) {
-            case 1: // Right side pulldown
-                showQsOverride = mQs.getView().isLayoutRtl() ? x < region : w - region < x;
-                break;
-            case 2: // Left side pulldown
-                showQsOverride = mQs.getView().isLayoutRtl() ? w - region < x : x < region;
-                break;
-            case 3: // pull down anywhere
-                showQsOverride = true;
-                break;
+        boolean isRtl = mQs != null && mQs.getView() != null
+                ? mQs.getView().isLayoutRtl()
+                : (mPanelView != null && mPanelView.isLayoutRtl());
+
+        if (isDualShadeEnabled()) {
+            showQsOverride = isRtl ? (x < w * 0.5f) : (x >= w * 0.5f);
+        } else {
+            switch (mOneFingerQuickSettingsIntercept) {
+                case 1: // Right side pulldown
+                    showQsOverride = isRtl ? x < region : w - region < x;
+                    break;
+                case 2: // Left side pulldown
+                    showQsOverride = isRtl ? w - region < x : x < region;
+                    break;
+                case 3: // pull down anywhere
+                    showQsOverride = true;
+                    break;
+            }
         }
         showQsOverride &= mBarState == StatusBarState.SHADE;
 
         return twoFingerDrag || showQsOverride || stylusButtonClickDrag || mouseButtonClickDrag;
+    }
+
+    public boolean isDualShadeEnabled() {
+        return mDualShade;
+    }
+
+    public boolean isControlCenterActive() {
+        return isDualShadeEnabled() && mControlCenterActive;
+    }
+
+    public void setControlCenterActive(boolean active) {
+        mControlCenterActive = active;
     }
 
     @Override
@@ -769,6 +799,13 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
         // Also allow QS to intercept if the touch is near the notch.
         mShadeTouchableRegionManager.updateRegionForNotch(mInterceptRegion);
         final boolean onHeader = mInterceptRegion.contains((int) x, (int) y);
+
+        if (isDualShadeEnabled()) {
+            if (!getExpanded()) {
+                return false;
+            }
+            return onHeader || (yDiff < 0 && isTouchInQsArea(x, y));
+        }
 
         if (getExpanded()) {
             return onHeader || (yDiff < 0 && isTouchInQsArea(x, y));
@@ -1730,7 +1767,7 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
                     mRemoteInputManager.isRemoteInputActive());
         }
         boolean expandedShadeCollapsedQs = mShadeExpandedFraction == 1f
-                && mBarState != KEYGUARD && collapsedQs && expansionEnabled;
+                && mBarState != KEYGUARD && collapsedQs && expansionEnabled && !isDualShadeEnabled();
         if (action == MotionEvent.ACTION_DOWN && expandedShadeCollapsedQs) {
             // Down in the empty area while fully expanded - go to QS.
             mShadeLog.logMotionEvent(event, "handleQsTouch: down action, QS tracking enabled");
@@ -1770,6 +1807,9 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
         if (mTwoFingerExpandPossible && isOpenQsEvent(event) && isInStatusBar) {
             mMetricsLogger.count(COUNTER_PANEL_OPEN_QS, 1);
             setExpandImmediate(true);
+            if (isDualShadeEnabled()) {
+                setControlCenterActive(true);
+            }
             mNotificationStackScrollLayoutController.setShouldShowShelfOnly(!mSplitShadeEnabled);
             if (mExpansionHeightSetToMaxListener != null) {
                 mExpansionHeightSetToMaxListener.onExpansionHeightSetToMax(false);
@@ -1778,6 +1818,9 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
             // Normally, we start listening when the panel is expanded, but here we need to start
             // earlier so the state is already up to date when dragging down.
             setListening(true);
+        } else if (mTwoFingerExpandPossible && isInStatusBar && isDualShadeEnabled()) {
+            setExpandImmediate(false);
+            setControlCenterActive(false);
         }
         return false;
     }
@@ -2355,6 +2398,7 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
             mNotificationStackScrollLayoutController.setQsHeaderBoundsProvider(provider);
             mQs.setScrollListener(mQsScrollListener);
             mTunerService.addTunable(this, STATUS_BAR_QUICK_QS_PULLDOWN);
+            mTunerService.addTunable(this, DUAL_SHADE);
             mTunerService.addTunable(this, NOTIFICATION_ROW_TRANSPARENCY);
             mTunerService.addTunable(this, NOTIFICATION_ROW_TRANSPARENCY_LOCKSCREEN);
             updateExpansion();
@@ -2380,6 +2424,8 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
         public void onTuningChanged(String key, String newValue) {
             if (STATUS_BAR_QUICK_QS_PULLDOWN.equals(key)) {
                 mOneFingerQuickSettingsIntercept = TunerService.parseInteger(newValue, 0);
+            } else if (DUAL_SHADE.equals(key)) {
+                mDualShade = TunerService.parseIntegerSwitch(newValue, false);
             } else if (NOTIFICATION_ROW_TRANSPARENCY.equals(key) ||
                     NOTIFICATION_ROW_TRANSPARENCY_LOCKSCREEN.equals(key)) {
                 updateTransparencyIfNeeded();
