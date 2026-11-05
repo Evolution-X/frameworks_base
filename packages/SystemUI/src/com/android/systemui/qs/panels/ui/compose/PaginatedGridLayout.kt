@@ -33,6 +33,7 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -53,6 +54,7 @@ import com.android.systemui.compose.modifiers.sysuiResTag
 import com.android.systemui.development.ui.compose.BuildNumber
 import com.android.systemui.development.ui.viewmodel.BuildNumberViewModel
 import com.android.systemui.grid.ui.compose.GridSpan
+import com.android.systemui.grid.ui.compose.PlacedGridItem
 import com.android.systemui.grid.ui.compose.calculate2DPlacements
 import com.android.systemui.lifecycle.rememberViewModel
 import com.android.systemui.qs.footer.ui.compose.rememberSystemSettingEnabled
@@ -64,14 +66,19 @@ import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSGridFooterH
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSGridHeadroom
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSGridRows
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSQsStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingPagePlacements
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingPageSliders
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingSliderContent
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.NothingLayout
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.NothingSliderItem
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingQSMaxContentWidth
-import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSTileLayout
-import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQuadTiles
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingLayout
 import com.android.systemui.qs.panels.ui.compose.toolbar.EditModeButton
 import com.android.systemui.qs.panels.ui.viewmodel.PaginatedGridViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.TileViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.toolbar.EditModeButtonViewModel
+import com.android.systemui.qs.pipeline.shared.TileSpec
 import com.android.systemui.res.R
 import javax.inject.Inject
 
@@ -103,10 +110,13 @@ constructor(
         val rows = if (colorOSStyle) LocalColorOSGridRows.current else viewModel.rows
         // The Nothing style places circles, pills and quads on a 4 column grid, four rows a page.
         val nothingStyle = LocalNothingQsStyle.current
-        val quadTiles = rememberQuadTiles()
-        val tileLayout = rememberQSTileLayout()
+        val nothingLayout = if (nothingStyle) rememberNothingLayout() else NothingLayout.None
+        val (quadTiles, tileLayout) = nothingLayout
+        // Sliders are only placed where the host can draw them
+        val nothingSliders =
+            if (LocalNothingSliderContent.current != null) nothingLayout.sliders else emptyList()
         val largeTiles by viewModel.largeTiles.collectAsStateWithLifecycle()
-        val pages =
+        val pagesWithPlacements =
             remember(
                 tiles,
                 rows,
@@ -115,47 +125,77 @@ constructor(
                 largeTiles,
                 quadTiles,
                 tileLayout,
+                nothingSliders,
                 *delegateGridViewModel.pageKeys,
             ) {
+                var pagePlacements = emptyMap<TileSpec, Pair<Int, Int>>()
+                var pageSliders = emptyList<List<NothingSliderItem>>()
+                val pageList =
                 if (nothingStyle) {
-                    if (tiles.isEmpty()) {
-                        listOf(emptyList())
-                    } else {
-                        val spans =
-                            tiles.map {
-                                when {
-                                    quadTiles.contains(it.spec) ->
-                                        GridSpan(colSpan = 2, rowSpan = 2)
-                                    largeTiles.contains(it.spec) ->
-                                        GridSpan(colSpan = 2, rowSpan = 1)
-                                    else -> GridSpan(colSpan = 1, rowSpan = 1)
-                                }
+                    val spans =
+                        tiles.map {
+                            when {
+                                quadTiles.contains(it.spec) ->
+                                    GridSpan(colSpan = 2, rowSpan = 2)
+                                largeTiles.contains(it.spec) ->
+                                    GridSpan(colSpan = 2, rowSpan = 1)
+                                else -> GridSpan(colSpan = 1, rowSpan = 1)
                             }
-                        val preferredPlacements =
-                            tiles
-                                .mapIndexedNotNull { index, tile ->
-                                    tileLayout[tile.spec]?.let { index to it }
-                                }
-                                .toMap()
-                        val placements =
-                            calculate2DPlacements(
-                                spans,
-                                NOTHING_COLUMNS,
-                                preferredPlacements = preferredPlacements,
-                                maxRowsPerPage = NOTHING_ROWS_PER_PAGE,
-                            )
-                        val grouped = placements.groupBy { it.row / NOTHING_ROWS_PER_PAGE }
-                        grouped.keys
+                        }
+                    val preferredPlacements =
+                        tiles
+                            .mapIndexedNotNull { index, tile ->
+                                tileLayout[tile.spec]?.let { index to it }
+                            }
+                            .toMap()
+                    // The slider cells are held back so the tiles flow around them
+                    val reserved =
+                        nothingSliders.mapIndexed { i, slider ->
+                            PlacedGridItem(tiles.size + i, slider.row, slider.col, slider.span, 1)
+                        }
+                    val placements =
+                        calculate2DPlacements(
+                            spans,
+                            NOTHING_COLUMNS,
+                            preferredPlacements = preferredPlacements,
+                            maxRowsPerPage = NOTHING_ROWS_PER_PAGE,
+                            reserved = reserved,
+                        )
+                    // Rows are global here, but each page lays out its own tiles from row 0
+                    pagePlacements =
+                        placements.associate {
+                            tiles[it.index].spec to
+                                (it.row % NOTHING_ROWS_PER_PAGE to it.col)
+                        }
+                    val grouped = placements.groupBy { it.row / NOTHING_ROWS_PER_PAGE }
+                    // A page with only a slider is still a page
+                    val pageIndices =
+                        (grouped.keys + nothingSliders.map { it.row / NOTHING_ROWS_PER_PAGE })
+                            .distinct()
                             .sorted()
-                            .map { pageIndex -> grouped.getValue(pageIndex).map { tiles[it.index] } }
-                            .ifEmpty { listOf(emptyList()) }
-                    }
+                    pageSliders =
+                        pageIndices.map { pageIndex ->
+                            nothingSliders
+                                .filter { it.row / NOTHING_ROWS_PER_PAGE == pageIndex }
+                                .map { it.copy(row = it.row % NOTHING_ROWS_PER_PAGE) }
+                        }
+                    pageIndices
+                        .map { pageIndex ->
+                            grouped[pageIndex].orEmpty().map { tiles[it.index] }
+                        }
+                        .ifEmpty { listOf(emptyList()) }
                 } else if (colorOSStyle) {
                     tiles.chunked(rows * ColorOSGridColumns)
                 } else {
                     delegateGridViewModel.splitIntoPages(tiles, rows)
                 }
+                Triple(
+                    pageList,
+                    pagePlacements,
+                    pageSliders.ifEmpty { List(pageList.size) { emptyList() } },
+                )
             }
+        val pages = pagesWithPlacements.first
 
         val pagerState = rememberPagerState(0) { pages.size }
         val pagerMaxWidth =
@@ -228,13 +268,18 @@ constructor(
             ) {
                 val page = pages[it]
 
-                with(delegateGridLayout) {
-                    TileGrid(
-                        tiles = page,
-                        modifier = Modifier,
-                        listening = listening,
-                        enableRevealEffect = false,
-                    )
+                CompositionLocalProvider(
+                    LocalNothingPagePlacements provides pagesWithPlacements.second,
+                    LocalNothingPageSliders provides pagesWithPlacements.third.getOrNull(it),
+                ) {
+                    with(delegateGridLayout) {
+                        TileGrid(
+                            tiles = page,
+                            modifier = Modifier,
+                            listening = listening,
+                            enableRevealEffect = false,
+                        )
+                    }
                 }
             }
             FooterBar(
