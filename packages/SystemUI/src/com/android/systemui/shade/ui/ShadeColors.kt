@@ -39,6 +39,9 @@ object ShadeColors {
 
     enum class Style { AOSP, GLASS, TINTED }
 
+    /** Value of [Settings.System.QS_PANEL_STYLE] for the ColorOS panel. */
+    private const val QS_PANEL_STYLE_COLOROS = 2
+
     /**
      * All numbers are in CAM16/HCT space (tone = L*, 0..100), so the visual weight of each
      * style is the same for every wallpaper. sRGB blending (blendARGB) can't guarantee that.
@@ -87,12 +90,8 @@ object ShadeColors {
     }
 
     @JvmStatic
-    fun notificationScrim(context: Context, blurSupported: Boolean): Int =
-        notificationScrim(context, blurSupported, style(context))
-
-    @JvmStatic
-    fun notificationScrim(context: Context, blurSupported: Boolean, style: Style): Int {
-        val s = spec(style, isNight(context))
+    fun notificationScrim(context: Context, blurSupported: Boolean): Int {
+        val s = spec(style(context), isNight(context))
             ?: return if (blurSupported) notificationScrimStandard(context)
             else notificationScrimFallback(context)
 
@@ -179,6 +178,10 @@ object ShadeColors {
     @Volatile private var observingStyle = false
 
     private fun style(context: Context): Style {
+        // The ColorOS QS panel draws its own glass, which only suits the clear shade, so it takes
+        // that style whatever the setting is. This is read here and not cached, so the style
+        // follows the panel style at once and the setting keeps the choice of the user.
+        if (isColorOSPanel(context)) return Style.GLASS
         cachedStyle?.let { return it }
         ensureObservingStyle(context)
         val generation = styleGeneration
@@ -188,6 +191,11 @@ object ShadeColors {
         if (generation == styleGeneration) cachedStyle = style
         return style
     }
+
+    private fun isColorOSPanel(context: Context): Boolean =
+        Settings.System.getIntForUser(
+            context.contentResolver, Settings.System.QS_PANEL_STYLE, 0, UserHandle.USER_CURRENT
+        ) == QS_PANEL_STYLE_COLOROS
 
     private fun invalidateStyle() {
         styleGeneration++
