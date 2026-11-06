@@ -87,8 +87,12 @@ object ShadeColors {
     }
 
     @JvmStatic
-    fun notificationScrim(context: Context, blurSupported: Boolean): Int {
-        val s = spec(style(context), isNight(context))
+    fun notificationScrim(context: Context, blurSupported: Boolean): Int =
+        notificationScrim(context, blurSupported, style(context))
+
+    @JvmStatic
+    fun notificationScrim(context: Context, blurSupported: Boolean, style: Style): Int {
+        val s = spec(style, isNight(context))
             ?: return if (blurSupported) notificationScrimStandard(context)
             else notificationScrimFallback(context)
 
