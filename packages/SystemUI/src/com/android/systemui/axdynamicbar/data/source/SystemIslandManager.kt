@@ -10,6 +10,7 @@ import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.media.AudioManager
 import android.net.Uri
+import android.os.CancellationSignal
 import android.os.Handler
 import android.os.PersistableBundle
 import android.os.UserHandle
@@ -28,15 +29,18 @@ import com.android.systemui.statusbar.policy.BatteryController
 import com.android.systemui.user.utils.UserScopedService
 import java.io.File
 import javax.inject.Inject
+import kotlin.coroutines.resume
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
@@ -69,6 +73,7 @@ constructor(
         private const val MAX_CLIPBOARD_IMAGE_WIDTH_PX = 512
         private const val MAX_CLIPBOARD_IMAGE_HEIGHT_PX = 2048
         private const val CLIPBOARD_IMAGE_TIMEOUT_MS = 300L
+        private const val MAX_CLIPBOARD_EVENT_TEXT_CHARS = 32_768
     }
 
     private val _chargingEvent = MutableStateFlow<IslandEvent.Charging?>(null)
@@ -114,6 +119,7 @@ constructor(
     private val clipboardHistory = mutableListOf<IslandEvent.ClipboardItem>()
 
     private var persistJob: Job? = null
+    @Volatile private var clipboardImageJob: Job? = null
 
     private val clipboardUserCallback =
         object : UserTracker.Callback {
@@ -125,6 +131,7 @@ constructor(
     private val ringerReceiver =
         object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
+                if (!ringerListening) return
                 val mode = intent.getIntExtra(AudioManager.EXTRA_RINGER_MODE, -1)
                 if (mode < 0) return
                 if (lastRingerMode != -1 && lastRingerMode != mode) {
@@ -145,6 +152,9 @@ constructor(
 
     private val clipboardListener =
         ClipboardManager.OnPrimaryClipChangedListener {
+            if (!clipboardListening) return@OnPrimaryClipChangedListener
+            clipboardImageJob?.cancel()
+            clipboardImageJob = null
             val state = clipboardUserState
             val clipboardManager = state.manager
 
@@ -197,13 +207,20 @@ constructor(
                 return@OnPrimaryClipChangedListener
             }
 
-            val rawText = item.text?.toString() ?: ""
+            val rawChars = item.text
+            val isImage = desc.hasMimeType("image/*") && item.uri != null
+            if (!isImage && rawChars != null && rawChars.length > MAX_CLIPBOARD_EVENT_TEXT_CHARS) {
+                lastClipboardToken = null
+                invalidatePendingClipboardWorkAndPersist(state)
+                _clipboardEvent.value = null
+                return@OnPrimaryClipChangedListener
+            }
+            val rawText = rawChars?.toString() ?: ""
             val preview = rawText.trim()
             val isUrl =
                 preview.startsWith("http://") ||
                     preview.startsWith("https://") ||
                     preview.startsWith("www.")
-            val isImage = desc.hasMimeType("image/*") && item.uri != null
             val sourceUri = if (isImage) item.uri else null
             val label = desc.label?.toString() ?: ""
 
@@ -237,8 +254,12 @@ constructor(
                 else System.currentTimeMillis()
 
             if (isImage && sourceUri != null) {
-                applicationScope.launch(backgroundDispatcher) {
+                clipboardImageJob = applicationScope.launch(backgroundDispatcher) {
                     val cachedUri = cacheClipboardImage(state, sourceUri, itemId)
+                    if (!isActive) {
+                        if (cachedUri != null) cleanupCachedImage(state, itemId)
+                        return@launch
+                    }
                     if (cachedUri == null) {
                         persistCurrentHistoryForGeneration(state, generation)
                         return@launch
@@ -279,22 +300,39 @@ constructor(
         itemId: Long,
     ): Uri? =
         withTimeoutOrNull(CLIPBOARD_IMAGE_TIMEOUT_MS) {
-            try {
-                val bitmap =
-                    state.context.contentResolver.loadThumbnail(
-                        sourceUri,
-                        Size(MAX_CLIPBOARD_IMAGE_WIDTH_PX, MAX_CLIPBOARD_IMAGE_HEIGHT_PX),
-                        null,
-                    )
+            suspendCancellableCoroutine<Uri?> { cont ->
+                // Cancelling the coroutine (timeout, new clip, stop) aborts the provider call
+                // instead of letting it run to completion in the background.
+                val signal = CancellationSignal()
+                cont.invokeOnCancellation { signal.cancel() }
                 val file = File(clipboardCacheDir(state), "clip_$itemId.webp")
-                file.outputStream().use { out ->
-                    bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSY, 85, out)
+                val result =
+                    try {
+                        val bitmap =
+                            state.context.contentResolver.loadThumbnail(
+                                sourceUri,
+                                Size(MAX_CLIPBOARD_IMAGE_WIDTH_PX, MAX_CLIPBOARD_IMAGE_HEIGHT_PX),
+                                signal,
+                            )
+                        try {
+                            file.outputStream().use { out ->
+                                bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSY, 85, out)
+                            }
+                        } finally {
+                            bitmap.recycle()
+                        }
+                        FileProvider.getUriForFile(state.context, FILE_PROVIDER_AUTHORITY, file)
+                    } catch (e: Exception) {
+                        file.delete()
+                        if (!signal.isCanceled) Log.w(TAG, "Failed to cache clipboard image", e)
+                        null
+                    }
+                if (cont.isActive) {
+                    cont.resume(result)
+                } else if (result != null) {
+                    // Cancelled while finishing, nobody will own this file.
+                    file.delete()
                 }
-                bitmap.recycle()
-                FileProvider.getUriForFile(state.context, FILE_PROVIDER_AUTHORITY, file)
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to cache clipboard image", e)
-                null
             }
         }
 
@@ -429,6 +467,8 @@ constructor(
     ) {
         val oldState = clipboardUserState
         if (oldState.userId == user.identifier) return
+        clipboardImageJob?.cancel()
+        clipboardImageJob = null
 
         val wasListening = clipboardListening
         if (wasListening) {
@@ -528,9 +568,9 @@ constructor(
         }
     }
 
-    private var chargingListening = false
-    private var ringerListening = false
-    private var clipboardListening = false
+    @Volatile private var chargingListening = false
+    @Volatile private var ringerListening = false
+    @Volatile private var clipboardListening = false
 
     fun startCharging() {
         if (chargingListening) return
@@ -549,6 +589,7 @@ constructor(
                     }
                     .distinctUntilChanged()
                     .collect { snap ->
+                        if (!chargingListening) return@collect
                         val wasChargingBefore = wasCharging
                         wasCharging = snap.isCharging
                         if (snap.isCharging && !wasChargingBefore && snap.level != null) {
@@ -622,6 +663,8 @@ constructor(
         if (!clipboardListening) return
         val state = clipboardUserState
         clipboardListening = false
+        clipboardImageJob?.cancel()
+        clipboardImageJob = null
         try {
             state.manager.removePrimaryClipChangedListener(clipboardListener)
         } catch (_: Exception) {}
@@ -643,7 +686,6 @@ constructor(
     }
 
     fun stopListening() {
-        if (!listening) return
         listening = false
         stopCharging()
         stopRinger()
