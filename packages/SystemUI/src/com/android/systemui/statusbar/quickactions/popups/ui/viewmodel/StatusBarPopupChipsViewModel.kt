@@ -45,6 +45,7 @@ import com.android.systemui.statusbar.quickactions.av.ui.viewmodel.AvControlsChi
 import com.android.systemui.statusbar.quickactions.domain.interactor.QuickActionsInteractor
 import com.android.systemui.statusbar.quickactions.flashlight.ui.viewmodel.FlashlightPopupChipViewModel
 import com.android.systemui.statusbar.quickactions.ime.ui.viewmodel.ImeIndicatorChipViewModel
+import com.android.systemui.statusbar.quickactions.liveactivity.ui.viewmodel.LiveActivityPopupChipsViewModel
 import com.android.systemui.statusbar.quickactions.livescore.ui.viewmodel.LiveScorePopupChipViewModel
 import com.android.systemui.statusbar.quickactions.media.ui.viewmodel.MediaControlChipViewModel
 import com.android.systemui.statusbar.quickactions.popups.StatusBarPopupChips
@@ -97,6 +98,7 @@ constructor(
     alarmChipFactory: AlarmPopupChipViewModel.Factory,
     chargingChipFactory: ChargingPopupChipViewModel.Factory,
     systemEventChipsFactory: SystemEventPopupChipsViewModel.Factory,
+    liveActivityChipsFactory: LiveActivityPopupChipsViewModel.Factory,
 ) : HydratedActivatable() {
 
     private val mediaControlChip by lazy { mediaControlChipFactory.create() }
@@ -114,6 +116,7 @@ constructor(
     private val alarmChip by lazy { alarmChipFactory.create() }
     private val chargingChip by lazy { chargingChipFactory.create() }
     private val systemEventChips by lazy { systemEventChipsFactory.create() }
+    private val liveActivityChips by lazy { liveActivityChipsFactory.create() }
 
     private var isDynamicIslandEnabled by mutableStateOf(readDynamicIslandEnabled())
     private val dynamicIslandObserver =
@@ -244,7 +247,7 @@ constructor(
                     bundle.charging,
                     bundle.privacy.takeIf { StatusBarPopupChips.isEnabled },
                     bundle.shareScreen.takeIf { StatusBarPopupChips.isEnabled },
-                ) + systemEventChips.chips
+                ) + systemEventChips.chips + liveActivityChips.chips
             } else if (StatusBarPopupChips.isEnabled) {
                 listOfNotNull(
                     bundle.media,
@@ -411,6 +414,7 @@ constructor(
             launch { alarmChip.activate() }
             launch { chargingChip.activate() }
             launch { systemEventChips.activate() }
+            launch { liveActivityChips.activate() }
             launch { peekChargingOnPlugIn() }
             launch { showRingingCall() }
             launch {
@@ -425,7 +429,7 @@ constructor(
                                 bundle.stopwatch,
                                 bundle.alarm,
                                 bundle.charging,
-                            ) + systemEventChips.chips)
+                            ) + systemEventChips.chips + liveActivityChips.chips)
                             .filterIsInstance<QuickActionChipModel.PopupChip>()
                             .associate { it.chipId to it.hideKey() }
                     }

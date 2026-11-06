@@ -41,4 +41,6 @@
     <string name="dynamic_island_event_incoming_call">Incoming call</string>
     <!-- Dynamic island: state of a call that is being dialled [CHAR LIMIT=24] -->
     <string name="dynamic_island_event_calling">Calling</string>
+    <!-- Dynamic island: button that opens the app of a live update [CHAR LIMIT=24] -->
+    <string name="dynamic_island_event_open">Open</string>
 </resources>
