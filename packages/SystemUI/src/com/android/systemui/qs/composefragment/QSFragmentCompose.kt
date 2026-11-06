@@ -237,6 +237,12 @@ constructor(
     private var colorOSQsStyle by mutableStateOf(false)
 
     /**
+     * Whether the Nothing style draws its sliders inside the tile grid, so the QS scene has no
+     * brightness slider element for the one of QQS to move to.
+     */
+    private var nothingSlidersInGrid by mutableStateOf(false)
+
+    /**
      * Whether the ColorOS panel fits the height of the Quick Settings scroller. It does for most
      * portrait screens, since the panel shrinks to fit. If it cannot, the scroller must scroll.
      */
@@ -298,6 +304,9 @@ constructor(
                                 LocalColorOSQsStyle provides colorOSStyle,
                                 LocalNothingQsStyle provides nothingStyle,
                             ) {
+                                val slidersInGrid =
+                                    nothingStyle && rememberNothingLayout().sliders.isNotEmpty()
+                                SideEffect { nothingSlidersInGrid = slidersInGrid }
                                 this@QSFragmentCompose.Content(Modifier.sysUiResTagContainer())
                             }
                         }
@@ -424,8 +433,11 @@ constructor(
                                 animateTilesExpansion = {
                                     viewModel.animateTilesExpansion && !colorOSQsStyle
                                 },
-                                // The ColorOS panel has its own slider, so the QQS one fades out.
-                                fadeOutBrightnessSlider = { colorOSQsStyle },
+                                // The ColorOS panel has its own slider, and the Nothing one draws its
+                                // sliders in the grid, so the QQS one fades out.
+                                fadeOutBrightnessSlider = {
+                                    colorOSQsStyle || nothingSlidersInGrid
+                                },
                                 fadeOutQqsTiles = { colorOSQsStyle },
                             )
                         }
