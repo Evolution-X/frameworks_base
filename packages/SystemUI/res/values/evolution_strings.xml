@@ -359,6 +359,12 @@
     <string name="qs_coloros_edit_title">Edit</string>
     <!-- ColorOS style QS: hint under the title of the tile editor [CHAR LIMIT=40] -->
     <string name="qs_coloros_edit_hint">Hold and drag to rearrange</string>
+    <!-- ColorOS style QS: heading of the pinned slots in the editor [CHAR LIMIT=30] -->
+    <string name="qs_coloros_edit_pinned">Pinned</string>
+    <!-- ColorOS style QS: hint while a pinned slot is picked in the editor [CHAR LIMIT=40] -->
+    <string name="qs_coloros_edit_pinned_pick">Tap a tile to pin it here</string>
+    <!-- ColorOS style QS: button that gives a pinned slot its default back [CHAR LIMIT=20] -->
+    <string name="qs_coloros_edit_pinned_default">Default</string>
     <!-- ColorOS style QS: heading of current active tiles in the editor [CHAR LIMIT=30] -->
     <string name="qs_coloros_edit_added">Added tiles</string>
     <!-- ColorOS style QS: heading of the tiles that can be added in the editor [CHAR LIMIT=30] -->
