@@ -27,6 +27,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -152,8 +153,14 @@ constructor(
     private val dismissedSportsKeys = mutableSetOf<String>()
     private var alarmNotificationKey: String? = null
 
-    val notificationFlow = MutableSharedFlow<IslandEvent.Notification>(extraBufferCapacity = 16)
-    val notificationRemovedFlow = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    val notificationFlow = MutableSharedFlow<IslandEvent.Notification>(
+        extraBufferCapacity = 16,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val notificationRemovedFlow = MutableSharedFlow<String>(
+        extraBufferCapacity = 16,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
 
     var activeMediaPackageProvider: (() -> String?)? = null
 
@@ -173,7 +180,7 @@ constructor(
     private val scrimListener =
         object : ScrimUtils.ScrimEventListener {
             override fun onNotificationRemoved(sbn: StatusBarNotification) {
-                val pkg = sbn.packageName ?: return
+                if (!listening) return
                 seenSignatures.remove(sbn.key)
 
                 if (sbn.key == timerNotificationKey) {
@@ -234,6 +241,7 @@ constructor(
             }
 
             override fun onNotificationPosted(sbn: StatusBarNotification) {
+                if (!listening) return
                 val pkg = sbn.packageName ?: return
                 val extras = sbn.notification?.extras ?: return
 
@@ -551,20 +559,10 @@ constructor(
                     conversationTitle = notif.extras.getCharSequence(
                         Notification.EXTRA_CONVERSATION_TITLE
                     )?.toString()?.takeIf { it.isNotEmpty() }
-                    val messagesArray =
-                        notif.extras.getParcelableArray(
-                            Notification.EXTRA_MESSAGES,
-                            Parcelable::class.java,
-                        )
-                    if (messagesArray != null && messagesArray.isNotEmpty()) {
-                        val messages =
-                            Notification.MessagingStyle.Message.getMessagesFromBundleArray(
-                                messagesArray
-                            )
-                        val lastMessage = messages.maxByOrNull { it.timestamp }
-                        val sender = lastMessage?.senderPerson
+                    if (lastMessage != null) {
+                        val sender = lastMessage.senderPerson
                         senderName = sender?.name?.toString()
-                        latestMessageText = lastMessage?.text?.toString()
+                        latestMessageText = lastMessage.text?.toString()
                         senderIcon =
                             try {
                                 sender?.icon?.loadDrawable(context)
@@ -619,7 +617,7 @@ constructor(
                         groupKey = groupKey,
                         notificationImage = notificationImage,
                     )
-                applicationScope.launch { notificationFlow.emit(event) }
+                notificationFlow.tryEmit(event)
                 onNotificationPosted?.invoke(event)
             }
         }
@@ -691,6 +689,7 @@ constructor(
     }
 
     fun coalesceNotification(event: IslandEvent.Notification) {
+        if (!listening) return
         val current = _notificationEvents.value.toMutableList()
         current.removeAll { it.id == event.id }
         current.add(0, event)
