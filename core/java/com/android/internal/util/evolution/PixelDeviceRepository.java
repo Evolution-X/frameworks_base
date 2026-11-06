@@ -239,12 +239,12 @@ public final class PixelDeviceRepository {
             case "comet":
                 return "34";
             case "tegu":
-            case "stallion":
                 return "35";
             case "frankel":
             case "blazer":
             case "mustang":
             case "rango":
+            case "stallion":
                 return "36";
             case "cubs":
             case "grizzly":
