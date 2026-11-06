@@ -185,6 +185,30 @@ internal fun ColorOSEditor(editViewModel: EditModeViewModel, modifier: Modifier 
         editViewModel.setTiles((distinctActive + hidden).distinct())
     }
 
+    // The pinned slots: the two cards of the first row and the pill next to the ringer. A slot is
+    // picked by tapping it, and then the tile to pin there, which a second tap of the slot or the
+    // default button gives back.
+    val pinnedChoice by rememberColorOSPinned()
+    var selectedPin by remember { mutableStateOf<Int?>(null) }
+    val pinned =
+        colorOSPinnedOf(activeSpecs.map { it.spec }.toSet(), pinnedChoice)
+
+    fun assignPin(spec: TileSpec) {
+        val slot = selectedPin ?: return
+        val next = pinnedChoice.toMutableList()
+        for (i in next.indices) if (next[i] == spec.spec) next[i] = null
+        next[slot] = spec.spec
+        writeColorOSPinned(context, next)
+        if (spec !in activeSpecs) commit(activeSpecs + spec)
+        selectedPin = null
+    }
+
+    fun resetPin() {
+        val slot = selectedPin ?: return
+        writeColorOSPinned(context, pinnedChoice.toMutableList().also { it[slot] = null })
+        selectedPin = null
+    }
+
     val scrollState = rememberScrollState()
 
     // Auto-scroll when dragging near viewport boundaries
@@ -261,6 +285,59 @@ internal fun ColorOSEditor(editViewModel: EditModeViewModel, modifier: Modifier 
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 10.dp),
             )
+
+            // Pinned slots
+            Text(
+                text = stringResource(R.string.qs_coloros_edit_pinned),
+                color = labelColor.copy(alpha = 0.7f),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 8.dp),
+            )
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                repeat(COLOROS_PINNED_SLOTS) { slot ->
+                    val spec = if (slot < COLOROS_PILL_SLOT) pinned.cards[slot] else pinned.pill
+                    val label =
+                        spec?.let { bySpec[TileSpec.create(it)]?.label?.text?.toString() }
+                            ?: if (slot == COLOROS_PILL_SLOT) {
+                                stringResource(R.string.qs_coloros_my_devices)
+                            } else {
+                                ""
+                            }
+                    PinnedSlotChip(
+                        label = label,
+                        selected = selectedPin == slot,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        selectedPin = if (selectedPin == slot) null else slot
+                    }
+                }
+            }
+            val pickedSlot = selectedPin
+            if (pickedSlot != null) {
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.qs_coloros_edit_pinned_pick),
+                        color = EditorAccent,
+                        fontSize = 13.sp,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (pinnedChoice[pickedSlot] != null) {
+                        EditorTextButton(
+                            stringResource(R.string.qs_coloros_edit_pinned_default),
+                            labelColor.copy(alpha = 0.85f),
+                        ) {
+                            resetPin()
+                        }
+                    }
+                }
+            }
 
             // Section 1 Header: Added tiles
             Text(
@@ -426,6 +503,7 @@ internal fun ColorOSEditor(editViewModel: EditModeViewModel, modifier: Modifier 
                                         onDragCancel = { dragState.reset() },
                                     )
                                 }
+                                .clickable(enabled = selectedPin != null) { assignPin(spec) }
                         ) {
                             EditorTile(
                                 tile = tile,
@@ -586,8 +664,11 @@ internal fun ColorOSEditor(editViewModel: EditModeViewModel, modifier: Modifier 
                                     )
                                 }
                                 .clickable {
-                                    // Tapping an available tile adds it to the end of active tiles
-                                    if (!activeSpecs.contains(spec)) {
+                                    // Tapping an available tile adds it to the end of active tiles,
+                                    // or pins it when a pinned slot is picked
+                                    if (selectedPin != null) {
+                                        assignPin(spec)
+                                    } else if (!activeSpecs.contains(spec)) {
                                         commit(activeSpecs + spec)
                                     }
                                 }
@@ -698,6 +779,43 @@ private fun EditorTile(
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 4.dp, start = 2.dp, end = 2.dp),
+        )
+    }
+}
+
+/** A pinned slot of the panel in the editor, which is picked by a tap. */
+@Composable
+private fun PinnedSlotChip(
+    label: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val shape = RoundedCornerShape(percent = 50)
+    Box(
+        modifier
+            .height(44.dp)
+            .clip(shape)
+            .background(
+                if (dark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.55f),
+                shape,
+            )
+            .border(
+                width = if (selected) 2.dp else 1.dp,
+                color = if (selected) EditorAccent else colorOSTileRim(),
+                shape = shape,
+            )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontSize = 13.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 12.dp),
         )
     }
 }
