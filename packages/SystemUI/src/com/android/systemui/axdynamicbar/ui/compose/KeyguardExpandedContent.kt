@@ -72,7 +72,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -620,11 +619,11 @@ private fun KeyguardMediaSeekBar(
         if (!isPlaying || durationMs <= 0L) return@LaunchedEffect
 
         val startProgressMs = positionMs
-        val startNanos = withFrameNanos { it }
+        val startElapsedMs = android.os.SystemClock.elapsedRealtime()
         while (true) {
-            val frameNanos = withFrameNanos { it }
+            kotlinx.coroutines.delay(250L)
             if (isScrubbing) break
-            val elapsedMs = (frameNanos - startNanos) / 1_000_000L
+            val elapsedMs = android.os.SystemClock.elapsedRealtime() - startElapsedMs
             val interpolated =
                 ((startProgressMs + elapsedMs * speed) / durationMs).coerceIn(0f, 1f)
             displayFraction = interpolated
@@ -758,6 +757,12 @@ private fun KeyguardMediaSeekBar(
                 layer?.alpha = alpha
             },
             modifier = Modifier.fillMaxWidth().height(KeyguardSeekBarHeight),
+            onRelease = { bar ->
+                ((bar.progressDrawable as? LayerDrawable)
+                    ?.findDrawableByLayerId(android.R.id.progress) as? SquigglyProgress)
+                    ?.animate = false
+                bar.tag = null
+            },
         )
     }
     Spacer(Modifier.height(SpaceXs))
@@ -895,7 +900,7 @@ private fun KeyguardStopwatchPanel(event: IslandEvent.Stopwatch, interactor: Isl
     if (event.isRunning) {
         LaunchedEffect(event.startTimeMs) {
             while (true) {
-                delay(200)
+                delay(250)
                 elapsedMs = (System.currentTimeMillis() - event.startTimeMs).coerceAtLeast(0L)
             }
         }
