@@ -38,6 +38,7 @@ object DynamicIslandFeatureSettings {
     const val CALLS = "status_bar_dynamic_island_calls"
     const val FLASHLIGHT = "status_bar_dynamic_island_flashlight"
     const val STOPWATCH = "status_bar_dynamic_island_stopwatch"
+    const val LIVE_UPDATES = "status_bar_dynamic_island_live_updates"
     const val LIVE_SCORES = "status_bar_dynamic_island_live_scores"
     const val SHOW_LYRICS = "status_bar_dynamic_island_lyrics"
     const val WIDTH_SCALE = "status_bar_dynamic_island_width_scale"
