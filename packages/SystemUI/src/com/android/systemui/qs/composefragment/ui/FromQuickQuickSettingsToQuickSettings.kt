@@ -21,7 +21,10 @@ import com.android.compose.animation.scene.TransitionBuilder
 import com.android.systemui.qs.composefragment.SceneKeys
 import com.android.systemui.qs.shared.ui.QuickSettings.Elements
 
-/** End of the progress range in which the QQS brightness slider fades out (ColorOS style). */
+/**
+ * End of the progress range in which the QQS brightness slider fades out (ColorOS and Nothing
+ * styles).
+ */
 private const val QQS_BRIGHTNESS_FADE_END = 0.3f
 
 /** End of the progress range in which the QQS tiles fade out (ColorOS style). */
@@ -30,8 +33,9 @@ private const val QQS_TILES_FADE_END = 0.3f
 /**
  * @param animateTilesExpansion whether the tiles morph from QQS to QS.
  * @param fadeOutBrightnessSlider whether the QQS brightness slider just fades out instead of
- *   morphing into the QS one. Used by the ColorOS style, whose QS panel has its own tall slider
- *   and therefore no brightness slider element for the QQS one to move to.
+ *   morphing into the QS one. Used by the ColorOS style, whose QS panel has its own tall slider,
+ *   and by the Nothing style while it draws its sliders in the tile grid, so there is no
+ *   brightness slider element for the QQS one to move to.
  * @param fadeOutQqsTiles whether the QQS tiles fade out early where they are instead of fading and
  *   moving to the grid anchor. Used by the ColorOS style, whose panel does not have the grid they
  *   would move to, so they would otherwise fly over the panel while it fades in.
