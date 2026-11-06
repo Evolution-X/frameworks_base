@@ -89,6 +89,9 @@ class UdfpsHelper(
         // Avoid announcing window title
         accessibilityTitle = " "
         inputFeatures = WindowManager.LayoutParams.INPUT_FEATURE_SPY
+        // Run at the peak refresh rate while UDFPS is up, so a touch doesn't wait for a mode switch
+        preferredMinDisplayRefreshRate = displayManager.getDisplay(Display.DEFAULT_DISPLAY)
+            ?.supportedModes?.maxOfOrNull { it.refreshRate } ?: 0f
     }
 
     private val alphaAnimator = ValueAnimator().apply {
