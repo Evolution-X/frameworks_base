@@ -126,7 +126,7 @@ constructor(
     }
 }
 
-private fun ActiveNotificationModel.isLiveScoreCandidate(): Boolean {
+internal fun ActiveNotificationModel.isLiveScoreCandidate(): Boolean {
     val content = promotedContent?.privateVersion ?: return false
     if (callType != com.android.systemui.statusbar.notification.shared.CallType.None) {
         return false
