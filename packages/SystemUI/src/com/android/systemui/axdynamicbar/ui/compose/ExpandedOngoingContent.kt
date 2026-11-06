@@ -120,6 +120,10 @@ private fun SbnContentView(sbn: StatusBarNotification, fallback: @Composable () 
             }
         },
         modifier = Modifier.fillMaxWidth().clip(ShapeIconMedium),
+        onRelease = { frame ->
+            frame.removeAllViews()
+            frame.tag = null
+        },
     )
 }
 
