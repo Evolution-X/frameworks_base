@@ -16,7 +16,6 @@
 
 package com.android.systemui.volume.appvolume.ui.composable
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,20 +24,15 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SliderColors
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -49,18 +43,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.compose.PlatformButton
 import com.android.compose.PlatformOutlinedButton
 import com.android.compose.PlatformSliderDefaults
-import com.android.compose.theme.LocalAndroidColorScheme
 import com.android.systemui.common.ui.compose.Icon as SysUiIcon
 import com.android.systemui.res.R
-import com.android.systemui.shared.system.BlurUtils.isVolumeAndPowerBlurEnabled
 import com.android.systemui.volume.appvolume.ui.viewmodel.AppVolumePanelViewModel
 import com.android.systemui.volume.panel.component.volume.slider.ui.viewmodel.AppVolumeSliderState
 import com.android.systemui.volume.panel.component.volume.ui.composable.VolumeSlider
+import com.android.systemui.volume.panel.component.volume.ui.composable.VolumeSliderColors
 
 private val PanelPadding = 24.dp
-private val OuterCornerRadius = 24.dp
-private val InnerCornerRadius = 4.dp
-private val SegmentGap = 2.dp
+private val RowSpacing = 4.dp
 private val AppIconSize = 40.dp
 private val ListMaxHeight = 420.dp
 
@@ -121,19 +112,12 @@ private fun AppSliders(
     viewModel: AppVolumePanelViewModel,
     modifier: Modifier = Modifier,
 ) {
-    val sliderColors = appVolumeSliderColors()
     LazyColumn(
         modifier = modifier.heightIn(max = ListMaxHeight),
-        verticalArrangement = Arrangement.spacedBy(SegmentGap),
+        verticalArrangement = Arrangement.spacedBy(RowSpacing),
     ) {
-        itemsIndexed(items = sliders, key = { _, state -> state.packageName }) { index, state ->
-            AppSliderRow(
-                state = state,
-                shape = segmentShape(index = index, count = sliders.size),
-                sliderColors = sliderColors,
-                viewModel = viewModel,
-                modifier = Modifier.animateItem(),
-            )
+        items(items = sliders, key = { state -> state.packageName }) { state ->
+            AppSliderRow(state = state, viewModel = viewModel, modifier = Modifier.animateItem())
         }
     }
 }
@@ -141,17 +125,11 @@ private fun AppSliders(
 @Composable
 private fun AppSliderRow(
     state: AppVolumeSliderState,
-    shape: Shape,
-    sliderColors: SliderColors,
     viewModel: AppVolumePanelViewModel,
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .background(rowColor(), shape)
-                .padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 8.dp),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -166,7 +144,7 @@ private fun AppSliderRow(
             onIconTapped = {},
             sliderColors = PlatformSliderDefaults.defaultPlatformSliderColors(),
             hapticsViewModelFactory = viewModel.getSliderHapticsViewModelFactory(),
-            materialSliderColors = sliderColors,
+            materialSliderColors = VolumeSliderColors.Defaults,
             modifier = Modifier.weight(1f),
         )
     }
@@ -175,10 +153,7 @@ private fun AppSliderRow(
 @Composable
 private fun EmptyState() {
     Row(
-        modifier =
-            Modifier.fillMaxWidth()
-                .background(rowColor(), RoundedCornerShape(OuterCornerRadius))
-                .padding(horizontal = 20.dp, vertical = 24.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -210,44 +185,4 @@ private fun BottomBar(viewModel: AppVolumePanelViewModel) {
             Text(text = stringResource(R.string.inline_done_button))
         }
     }
-}
-
-/**
- * Whether the sheet behind the panel is blurred. createBottomSheet() draws the blur itself, so the
- * content only has to avoid painting opaque surfaces over it.
- */
-@Composable
-private fun isBlurEnabled(): Boolean = remember { isVolumeAndPowerBlurEnabled() }
-
-/** Row surface: translucent over the blurred sheet like the main volume panel, else opaque. */
-@Composable
-private fun rowColor(): Color =
-    if (isBlurEnabled()) {
-        LocalAndroidColorScheme.current.surfaceEffect1
-    } else {
-        MaterialTheme.colorScheme.surfaceContainer
-    }
-
-@Composable
-private fun appVolumeSliderColors(): SliderColors {
-    // One effect layer above the row so the track stays visible on it.
-    val inactive =
-        if (isBlurEnabled()) {
-            LocalAndroidColorScheme.current.surfaceEffect2
-        } else {
-            MaterialTheme.colorScheme.surfaceContainerHighest
-        }
-    return SliderDefaults.colors()
-        .copy(
-            activeTickColor = inactive,
-            inactiveTrackColor = inactive,
-            disabledActiveTickColor = inactive,
-            disabledInactiveTrackColor = inactive,
-        )
-}
-
-private fun segmentShape(index: Int, count: Int): Shape {
-    val top = if (index == 0) OuterCornerRadius else InnerCornerRadius
-    val bottom = if (index == count - 1) OuterCornerRadius else InnerCornerRadius
-    return RoundedCornerShape(topStart = top, topEnd = top, bottomStart = bottom, bottomEnd = bottom)
 }
