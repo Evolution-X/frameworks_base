@@ -77,7 +77,7 @@ constructor(
                 val topEvent = uiState.topEvent ?: alert ?: return@map null
                 AxDynamicBarChipState(
                     event = topEvent,
-                    eventCount = uiState.activeEvents.size,
+                    eventCount = uiState.events.count { it !is IslandEvent.Notification },
                     pinnedIndex = uiState.pinnedEventIndex,
                     allEvents = uiState.events,
                     notificationAlert = alert,
@@ -118,8 +118,7 @@ constructor(
             interactor.uiState
                 .map { state ->
                     state.events
-                        .filterIsInstance<IslandEvent.Call>()
-                        .firstOrNull { it.callType == "Phone:incoming" }
+                        .firstOrNull { it is IslandEvent.Call && it.callType == "Phone:incoming" }
                         ?.id
                 }
                 .distinctUntilChanged()
@@ -174,7 +173,7 @@ constructor(
     val chipCenterXFraction: StateFlow<Float> = _chipCenterXFraction.asStateFlow()
 
     fun updateChipCenterX(fraction: Float) {
-        _chipCenterXFraction.value = fraction
+        if (fraction.isFinite()) _chipCenterXFraction.value = fraction.coerceIn(0f, 1f)
     }
 
     val isExpanded: StateFlow<Boolean> = statusBarExpansion.isExpanded
@@ -184,7 +183,7 @@ constructor(
     @Volatile private var outsideCollapseDownTime = NO_OUTSIDE_COLLAPSE
 
     fun collapseFromOutsideTouch(downTime: Long) {
-        if (!statusBarExpansion.isExpanded.value) return
+        if (!statusBarExpansion.isExpanded.value || downTime <= 0L) return
         outsideCollapseDownTime = downTime
         statusBarExpansion.collapse()
     }
