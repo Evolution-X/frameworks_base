@@ -56,6 +56,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -803,7 +804,7 @@ private fun PinnedSlotChip(
             )
             .border(
                 width = if (selected) 2.dp else 1.dp,
-                color = if (selected) EditorAccent else colorOSTileRim(),
+                brush = if (selected) SolidColor(EditorAccent) else colorOSTileRim(),
                 shape = shape,
             )
             .clickable(onClick = onClick),
