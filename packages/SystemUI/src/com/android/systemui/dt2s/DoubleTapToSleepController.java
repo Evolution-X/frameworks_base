@@ -11,6 +11,7 @@ import android.inputmethodservice.InputMethodService;
 import android.os.Handler;
 import android.os.PowerManager;
 import android.os.RemoteException;
+import android.os.SystemClock;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Choreographer;
@@ -84,6 +85,10 @@ public final class DoubleTapToSleepController implements CoreStartable, TunerSer
     // (as a fraction of the screen height) to still be trusted.
     private static final float SMARTSPACE_MARGIN_DP = 8f;
     private static final float SMARTSPACE_MAX_BOTTOM_FRACTION = 0.5f;
+    // The tap that completes a double tap on an app icon also opens the app. Sleep waits for that
+    // task change, which stops monitoring and cancels it; in a bug report it came 67 ms after
+    // the tap.
+    private static final long SLEEP_DELAY_MS = 300;
 
     private final Context mContext;
     private final PowerManager mPowerManager;
@@ -122,6 +127,7 @@ public final class DoubleTapToSleepController implements CoreStartable, TunerSer
     private boolean mMonitoringActive = false;
     // True while the current touch started inside the allowed region and should reach the detector.
     private boolean mTrackingTouch = false;
+    private final Runnable mSleepRunnable = this::triggerSleep;
 
     @Inject
     public DoubleTapToSleepController(
@@ -304,7 +310,7 @@ public final class DoubleTapToSleepController implements CoreStartable, TunerSer
                         if (e.getPointerCount() > 1) return false;
                         if (mFalsingManager.isFalseDoubleTap()) return false;
 
-                        triggerSleep(e.getEventTime());
+                        scheduleSleep();
                         return true;
                     }
                 });
@@ -340,6 +346,7 @@ public final class DoubleTapToSleepController implements CoreStartable, TunerSer
 
     private void stopInputMonitoring() {
         if (!mMonitoringActive) return;
+        cancelPendingSleep();
         unregisterWindowInfosListener();
         if (mInputEventReceiver != null) {
             mInputEventReceiver.dispose();
@@ -476,10 +483,21 @@ public final class DoubleTapToSleepController implements CoreStartable, TunerSer
         }
     }
 
-    private void triggerSleep(long eventTime) {
+    private void scheduleSleep() {
+        mMainHandler.removeCallbacks(mSleepRunnable);
+        mMainHandler.postDelayed(mSleepRunnable, SLEEP_DELAY_MS);
+    }
+
+    private void cancelPendingSleep() {
+        if (!mMainHandler.hasCallbacks(mSleepRunnable)) return;
+        mMainHandler.removeCallbacks(mSleepRunnable);
+        Log.d(TAG, "Pending sleep cancelled");
+    }
+
+    private void triggerSleep() {
         Log.d(TAG, "DT2S: goToSleep");
         try {
-            mPowerManager.goToSleep(eventTime);
+            mPowerManager.goToSleep(SystemClock.uptimeMillis());
         } catch (SecurityException e) {
             Log.e(TAG, "goToSleep denied — check DEVICE_POWER in privapp-permissions: "
                     + e.getMessage());
