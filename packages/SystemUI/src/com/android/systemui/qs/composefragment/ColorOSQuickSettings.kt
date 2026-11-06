@@ -294,16 +294,19 @@ internal fun ContentScope.ColorOSQuickSettingsLayout(
     header: @Composable () -> Unit = {},
     onOpenDevices: () -> Unit = {},
 ) {
-    val cardSlots =
-        remember(tiles) {
+    val chosen by rememberColorOSPinned()
+    val pinned =
+        remember(tiles, chosen) {
             val bySpec = tiles.associateBy { it.spec.spec }
-            colorOSCardSlotsOf(bySpec.keys).map { spec -> spec?.let(bySpec::get) }
+            val slots = colorOSPinnedOf(bySpec.keys, chosen)
+            slots.cards.map { spec -> spec?.let(bySpec::get) } to slots.pill?.let(bySpec::get)
         }
-    val fixed = remember(cardSlots) { cardSlots.filterNotNull() }
-    val rest = remember(tiles, fixed) { tiles.filterNot { it in fixed } }
+    val fixed = remember(pinned) { pinned.first.filterNotNull() }
+    val pillTile = pinned.second
+    val rest = remember(tiles, fixed, pillTile) { tiles.filterNot { it in fixed || it == pillTile } }
 
     // The fixed tiles are not part of a grid, so make them listen ourselves.
-    TileListener(fixed, listening)
+    TileListener(fixed + listOfNotNull(pillTile), listening)
 
     // Null where SurfaceFlinger cannot blur behind the shade, the flat fills stay then.
     // The modules are revealed when the shade opens and hidden when it closes, and the glass goes
@@ -414,12 +417,18 @@ internal fun ContentScope.ColorOSQuickSettingsLayout(
                     horizontalArrangement = spacedBy(ColorOSGap),
                     modifier = Modifier.colorOSModuleReveal(3, leaving, reveal),
                 ) {
-                    ColorOSMyDevices(
-                        glass = glass,
-                        height = tileSize,
-                        onClick = onOpenDevices,
-                        modifier = Modifier.weight(1f),
-                    )
+                    if (pillTile != null) {
+                        with(infiniteGridLayout) {
+                            ColorOSWideTile(pillTile, listening, Modifier.weight(1f))
+                        }
+                    } else {
+                        ColorOSMyDevices(
+                            glass = glass,
+                            height = tileSize,
+                            onClick = onOpenDevices,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                     ColorOSRingerSwitch(
                         audioVolumeInteractor = audioVolumeInteractor,
                         glass = glass,
