@@ -152,8 +152,16 @@ fun StatusBarPopup(
                                 .coerceIn(sideMarginPx, maxY)
                         return IntOffset(x, y)
                     }
+                    // The capsule is drawn over the camera with a translation, away from where
+                    // it is laid out, so centre on its on-screen bounds when they are known.
                     val x =
-                        (anchorBounds.center.x - popupContentSize.width / 2).coerceIn(0, maxX)
+                        if (chip != null) {
+                            (chip.center.x - popupContentSize.width / 2f)
+                                .roundToInt()
+                                .coerceIn(0, maxX)
+                        } else {
+                            (anchorBounds.center.x - popupContentSize.width / 2).coerceIn(0, maxX)
+                        }
                     val y =
                         if (popupTopPx != null) {
                             popupTopPx - edgePaddingPx
