@@ -1758,13 +1758,6 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
     }
 
     private int getNotificationsScrimColor() {
-        if (isColorOSBackdrop()) {
-            // The glass of the ColorOS QS panel is pale and neutral on its own, so it always gets
-            // the scrim of the clear shade. The scrim of the stock shade is tinted with the
-            // theme and turns the glass the color of the wallpaper, whatever the shade style is.
-            return ShadeColors.notificationScrim(mContext, isBlurCurrentlySupported(),
-                    ShadeColors.Style.GLASS);
-        }
         return ShadeColors.notificationScrim(mContext, isBlurCurrentlySupported());
     }
 
