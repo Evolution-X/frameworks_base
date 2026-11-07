@@ -367,7 +367,7 @@ fun StatusBarDynamicIslandContainer(
 
 /** Whether the island uses the ColorOS style; follows its setting live. */
 @Composable
-private fun rememberDynamicIslandColorOSStyle(): Boolean {
+internal fun rememberDynamicIslandColorOSStyle(): Boolean {
     val context = LocalContext.current
     val initial = remember(context) { context.contentResolver.readDynamicIslandColorOSStyle() }
     val flow = remember(context) { observeDynamicIslandColorOSStyle(context) }
