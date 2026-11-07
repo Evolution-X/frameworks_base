@@ -58,6 +58,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -75,6 +76,7 @@ import com.android.systemui.media.controls.shared.model.MediaAction
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.quickactions.media.shared.model.MediaControlChipModel
 import com.android.systemui.statusbar.quickactions.ui.compose.PopupSurface
+import com.android.systemui.statusbar.quickactions.ui.compose.rememberAlbumArtAccent
 import com.android.systemui.statusbar.quickactions.ui.compose.rememberCosArtTint
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
@@ -139,12 +141,16 @@ fun CosMediaCard(model: MediaControlChipModel, modifier: Modifier = Modifier) {
         shape = RoundedCornerShape(CosMediaCard.Corner),
         modifier = modifier.widthIn(min = 320.dp, max = 400.dp),
     ) {
-        CosMediaCardContent(model, Modifier.background(tint))
+        CosMediaCardContent(model, artwork, Modifier.background(tint))
     }
 }
 
 @Composable
-private fun CosMediaCardContent(model: MediaControlChipModel, modifier: Modifier) {
+private fun CosMediaCardContent(
+    model: MediaControlChipModel,
+    artwork: android.graphics.drawable.Drawable?,
+    modifier: Modifier,
+) {
     Column(modifier = modifier.padding(bottom = CosMediaCard.Margin)) {
         Row(
             modifier =
@@ -181,6 +187,7 @@ private fun CosMediaCardContent(model: MediaControlChipModel, modifier: Modifier
         if (model.durationMs > 0L) {
             CosSeekBar(
                 model = model,
+                glow = rememberAlbumArtAccent(artwork, fallback = Color.White).toArgb(),
                 modifier =
                     Modifier.fillMaxWidth()
                         .padding(horizontal = CosMediaCard.Margin)
@@ -303,7 +310,7 @@ private fun rememberTickingPositionMs(model: MediaControlChipModel, frozen: Bool
 }
 
 @Composable
-private fun CosSeekBar(model: MediaControlChipModel, modifier: Modifier = Modifier) {
+private fun CosSeekBar(model: MediaControlChipModel, glow: Int, modifier: Modifier = Modifier) {
     var dragging by remember { mutableStateOf(false) }
     var dragFraction by remember { mutableFloatStateOf(0f) }
     val duration = model.durationMs.coerceAtLeast(1L)
@@ -319,6 +326,7 @@ private fun CosSeekBar(model: MediaControlChipModel, modifier: Modifier = Modifi
             Modifier.weight(1f)
                 .height(14.dp)
                 .padding(horizontal = 4.dp)
+                .cosSeekGlow(shownFraction, model.isPlaying, dragging, glow)
                 .then(
                     if (model.canBeScrubbed && model.seekTo != null) {
                         Modifier.pointerInput(duration) {
