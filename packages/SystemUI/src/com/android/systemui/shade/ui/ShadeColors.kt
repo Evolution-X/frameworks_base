@@ -42,6 +42,12 @@ object ShadeColors {
     /** Value of [Settings.System.QS_PANEL_STYLE] for the ColorOS panel. */
     private const val QS_PANEL_STYLE_COLOROS = 2
 
+    /** Value of [Settings.System.QS_PANEL_STYLE] for the Nothing panel. */
+    private const val QS_PANEL_STYLE_NOTHING = 3
+
+    /** Value of [Settings.System.QS_NOTHING_COLOR_STYLE] for the flat Nothing OS 5.0 colors. */
+    private const val NOTHING_COLOR_STYLE_FLAT = 1
+
     /**
      * All numbers are in CAM16/HCT space (tone = L*, 0..100), so the visual weight of each
      * style is the same for every wallpaper. sRGB blending (blendARGB) can't guarantee that.
@@ -76,6 +82,8 @@ object ShadeColors {
 
     @JvmStatic
     fun shadePanel(context: Context, blurSupported: Boolean, withScrim: Boolean): Int {
+        // The flat Nothing OS 5.0 style has an opaque panel, no blur or wallpaper showing
+        if (isNothingFlatPanel(context)) return context.getColor(R.color.nothing_os_panel)
         val s = spec(style(context), isNight(context))
             ?: return aospShadePanel(context, blurSupported, withScrim)
 
@@ -91,6 +99,7 @@ object ShadeColors {
 
     @JvmStatic
     fun notificationScrim(context: Context, blurSupported: Boolean): Int {
+        if (isNothingFlatPanel(context)) return context.getColor(R.color.nothing_os_surface)
         val s = spec(style(context), isNight(context))
             ?: return if (blurSupported) notificationScrimStandard(context)
             else notificationScrimFallback(context)
@@ -116,7 +125,7 @@ object ShadeColors {
         composited: Boolean,
     ): Int {
         val s = spec(style(context), isNight(context))
-        val card = if (s == null) {
+        val card = if (s == null && !isNothingFlatPanel(context)) {
             context.resources.getColor(
                 com.android.internal.R.color.customColorSurfaceEffect0, context.theme)
         } else {
@@ -190,6 +199,23 @@ object ShadeColors {
         val style = Style.entries.getOrElse(v) { Style.AOSP }
         if (generation == styleGeneration) cachedStyle = style
         return style
+    }
+
+    /**
+     * Whether the Nothing panel has the flat panel and cards of the Nothing OS 5.0 color style.
+     * It sets them itself, so it goes before the shade color style. The translucent Nothing OS
+     * 5.0 style and the dark grey one keep the shade of the shade color style. Read here and not
+     * cached, like the panel style, so that it follows the settings at once.
+     */
+    private fun isNothingFlatPanel(context: Context): Boolean {
+        val resolver = context.contentResolver
+        return Settings.System.getIntForUser(
+            resolver, Settings.System.QS_PANEL_STYLE, 0, UserHandle.USER_CURRENT
+        ) == QS_PANEL_STYLE_NOTHING &&
+            Settings.System.getIntForUser(
+                resolver, Settings.System.QS_NOTHING_COLOR_STYLE, NOTHING_COLOR_STYLE_FLAT,
+                UserHandle.USER_CURRENT
+            ) == NOTHING_COLOR_STYLE_FLAT
     }
 
     private fun isColorOSPanel(context: Context): Boolean =

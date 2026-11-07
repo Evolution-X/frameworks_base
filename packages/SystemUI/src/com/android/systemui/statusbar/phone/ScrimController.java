@@ -571,16 +571,23 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
         }
 
         if (Flags.notificationShadeBlur()) {
-            // The panel color depends on the QS panel style, see getShadePanelColor().
+            // The panel color depends on the QS panel style, see getShadePanelColor(), and on
+            // the color style of the Nothing style, see ShadeColors.
+            final ContentObserver panelStyleObserver = new ContentObserver(mHandler) {
+                @Override
+                public void onChange(boolean selfChange) {
+                    onThemeChanged();
+                }
+            };
             mContext.getContentResolver().registerContentObserver(
                     Settings.System.getUriFor(Settings.System.QS_PANEL_STYLE),
                     false /* notifyForDescendants */,
-                    new ContentObserver(mHandler) {
-                        @Override
-                        public void onChange(boolean selfChange) {
-                            onThemeChanged();
-                        }
-                    },
+                    panelStyleObserver,
+                    UserHandle.USER_ALL);
+            mContext.getContentResolver().registerContentObserver(
+                    Settings.System.getUriFor(Settings.System.QS_NOTHING_COLOR_STYLE),
+                    false /* notifyForDescendants */,
+                    panelStyleObserver,
                     UserHandle.USER_ALL);
         }
     }

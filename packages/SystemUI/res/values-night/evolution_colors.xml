@@ -5,4 +5,16 @@
 -->
 <resources>
 
+    <!-- NothingOS style Quick Settings, Nothing OS 5.0 palette (dark) -->
+    <color name="nothing_os_panel">#ff0d0d0d</color>
+    <color name="nothing_os_surface">#ff1b1b1b</color>
+    <color name="nothing_os_active">#ffe1e1e1</color>
+    <color name="nothing_os_slider_track">#ff1b1b1b</color>
+    <color name="nothing_os_slider_fill">#ffe2e2e2</color>
+    <color name="nothing_os_slider_icon_on_fill">#ff1a1a1a</color>
+    <color name="nothing_os_icon_circle">#ff303030</color>
+    <color name="nothing_os_content">#ffffffff</color>
+    <color name="nothing_os_content_on_active">#ff000000</color>
+    <color name="nothing_os_divider">#33ffffff</color>
+    <color name="nothing_os_divider_on_active">#33000000</color>
 </resources>
