@@ -1004,14 +1004,28 @@ public class AxSpoofManager implements IAxSpoofManager {
     }
 
     /**
+     * Foreground user, resolved with system identity. Callers of the keybox getter
+     * are attested apps and do not hold INTERACT_ACROSS_USERS.
+     */
+    private static int currentForegroundUserId() {
+        long token = Binder.clearCallingIdentity();
+        try {
+            return ActivityManager.getCurrentUser();
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
+    }
+
+    /**
      * The keybox holds a signing key, so only system_server and packages that are
      * actually attested (listed in the target setting and not skipped) may read it.
      */
     private boolean canReadTrickyStoreKeybox() {
         int uid = Binder.getCallingUid();
         if (uid == android.os.Process.SYSTEM_UID || uid == android.os.Process.ROOT_UID) return true;
-        if (UserHandle.getUserId(uid) != ActivityManager.getCurrentUser()
-                && UserHandle.getUserId(uid) != UserHandle.USER_SYSTEM) return false;
+        final int callingUserId = UserHandle.getUserId(uid);
+        if (callingUserId != currentForegroundUserId()
+                && callingUserId != UserHandle.USER_SYSTEM) return false;
         String[] packages = mContext.getPackageManager().getPackagesForUid(uid);
         if (packages == null) return false;
         for (String pkg : packages) {
