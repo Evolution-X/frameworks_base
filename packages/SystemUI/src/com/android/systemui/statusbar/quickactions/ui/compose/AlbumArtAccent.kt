@@ -59,3 +59,32 @@ fun rememberAlbumArtAccent(artworkDrawable: Drawable?, fallback: Color): Color {
         )
         .value
 }
+
+/**
+ * A faint tint taken from the dominant color of [artwork], laid over the ColorOS island media card.
+ * Transparent while there is no artwork.
+ */
+@Composable
+internal fun rememberCosArtTint(artwork: Drawable?): Color {
+    var tint by remember { mutableStateOf(Color.Transparent) }
+    LaunchedEffect(artwork) {
+        if (artwork == null) {
+            tint = Color.Transparent
+            return@LaunchedEffect
+        }
+        tint =
+            withContext(Dispatchers.Default) {
+                runCatching {
+                        val palette = Palette.from(artwork.toBitmap(64, 64)).generate()
+                        val rgb = palette.dominantSwatch?.rgb ?: return@runCatching Color.Transparent
+                        val hsv = FloatArray(3)
+                        android.graphics.Color.colorToHSV(rgb, hsv)
+                        hsv[1] = maxOf(hsv[1], 0.6f)
+                        hsv[2] = 0.8f
+                        Color(android.graphics.Color.HSVToColor(26, hsv))
+                    }
+                    .getOrDefault(Color.Transparent)
+            }
+    }
+    return animateColorAsState(tint, tween(450), label = "cos_art_tint").value
+}
