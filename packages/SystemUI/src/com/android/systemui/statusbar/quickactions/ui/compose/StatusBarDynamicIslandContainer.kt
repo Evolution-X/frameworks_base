@@ -130,8 +130,19 @@ fun StatusBarDynamicIslandContainer(
     val selectedChip = chips.getOrNull(selectedIndex)
     val shownChip = chips.firstOrNull { it.isPopupShown }
 
+    val stackChips = remember(chips) { islandCardStack(chips) }
+    // Chosen when the popup opens and kept until it closes, so dismissing cards never swaps the
+    // stack for the single card while it is open.
+    var stacked by remember { mutableStateOf(false) }
+
     LaunchedEffect(shownChip) {
         if (shownChip != null) {
+            if (popupAnchorChip == null) {
+                stacked =
+                    cos &&
+                        stackChips.size >= ISLAND_STACK_MIN_CARDS &&
+                        stackChips.any { it.chipId == shownChip.chipId }
+            }
             selectedChipId = shownChip.chipId
             popupAnchorChip = shownChip
             popupVisible = true
@@ -139,6 +150,7 @@ fun StatusBarDynamicIslandContainer(
             popupVisible = false
             delay(if (cos) CosCardCloseMillis + 20L else 220L)
             popupAnchorChip = null
+            stacked = false
         }
     }
 
@@ -360,6 +372,7 @@ fun StatusBarDynamicIslandContainer(
                 chipBoundsInScreen = anchorBounds,
                 sideEdge = sideEdge,
                 cos = cos,
+                stackedChips = if (stacked) stackChips else null,
             )
         }
     }
