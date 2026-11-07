@@ -47,6 +47,7 @@ object DynamicIslandFeatureSettings {
     const val OFFSET_X_DP10 = "status_bar_dynamic_island_offset_x_dp10"
     const val OFFSET_Y_DP10 = "status_bar_dynamic_island_offset_y_dp10"
     const val LANDSCAPE_TOP = "status_bar_dynamic_island_landscape_top"
+    const val COLOROS_STYLE = "status_bar_dynamic_island_coloros_style"
     private const val OFFSET_DP10_LIMIT = 200
 
     const val SCALE_MIN = 0.7f
@@ -115,6 +116,13 @@ object DynamicIslandFeatureSettings {
             )
         return (percent / 100f).coerceIn(SCALE_MIN, SCALE_MAX)
     }
+
+    /** Whether the island uses the ColorOS look; off unless the user turns it on. */
+    fun ContentResolver.readDynamicIslandColorOSStyle(): Boolean =
+        readDynamicIslandFeatureEnabled(COLOROS_STYLE, defaultValue = false)
+
+    fun observeDynamicIslandColorOSStyle(context: Context): Flow<Boolean> =
+        observeDynamicIslandFeatureEnabled(context, COLOROS_STYLE, defaultValue = false)
 
     fun observeDynamicIslandFeatureEnabled(
         context: Context,
