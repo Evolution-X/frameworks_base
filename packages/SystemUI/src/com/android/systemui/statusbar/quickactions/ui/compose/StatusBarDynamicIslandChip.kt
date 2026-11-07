@@ -22,6 +22,8 @@ import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
@@ -104,6 +106,8 @@ fun StatusBarDynamicIslandChip(
     pageIndex: Int = 0,
     onNextPage: () -> Unit = {},
     onChipBoundsChanged: (Rect) -> Unit = {},
+    /** Draw for the ColorOS island shell, which supplies the capsule, instead of our own. */
+    cos: Boolean = false,
 ) {
     val isMediaChip = viewModel.popupContent is PopupContentModel.Media
     val chipShape = RoundedCornerShape(50)
@@ -137,7 +141,7 @@ fun StatusBarDynamicIslandChip(
         view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
         mediaOpenApp?.invoke()
     }
-    if (viewModel.popupContent.isUtilityStatusContent() && viewModel.icons.isNotEmpty()) {
+    if (!cos && viewModel.popupContent.isUtilityStatusContent() && viewModel.icons.isNotEmpty()) {
         UtilityStatusIslandChip(
             viewModel = viewModel,
             onTap = hapticOnTap,
@@ -193,29 +197,44 @@ fun StatusBarDynamicIslandChip(
         modifier =
             modifier
                 .then(boundsModifier)
-                .defaultMinSize(minHeight = 32.dp * heightScale)
-                .widthIn(
-                    min = if (isStartAnchored) startGap else (compactWidth ?: 0.dp),
-                    max = (compactWidth ?: (CompactIslandMaxWidth * widthScale)) + startGap,
+                .then(
+                    if (cos) {
+                        Modifier.height(CosIsland.height(cutoutSpec.holeSize))
+                            .widthIn(min = CosIsland.MinWidth, max = CosIsland.MaxWidth)
+                    } else {
+                        Modifier.defaultMinSize(minHeight = 32.dp * heightScale)
+                            .widthIn(
+                                min = if (isStartAnchored) startGap else (compactWidth ?: 0.dp),
+                                max =
+                                    (compactWidth ?: (CompactIslandMaxWidth * widthScale)) +
+                                        startGap,
+                            )
+                            .graphicsLayer {
+                                scaleX = collapseState.scale
+                                if (isStartAnchored) transformOrigin = TransformOrigin(0f, 0.5f)
+                            }
+                            .clip(chipShape)
+                            .background(Color.Black)
+                            .border(width = 1.dp, color = chipOutline, shape = chipShape)
+                    }
                 )
-                .graphicsLayer {
-                    scaleX = collapseState.scale
-                    if (isStartAnchored) transformOrigin = TransformOrigin(0f, 0.5f)
-                }
-                .clip(chipShape)
-                .background(Color.Black)
-                .border(width = 1.dp, color = chipOutline, shape = chipShape)
                 .combinedClickable(
                     onClick = hapticOnTap,
                     onLongClick = mediaOpenApp?.let { { hapticOnLongPress() } },
                 )
-                .padding(
-                    start = if (isStartAnchored) startGap else 10.dp * widthScale,
-                    end = if (isStartAnchored) 8.dp * widthScale else 12.dp * widthScale,
-                    top = 7.dp * heightScale,
-                    bottom = 7.dp * heightScale,
-                )
-                .graphicsLayer { alpha = collapseState.contentAlpha },
+                .then(
+                    if (cos) {
+                        Modifier.padding(horizontal = CosIsland.Padding)
+                    } else {
+                        Modifier.padding(
+                                start = if (isStartAnchored) startGap else 10.dp * widthScale,
+                                end = if (isStartAnchored) 8.dp * widthScale else 12.dp * widthScale,
+                                top = 7.dp * heightScale,
+                                bottom = 7.dp * heightScale,
+                            )
+                            .graphicsLayer { alpha = collapseState.contentAlpha }
+                    }
+                ),
         horizontalArrangement =
             if (isMediaChip && !isStartAnchored) {
                 Arrangement.SpaceBetween
@@ -233,7 +252,14 @@ fun StatusBarDynamicIslandChip(
                 Icon(
                     icon = chipIcon.icon,
                     modifier = Modifier
-                        .size(if (isArtworkLike) 18.dp else 16.dp)
+                        .size(
+                            when {
+                                cos && isArtworkLike -> CosIsland.IconSize
+                                cos -> CosIsland.IconSize * 0.8f
+                                isArtworkLike -> 18.dp
+                                else -> 16.dp
+                            }
+                        )
                         .then(
                             if (isArtworkLike) {
                                 Modifier.clip(CircleShape)
@@ -257,8 +283,16 @@ fun StatusBarDynamicIslandChip(
                 UprightContent {
                     Text(
                         text = text,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = chipContentColor,
+                        style =
+                            if (cos) {
+                                MaterialTheme.typography.labelLarge.copy(
+                                    fontSize = CosIsland.TextSize,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            } else {
+                                MaterialTheme.typography.labelLarge
+                            },
+                        color = if (cos) CosIsland.TextColor else chipContentColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier =
@@ -769,6 +803,8 @@ data class DynamicIslandCutoutSpec(
      * the container instead moves the island by the distance from where it was actually placed.
      */
     val cutoutCenterX: Float? = null,
+    /** Width of the camera hole, which the ColorOS island grows out of. */
+    val holeSize: Dp = 20.dp,
 )
 
 private val DynamicIslandHoleSidePadding = 4.dp
@@ -886,6 +922,7 @@ fun rememberDynamicIslandCutoutSpec(): DynamicIslandCutoutSpec {
                 horizontalOffset = horizontalOffsetDp,
                 anchor = anchor,
                 cutoutCenterX = if (centreOnCamera) topCutout.exactCenterX() else null,
+                holeSize = topCutout.width().toDp(),
             )
         }
     }
