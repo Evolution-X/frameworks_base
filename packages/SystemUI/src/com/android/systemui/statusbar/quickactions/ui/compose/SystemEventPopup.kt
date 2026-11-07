@@ -66,7 +66,7 @@ private val EventPopupShape = RoundedCornerShape(32.dp)
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SystemEventPopup(model: PopupContentModel.SystemEvent, modifier: Modifier = Modifier) {
-    val accent = IslandAccents.Connectivity
+    val accent = model.accent ?: IslandAccents.Connectivity
     PopupSurface(
         shape = EventPopupShape,
         modifier = modifier.widthIn(min = 280.dp, max = 360.dp),
@@ -89,13 +89,21 @@ fun SystemEventPopup(model: PopupContentModel.SystemEvent, modifier: Modifier = 
                     color = accent,
                 )
             }
-            model.progress?.let { value ->
+            if (model.indeterminate) {
                 LinearWavyProgressIndicator(
-                    progress = { value.coerceIn(0f, 1f) },
                     color = accent,
                     trackColor = accent.copy(alpha = 0.16f),
                     modifier = Modifier.fillMaxWidth(),
                 )
+            } else {
+                model.progress?.let { value ->
+                    LinearWavyProgressIndicator(
+                        progress = { value.coerceIn(0f, 1f) },
+                        color = accent,
+                        trackColor = accent.copy(alpha = 0.16f),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
 
             if (model.actions.isNotEmpty()) {

@@ -16,11 +16,13 @@
 
 package com.android.systemui.statusbar.quickactions.liveactivity.ui.viewmodel
 
+import android.app.Notification
 import android.content.Context
 import android.os.SystemClock
 import android.text.format.DateFormat
 import android.text.format.DateUtils
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.Color
 import com.android.systemui.ActivityIntentHelper
 import com.android.systemui.common.shared.model.ContentDescription
 import com.android.systemui.common.shared.model.Icon
@@ -154,6 +156,17 @@ constructor(
                 ?: content.oldProgress?.takeIf { it.max > 0 }?.let {
                     it.progress.toFloat() / it.max
                 }
+        val indeterminate =
+            content.newProgress?.isIndeterminate == true ||
+                content.oldProgress?.isIndeterminate == true
+        val accent =
+            notifCollection
+                .getEntry(key)
+                ?.sbn
+                ?.notification
+                ?.color
+                ?.takeIf { it != Notification.COLOR_DEFAULT }
+                ?.let { Color(it) }
         val title = (content.title ?: metric?.label)?.toString()?.takeIf { it.isNotBlank() }
         val text = content.text?.toString()?.takeIf { it.isNotBlank() }
         if (title == null && text == null) return null
@@ -172,6 +185,8 @@ constructor(
             shortText = (content.shortCriticalText ?: metricText)?.takeIf { it.isNotBlank() },
             time = time,
             progress = progress?.coerceIn(0f, 1f),
+            indeterminate = indeterminate,
+            accent = accent,
             actions = appActions(),
             onOpen =
                 contentIntent.toActivityLaunchAction(
@@ -226,6 +241,8 @@ constructor(
                                 }
                             ),
                     progress = progress,
+                    indeterminate = indeterminate,
+                    accent = accent,
                     icon = icon,
                     prominentText = chipText,
                     ownerPackage = packageName,
@@ -259,6 +276,8 @@ constructor(
         val time: LiveTime?,
         /** 0..1, or null when the notification has no determinate progress. */
         val progress: Float?,
+        val indeterminate: Boolean,
+        val accent: Color?,
         val actions: List<PopupActionModel>,
         val onOpen: (() -> Unit)?,
     )
