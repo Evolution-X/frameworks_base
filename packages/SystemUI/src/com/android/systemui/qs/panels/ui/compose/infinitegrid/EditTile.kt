@@ -1095,12 +1095,13 @@ private fun NothingEditSlider(
                 },
         contentAlignment = Alignment.Center,
     ) {
+        val labelColor = NothingQsColors.content
         Row(
             modifier =
                 Modifier.fillMaxWidth()
                     .height(dimensionResource(R.dimen.qs_nothing_brightness_slider_height))
                     .background(
-                        color = colorResource(R.color.nothing_qs_surface),
+                        color = NothingQsColors.surface,
                         shape = RoundedCornerShape(32.dp),
                     )
                     .padding(horizontal = 20.dp),
@@ -1108,7 +1109,7 @@ private fun NothingEditSlider(
         ) {
             BasicText(
                 text = label,
-                color = { Color.White },
+                color = { labelColor },
                 style = MaterialTheme.typography.labelLarge,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -1116,11 +1117,11 @@ private fun NothingEditSlider(
             )
             BasicText(
                 text = stringResource(R.string.qs_customize_remove),
-                color = { Color.White },
+                color = { labelColor },
                 style = MaterialTheme.typography.labelLarge,
                 modifier =
                     Modifier.background(
-                            color = colorResource(R.color.nothing_qs_icon_circle),
+                            color = NothingQsColors.iconCircle,
                             shape = RoundedCornerShape(50),
                         )
                         .clickable(onClick = onRemove)
@@ -1184,7 +1185,7 @@ private fun NothingTileCell(
     val stateDescription = stringResource(id = R.string.accessibility_qs_edit_position, index + 1)
     val tileState by rememberTileState(cell.tile, selectionState)
     val isQuad = cell.isQuad
-    val surfaceColor = colorResource(R.color.nothing_qs_surface)
+    val surfaceColor = NothingQsColors.surface
     val resizingState = rememberResizingState(
         cell.tile.tileSpec,
         cell.isIcon,
@@ -2231,7 +2232,7 @@ private fun NothingEditCircleTile(
     ) {
         SmallTileContent(
             iconProvider = { tile.icon },
-            color = Color.White,
+            color = NothingQsColors.content,
             size = { 28.dp },
             modifier = Modifier.align(Alignment.Center),
         )
@@ -2251,7 +2252,7 @@ private fun NothingEditPillTile(
     ) {
         SmallTileContent(
             iconProvider = { tile.icon },
-            color = Color.White,
+            color = NothingQsColors.content,
             size = { 26.dp },
         )
         Spacer(modifier = Modifier.width(14.dp))
@@ -2259,7 +2260,7 @@ private fun NothingEditPillTile(
             modifier = Modifier
                 .width(1.dp)
                 .height(22.dp)
-                .background(colorResource(R.color.nothing_qs_divider))
+                .background(NothingQsColors.divider)
         )
         Spacer(modifier = Modifier.width(14.dp))
         Column(
@@ -2268,7 +2269,7 @@ private fun NothingEditPillTile(
         ) {
             Text(
                 text = tile.label.text,
-                color = Color.White,
+                color = NothingQsColors.content,
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 14.sp,
@@ -2280,7 +2281,7 @@ private fun NothingEditPillTile(
             tile.appName?.text?.takeIf { it.isNotEmpty() }?.let {
                 Text(
                     text = it,
-                    color = Color.White.copy(alpha = 0.7f),
+                    color = NothingQsColors.content.copy(alpha = 0.7f),
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontSize = 12.sp,
                     ),
@@ -2309,12 +2310,12 @@ private fun NothingEditQuadTile(
             modifier = Modifier
                 .size(54.dp)
                 .clip(CircleShape)
-                .background(colorResource(R.color.nothing_qs_icon_circle)),
+                .background(NothingQsColors.iconCircle),
             contentAlignment = Alignment.Center,
         ) {
             SmallTileContent(
                 iconProvider = { tile.icon },
-                color = Color.White,
+                color = NothingQsColors.content,
                 size = { 28.dp },
                 modifier = Modifier.align(Alignment.Center),
             )
@@ -2326,7 +2327,7 @@ private fun NothingEditQuadTile(
         ) {
             Text(
                 text = tile.label.text,
-                color = Color.White,
+                color = NothingQsColors.content,
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
@@ -2338,7 +2339,7 @@ private fun NothingEditQuadTile(
             )
             Text(
                 text = tile.appName?.text ?: "",
-                color = Color.White.copy(alpha = 0.65f),
+                color = NothingQsColors.content.copy(alpha = 0.65f),
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontSize = 12.sp,
                     textAlign = TextAlign.Center,
