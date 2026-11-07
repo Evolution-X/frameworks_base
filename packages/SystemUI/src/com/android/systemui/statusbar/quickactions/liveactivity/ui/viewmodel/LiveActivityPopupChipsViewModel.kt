@@ -29,6 +29,7 @@ import com.android.systemui.lifecycle.HydratedActivatable
 import com.android.systemui.plugins.ActivityStarter
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.NotificationLockscreenUserManager
+import com.android.systemui.statusbar.notification.collection.notifcollection.CommonNotifCollection
 import com.android.systemui.statusbar.notification.domain.interactor.ActiveNotificationsInteractor
 import com.android.systemui.statusbar.notification.promoted.shared.model.PromotedNotificationContentModel
 import com.android.systemui.statusbar.notification.shared.ActiveNotificationModel
@@ -38,6 +39,7 @@ import com.android.systemui.statusbar.policy.KeyguardStateController
 import com.android.systemui.statusbar.quickactions.livescore.ui.viewmodel.isLiveScoreCandidate
 import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings
 import com.android.systemui.statusbar.quickactions.popups.shared.model.PopupActionModel
+import com.android.systemui.statusbar.quickactions.popups.shared.toSendAction
 import com.android.systemui.statusbar.quickactions.popups.shared.model.SystemEventKind
 import com.android.systemui.statusbar.quickactions.popups.shared.toActivityLaunchAction
 import com.android.systemui.statusbar.quickactions.shared.model.ChipContent
@@ -66,6 +68,7 @@ class LiveActivityPopupChipsViewModel
 constructor(
     @Application private val context: Context,
     activeNotificationsInteractor: ActiveNotificationsInteractor,
+    private val notifCollection: CommonNotifCollection,
     private val activityStarter: ActivityStarter,
     private val activityIntentHelper: ActivityIntentHelper,
     private val lockscreenUserManager: NotificationLockscreenUserManager,
@@ -169,6 +172,7 @@ constructor(
             shortText = (content.shortCriticalText ?: metricText)?.takeIf { it.isNotBlank() },
             time = time,
             progress = progress?.coerceIn(0f, 1f),
+            actions = appActions(),
             onOpen =
                 contentIntent.toActivityLaunchAction(
                     activityStarter = activityStarter,
@@ -178,6 +182,21 @@ constructor(
                 ),
         )
     }
+
+    /** The app's own notification actions, like pause or stop, so the card can control it. */
+    private fun ActiveNotificationModel.appActions(): List<PopupActionModel> =
+        notifCollection
+            .getEntry(key)
+            ?.sbn
+            ?.notification
+            ?.actions
+            .orEmpty()
+            .take(MAX_APP_ACTIONS)
+            .mapNotNull { action ->
+                val label = action.title?.toString()?.takeIf { it.isNotBlank() }
+                val send = action.actionIntent.toSendAction()
+                if (label == null || send == null) null else PopupActionModel(label, send)
+            }
 
     private fun LiveActivity.toChip(): QuickActionChipModel.PopupChip {
         val chipText = chipText()
@@ -196,14 +215,16 @@ constructor(
                     title = heading,
                     text = body,
                     actions =
-                        listOfNotNull(
-                            onOpen?.let {
-                                PopupActionModel(
-                                    label = context.getString(R.string.dynamic_island_event_open),
-                                    onClick = it,
-                                )
-                            }
-                        ),
+                        actions +
+                            listOfNotNull(
+                                onOpen?.let {
+                                    PopupActionModel(
+                                        label =
+                                            context.getString(R.string.dynamic_island_event_open),
+                                        onClick = it,
+                                    )
+                                }
+                            ),
                     progress = progress,
                     icon = icon,
                     prominentText = chipText,
@@ -238,6 +259,7 @@ constructor(
         val time: LiveTime?,
         /** 0..1, or null when the notification has no determinate progress. */
         val progress: Float?,
+        val actions: List<PopupActionModel>,
         val onOpen: (() -> Unit)?,
     )
 
@@ -255,6 +277,10 @@ constructor(
     @AssistedFactory
     interface Factory {
         fun create(): LiveActivityPopupChipsViewModel
+    }
+
+    private companion object {
+        const val MAX_APP_ACTIONS = 2
     }
 
     /** Time left on a countdown or time since the start of a count-up, as "14:54". */
