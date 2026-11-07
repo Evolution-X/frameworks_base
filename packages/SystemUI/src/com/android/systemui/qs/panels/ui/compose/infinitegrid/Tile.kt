@@ -1537,9 +1537,8 @@ private object TileDefaults {
     @ReadOnlyComposable
     fun nothingColorsForState(uiState: TileUiState, isQuad: Boolean): TileColors {
         val active = uiState.visualState == STATE_ACTIVE && !isQuad
-        val background =
-            colorResource(if (active) R.color.nothing_qs_active else R.color.nothing_qs_surface)
-        val content = if (active) Color.Black else Color.White
+        val background = if (active) NothingQsColors.active else NothingQsColors.surface
+        val content = if (active) NothingQsColors.contentOnActive else NothingQsColors.content
         return TileColors(
             background = background,
             iconBackground = background,

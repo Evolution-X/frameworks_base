@@ -24,25 +24,26 @@ import androidx.compose.ui.unit.dp
 import com.android.compose.theme.LocalAndroidColorScheme
 import com.android.systemui.common.ringer.RingerSliderDimens
 import com.android.systemui.common.ringer.RingerSliderTheme
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.NothingQsColors
 import com.android.systemui.res.R
 
 class QSTileRingerTheme(
     private val isNothing: Boolean = false,
 ) : RingerSliderTheme {
     override val activeBg: Color
-        @Composable get() = if (isNothing) colorResource(R.color.nothing_qs_active) else MaterialTheme.colorScheme.primary
+        @Composable get() = if (isNothing) NothingQsColors.active else MaterialTheme.colorScheme.primary
     
     override val neutralBg: Color
-        @Composable get() = if (isNothing) colorResource(R.color.nothing_qs_surface) else LocalAndroidColorScheme.current.surfaceEffect1
+        @Composable get() = if (isNothing) NothingQsColors.surface else LocalAndroidColorScheme.current.surfaceEffect1
     
     override val activeIcon: Color
-        @Composable get() = if (isNothing) Color.Black else MaterialTheme.colorScheme.onPrimary
+        @Composable get() = if (isNothing) NothingQsColors.contentOnActive else MaterialTheme.colorScheme.onPrimary
     
     override val neutralIcon: Color
-        @Composable get() = if (isNothing) Color.White.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurface
+        @Composable get() = if (isNothing) NothingQsColors.content.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurface
 
     override val dndBg: Color
-        @Composable get() = if (isNothing) colorResource(R.color.nothing_qs_active) else MaterialTheme.colorScheme.primary
+        @Composable get() = if (isNothing) NothingQsColors.active else MaterialTheme.colorScheme.primary
     
     override val dndIcon: Color
         @Composable get() = if (isNothing) colorResource(R.color.nothing_qs_alert) else MaterialTheme.colorScheme.onPrimary
