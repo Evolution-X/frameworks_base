@@ -137,7 +137,7 @@ fun StatusBarDynamicIslandContainer(
             popupVisible = true
         } else if (popupAnchorChip != null) {
             popupVisible = false
-            delay(220)
+            delay(if (cos) CosCardCloseMillis + 20L else 220L)
             popupAnchorChip = null
         }
     }
@@ -239,7 +239,7 @@ fun StatusBarDynamicIslandContainer(
                     rememberUpdatedState { direction: Int -> selectRelative(direction) }
                 CosIslandShell(
                     key = chip.chipId,
-                    visible = selectedChip != null,
+                    visible = selectedChip != null && !popupVisible,
                     hole = cutoutSpec.holeSize,
                     moons = chips.size > 1,
                     onGone = {
@@ -359,6 +359,7 @@ fun StatusBarDynamicIslandContainer(
                 isVisible = popupVisible,
                 chipBoundsInScreen = anchorBounds,
                 sideEdge = sideEdge,
+                cos = cos,
             )
         }
     }
