@@ -370,6 +370,7 @@ fun StatusBarDynamicIslandContainer(
                 viewModel = anchoredChip,
                 isVisible = popupVisible,
                 chipBoundsInScreen = anchorBounds,
+                anchorCenterX = cameraCenterX,
                 sideEdge = sideEdge,
                 cos = cos,
                 stackedChips = if (stacked) stackChips else null,
