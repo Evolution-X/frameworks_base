@@ -100,6 +100,11 @@ fun StatusBarPopup(
     viewModel: QuickActionChipModel.PopupChip,
     isVisible: Boolean,
     chipBoundsInScreen: Rect? = null,
+    /**
+     * The x the island is moved onto, when it is centred on a top camera. The popup centres on it
+     * ahead of the chip bounds, which can lag behind the island's own translation.
+     */
+    anchorCenterX: Float? = null,
     sideEdge: DynamicIslandCutoutEdge? = null,
     /** Open and close like a ColorOS card: out of the island, behind a growing reveal. */
     cos: Boolean = false,
@@ -135,6 +140,7 @@ fun StatusBarPopup(
             yOffsetPx,
             sideEdge?.edge,
             chipBoundsInScreen,
+            anchorCenterX,
             sideGapPx,
             sideMarginPx,
             popupTopPx,
@@ -169,12 +175,13 @@ fun StatusBarPopup(
                         return IntOffset(x, y)
                     }
                     // The capsule is drawn over the camera with a translation, away from where
-                    // it is laid out, so centre on its on-screen bounds when they are known.
+                    // it is laid out. The island is moved onto the camera, so that is the centre
+                    // to use. Its translation is applied when drawing, so the chip bounds can
+                    // still be the old ones when a chip changes width: they are the fallback.
+                    val centerX = anchorCenterX ?: chip?.center?.x
                     val x =
-                        if (chip != null) {
-                            (chip.center.x - popupContentSize.width / 2f)
-                                .roundToInt()
-                                .coerceIn(0, maxX)
+                        if (centerX != null) {
+                            (centerX - popupContentSize.width / 2f).roundToInt().coerceIn(0, maxX)
                         } else {
                             (anchorBounds.center.x - popupContentSize.width / 2).coerceIn(0, maxX)
                         }
