@@ -319,18 +319,30 @@ fun StatusBarPopup(
                         }
                     }
                 } else if (!isVisible) {
-                    coroutineScope {
-                        for (scale in listOf(scaleX, scaleY)) {
-                            launch { scale.animateTo(0.4f, tween(CosCardCloseMillis, easing = CosCardEase)) }
+                    if (skipMotionOnDismiss) {
+                        // The blur is composited outside this layer and does not follow the
+                        // translation or the reveal clip, so it just shrinks and fades in place.
+                        coroutineScope {
+                            launch { scaleX.animateTo(0.01f, tween(130)) }
+                            launch { scaleY.animateTo(0.01f, tween(130)) }
+                            alpha.animateTo(0f, tween(120))
                         }
-                        launch {
-                            cardShiftX.animateTo(fromX, tween(CosCardCloseMillis, easing = CosCardMove))
+                    } else {
+                        coroutineScope {
+                            for (scale in listOf(scaleX, scaleY)) {
+                                launch {
+                                    scale.animateTo(0.4f, tween(CosCardCloseMillis, easing = CosCardEase))
+                                }
+                            }
+                            launch {
+                                cardShiftX.animateTo(fromX, tween(CosCardCloseMillis, easing = CosCardMove))
+                            }
+                            launch {
+                                translationY.animateTo(fromY, tween(CosCardCloseMillis, easing = CosCardMove))
+                            }
+                            launch { reveal.animateTo(0f, tween(CosCardCloseMillis, easing = CosCardEase)) }
+                            veil.animateTo(1f, tween(200, easing = CosCardEase))
                         }
-                        launch {
-                            translationY.animateTo(fromY, tween(CosCardCloseMillis, easing = CosCardMove))
-                        }
-                        launch { reveal.animateTo(0f, tween(CosCardCloseMillis, easing = CosCardEase)) }
-                        veil.animateTo(1f, tween(200, easing = CosCardEase))
                     }
                 }
                 return@LaunchedEffect
