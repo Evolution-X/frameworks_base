@@ -298,7 +298,8 @@ fun StatusBarPopup(
                 (stacked || viewModel.popupContent.let {
                     it is PopupContentModel.Stopwatch ||
                         it is PopupContentModel.Alarm ||
-                        it is PopupContentModel.ScreenRecord
+                        it is PopupContentModel.ScreenRecord ||
+                        it is PopupContentModel.Flashlight
                 })
         val skipMotionOnDismiss = colorMode == POPUP_COLOR_MODE_BLUR || glassCard
 
