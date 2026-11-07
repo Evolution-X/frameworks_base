@@ -20,4 +20,17 @@
     <color name="nothing_qs_divider_on_active">#33000000</color>
     <color name="nothing_qs_slider_icon_on_fill">#ff1e1e1e</color>
     <color name="nothing_qs_icon_circle">#ff383838</color>
+
+    <!-- NothingOS style Quick Settings, Nothing OS 5.0 palette (light) -->
+    <color name="nothing_os_panel">#ffe2e2e2</color>
+    <color name="nothing_os_surface">#ffd1d1d1</color>
+    <color name="nothing_os_active">#ffffffff</color>
+    <color name="nothing_os_slider_track">#fff1f1f1</color>
+    <color name="nothing_os_slider_fill">#ffffffff</color>
+    <color name="nothing_os_slider_icon_on_fill">#ff1a1a1a</color>
+    <color name="nothing_os_icon_circle">#ffe2e2e2</color>
+    <color name="nothing_os_content">#ff1a1a1a</color>
+    <color name="nothing_os_content_on_active">#ff000000</color>
+    <color name="nothing_os_divider">#33000000</color>
+    <color name="nothing_os_divider_on_active">#33000000</color>
 </resources>
