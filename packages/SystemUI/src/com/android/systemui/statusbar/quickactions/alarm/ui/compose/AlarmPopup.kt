@@ -31,6 +31,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Snooze
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -49,9 +51,11 @@ import com.android.systemui.res.R
 import com.android.systemui.statusbar.quickactions.alarm.shared.model.AlarmPopupModel
 import com.android.systemui.statusbar.quickactions.popups.shared.model.PopupActionModel
 import com.android.systemui.statusbar.quickactions.ui.compose.IslandAccents
+import com.android.systemui.statusbar.quickactions.ui.compose.IslandGlassCard
 import com.android.systemui.statusbar.quickactions.ui.compose.IslandGlyphBadge
 import com.android.systemui.statusbar.quickactions.ui.compose.PopupActionChips
 import com.android.systemui.statusbar.quickactions.ui.compose.PopupSurface
+import com.android.systemui.statusbar.quickactions.ui.compose.islandGlassCards
 import com.android.systemui.statusbar.quickactions.ui.compose.pressScale
 
 private val PopupShape = RoundedCornerShape(32.dp)
@@ -72,6 +76,35 @@ fun AlarmPopup(
                 infiniteRepeatable(tween(1000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
             label = "alarm_breathe_scale",
         )
+    if (islandGlassCards()) {
+        IslandGlassCard(
+            primary = model.fullTimeText,
+            secondary =
+                listOf(model.title, model.dayText)
+                    .filter { it.isNotBlank() }
+                    .joinToString(" · "),
+            glyph = {
+                StatusBarIcon(
+                    icon =
+                        Icon.Resource(
+                            resId = R.drawable.ic_dynamic_island_alarm,
+                            contentDescription = ContentDescription.Resource(R.string.status_bar_alarm),
+                        ),
+                    modifier =
+                        Modifier.size(32.dp).graphicsLayer {
+                            scaleX = breatheScale
+                            scaleY = breatheScale
+                        },
+                    tint = accent,
+                )
+            },
+            modifier = modifier,
+            onClick = model.onOpen,
+            primaryAction =
+                model.actions.getOrNull(0)?.let { it.copy(vector = it.vector ?: Icons.Rounded.Snooze) },
+        )
+        return
+    }
     PopupSurface(
         shape = PopupShape,
         modifier =
