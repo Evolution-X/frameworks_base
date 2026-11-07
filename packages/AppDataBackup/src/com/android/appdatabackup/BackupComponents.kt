@@ -324,12 +324,16 @@ private fun AppAvatar(packageName: String, label: String) {
             }
         }
     }
-    Box(Modifier.size(48.dp).clip(RoundedCornerShape(16.dp))
-        .background(MaterialTheme.colorScheme.tertiaryContainer), contentAlignment = Alignment.Center) {
-        val image = bitmap
-        if (image != null) Image(image, null, Modifier.fillMaxSize())
-        else Text(label.take(1).uppercase(), style = MaterialTheme.typography.titleLargeEmphasized,
-            color = MaterialTheme.colorScheme.onTertiaryContainer)
+    val image = bitmap
+    if (image != null) {
+        Image(image, null, Modifier.size(48.dp))
+    } else {
+        // fallback with the text, keeps the container only when there is no icon
+        Box(Modifier.size(48.dp).clip(CircleShape)
+            .background(MaterialTheme.colorScheme.tertiaryContainer), contentAlignment = Alignment.Center) {
+            Text(label.take(1).uppercase(), style = MaterialTheme.typography.titleLargeEmphasized,
+                color = MaterialTheme.colorScheme.onTertiaryContainer)
+        }
     }
 }
 
