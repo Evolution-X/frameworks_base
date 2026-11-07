@@ -22,6 +22,8 @@ import android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALW
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
@@ -40,8 +42,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -90,6 +99,8 @@ fun StatusBarPopup(
     isVisible: Boolean,
     chipBoundsInScreen: Rect? = null,
     sideEdge: DynamicIslandCutoutEdge? = null,
+    /** Open and close like a ColorOS card: out of the island, behind a growing reveal. */
+    cos: Boolean = false,
 ) {
     val density = Density(LocalContext.current)
     val yOffsetPx =
@@ -270,10 +281,60 @@ fun StatusBarPopup(
         val alpha = remember { Animatable(0f) }
         val translationX = remember { Animatable(enterOffset.x) }
         val translationY = remember { Animatable(enterOffset.y) }
+        val cardShiftX = remember { Animatable(0f) }
+        val reveal = remember { Animatable(1f) }
+        val veil = remember { Animatable(0f) }
+        val cosCornerPx = with(density) { CosCardCorner.toPx() }
         val colorMode = rememberPopupColorMode()
         val skipMotionOnDismiss = colorMode == POPUP_COLOR_MODE_BLUR
 
-        LaunchedEffect(isVisible) {
+        // The card grows out of where the chip was, so it waits for its own bounds.
+        val cosReady = cos && popupBoundsInScreen != null
+        LaunchedEffect(isVisible, cosReady) {
+            if (cos) {
+                val chip = chipBoundsInScreen
+                val popup = popupBoundsInScreen
+                val fromX = if (chip != null && popup != null) chip.center.x - popup.center.x else 0f
+                val fromY = if (chip != null && popup != null) chip.center.y - popup.center.y else 0f
+                if (isVisible && popup != null) {
+                    scaleX.snapTo(0.4f)
+                    scaleY.snapTo(0.4f)
+                    cardShiftX.snapTo(fromX)
+                    translationY.snapTo(fromY)
+                    reveal.snapTo(0f)
+                    veil.snapTo(1f)
+                    alpha.snapTo(1f)
+                    coroutineScope {
+                        launch { cardShiftX.animateTo(0f, tween(300, easing = CosCardGrow)) }
+                        launch { translationY.animateTo(0f, tween(300, easing = CosCardGrow)) }
+                        launch { reveal.animateTo(1f, tween(300, easing = CosCardGrow)) }
+                        launch {
+                            veil.animateTo(0f, tween(200, delayMillis = 100, easing = CosCardEase))
+                        }
+                        for (scale in listOf(scaleX, scaleY)) {
+                            launch {
+                                scale.animateTo(1.03f, tween(300, easing = CosCardGrow))
+                                scale.animateTo(1f, tween(300, easing = CosCardEase))
+                            }
+                        }
+                    }
+                } else if (!isVisible) {
+                    coroutineScope {
+                        for (scale in listOf(scaleX, scaleY)) {
+                            launch { scale.animateTo(0.4f, tween(CosCardCloseMillis, easing = CosCardEase)) }
+                        }
+                        launch {
+                            cardShiftX.animateTo(fromX, tween(CosCardCloseMillis, easing = CosCardMove))
+                        }
+                        launch {
+                            translationY.animateTo(fromY, tween(CosCardCloseMillis, easing = CosCardMove))
+                        }
+                        launch { reveal.animateTo(0f, tween(CosCardCloseMillis, easing = CosCardEase)) }
+                        veil.animateTo(1f, tween(200, easing = CosCardEase))
+                    }
+                }
+                return@LaunchedEffect
+            }
             if (isVisible) {
                 scaleX.snapTo(initialScaleFromChip.x)
                 scaleY.snapTo(initialScaleFromChip.y)
@@ -371,8 +432,13 @@ fun StatusBarPopup(
 
         AnimatedVisibility(
             visible = isVisible,
-            enter = fadeIn(animationSpec = tween(60)),
-            exit = fadeOut(animationSpec = tween(160)),
+            enter = if (cos) EnterTransition.None else fadeIn(animationSpec = tween(60)),
+            exit =
+                if (cos) {
+                    fadeOut(tween(50, delayMillis = CosCardCloseMillis - 50))
+                } else {
+                    fadeOut(animationSpec = tween(160))
+                },
         ) {
             CompositionLocalProvider(LocalPopupCameraClearance provides cameraClearance) {
                 Box(
@@ -386,10 +452,30 @@ fun StatusBarPopup(
                                 this.scaleX = scaleX.value
                                 this.scaleY = scaleY.value
                                 this.alpha = alpha.value
-                                this.translationX = translationX.value
                                 this.translationY = translationY.value
-                                this.transformOrigin = transformOrigin
+                                if (cos) {
+                                    this.translationX = cardShiftX.value
+                                    this.transformOrigin = TransformOrigin.Center
+                                    val f = reveal.value
+                                    this.clip = f < 1f
+                                    if (this.clip) this.shape = CosRevealShape(f, cosCornerPx)
+                                } else {
+                                    this.translationX = translationX.value
+                                    this.transformOrigin = transformOrigin
+                                }
                             }
+                            .then(
+                                if (cos) {
+                                    Modifier.drawWithContent {
+                                        drawContent()
+                                        if (veil.value > 0f) {
+                                            drawRect(Color.Black, alpha = veil.value)
+                                        }
+                                    }
+                                } else {
+                                    Modifier
+                                }
+                            )
                 ) {
                     when (val popupContent = viewModel.popupContent) {
                         is PopupContentModel.Media -> {
@@ -431,6 +517,29 @@ fun StatusBarPopup(
 }
 
 private val PopupEdgePadding = 8.dp
+
+private val CosCardEase = CubicBezierEasing(0.33f, 0f, 0.67f, 1f)
+private val CosCardMove = CubicBezierEasing(0.6f, 0f, 0.1f, 1f)
+private val CosCardGrow = CubicBezierEasing(0.3f, 0f, 0.1f, 1f)
+private val CosCardCorner = 32.dp
+internal const val CosCardCloseMillis = 400
+
+/** Reveals the card from a small rounded rectangle in its middle out to its full size. */
+private class CosRevealShape(private val fraction: Float, private val cornerPx: Float) : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density,
+    ): Outline {
+        val start = size.width * 0.12f
+        val w = start + (size.width - start) * fraction
+        val h = start + (size.height - start) * fraction
+        val left = (size.width - w) / 2f
+        val top = (size.height - h) / 2f
+        val r = minOf(cornerPx, w / 2f, h / 2f)
+        return Outline.Rounded(RoundRect(left, top, left + w, top + h, CornerRadius(r)))
+    }
+}
 
 private fun LayoutCoordinates.boundsInScreen(view: android.view.View): Rect {
     val location = IntArray(2)
