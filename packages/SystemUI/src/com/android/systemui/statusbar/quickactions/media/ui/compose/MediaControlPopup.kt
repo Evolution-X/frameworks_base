@@ -87,6 +87,7 @@ import com.android.systemui.statusbar.quickactions.media.shared.model.MediaContr
 import com.android.systemui.statusbar.quickactions.media.ui.viewmodel.MediaControlPopupViewModel
 import com.android.systemui.statusbar.quickactions.ui.compose.MediaArtFlip
 import com.android.systemui.statusbar.quickactions.ui.compose.PopupSurface
+import com.android.systemui.statusbar.quickactions.ui.compose.islandGlassCards
 import com.android.systemui.statusbar.quickactions.ui.compose.rememberAlbumArtAccent
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -152,6 +153,11 @@ fun MediaControlPopup(
     useWaveform: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    // The ColorOS island style has its own card; the lyrics card below it is unaffected.
+    if (islandGlassCards()) {
+        CosMediaCard(model = model, modifier = modifier)
+        return
+    }
     val artworkDrawable =
         remember(model.artworkIcon) { (model.artworkIcon as? UiIcon.Loaded)?.drawable }
     val accent =
