@@ -7839,6 +7839,15 @@ public final class Settings {
         public static final String QS_PANEL_STYLE = "qs_panel_style";
 
         /**
+         * Colors of the Nothing QS panel style: 0 for the dark grey tiles of the style in both
+         * themes, 1 for the Nothing OS 5.0 palette with a flat panel background, which is the
+         * default, and 2 for the Nothing OS 5.0 palette with the translucent shade that shows
+         * the wallpaper. Only used when {@link #QS_PANEL_STYLE} is the Nothing style.
+         * @hide
+         */
+        public static final String QS_NOTHING_COLOR_STYLE = "qs_nothing_color_style";
+
+        /**
          * Whether to hide label under tiles in classic QS panel style
          * @hide
          */

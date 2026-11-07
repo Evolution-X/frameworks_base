@@ -165,12 +165,14 @@ import com.android.systemui.qs.panels.ui.compose.TileGrid
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSBackdrop
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.InfiniteGridLayout
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSQsStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsOsColors
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingSliderContent
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.NothingSliderKind
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingLayout
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSColorOSMediaArtFill
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSColorOSStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSNothingOsColors
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSNothingStyle
 import com.android.systemui.qs.shared.ui.QuickSettings.Elements
 import com.android.systemui.qs.ui.composable.QuickSettingsShade
@@ -300,9 +302,11 @@ constructor(
                             val colorOSStyle = rememberQSColorOSStyle()
                             SideEffect { colorOSQsStyle = colorOSStyle }
                             val nothingStyle = rememberQSNothingStyle()
+                            val nothingOsColors = rememberQSNothingOsColors()
                             CompositionLocalProvider(
                                 LocalColorOSQsStyle provides colorOSStyle,
                                 LocalNothingQsStyle provides nothingStyle,
+                                LocalNothingQsOsColors provides (nothingStyle && nothingOsColors),
                             ) {
                                 val slidersInGrid =
                                     nothingStyle && rememberNothingLayout().sliders.isNotEmpty()
