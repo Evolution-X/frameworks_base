@@ -33,6 +33,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -52,6 +54,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings.observeDynamicIslandColorOSStyle
+import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings.readDynamicIslandColorOSStyle
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipId
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipModel
 import kotlinx.coroutines.delay
@@ -75,6 +80,8 @@ fun StatusBarDynamicIslandContainer(
         } else {
             rememberDynamicIslandCutoutSpec()
         }
+    // The ColorOS island is drawn on a top camera only; a side-docked pill keeps our own look.
+    val cos = sideEdge == null && rememberDynamicIslandColorOSStyle()
     var selectedChipId by remember { mutableStateOf<QuickActionChipId?>(null) }
     var popupAnchorChip by remember { mutableStateOf<QuickActionChipModel.PopupChip?>(null) }
     var popupVisible by remember { mutableStateOf(false) }
@@ -215,9 +222,63 @@ fun StatusBarDynamicIslandContainer(
                 .rotatedLayout(sideEdge?.quarterTurns ?: 0),
         contentAlignment = Alignment.Center,
     ) {
-        if (selectedChip == null) return@Box
-
-        AnimatedContent(
+        if (cos) {
+            // The shell outlives the selected chip so it can shrink back into the camera hole.
+            val leaving = remember { arrayOfNulls<QuickActionChipModel.PopupChip>(1) }
+            var present by remember { mutableStateOf(false) }
+            if (selectedChip != null) {
+                leaving[0] = selectedChip
+                SideEffect { present = true }
+            }
+            val chip = selectedChip ?: leaving[0]
+            if (chip != null && (selectedChip != null || present)) {
+                val slopPx = with(LocalDensity.current) { 30.dp.toPx() }
+                var dragged by remember { mutableFloatStateOf(0f) }
+                val currentChip by rememberUpdatedState(chip)
+                val currentSelectRelative by
+                    rememberUpdatedState { direction: Int -> selectRelative(direction) }
+                CosIslandShell(
+                    key = chip.chipId,
+                    visible = selectedChip != null,
+                    hole = cutoutSpec.holeSize,
+                    moons = chips.size > 1,
+                    onGone = {
+                        present = false
+                        leaving[0] = null
+                    },
+                    modifier =
+                        Modifier.swipeUpToHide(chip.chipId, slopPx) { currentChip.hide() }
+                            .pointerInput(chips.size) {
+                                detectHorizontalDragGestures(
+                                    onDragStart = { dragged = 0f },
+                                    onDragEnd = {
+                                        when {
+                                            chips.size <= 1 && abs(dragged) >= slopPx ->
+                                                currentChip.hide()
+                                            dragged <= -slopPx -> currentSelectRelative(1)
+                                            dragged >= slopPx -> currentSelectRelative(-1)
+                                        }
+                                        dragged = 0f
+                                    },
+                                    onDragCancel = { dragged = 0f },
+                                    onHorizontalDrag = { change, amount ->
+                                        dragged += amount
+                                        if (chips.size > 1) change.consume()
+                                    },
+                                )
+                            },
+                ) {
+                    StatusBarDynamicIslandChip(
+                        viewModel = chip,
+                        pageCount = 1,
+                        cutoutSpec = cutoutSpec,
+                        onChipBoundsChanged = { bounds -> anchorBounds = bounds },
+                        onTap = { if (chip.isPopupShown) chip.hidePopup() else chip.showPopup() },
+                        cos = true,
+                    )
+                }
+            }
+        } else if (selectedChip != null) AnimatedContent(
             targetState = selectedChip.chipId,
             transitionSpec = {
                 if (targetState == initialState) {
@@ -292,7 +353,7 @@ fun StatusBarDynamicIslandContainer(
             }
         }
 
-        popupAnchorChip?.let { anchoredChip ->
+        popupAnchorChip?.takeIf { cos || selectedChip != null }?.let { anchoredChip ->
             StatusBarPopup(
                 viewModel = anchoredChip,
                 isVisible = popupVisible,
@@ -301,6 +362,16 @@ fun StatusBarDynamicIslandContainer(
             )
         }
     }
+}
+
+/** Whether the island uses the ColorOS style; follows its setting live. */
+@Composable
+private fun rememberDynamicIslandColorOSStyle(): Boolean {
+    val context = LocalContext.current
+    val initial = remember(context) { context.contentResolver.readDynamicIslandColorOSStyle() }
+    val flow = remember(context) { observeDynamicIslandColorOSStyle(context) }
+    val enabled by flow.collectAsState(initial = initial)
+    return enabled
 }
 
 private const val TABLET_MIN_WIDTH_DP = 600
