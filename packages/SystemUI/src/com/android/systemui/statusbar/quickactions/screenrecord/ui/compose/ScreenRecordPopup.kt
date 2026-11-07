@@ -34,6 +34,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -46,10 +48,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import com.android.systemui.res.R
+import com.android.systemui.statusbar.quickactions.popups.shared.model.PopupActionModel
 import com.android.systemui.statusbar.quickactions.screenrecord.shared.model.ScreenRecordPopupModel
 import com.android.systemui.statusbar.quickactions.ui.compose.IslandAccents
+import com.android.systemui.statusbar.quickactions.ui.compose.IslandGlassCard
 import com.android.systemui.statusbar.quickactions.ui.compose.IslandGlyphBadge
 import com.android.systemui.statusbar.quickactions.ui.compose.PopupSurface
+import com.android.systemui.statusbar.quickactions.ui.compose.islandGlassCards
 import com.android.systemui.statusbar.quickactions.ui.compose.rememberElapsedDurationText
 private val PopupShape = RoundedCornerShape(32.dp)
 
@@ -77,6 +82,40 @@ fun ScreenRecordPopup(
                 infiniteRepeatable(tween(800, easing = FastOutSlowInEasing), RepeatMode.Reverse),
             label = "rec_alpha",
         )
+    if (islandGlassCards()) {
+        IslandGlassCard(
+            primary =
+                when (model) {
+                    is ScreenRecordPopupModel.Starting -> model.secondsUntilStarted.toString()
+                    is ScreenRecordPopupModel.Recording ->
+                        rememberElapsedDurationText(model.startElapsedRealtimeMs)
+                },
+            secondary = stringResource(R.string.screenrecord_ongoing_screen_only),
+            glyph = {
+                Box(
+                    modifier =
+                        Modifier.size(18.dp)
+                            .graphicsLayer {
+                                scaleX = pulseScale
+                                scaleY = pulseScale
+                                alpha = pulseAlpha
+                            }
+                            .background(accent, CircleShape)
+                )
+            },
+            modifier = modifier,
+            primaryAction =
+                (model as? ScreenRecordPopupModel.Recording)?.let {
+                    PopupActionModel(
+                        label = stringResource(R.string.screenrecord_stop_label),
+                        onClick = it.stopRecording,
+                        vector = Icons.Rounded.Stop,
+                    )
+                },
+            primaryActionColor = accent,
+        )
+        return
+    }
     PopupSurface(
         shape = PopupShape,
         modifier = modifier.widthIn(min = 280.dp, max = 360.dp),
