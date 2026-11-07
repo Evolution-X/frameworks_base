@@ -20,6 +20,7 @@ import android.app.Notification
 import android.app.Notification.ResolvedBasicCompactContent
 import android.content.ComponentName
 import android.content.Context
+import android.provider.Settings
 import androidx.annotation.ColorRes
 import com.android.internal.jank.Cuj
 import com.android.internal.logging.InstanceId
@@ -54,6 +55,7 @@ import com.android.systemui.statusbar.notification.domain.model.TopPinnedState
 import com.android.systemui.statusbar.notification.promoted.shared.model.PromotedNotificationContentModel
 import com.android.systemui.statusbar.notification.shared.Metric
 import com.android.systemui.statusbar.notification.shared.NotificationChipFromCompactContent
+import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings
 import com.android.systemui.util.kotlin.pairwise
 import com.android.systemui.util.time.SystemClock
 import javax.inject.Inject
@@ -102,12 +104,43 @@ constructor(
     private val transitionControllerFactories: MutableMap<String, ComposableControllerFactory> =
         mutableMapOf()
 
+    /** Whether the dynamic island is on and set to show apps' live updates itself. */
+    private val islandShowsLiveUpdates: Flow<Boolean> =
+        combine(
+            DynamicIslandFeatureSettings.observeDynamicIslandFeatureEnabled(
+                context,
+                Settings.System.STATUS_BAR_SHOW_DYNAMIC_ISLAND,
+                defaultValue = false,
+            ),
+            DynamicIslandFeatureSettings.observeDynamicIslandFeatureEnabled(
+                context,
+                DynamicIslandFeatureSettings.LIVE_UPDATES,
+            ),
+        ) { islandEnabled, liveUpdatesEnabled ->
+            islandEnabled && liveUpdatesEnabled
+        }
+
+    /**
+     * Whether the island already shows this notification as a live update card. Calls and screen
+     * shares have their own chips and are left to them.
+     */
+    private fun NotificationChipModel.isShownByIsland(): Boolean {
+        val style = promotedContent.privateVersion.style
+        return !isScreenShareNotification &&
+            style != PromotedNotificationContentModel.Style.Call &&
+            style != PromotedNotificationContentModel.Style.CollapsedCall
+    }
+
     /**
      * A flow that prunes the incoming [NotificationChipModel] instances to just the information
      * each status bar chip needs.
      */
     private val notificationChipsWithPrunedContent: Flow<List<PrunedNotificationChipModel>> =
-        notifChipsInteractor.allNotificationChips
+        combine(notifChipsInteractor.allNotificationChips, islandShowsLiveUpdates) {
+                chips,
+                islandShows ->
+                if (islandShows) chips.filterNot { it.isShownByIsland() } else chips
+            }
             .pairwise(initialValue = emptyList())
             .map { (oldChips, currentChips) ->
                 if (StatusBarChipsReturnAnimations.isEnabled) {
