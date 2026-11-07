@@ -135,6 +135,7 @@ import com.android.systemui.brightness.ui.viewmodel.Drag
 import com.android.systemui.common.shared.colors.SystemUISliderColors
 import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.NothingQsColors
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingQSMaxContentWidth
 import com.android.systemui.compose.modifiers.sysuiResTag
 import com.android.systemui.gradient.GradientColors
@@ -1272,8 +1273,8 @@ private fun NothingSlider(
     val fraction = ((value - valueRange.start) / totalRange).coerceIn(0f, 1f)
 
     val maxContentWidth = rememberNothingQSMaxContentWidth()
-    val trackColor = colorResource(R.color.nothing_qs_surface)
-    val fillColor = colorResource(R.color.nothing_qs_slider_fill)
+    val trackColor = NothingQsColors.sliderTrack
+    val fillColor = NothingQsColors.sliderFill
     val sliderHeight = dimensionResource(R.dimen.qs_nothing_brightness_slider_height)
 
     BoxWithConstraints(
@@ -1347,8 +1348,8 @@ private fun NothingSlider(
 
         // Icon inside on the left
         val iconTint =
-            if (fraction > 0.12f) colorResource(R.color.nothing_qs_slider_icon_on_fill)
-            else Color.White
+            if (fraction > 0.12f) NothingQsColors.sliderIconOnFill
+            else NothingQsColors.content
         Box(
             modifier = Modifier
                 .align(Alignment.CenterStart)

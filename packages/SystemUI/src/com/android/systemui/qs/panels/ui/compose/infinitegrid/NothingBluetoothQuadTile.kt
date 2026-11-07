@@ -130,17 +130,13 @@ fun NothingQuadIconButton(
         modifier =
             Modifier.size(QuadIconButtonSize)
                 .clip(CircleShape)
-                .background(
-                    colorResource(
-                        if (isActive) R.color.nothing_qs_active else R.color.nothing_qs_icon_circle
-                    )
-                )
+                .background(if (isActive) NothingQsColors.active else NothingQsColors.iconCircle)
                 .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         SmallTileContent(
             iconProvider = iconProvider,
-            color = if (isActive) Color.Black else Color.White,
+            color = if (isActive) NothingQsColors.contentOnActive else NothingQsColors.content,
             size = { QuadIconSize },
         )
     }
@@ -154,7 +150,7 @@ fun NothingQuadLabels(primary: String, secondary: String) {
     ) {
         Text(
             text = primary,
-            color = Color.White,
+            color = NothingQsColors.content,
             style =
                 MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.Bold,
@@ -167,7 +163,7 @@ fun NothingQuadLabels(primary: String, secondary: String) {
         )
         Text(
             text = secondary,
-            color = Color.White.copy(alpha = SECONDARY_TEXT_ALPHA),
+            color = NothingQsColors.content.copy(alpha = SECONDARY_TEXT_ALPHA),
             style =
                 MaterialTheme.typography.bodySmall.copy(
                     fontSize = 12.sp,
@@ -203,7 +199,7 @@ private fun PagerDots(count: Int, currentPage: Int, modifier: Modifier = Modifie
                 modifier =
                     Modifier.size(PagerDotSize)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = alpha))
+                        .background(NothingQsColors.content.copy(alpha = alpha))
             )
         }
     }

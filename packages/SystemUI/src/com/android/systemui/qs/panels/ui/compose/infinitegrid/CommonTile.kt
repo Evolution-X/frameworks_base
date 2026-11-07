@@ -632,9 +632,8 @@ fun NothingPillTileContent(
     val context = LocalContext.current
     val icon = iconProvider(context)
     val isActive = visualState == android.service.quicksettings.Tile.STATE_ACTIVE
-    val contentColor = if (isActive) Color.Black else Color.White
-    val dividerColor =
-        colorResource(if (isActive) R.color.nothing_qs_divider_on_active else R.color.nothing_qs_divider)
+    val contentColor = if (isActive) NothingQsColors.contentOnActive else NothingQsColors.content
+    val dividerColor = if (isActive) NothingQsColors.dividerOnActive else NothingQsColors.divider
     val iconSize = 26.dp
 
     val loadedDrawable = remember(icon, context) {
