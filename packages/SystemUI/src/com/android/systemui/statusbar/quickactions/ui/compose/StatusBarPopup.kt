@@ -286,7 +286,15 @@ fun StatusBarPopup(
         val veil = remember { Animatable(0f) }
         val cosCornerPx = with(density) { CosCardCorner.toPx() }
         val colorMode = rememberPopupColorMode()
-        val skipMotionOnDismiss = colorMode == POPUP_COLOR_MODE_BLUR
+        // Glass cards are blurred as well, so they close in place like the blur style.
+        val glassCard =
+            cos &&
+                viewModel.popupContent.let {
+                    it is PopupContentModel.Stopwatch ||
+                        it is PopupContentModel.Alarm ||
+                        it is PopupContentModel.ScreenRecord
+                }
+        val skipMotionOnDismiss = colorMode == POPUP_COLOR_MODE_BLUR || glassCard
 
         // The card grows out of where the chip was, so it waits for its own bounds.
         val cosReady = cos && popupBoundsInScreen != null

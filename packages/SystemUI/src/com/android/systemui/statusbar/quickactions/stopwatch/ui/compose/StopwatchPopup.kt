@@ -45,9 +45,11 @@ import androidx.compose.ui.unit.dp
 import com.android.systemui.common.ui.compose.Icon
 import com.android.systemui.statusbar.quickactions.stopwatch.shared.model.StopwatchPopupModel
 import com.android.systemui.statusbar.quickactions.ui.compose.IslandAccents
+import com.android.systemui.statusbar.quickactions.ui.compose.IslandGlassCard
 import com.android.systemui.statusbar.quickactions.ui.compose.IslandGlyphBadge
 import com.android.systemui.statusbar.quickactions.ui.compose.PopupActionChips
 import com.android.systemui.statusbar.quickactions.ui.compose.PopupSurface
+import com.android.systemui.statusbar.quickactions.ui.compose.islandGlassCards
 import com.android.systemui.statusbar.quickactions.ui.compose.pressScale
 import com.android.systemui.statusbar.quickactions.ui.compose.rememberElapsedDurationText
 
@@ -69,6 +71,27 @@ fun StopwatchPopup(
                     infiniteRepeatable(tween(4000, easing = LinearEasing), RepeatMode.Restart),
             )
         }
+    }
+    if (islandGlassCards()) {
+        IslandGlassCard(
+            primary =
+                model.elapsedTimeText ?: rememberElapsedDurationText(model.baseElapsedRealtimeMs),
+            secondary = model.title,
+            glyph = {
+                model.icon?.let { icon ->
+                    Icon(
+                        icon = icon,
+                        modifier = Modifier.size(32.dp).graphicsLayer { rotationZ = rotation.value },
+                        tint = accent,
+                    )
+                }
+            },
+            modifier = modifier,
+            onClick = model.onOpen,
+            primaryAction = model.actions.getOrNull(0),
+            secondaryAction = model.actions.getOrNull(1),
+        )
+        return
     }
     PopupSurface(
         shape = PopupShape,
