@@ -120,6 +120,10 @@ sealed interface PopupContentModel {
         val text: String,
         val actions: List<PopupActionModel>,
         val progress: Float? = null,
+        /** Whether the progress has no known end, so the bar keeps moving instead of filling. */
+        val indeterminate: Boolean = false,
+        /** The app's own colour for the card, when the event comes from an app. */
+        val accent: Color? = null,
         val icon: Icon? = null,
         val prominentText: String? = null,
         val image: Icon? = null,
