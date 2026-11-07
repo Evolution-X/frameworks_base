@@ -234,7 +234,12 @@ private data class AlarmPopupState(
 
 private fun NotificationEntry.isAlarmCandidate(): Boolean {
     val notification = sbn.notification
-    return notification.contentIntent != null &&
+    // Clock timers are not alarms; they show as their own Live Update card.
+    val isTimer =
+        notification.category != Notification.CATEGORY_ALARM &&
+            (notification.channelId.orEmpty().contains("timer", ignoreCase = true) ||
+                notification.flags and Notification.FLAG_PROMOTED_ONGOING != 0)
+    return notification.contentIntent != null && !isTimer &&
         (
             notification.category == Notification.CATEGORY_ALARM ||
                 sbn.packageName.contains("clock", ignoreCase = true) ||
