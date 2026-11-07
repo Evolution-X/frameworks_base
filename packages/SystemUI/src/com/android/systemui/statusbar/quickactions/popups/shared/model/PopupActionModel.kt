@@ -16,9 +16,15 @@
 
 package com.android.systemui.statusbar.quickactions.popups.shared.model
 
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.android.systemui.common.shared.model.Icon
+
 /** Lightweight action model for buttons shown inside expanded dynamic-island popups. */
 data class PopupActionModel(
     val label: String,
     val onClick: () -> Unit,
     val emphasized: Boolean = false,
+    /** Glyph for the round glass buttons: [vector] when we know the action, else an app icon. */
+    val icon: Icon? = null,
+    val vector: ImageVector? = null,
 )
