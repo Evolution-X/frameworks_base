@@ -29,6 +29,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.Composable
@@ -37,6 +38,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -101,7 +103,10 @@ fun StatusBarPopup(
     sideEdge: DynamicIslandCutoutEdge? = null,
     /** Open and close like a ColorOS card: out of the island, behind a growing reveal. */
     cos: Boolean = false,
+    /** Every live activity as a stack of cards, when the island opened as one. */
+    stackedChips: List<QuickActionChipModel.PopupChip>? = null,
 ) {
+    val stacked = stackedChips != null
     val density = Density(LocalContext.current)
     val yOffsetPx =
         with(density) {
@@ -285,15 +290,16 @@ fun StatusBarPopup(
         val reveal = remember { Animatable(1f) }
         val veil = remember { Animatable(0f) }
         val cosCornerPx = with(density) { CosCardCorner.toPx() }
+        var stackTopCardHeight by remember { mutableFloatStateOf(0f) }
         val colorMode = rememberPopupColorMode()
         // Glass cards are blurred as well, so they close in place like the blur style.
         val glassCard =
             cos &&
-                viewModel.popupContent.let {
+                (stacked || viewModel.popupContent.let {
                     it is PopupContentModel.Stopwatch ||
                         it is PopupContentModel.Alarm ||
                         it is PopupContentModel.ScreenRecord
-                }
+                })
         val skipMotionOnDismiss = colorMode == POPUP_COLOR_MODE_BLUR || glassCard
 
         // The card grows out of where the chip was, so it waits for its own bounds.
@@ -303,7 +309,13 @@ fun StatusBarPopup(
                 val chip = chipBoundsInScreen
                 val popup = popupBoundsInScreen
                 val fromX = if (chip != null && popup != null) chip.center.x - popup.center.x else 0f
-                val fromY = if (chip != null && popup != null) chip.center.y - popup.center.y else 0f
+                // A stack grows down from its top edge; a single card grows from its centre.
+                val fromY =
+                    when {
+                        chip == null || popup == null -> 0f
+                        stacked -> chip.center.y - popup.top - popup.width * 0.12f * 0.4f / 2f
+                        else -> chip.center.y - popup.center.y
+                    }
                 if (isVisible && popup != null) {
                     scaleX.snapTo(0.4f)
                     scaleY.snapTo(0.4f)
@@ -475,10 +487,14 @@ fun StatusBarPopup(
                                 this.translationY = translationY.value
                                 if (cos) {
                                     this.translationX = cardShiftX.value
-                                    this.transformOrigin = TransformOrigin.Center
+                                    this.transformOrigin =
+                                        if (stacked) TransformOrigin(0.5f, 0f)
+                                        else TransformOrigin.Center
                                     val f = reveal.value
                                     this.clip = f < 1f
-                                    if (this.clip) this.shape = CosRevealShape(f, cosCornerPx)
+                                    if (this.clip) {
+                                        this.shape = CosRevealShape(f, cosCornerPx, anchorTop = stacked)
+                                    }
                                 } else {
                                     this.translationX = translationX.value
                                     this.transformOrigin = transformOrigin
@@ -488,8 +504,20 @@ fun StatusBarPopup(
                                 if (cos) {
                                     Modifier.drawWithContent {
                                         drawContent()
-                                        if (veil.value > 0f) {
-                                            drawRect(Color.Black, alpha = veil.value)
+                                        val v = veil.value
+                                        if (v > 0f) {
+                                            if (stacked) {
+                                                // Only the top card comes out of the island; the
+                                                // rest slide out from under it.
+                                                drawRoundRect(
+                                                    Color.Black,
+                                                    size = Size(size.width, stackTopCardHeight),
+                                                    cornerRadius = CornerRadius(cosCornerPx),
+                                                    alpha = v,
+                                                )
+                                            } else {
+                                                drawRect(Color.Black, alpha = v)
+                                            }
                                         }
                                     }
                                 } else {
@@ -497,38 +525,14 @@ fun StatusBarPopup(
                                 }
                             )
                 ) {
-                    when (val popupContent = viewModel.popupContent) {
-                        is PopupContentModel.Media -> {
-                            val model = popupContent.model
-                            val useWaveform = popupContent.useWaveform
-                            val hasLyrics =
-                                !model.lyrics.isNullOrBlank() || !model.syncedLyrics.isNullOrBlank()
-                            if (hasLyrics) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    MediaControlPopup(model = model, useWaveform = useWaveform)
-                                    CompositionLocalProvider(LocalPopupCameraClearance provides 0.dp) {
-                                        LyricsCard(model = model)
-                                    }
-                                }
-                            } else {
-                                MediaControlPopup(model = model, useWaveform = useWaveform)
-                            }
-                        }
-                        is PopupContentModel.ScreenRecord -> ScreenRecordPopup(model = popupContent.model)
-                        is PopupContentModel.LiveScore -> LiveScorePopup(model = popupContent.model)
-                        is PopupContentModel.Flashlight ->
-                            FlashlightPopup(
-                                model = popupContent.model,
-                                hapticsViewModelFactory = popupContent.hapticsViewModelFactory,
-                            )
-                        is PopupContentModel.Stopwatch -> StopwatchPopup(model = popupContent.model)
-                        is PopupContentModel.Alarm -> AlarmPopup(model = popupContent.model)
-                        is PopupContentModel.Charging -> ChargingPopup(model = popupContent.model)
-                        is PopupContentModel.SystemEvent -> SystemEventPopup(model = popupContent)
-                        PopupContentModel.None -> Unit
+                    if (stackedChips != null) {
+                        IslandCardStack(
+                            chips = stackedChips,
+                            isVisible = isVisible,
+                            onTopCardHeight = { stackTopCardHeight = it },
+                        )
+                    } else {
+                        IslandPopupContent(viewModel)
                     }
                 }
             }
@@ -538,14 +542,18 @@ fun StatusBarPopup(
 
 private val PopupEdgePadding = 8.dp
 
-private val CosCardEase = CubicBezierEasing(0.33f, 0f, 0.67f, 1f)
+internal val CosCardEase = CubicBezierEasing(0.33f, 0f, 0.67f, 1f)
 private val CosCardMove = CubicBezierEasing(0.6f, 0f, 0.1f, 1f)
-private val CosCardGrow = CubicBezierEasing(0.3f, 0f, 0.1f, 1f)
+internal val CosCardGrow = CubicBezierEasing(0.3f, 0f, 0.1f, 1f)
 private val CosCardCorner = 32.dp
 internal const val CosCardCloseMillis = 400
 
 /** Reveals the card from a small rounded rectangle in its middle out to its full size. */
-private class CosRevealShape(private val fraction: Float, private val cornerPx: Float) : Shape {
+private class CosRevealShape(
+    private val fraction: Float,
+    private val cornerPx: Float,
+    private val anchorTop: Boolean = false,
+) : Shape {
     override fun createOutline(
         size: Size,
         layoutDirection: LayoutDirection,
@@ -555,7 +563,7 @@ private class CosRevealShape(private val fraction: Float, private val cornerPx: 
         val w = start + (size.width - start) * fraction
         val h = start + (size.height - start) * fraction
         val left = (size.width - w) / 2f
-        val top = (size.height - h) / 2f
+        val top = if (anchorTop) 0f else (size.height - h) / 2f
         val r = minOf(cornerPx, w / 2f, h / 2f)
         return Outline.Rounded(RoundRect(left, top, left + w, top + h, CornerRadius(r)))
     }
@@ -565,4 +573,49 @@ private fun LayoutCoordinates.boundsInScreen(view: android.view.View): Rect {
     val location = IntArray(2)
     view.getLocationOnScreen(location)
     return boundsInRoot().translate(Offset(location[0].toFloat(), location[1].toFloat()))
+}
+
+/** Renders the per-feature card for [viewModel]; the single popup and the card stack show these. */
+@Composable
+internal fun IslandPopupContent(
+    viewModel: QuickActionChipModel.PopupChip,
+    fillWidth: Boolean = false,
+) {
+    val cardModifier = if (fillWidth) Modifier.fillMaxWidth() else Modifier
+    when (val popupContent = viewModel.popupContent) {
+        is PopupContentModel.Media -> {
+            val model = popupContent.model
+            val useWaveform = popupContent.useWaveform
+            val hasLyrics = !model.lyrics.isNullOrBlank() || !model.syncedLyrics.isNullOrBlank()
+            if (hasLyrics) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    MediaControlPopup(
+                        model = model,
+                        useWaveform = useWaveform,
+                        modifier = cardModifier,
+                    )
+                    CompositionLocalProvider(LocalPopupCameraClearance provides 0.dp) {
+                        LyricsCard(model = model, modifier = cardModifier)
+                    }
+                }
+            } else {
+                MediaControlPopup(model = model, useWaveform = useWaveform)
+            }
+        }
+        is PopupContentModel.ScreenRecord -> ScreenRecordPopup(model = popupContent.model)
+        is PopupContentModel.LiveScore -> LiveScorePopup(model = popupContent.model)
+        is PopupContentModel.Flashlight ->
+            FlashlightPopup(
+                model = popupContent.model,
+                hapticsViewModelFactory = popupContent.hapticsViewModelFactory,
+            )
+        is PopupContentModel.Stopwatch -> StopwatchPopup(model = popupContent.model)
+        is PopupContentModel.Alarm -> AlarmPopup(model = popupContent.model)
+        is PopupContentModel.Charging -> ChargingPopup(model = popupContent.model)
+        is PopupContentModel.SystemEvent -> SystemEventPopup(model = popupContent)
+        PopupContentModel.None -> Unit
+    }
 }
