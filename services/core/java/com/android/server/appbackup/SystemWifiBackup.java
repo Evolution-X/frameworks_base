@@ -27,9 +27,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
 import java.nio.ByteBuffer;
-import java.util.BitSet;
-import java.util.List;
 import java.nio.charset.StandardCharsets;
+import java.util.BitSet;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParserFactory;
@@ -115,35 +117,64 @@ final class SystemWifiBackup {
         String raw = password.getString("_rawXmlNode");
         if (raw.isEmpty()) return;
         final String[] hidden = {null};
-        final StringBuilder keyManagement = new StringBuilder();
+        final Map<String, String> fields = new HashMap<>();
         parseXml(raw.getBytes(StandardCharsets.UTF_8), null, new DefaultHandler() {
-            private boolean mCapture;
+            private int mDepth;
+            private int mConfigurationDepth = -1;
+            private boolean mSeenConfiguration;
+            private String mCapture;
+            private final StringBuilder mText = new StringBuilder();
             private boolean mWepKeys;
             @Override public void startElement(String uri, String local, String name, Attributes attrs)
                     throws SAXException {
-                String field = attrs.getValue("name");
-                if (name.equals("boolean") && "HiddenSSID".equals(field)) hidden[0] = attrs.getValue("value");
-                mCapture = name.equals("byte-array") && "AllowedKeyMgmt".equals(field);
-                if (name.equals("string-array") && "WEPKeys".equals(field)) mWepKeys = true;
+                mDepth++;
+                if (mCapture != null) throw new SAXException("Invalid Wi-Fi field structure");
+                if (name.equals("WifiConfiguration")) {
+                    if (mSeenConfiguration) throw new SAXException("Duplicate Wi-Fi configuration");
+                    mSeenConfiguration = true;
+                    mConfigurationDepth = mDepth;
+                }
                 if (mWepKeys && name.equals("item") && attrs.getValue("value") != null
                         && !attrs.getValue("value").isEmpty()) {
                     throw new SAXException("WEP Wi-Fi backups are not supported");
                 }
+                if (mConfigurationDepth < 0 || mDepth != mConfigurationDepth + 1) return;
+                String field = attrs.getValue("name");
+                if (name.equals("boolean") && "HiddenSSID".equals(field)) hidden[0] = attrs.getValue("value");
+                if (name.equals("string-array") && "WEPKeys".equals(field)) mWepKeys = true;
+                if ("SSID".equals(field) || "PreSharedKey".equals(field)
+                        || "AllowedKeyMgmt".equals(field)) {
+                    if (fields.containsKey(field)) throw new SAXException("Duplicate Wi-Fi field");
+                    fields.put(field, "");
+                    if (name.equals("null") && field.equals("PreSharedKey")) return;
+                    if (!name.equals(field.equals("AllowedKeyMgmt") ? "byte-array" : "string")) {
+                        throw new SAXException("Invalid Wi-Fi field type");
+                    }
+                    mCapture = field;
+                    mText.setLength(0);
+                }
             }
             @Override public void characters(char[] chars, int start, int length) {
-                if (mCapture) keyManagement.append(chars, start, length);
+                if (mCapture != null) mText.append(chars, start, length);
             }
             @Override public void endElement(String uri, String local, String name) {
-                mCapture = false;
+                if (mCapture != null) {
+                    fields.put(mCapture, mText.toString());
+                    mCapture = null;
+                }
                 if (name.equals("string-array")) mWepKeys = false;
+                if (mDepth == mConfigurationDepth) mConfigurationDepth = -1;
+                mDepth--;
             }
         });
+        if (fields.containsKey("SSID")) values.put("SSID", fields.get("SSID"));
+        if (fields.containsKey("PreSharedKey")) values.put("preSharedKey", fields.get("PreSharedKey"));
         if (hidden[0] != null) {
             require(hidden[0].equals("true") || hidden[0].equals("false"), "Invalid hidden Wi-Fi setting");
             values.put("hiddenSSID", Boolean.parseBoolean(hidden[0]));
         }
-        String hex = keyManagement.toString().replaceAll("\\s", "");
-        if (!hex.isEmpty()) {
+        if (fields.containsKey("AllowedKeyMgmt")) {
+            String hex = fields.get("AllowedKeyMgmt").replaceAll("\\s", "");
             require(hex.matches("[0-9a-fA-F]{2,8}") && hex.length() % 2 == 0, "Invalid Wi-Fi security data");
             byte[] bytes = new byte[hex.length() / 2];
             for (int i = 0; i < bytes.length; i++) bytes[i] = (byte) Integer.parseInt(hex.substring(i * 2, i * 2 + 2), 16);

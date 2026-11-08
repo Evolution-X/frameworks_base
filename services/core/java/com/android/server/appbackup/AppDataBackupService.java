@@ -157,14 +157,16 @@ public class AppDataBackupService extends SystemService {
                     SystemDataArchive.hash(in, out, Math.min(SystemDataArchive.MAX_BYTES,
                             Math.max(0, staging.getUsableSpace() - (32 << 20)) / 3), () -> {});
                 }
-                BackupManifest manifest = SwiftSystemDataImport.convert(input, dataType, staging, userId);
-                String id = manifest.toBackupRecord(canonicalBackupDir(userId)).getId();
+                SwiftSystemDataImport.Result imported =
+                        SwiftSystemDataImport.convert(input, dataType, staging, userId);
+                String id = imported.manifest.toBackupRecord(canonicalBackupDir(userId)).getId();
                 try (ParcelFileDescriptor archive = ParcelFileDescriptor.open(new File(staging, "import.vbak"),
                         ParcelFileDescriptor.MODE_READ_ONLY)) {
                     mInstaller.publishBackupArchive(userId, id, archive);
                 }
-                return BackupResult.ok();
+                return imported.outcome;
             } catch (IOException | InstallerException | RuntimeException e) {
+                Slog.w(TAG, "Swift system import failed for user " + userId + ", category " + dataType, e);
                 return BackupResult.failure(BackupResult.ERROR_IO, e.getMessage());
             } finally {
                 if (staging != null) SystemDataEngine.delete(staging);
@@ -217,7 +219,8 @@ public class AppDataBackupService extends SystemService {
                     mInstaller.publishBackupArchive(userId, id, archive);
                 }
                 return BackupResult.ok();
-            } catch (IOException | InstallerException e) {
+            } catch (IOException | InstallerException | RuntimeException e) {
+                Slog.w(TAG, "Swift app import failed for user " + userId, e);
                 return BackupResult.failure(BackupResult.ERROR_IO, e.getMessage());
             } finally {
                 if (files != null) for (ParcelFileDescriptor fd : files) {
@@ -499,7 +502,9 @@ public class AppDataBackupService extends SystemService {
         mNotifications.onOperationStarted(token, userId, true, total);
 
         int successCount = 0;
+        int partialCount = 0;
         boolean cancelled = false;
+        BackupResult lastResult = null;
         final PackageManager pm = getContext().getPackageManager();
 
         for (int i = 0; i < total; i++) {
@@ -518,6 +523,9 @@ public class AppDataBackupService extends SystemService {
                         components, userId, passphrase);
                 if (record == null) {
                     result = BackupResult.cancelled();
+                } else if (record.getState() == BackupRecord.STATE_PARTIAL) {
+                    result = BackupResult.partial("Some app data or settings could not be backed up");
+                    partialCount++;
                 } else {
                     result = BackupResult.ok();
                     successCount++;
@@ -528,10 +536,11 @@ public class AppDataBackupService extends SystemService {
             } catch (PackageManager.NameNotFoundException e) {
                 result = BackupResult.failure(BackupResult.ERROR_PACKAGE_NOT_FOUND,
                         "Package not found: " + pkg);
-            } catch (IOException e) {
+            } catch (IOException | RuntimeException e) {
                 result = BackupResult.failure(BackupResult.ERROR_IO, e.getMessage());
             }
 
+            lastResult = result;
             notifyPackageBackupFinished(callback, token, pkg, result);
 
             if (result.getErrorCode() == BackupResult.ERROR_CANCELLED) {
@@ -541,10 +550,15 @@ public class AppDataBackupService extends SystemService {
         }
 
         final BackupResult aggregate;
-        if (successCount == total) {
+        if (total == 1 && lastResult != null) {
+            aggregate = lastResult;
+        } else if (cancelled) {
+            aggregate = BackupResult.cancelled();
+        } else if (successCount == total) {
             aggregate = BackupResult.ok();
-        } else if (successCount > 0) {
-            aggregate = BackupResult.partial(successCount + "/" + total + " packages succeeded");
+        } else if (successCount > 0 || partialCount > 0) {
+            aggregate = BackupResult.partial(successCount + "/" + total
+                    + " packages backed up; " + partialCount + " partially backed up");
         } else {
             aggregate = BackupResult.failure(BackupResult.ERROR_IO, "All packages failed");
         }

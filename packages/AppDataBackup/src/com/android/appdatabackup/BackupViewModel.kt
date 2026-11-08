@@ -266,9 +266,8 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
-                    getApplication<Application>().contentResolver.openFileDescriptor(uri, "r").use { fd ->
-                        if (fd == null) throw java.io.IOException("Cannot open Swift system backup")
-                        manager.importSwiftSystemData(type, fd)
+                    SwiftBackupDocuments.withReadPipes(getApplication<Application>().contentResolver, listOf(uri)) { descriptors ->
+                        manager.importSwiftSystemData(type, descriptors.single())
                     }
                 }
                 complete(id, result, R.string.swift_system_import_complete, reloadBackups = true)
@@ -288,13 +287,9 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                         return@withContext BackupResult.failure(BackupResult.ERROR_IO,
                             text(R.string.swift_select_version))
                     }
-                    val descriptors = mutableListOf<ParcelFileDescriptor>()
-                    try {
-                        files.forEach { (_, uri) -> descriptors +=
-                            resolver.openFileDescriptor(uri, "r")
-                                ?: throw java.io.IOException("Cannot open Swift backup file") }
+                    SwiftBackupDocuments.withReadPipes(resolver, files.map { it.second }) { descriptors ->
                         manager.importSwiftBackup(files.map { it.first }.toTypedArray(), descriptors)
-                    } finally { descriptors.forEach { runCatching { it.close() } } }
+                    }
                 }
                 complete(id, result, R.string.swift_import_complete, reloadBackups = true)
             } catch (e: Exception) { fail(id, e) }
@@ -446,7 +441,8 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     private fun fail(id: Int, e: Exception) {
         if (e is CancellationException) throw e
         Log.e(TAG, "Backup operation failed", e)
-        finish(id, text(R.string.operation_failed))
+        finish(id, if (e is java.io.IOException && !e.message.isNullOrBlank())
+            text(R.string.operation_error, e.message!!) else text(R.string.operation_failed))
     }
 
     private fun text(id: Int, vararg args: Any): String = getApplication<Application>().getString(id, *args)

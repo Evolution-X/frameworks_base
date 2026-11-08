@@ -27,7 +27,7 @@ import java.util.zip.CRC32;
 
 /** Reader for unencrypted and default-guest Swift Backup SBA1 containers (header versions 1 and 2). */
 final class SwiftBackupArchive implements Closeable {
-    static final long MAX_BYTES = 8L << 30;
+    static final long MAX_BYTES = 1L << 40;
     private static final int MAX_INDEX = 16 << 20;
     static final int MAX_ENTRIES = 1024;
 
