@@ -46,6 +46,33 @@ public class AppDataBackupRestoreManager {
     public static final int COMPONENT_ALL =
             COMPONENT_APK | COMPONENT_CE_DATA | COMPONENT_DE_DATA | COMPONENT_EXTERNAL;
 
+    public static final int DATA_TYPE_APP = 0;
+    public static final int DATA_TYPE_CALL_LOGS = 1;
+    public static final int DATA_TYPE_MESSAGES = 2;
+    public static final int DATA_TYPE_WIFI = 3;
+
+    @RequiresPermission(android.Manifest.permission.APP_DATA_BACKUP)
+    @NonNull
+    public String backupSystemData(int dataType, @Nullable String passphrase,
+            int keepVersions, @Nullable IBackupProgressCallback callback) {
+        try {
+            return mService.backupSystemData(dataType, mUserId, passphrase, keepVersions, callback);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    @RequiresPermission(android.Manifest.permission.APP_DATA_BACKUP)
+    @NonNull
+    public BackupResult importSwiftSystemData(int dataType,
+            @NonNull ParcelFileDescriptor source) {
+        try {
+            return mService.importSwiftSystemData(dataType, source);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
     private final IAppDataBackupService mService;
     private final int mUserId;
 
