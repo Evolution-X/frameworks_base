@@ -95,6 +95,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
@@ -118,7 +119,8 @@ private val ChipHeight = 36.dp
 // (PillPrimary -> labelSmallEmphasized, 11sp), which made it visibly smaller than the AOD
 // date/weather line (widget_label_font_size, 16dp). Match that 16sp so the readout is the
 // same size as the other lines.
-private val BatteryChipText = PillPrimary.copy(fontSize = 16.sp, lineHeight = 20.sp)
+private val BatteryChipText: TextStyle
+    @Composable get() = PillPrimary.copy(fontSize = 16.sp, lineHeight = 20.sp)
 private val ChipShape = ShapeChip
 private val ChipIconSize = ChipHeight - SpaceLg
 private val MusicChipHeight = 58.dp
