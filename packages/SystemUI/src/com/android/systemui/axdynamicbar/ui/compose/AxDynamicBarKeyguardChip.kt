@@ -114,6 +114,11 @@ import android.graphics.drawable.Drawable
 import java.util.Calendar
 
 private val ChipHeight = 36.dp
+// The keyguard battery chip is the only always-on line that used the smallest type token
+// (PillPrimary -> labelSmallEmphasized, 11sp), which made it visibly smaller than the AOD
+// date/weather line (widget_label_font_size, 16dp). Match that 16sp so the readout is the
+// same size as the other lines.
+private val BatteryChipText = PillPrimary.copy(fontSize = 16.sp, lineHeight = 20.sp)
 private val ChipShape = ShapeChip
 private val ChipIconSize = ChipHeight - SpaceLg
 private val MusicChipHeight = 58.dp
@@ -690,7 +695,7 @@ private fun KeyguardBatteryChip(
                     ) {
                         Text(
                             parts[0],
-                            style = PillPrimary,
+                            style = BatteryChipText,
                             color = contentColor,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -706,7 +711,7 @@ private fun KeyguardBatteryChip(
                 } else {
                     Text(
                         if (parts.isNotEmpty()) parts[0] else batteryString,
-                        style = PillPrimary,
+                        style = BatteryChipText,
                         color = contentColor.copy(alpha = AlphaSecondary),
                         maxLines = 1,
                         overflow = TextOverflow.Clip,
@@ -721,7 +726,7 @@ private fun KeyguardBatteryChip(
                 val tertiaryColor = contentColor.copy(alpha = AlphaTertiary)
                 val secondaryColor = contentColor.copy(alpha = AlphaSecondary)
                 val labelSmallFontSize = MaterialTheme.typography.labelSmall.fontSize
-                val pillPrimaryFontSize = PillPrimary.fontSize
+                val pillPrimaryFontSize = BatteryChipText.fontSize
                 val infoLine = remember(info.level, secondaryLabel, timeRemaining, contentColor, labelSmallFontSize, pillPrimaryFontSize) {
                     buildAnnotatedString {
                         withStyle(SpanStyle(color = contentColor, fontSize = pillPrimaryFontSize)) {
@@ -885,7 +890,7 @@ private fun KeyguardPrimaryText(event: IslandEvent, color: Color, modifier: Modi
                 Column(modifier = modifier, verticalArrangement = Arrangement.Center) {
                     Text(
                         parts[0],
-                        style = PillPrimary,
+                        style = BatteryChipText,
                         color = color,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
