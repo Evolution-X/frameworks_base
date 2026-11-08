@@ -501,7 +501,15 @@ fun StatusBarPopup(
                                     val f = reveal.value
                                     this.clip = f < 1f
                                     if (this.clip) {
-                                        this.shape = CosRevealShape(f, cosCornerPx, anchorTop = stacked)
+                                        this.shape =
+                                            CosRevealShape(
+                                                f,
+                                                cosCornerPx,
+                                                anchorTop = stacked,
+                                                foldHeight =
+                                                    if (stacked && !isVisible) stackTopCardHeight
+                                                    else 0f,
+                                            )
                                     }
                                 } else {
                                     this.translationX = translationX.value
@@ -561,6 +569,8 @@ private class CosRevealShape(
     private val fraction: Float,
     private val cornerPx: Float,
     private val anchorTop: Boolean = false,
+    /** A closing stack folds into its top card, so it ends in the island like a single card. */
+    private val foldHeight: Float = 0f,
 ) : Shape {
     override fun createOutline(
         size: Size,
@@ -569,7 +579,10 @@ private class CosRevealShape(
     ): Outline {
         val start = size.width * 0.12f
         val w = start + (size.width - start) * fraction
-        val h = start + (size.height - start) * fraction
+        val full =
+            if (foldHeight > 0f) foldHeight + (size.height - foldHeight) * fraction
+            else size.height
+        val h = start + (full - start) * fraction
         val left = (size.width - w) / 2f
         val top = if (anchorTop) 0f else (size.height - h) / 2f
         val r = minOf(cornerPx, w / 2f, h / 2f)
