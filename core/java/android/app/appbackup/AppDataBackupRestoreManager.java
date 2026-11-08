@@ -21,6 +21,7 @@ import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
 import android.annotation.SystemService;
 import android.content.Context;
+import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.util.Log;
@@ -56,6 +57,30 @@ public class AppDataBackupRestoreManager {
     private static IAppDataBackupService getService() {
         return IAppDataBackupService.Stub.asInterface(
                 ServiceManager.getService(SERVICE_NAME));
+    }
+
+    /** Imports a single Swift app/version folder into the caller's backup library. */
+    @RequiresPermission(android.Manifest.permission.APP_DATA_BACKUP)
+    @NonNull
+    public BackupResult importSwiftBackup(@NonNull String[] names,
+            @NonNull List<ParcelFileDescriptor> files) {
+        try {
+            return mService.importSwiftBackup(names, files);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** Exports an unencrypted native backup as a ZIP containing Swift guest backup files. */
+    @RequiresPermission(android.Manifest.permission.APP_DATA_BACKUP)
+    @NonNull
+    public BackupResult exportSwiftBackup(@NonNull String backupId,
+            @NonNull ParcelFileDescriptor destination) {
+        try {
+            return mService.exportSwiftBackup(backupId, destination);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
     }
 
     @RequiresPermission(android.Manifest.permission.APP_DATA_BACKUP)

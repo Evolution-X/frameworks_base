@@ -50,15 +50,18 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class AppDataBackupService extends SystemService {
 
@@ -72,6 +75,7 @@ public class AppDataBackupService extends SystemService {
     private final BinderService mBinderService = new BinderService();
     private final ExecutorService mExecutor = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
     private final Installer mInstaller;
+    private final AtomicBoolean mSwiftTransferActive = new AtomicBoolean();
 
     private final Map<String, Object> mActiveEngines = new ConcurrentHashMap<>();
     private final BackupNotificationHelper mNotifications;
@@ -90,6 +94,110 @@ public class AppDataBackupService extends SystemService {
     }
 
     final class BinderService extends IAppDataBackupService.Stub {
+
+        @Override
+        public BackupResult importSwiftBackup(String[] names, List<ParcelFileDescriptor> files) {
+            enforceBackupPermission();
+            final int userId = UserHandle.getCallingUserId();
+            final long ident = Binder.clearCallingIdentity();
+            File staging = null;
+            final boolean active = mSwiftTransferActive.compareAndSet(false, true);
+            try {
+                if (!active) return BackupResult.failure(BackupResult.ERROR_IO,
+                        "Another Swift transfer is in progress");
+                final String pkg = SwiftBackupImport.packageName(names);
+                SwiftBackupArchive.require(files != null && files.size() == names.length,
+                        "Missing Swift backup files");
+                staging = newSwiftStaging();
+                final Map<String, File> inputs = new LinkedHashMap<>();
+                long total = 0;
+                for (int i = 0; i < names.length; i++) {
+                    SwiftBackupArchive.require(files.get(i) != null, "Missing Swift file descriptor");
+                    final File file = new File(staging, names[i]);
+                    try (InputStream in = new ParcelFileDescriptor.AutoCloseInputStream(files.get(i));
+                            FileOutputStream out = new FileOutputStream(file)) {
+                        final byte[] buffer = new byte[65536];
+                        int count;
+                        while ((count = in.read(buffer)) != -1) {
+                            total += count;
+                            SwiftBackupArchive.require(total <= SwiftBackupArchive.MAX_BYTES,
+                                    "Swift backup exceeds the import size limit");
+                            if (names[i].endsWith(".xml")) {
+                                SwiftBackupArchive.require(out.getChannel().position() + count <= (1 << 20),
+                                        "Swift metadata is too large");
+                            }
+                            out.write(buffer, 0, count);
+                        }
+                    }
+                    inputs.put(names[i], file);
+                }
+                final BackupManifest manifest = SwiftBackupImport.convert(inputs, pkg, staging,
+                        getContext().getPackageManager(), userId);
+                final String id = manifest.toBackupRecord(canonicalBackupDir(userId)).getId();
+                try (ParcelFileDescriptor archive = ParcelFileDescriptor.open(
+                        new File(staging, "import.vbak"), ParcelFileDescriptor.MODE_READ_ONLY)) {
+                    mInstaller.publishBackupArchive(userId, id, archive);
+                }
+                return BackupResult.ok();
+            } catch (IOException | InstallerException e) {
+                return BackupResult.failure(BackupResult.ERROR_IO, e.getMessage());
+            } finally {
+                if (files != null) for (ParcelFileDescriptor fd : files) {
+                    if (fd != null) try { fd.close(); } catch (IOException ignored) {}
+                }
+                if (staging != null) deleteRecursive(staging);
+                if (active) mSwiftTransferActive.set(false);
+                Binder.restoreCallingIdentity(ident);
+            }
+        }
+
+        @Override
+        public BackupResult exportSwiftBackup(String backupId, ParcelFileDescriptor destination) {
+            enforceBackupPermission();
+            final int userId = UserHandle.getCallingUserId();
+            final long ident = Binder.clearCallingIdentity();
+            File staging = null;
+            final boolean active = mSwiftTransferActive.compareAndSet(false, true);
+            try (ParcelFileDescriptor owned = destination) {
+                if (!active) return BackupResult.failure(BackupResult.ERROR_IO,
+                        "Another Swift transfer is in progress");
+                SwiftBackupArchive.require(owned != null, "Missing Swift export destination");
+                staging = newSwiftStaging();
+                final File archive = new File(staging, "source.vbak");
+                try (InputStream in = openArchiveStream(userId, backupId);
+                        FileOutputStream out = new FileOutputStream(archive)) {
+                    final byte[] buffer = new byte[65536];
+                    long total = 0;
+                    int count;
+                    while ((count = in.read(buffer)) != -1) {
+                        total += count;
+                        SwiftBackupArchive.require(total <= SwiftBackupArchive.MAX_BYTES,
+                                "Backup exceeds the Swift export size limit");
+                        out.write(buffer, 0, count);
+                    }
+                }
+                final BackupRecord record = BackupManifest.recordFromJson(
+                        BackupArchive.readManifest(archive), canonicalBackupDir(userId));
+                SwiftBackupArchive.require(record.getUserId() == userId && record.getId().equals(backupId),
+                        "Backup identity mismatch");
+                SwiftBackupArchive.require(!BackupArchive.isEncrypted(archive),
+                        "Create a backup without a passphrase before exporting to Swift");
+                final File contents = new File(staging, "contents");
+                SwiftBackupArchive.require(contents.mkdir(), "Cannot stage Swift export");
+                BackupArchive.extract(archive, contents, null, Math.min(SwiftBackupArchive.MAX_BYTES,
+                        Math.max(0, staging.getUsableSpace() - (16 << 20)) / 3));
+                try (java.io.OutputStream out = new ParcelFileDescriptor.AutoCloseOutputStream(owned)) {
+                    SwiftBackupExport.write(record, contents, staging, out);
+                }
+                return BackupResult.ok();
+            } catch (IOException e) {
+                return BackupResult.failure(BackupResult.ERROR_IO, e.getMessage());
+            } finally {
+                if (staging != null) deleteRecursive(staging);
+                if (active) mSwiftTransferActive.set(false);
+                Binder.restoreCallingIdentity(ident);
+            }
+        }
 
         @Override
         public void onShellCommand(FileDescriptor in, FileDescriptor out,
@@ -621,6 +729,12 @@ public class AppDataBackupService extends SystemService {
 
     private static String canonicalBackupDir(int userId) {
         return RAW_MEDIA_ROOT + "/" + userId + "/AppDataBackup";
+    }
+
+    private static File newSwiftStaging() throws IOException {
+        final File root = new File("/data/system/app_backup_staging");
+        SwiftBackupArchive.require(root.isDirectory() || root.mkdirs(), "Cannot create backup staging");
+        return Files.createTempDirectory(root.toPath(), "swift-").toFile();
     }
 
     private static char[] toPassphrase(String passphrase) {

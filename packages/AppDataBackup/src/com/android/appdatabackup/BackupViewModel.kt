@@ -13,6 +13,8 @@ import android.app.appbackup.BackupResult
 import android.app.appbackup.IBackupProgressCallback
 import android.app.appbackup.IRestoreProgressCallback
 import android.content.Context
+import android.net.Uri
+import android.os.ParcelFileDescriptor
 import android.os.UserHandle
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
@@ -226,6 +228,54 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
             } catch (e: Exception) {
                 fail(id, e)
             }
+        }
+    }
+
+    fun importSwift(tree: Uri) {
+        if (state.value.busy) return
+        val id = begin(R.string.swift_import, R.string.progress_preparing)
+        viewModelScope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    val resolver = getApplication<Application>().contentResolver
+                    val files = SwiftBackupDocuments.files(resolver, tree)
+                    if (files.isEmpty() || files.size > 10) {
+                        return@withContext BackupResult.failure(BackupResult.ERROR_IO,
+                            text(R.string.swift_select_version))
+                    }
+                    val descriptors = mutableListOf<ParcelFileDescriptor>()
+                    try {
+                        files.forEach { (_, uri) -> descriptors +=
+                            resolver.openFileDescriptor(uri, "r")
+                                ?: throw java.io.IOException("Cannot open Swift backup file") }
+                        manager.importSwiftBackup(files.map { it.first }.toTypedArray(), descriptors)
+                    } finally { descriptors.forEach { runCatching { it.close() } } }
+                }
+                complete(id, result, R.string.swift_import_complete, reloadBackups = true)
+            } catch (e: Exception) { fail(id, e) }
+        }
+    }
+
+    fun exportSwift(record: BackupRecord, tree: Uri) {
+        if (state.value.busy || record.isEncrypted) return
+        val id = begin(R.string.swift_export, R.string.progress_preparing)
+        viewModelScope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    val app = getApplication<Application>()
+                    val archive = File.createTempFile("swift-export-", ".zip", app.cacheDir)
+                    try {
+                        val result = ParcelFileDescriptor.open(archive,
+                            ParcelFileDescriptor.MODE_READ_WRITE or ParcelFileDescriptor.MODE_TRUNCATE).use {
+                            manager.exportSwiftBackup(record.id, it)
+                        }
+                        if (result.isSuccess) SwiftBackupDocuments.export(app.contentResolver,
+                            tree, record.packageName, archive)
+                        result
+                    } finally { archive.delete() }
+                }
+                complete(id, result, R.string.swift_export_complete)
+            } catch (e: Exception) { fail(id, e) }
         }
     }
 

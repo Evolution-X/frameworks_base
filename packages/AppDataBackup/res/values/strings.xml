@@ -30,6 +30,14 @@
     <string name="action_select_results">Select results</string>
     <string name="action_clear">Clear selection</string>
     <string name="choose_apps">Choose apps</string>
+    <string name="swift_import">Import Swift backup</string>
+    <string name="swift_export">Export to Swift</string>
+    <string name="swift_choose_folder">Choose folder</string>
+    <string name="swift_select_version">Select the folder for one app and one backup version, containing its .app, .dat, and companion files.</string>
+    <string name="swift_import_help">Choose one app’s backup version folder from Swift Backup. Guest backups without a custom password and unencrypted backups are supported. Permissions and special settings are not imported. After import, select Restore in your library.</string>
+    <string name="swift_export_help">Choose the local folder inside your Swift Backup storage. A new app backup version will be created for Swift’s guest mode. Exported files have no password protection. Permissions and special settings are not exported.</string>
+    <string name="swift_import_complete">Swift backup imported. Select Restore to restore the app.</string>
+    <string name="swift_export_complete">Export complete. Refresh local backups in Swift Backup using guest mode.</string>
 
     <string name="backup_headline">Back up your apps</string>
     <string name="backup_subheadline">Keep your apps and their data ready for a fresh start.</string>

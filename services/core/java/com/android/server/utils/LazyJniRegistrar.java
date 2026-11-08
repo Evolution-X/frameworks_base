@@ -36,6 +36,9 @@ import com.android.tools.r8.keepanno.annotations.UsedByNative;
         methodAccess = {MethodAccessFlags.NATIVE})
 public final class LazyJniRegistrar {
 
+    /** Registers the codecs used by Swift Backup import. */
+    public static native void registerSwiftBackupNative();
+
     // Note: {@link SystemServer#run} loads the native "android_servers" lib, so no need to do so
     // explicitly here. Classes that use this registration must not be initialized before this.
 

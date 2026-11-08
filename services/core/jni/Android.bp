@@ -37,6 +37,7 @@ cc_library_static {
         "com_android_server_accessibility_BrailleDisplayConnection.cpp",
         "com_android_server_adb_AdbDebuggingManager.cpp",
         "com_android_server_am_BatteryStatsService.cpp",
+        "com_android_server_appbackup_SwiftBackupNative.cpp",
         "com_android_server_attention_InteractionProviderServiceInternal.cpp",
         "com_android_server_biometrics_SurfaceToNativeHandleConverter.cpp",
         "com_android_server_companion_virtual_VirtualDeviceImpl.cpp",
@@ -212,6 +213,8 @@ cc_defaults {
     ],
 
     static_libs: [
+        "libappbackup_crypto",
+        "libzstd",
         "android.hardware.broadcastradio@common-utils-1x-lib",
         "libadb_pairing_server_jni",
         "libaidlcommonsupport",
