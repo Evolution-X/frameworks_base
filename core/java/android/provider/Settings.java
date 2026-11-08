@@ -6944,7 +6944,10 @@ public final class Settings {
         public static final String NAVBAR_STYLE = "navbar_style";
 
         /**
-         * Defines the screen-off animation to display
+         * Defines the screen-off animation to display.
+         * 0 = Fade (stock ColorFade behaviour, default)
+         * 1 = CRT (ElectronBeam)
+         * 2 = Scale (ElectronBeam)
          * @hide
          */
         public static final String SCREEN_OFF_ANIMATION = "screen_off_animation";
