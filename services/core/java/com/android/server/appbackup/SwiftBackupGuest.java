@@ -96,6 +96,29 @@ final class SwiftBackupGuest {
         return new String(cipher.doFinal(value, 14, value.length - 14), StandardCharsets.UTF_8);
     }
 
+    static void decodeSystemFile(java.io.File source, java.io.File destination) throws IOException {
+        require(source.length() >= 30 && source.length() <= (64L << 20),
+                "Swift system metadata is empty or exceeds the 64 MiB limit");
+        try (java.io.InputStream in = new java.io.FileInputStream(source);
+                java.io.OutputStream out = new java.io.FileOutputStream(destination)) {
+            require(in.read() == 1 && in.read() == 2, "Unsupported Swift system metadata encryption");
+            byte[] nonce = new byte[12];
+            new java.io.DataInputStream(in).readFully(nonce);
+            Cipher cipher = metadataCipher(Cipher.DECRYPT_MODE, nonce);
+            byte[] buffer = new byte[65536];
+            int count;
+            while ((count = in.read(buffer)) != -1) {
+                byte[] clear = cipher.update(buffer, 0, count);
+                if (clear != null) out.write(clear);
+            }
+            out.write(cipher.doFinal());
+        } catch (GeneralSecurityException e) {
+            destination.delete();
+            throw new IOException("This Swift system backup belongs to another account or is damaged."
+                    + " Only guest and unencrypted system backups can be imported.", e);
+        }
+    }
+
     private static String encode(String value) throws GeneralSecurityException {
         final byte[] nonce = new byte[12];
         new SecureRandom().nextBytes(nonce);
