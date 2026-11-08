@@ -1,6 +1,7 @@
 package com.android.systemui.axdynamicbar.data.source
 
 import android.app.Notification
+import android.app.PendingIntent
 import android.app.Person
 import android.content.Context
 import com.android.systemui.res.R
@@ -938,7 +939,7 @@ constructor(
 
         val allActions = sbn.notification?.actions ?: emptyArray()
         val actions =
-            allActions
+            (callStyleActions(extras) + allActions)
                 .filter { a -> a.remoteInputs.isNullOrEmpty() && a.actionIntent != null }
                 .take(3)
                 .mapNotNull { a ->
@@ -984,6 +985,7 @@ constructor(
                 callStartTimeMs = callStart,
                 actions = actions,
                 connected = connected,
+                controls = callControls(extras, allActions),
             )
 
         val current = _callEvents.value.toMutableList()
@@ -991,6 +993,52 @@ constructor(
         current.add(0, event)
         _callEvents.value = current
     }
+
+    /** The call buttons, with the dialer's speaker and mute toggles and their current state. */
+    private fun callControls(
+        extras: Bundle,
+        actions: Array<Notification.Action>,
+    ): IslandEvent.CallControls {
+        fun pending(key: String) = extras.getParcelable(key, PendingIntent::class.java)
+        val byIntent = actions.associateBy { actionIntentString(it) }
+        val speakerOff = byIntent[DIALER_SPEAKER_OFF]
+        val speakerOn = byIntent[DIALER_SPEAKER_ON]
+        val unmute = byIntent[DIALER_UNMUTE]
+        val mute = byIntent[DIALER_MUTE]
+        return IslandEvent.CallControls(
+            answer = pending(Notification.EXTRA_ANSWER_INTENT),
+            decline = pending(Notification.EXTRA_DECLINE_INTENT),
+            hangUp = pending(Notification.EXTRA_HANG_UP_INTENT),
+            speakerOn = if (speakerOff != null) true else if (speakerOn != null) false else null,
+            speaker = (speakerOff ?: speakerOn)?.actionIntent,
+            muted = if (unmute != null) true else if (mute != null) false else null,
+            mute = (unmute ?: mute)?.actionIntent,
+        )
+    }
+
+    /** CallStyle keeps its answer, decline and hang up buttons in extras, not in its actions. */
+    private fun callStyleActions(extras: Bundle): List<Notification.Action> =
+        listOf(
+                Notification.EXTRA_DECLINE_INTENT to
+                    (com.android.internal.R.string.call_notification_decline_action to
+                        com.android.internal.R.drawable.ic_call_decline),
+                Notification.EXTRA_HANG_UP_INTENT to
+                    (com.android.internal.R.string.call_notification_hang_up_action to
+                        com.android.internal.R.drawable.ic_call_decline),
+                Notification.EXTRA_ANSWER_INTENT to
+                    (com.android.internal.R.string.call_notification_answer_action to
+                        com.android.internal.R.drawable.ic_call_answer),
+            )
+            .mapNotNull { (key, button) ->
+                val intent =
+                    extras.getParcelable(key, PendingIntent::class.java) ?: return@mapNotNull null
+                Notification.Action.Builder(
+                        Icon.createWithResource("android", button.second),
+                        context.getString(button.first),
+                        intent,
+                    )
+                    .build()
+            }
 
     private fun actionIconResName(action: Notification.Action, pkg: String): String? {
         val icon = action.getIcon() ?: return null
@@ -1402,3 +1450,8 @@ constructor(
 }
 
 private fun Bundle.getText(key: String): String? = getCharSequence(key)?.toString()
+
+private const val DIALER_SPEAKER_ON = "com.android.incallui.ACTION_TURN_ON_SPEAKER"
+private const val DIALER_SPEAKER_OFF = "com.android.incallui.ACTION_TURN_OFF_SPEAKER"
+private const val DIALER_MUTE = "com.android.incallui.ACTION_MUTE"
+private const val DIALER_UNMUTE = "com.android.incallui.ACTION_UNMUTE"
