@@ -96,6 +96,84 @@ public class AppDataBackupService extends SystemService {
     final class BinderService extends IAppDataBackupService.Stub {
 
         @Override
+        public String backupSystemData(int dataType, int userId, String passphrase,
+                int keepVersions, IBackupProgressCallback callback) {
+            enforceBackupPermission();
+            enforceUser(userId);
+            SystemDataSchema.requireType(dataType);
+            if (keepVersions < 0) throw new IllegalArgumentException("Invalid retention count");
+            final String token = UUID.randomUUID().toString();
+            final char[] pass = toPassphrase(passphrase);
+            final SystemDataEngine engine = new SystemDataEngine(getContext(), mInstaller, userId);
+            mActiveEngines.put(token, engine);
+            mExecutor.submit(() -> {
+                String identity = SystemDataSchema.identity(dataType);
+                notifyBackupStarted(callback, token, 1);
+                notifyPackageBackupStarted(callback, token, identity, 1, 1);
+                mNotifications.onOperationStarted(token, userId, true, 1);
+                mNotifications.onPackageProgress(token, userId, true,
+                        SystemDataSchema.label(dataType), 1, 1);
+                BackupResult result;
+                try {
+                    engine.backup(dataType, pass);
+                    if (keepVersions > 0) pruneOldBackups(new File(canonicalBackupDir(userId)),
+                            identity, userId, keepVersions, dataType);
+                    result = BackupResult.ok();
+                } catch (SystemDataEngine.CancelledException e) {
+                    result = BackupResult.cancelled();
+                } catch (IOException | RuntimeException e) {
+                    result = BackupResult.failure(BackupResult.ERROR_IO, e.getMessage());
+                } finally {
+                    wipe(pass);
+                    mActiveEngines.remove(token);
+                }
+                notifyPackageBackupFinished(callback, token, identity, result);
+                if (result.getErrorCode() == BackupResult.ERROR_CANCELLED) {
+                    mNotifications.onOperationCancelled(token, userId, true);
+                } else {
+                    mNotifications.onOperationFinished(token, userId, true, result);
+                }
+                notifyBackupFinished(callback, token, result);
+            });
+            return token;
+        }
+
+        @Override
+        public BackupResult importSwiftSystemData(int dataType, ParcelFileDescriptor source) {
+            enforceBackupPermission();
+            final int userId = UserHandle.getCallingUserId();
+            final long ident = Binder.clearCallingIdentity();
+            final boolean active = mSwiftTransferActive.compareAndSet(false, true);
+            File staging = null;
+            try (ParcelFileDescriptor owned = source) {
+                if (!active) return BackupResult.failure(BackupResult.ERROR_IO,
+                        "Another Swift transfer is in progress");
+                SystemDataSchema.requireType(dataType);
+                SwiftBackupArchive.require(owned != null, "Missing Swift backup file");
+                staging = SystemDataEngine.staging();
+                File input = new File(staging, "swift-input");
+                try (InputStream in = new ParcelFileDescriptor.AutoCloseInputStream(owned);
+                        FileOutputStream out = new FileOutputStream(input)) {
+                    SystemDataArchive.hash(in, out, Math.min(SystemDataArchive.MAX_BYTES,
+                            Math.max(0, staging.getUsableSpace() - (32 << 20)) / 3), () -> {});
+                }
+                BackupManifest manifest = SwiftSystemDataImport.convert(input, dataType, staging, userId);
+                String id = manifest.toBackupRecord(canonicalBackupDir(userId)).getId();
+                try (ParcelFileDescriptor archive = ParcelFileDescriptor.open(new File(staging, "import.vbak"),
+                        ParcelFileDescriptor.MODE_READ_ONLY)) {
+                    mInstaller.publishBackupArchive(userId, id, archive);
+                }
+                return BackupResult.ok();
+            } catch (IOException | InstallerException | RuntimeException e) {
+                return BackupResult.failure(BackupResult.ERROR_IO, e.getMessage());
+            } finally {
+                if (staging != null) SystemDataEngine.delete(staging);
+                if (active) mSwiftTransferActive.set(false);
+                Binder.restoreCallingIdentity(ident);
+            }
+        }
+
+        @Override
         public BackupResult importSwiftBackup(String[] names, List<ParcelFileDescriptor> files) {
             enforceBackupPermission();
             final int userId = UserHandle.getCallingUserId();
@@ -180,6 +258,8 @@ public class AppDataBackupService extends SystemService {
                         BackupArchive.readManifest(archive), canonicalBackupDir(userId));
                 SwiftBackupArchive.require(record.getUserId() == userId && record.getId().equals(backupId),
                         "Backup identity mismatch");
+                SwiftBackupArchive.require(!record.isSystemData(),
+                        "Swift export is available for app backups only");
                 SwiftBackupArchive.require(!BackupArchive.isEncrypted(archive),
                         "Create a backup without a passphrase before exporting to Swift");
                 final File contents = new File(staging, "contents");
@@ -235,6 +315,7 @@ public class AppDataBackupService extends SystemService {
         @Override
         public List<BackupRecord> getAvailableBackups(String backupDir, int userId) {
             enforceBackupPermission();
+            enforceUser(userId);
             final long ident = Binder.clearCallingIdentity();
             try {
                 return scanBackupDirectory(resolveBackupDirectory(backupDir, userId), userId);
@@ -273,6 +354,7 @@ public class AppDataBackupService extends SystemService {
                 int userId, IRestoreProgressCallback callback, String passphrase,
                 int components) {
             enforceRestorePermission();
+            enforceUser(userId);
 
             final String token = UUID.randomUUID().toString();
             final File srcDir = resolveBackupDirectory(backupDir, userId);
@@ -280,12 +362,15 @@ public class AppDataBackupService extends SystemService {
             final int comps = (components == 0)
                     ? AppDataBackupRestoreManager.COMPONENT_ALL : components;
 
+            final RestoreEngine engine = new RestoreEngine(getContext(), mInstaller);
+            mActiveEngines.put(token, engine);
             mExecutor.submit(() -> {
-                final RestoreEngine engine = new RestoreEngine(getContext(), mInstaller);
-                mActiveEngines.put(token, engine);
-                runRestore(engine, backupIds, srcDir, comps, userId, token, callback, pass);
-                mActiveEngines.remove(token);
-                wipe(pass);
+                try {
+                    runRestore(engine, backupIds, srcDir, comps, userId, token, callback, pass);
+                } finally {
+                    wipe(pass);
+                    mActiveEngines.remove(token);
+                }
             });
 
             return token;
@@ -319,9 +404,12 @@ public class AppDataBackupService extends SystemService {
             final int userId = android.os.UserHandle.getCallingUserId();
             final long ident = Binder.clearCallingIdentity();
             try (InputStream in = openArchiveStream(userId, backupId)) {
-                return BackupManifest.recordFromJson(
+                BackupRecord record = BackupManifest.recordFromJson(
                         BackupArchive.readManifest(in),
                         canonicalBackupDir(userId));
+                SwiftBackupArchive.require(record.getId().equals(backupId) && record.getUserId() == userId,
+                        "Backup identity mismatch");
+                return record;
             } catch (IOException e) {
                 Slog.w(TAG, "getBackupRecord failed", e);
                 return null;
@@ -339,10 +427,24 @@ public class AppDataBackupService extends SystemService {
         public String verifyBackup(String backupId, String backupDir, int userId,
                 String passphrase) {
             enforceBackupPermission();
+            enforceUser(userId);
             final long ident = Binder.clearCallingIdentity();
             final char[] pass = toPassphrase(passphrase);
-            try (InputStream in = openArchiveStream(userId, backupId)) {
-                BackupArchive.verify(in, pass);
+            try {
+                final BackupRecord record;
+                try (InputStream in = openArchiveStream(userId, backupId)) {
+                    record = BackupManifest.recordFromJson(BackupArchive.readManifest(in),
+                            canonicalBackupDir(userId));
+                }
+                SwiftBackupArchive.require(record.getId().equals(backupId) && record.getUserId() == userId,
+                        "Backup identity mismatch");
+                if (record.isSystemData()) {
+                    new SystemDataEngine(getContext(), mInstaller, userId).verify(record, pass);
+                } else {
+                    try (InputStream in = openArchiveStream(userId, backupId)) {
+                        BackupArchive.verify(in, pass);
+                    }
+                }
                 return null;
             } catch (BackupArchive.BadPassphraseException e) {
                 return "Wrong passphrase or corrupt header";
@@ -471,6 +573,8 @@ public class AppDataBackupService extends SystemService {
         mNotifications.onOperationStarted(token, userId, false, total);
 
         int successCount = 0;
+        int partialCount = 0;
+        BackupResult lastResult = null;
         boolean cancelled = false;
 
         for (int i = 0; i < total; i++) {
@@ -481,9 +585,12 @@ public class AppDataBackupService extends SystemService {
                 record = BackupManifest.recordFromJson(
                         BackupArchive.readManifest(in),
                         canonicalBackupDir(userId));
+                SwiftBackupArchive.require(record.getId().equals(backupId) && record.getUserId() == userId,
+                        "Backup identity mismatch");
             } catch (IOException e) {
                 final BackupResult r = BackupResult.failure(BackupResult.ERROR_IO,
                         "Cannot read manifest for " + backupId + ": " + e);
+                lastResult = r;
                 notifyPackageRestoreFinished(callback, token, backupId, r);
                 continue;
             }
@@ -495,11 +602,11 @@ public class AppDataBackupService extends SystemService {
 
             final BackupResult result = engine.restorePackage(record, userId, passphrase,
                     components);
+            lastResult = result;
             notifyPackageRestoreFinished(callback, token, record.getPackageName(), result);
 
-            if (result.isSuccess() || result.getStatus() == BackupResult.STATUS_PARTIAL) {
-                successCount++;
-            }
+            if (result.isSuccess()) successCount++;
+            else if (result.getStatus() == BackupResult.STATUS_PARTIAL) partialCount++;
             if (result.getErrorCode() == BackupResult.ERROR_CANCELLED) {
                 cancelled = true;
                 break;
@@ -507,10 +614,16 @@ public class AppDataBackupService extends SystemService {
         }
 
         final BackupResult aggregate;
-        if (successCount == total) {
+        if (total == 1 && lastResult != null) {
+            aggregate = lastResult;
+        } else if (cancelled) {
+            aggregate = BackupResult.failure(BackupResult.ERROR_CANCELLED,
+                    "Restore cancelled; records already restored have been kept");
+        } else if (successCount == total) {
             aggregate = BackupResult.ok();
-        } else if (successCount > 0) {
-            aggregate = BackupResult.partial(successCount + "/" + total + " packages restored");
+        } else if (successCount > 0 || partialCount > 0) {
+            aggregate = BackupResult.partial(successCount + "/" + total
+                    + " backups restored; " + partialCount + " partially restored");
         } else {
             aggregate = BackupResult.failure(BackupResult.ERROR_IO, "All restores failed");
         }
@@ -530,6 +643,8 @@ public class AppDataBackupService extends SystemService {
             ((BackupEngine) engine).cancel();
         } else if (engine instanceof RestoreEngine) {
             ((RestoreEngine) engine).cancel();
+        } else if (engine instanceof SystemDataEngine) {
+            ((SystemDataEngine) engine).cancel();
         }
     }
 
@@ -597,9 +712,16 @@ public class AppDataBackupService extends SystemService {
 
     private void pruneOldBackups(@NonNull File backupDir, @NonNull String packageName,
             int userId, int keep) {
+        pruneOldBackups(backupDir, packageName, userId, keep,
+                AppDataBackupRestoreManager.DATA_TYPE_APP);
+    }
+
+    private void pruneOldBackups(@NonNull File backupDir, @NonNull String packageName,
+            int userId, int keep, int dataType) {
         final List<BackupRecord> mine = new ArrayList<>();
         for (BackupRecord r : scanBackupDirectory(backupDir, userId)) {
-            if (packageName.equals(r.getPackageName()) && r.getUserId() == userId) {
+            if (packageName.equals(r.getPackageName()) && r.getUserId() == userId
+                    && r.getDataType() == dataType) {
                 mine.add(r);
             }
         }
@@ -632,7 +754,7 @@ public class AppDataBackupService extends SystemService {
                 final BackupRecord record = BackupManifest.recordFromJson(
                         BackupArchive.readManifest(in),
                         canonicalBackupDir(userId));
-                if (record.getUserId() == userId) {
+                if (record.getUserId() == userId && record.getId().equals(id)) {
                     records.add(record);
                 }
             } catch (IOException e) {
@@ -698,6 +820,15 @@ public class AppDataBackupService extends SystemService {
         getContext().enforceCallingOrSelfPermission(
                 android.Manifest.permission.APP_DATA_BACKUP,
                 "Requires APP_DATA_BACKUP permission");
+    }
+
+    private void enforceUser(int userId) {
+        if (userId < 0) throw new IllegalArgumentException("A concrete user is required");
+        if (userId != UserHandle.getCallingUserId()) {
+            getContext().enforceCallingOrSelfPermission(
+                    android.Manifest.permission.INTERACT_ACROSS_USERS_FULL,
+                    "Requires cross-user permission");
+        }
     }
 
     private void enforceRestorePermission() {

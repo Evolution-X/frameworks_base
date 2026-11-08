@@ -64,11 +64,21 @@ class BackupManifest {
     private final int mState;
     private final String mChecksum;
     private final int mUserId;
+    private final int mDataType;
 
     BackupManifest(String id, String packageName, String label, String versionName,
             long versionCode, long timestampMs, long apkSize, long ceDataSize,
             long deDataSize, long extDataSize, int components, boolean encrypted, int state,
             String checksum, int userId) {
+        this(id, packageName, label, versionName, versionCode, timestampMs, apkSize, ceDataSize,
+                deDataSize, extDataSize, components, encrypted, state, checksum, userId,
+                AppDataBackupRestoreManager.DATA_TYPE_APP);
+    }
+
+    BackupManifest(String id, String packageName, String label, String versionName,
+            long versionCode, long timestampMs, long apkSize, long ceDataSize,
+            long deDataSize, long extDataSize, int components, boolean encrypted, int state,
+            String checksum, int userId, int dataType) {
         mId = id;
         mPackageName = packageName;
         mLabel = label;
@@ -84,6 +94,7 @@ class BackupManifest {
         mState = state;
         mChecksum = checksum;
         mUserId = userId;
+        mDataType = dataType;
     }
 
     void writeTo(@NonNull File dest) throws IOException {
@@ -104,6 +115,7 @@ class BackupManifest {
             json.put(KEY_STATE, mState);
             json.put(KEY_CHECKSUM, mChecksum);
             json.put(KEY_USER_ID, mUserId);
+            json.put("dataType", mDataType);
 
             try (FileWriter writer = new FileWriter(dest)) {
                 writer.write(json.toString(2));
@@ -136,7 +148,7 @@ class BackupManifest {
                     json.optBoolean(KEY_ENCRYPTED, false),
                     json.optInt(KEY_STATE, BackupRecord.STATE_OK),
                     backupDir,
-                    json.optInt(KEY_USER_ID, 0));
+                    json.optInt(KEY_USER_ID, 0), dataType(json));
         } catch (JSONException e) {
             throw new IOException("Malformed manifest: " + manifestFile, e);
         }
@@ -161,6 +173,7 @@ class BackupManifest {
             json.put(KEY_STATE, mState);
             json.put(KEY_CHECKSUM, mChecksum);
             json.put(KEY_USER_ID, mUserId);
+            json.put("dataType", mDataType);
             return json;
         } catch (JSONException e) {
             throw new IOException("Failed to build manifest JSON", e);
@@ -185,7 +198,7 @@ class BackupManifest {
                     json.optBoolean(KEY_ENCRYPTED, false),
                     json.optInt(KEY_STATE, BackupRecord.STATE_OK),
                     backupDir,
-                    json.optInt(KEY_USER_ID, 0));
+                    json.optInt(KEY_USER_ID, 0), dataType(json));
         } catch (JSONException e) {
             throw new IOException("Malformed manifest JSON", e);
         }
@@ -195,7 +208,14 @@ class BackupManifest {
     BackupRecord toBackupRecord(@NonNull String backupDir) {
         return new BackupRecord(mId, mPackageName, mLabel, mVersionName, mVersionCode,
                 mTimestampMs, mApkSize, mCeDataSize, mDeDataSize, mComponents, mEncrypted, mState,
-                backupDir, mUserId);
+                backupDir, mUserId, mDataType);
+    }
+
+    private static int dataType(JSONObject json) throws IOException, JSONException {
+        if (!json.has("dataType")) return AppDataBackupRestoreManager.DATA_TYPE_APP;
+        String value = json.get("dataType").toString();
+        if (!value.matches("[0-3]")) throw new IOException("Unsupported backup data category");
+        return Integer.parseInt(value);
     }
 
     private static int resolveComponents(@NonNull JSONObject json) {

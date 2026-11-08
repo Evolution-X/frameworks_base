@@ -37,10 +37,26 @@
     <string name="swift_import_help">Choose one app’s backup version folder from Swift Backup. Guest backups without a custom password and unencrypted backups are supported. Permissions and special settings are not imported. After import, select Restore in your library.</string>
     <string name="swift_export_help">Choose the local folder inside your Swift Backup storage. A new app backup version will be created for Swift’s guest mode. Exported files have no password protection. Permissions and special settings are not exported.</string>
     <string name="swift_import_complete">Swift backup imported. Select Restore to restore the app.</string>
+    <string name="swift_choose_file">Choose file</string>
+    <string name="swift_system_import_complete">Swift backup imported. Select Restore in your library.</string>
+    <string name="swift_system_import_help">Choose a call log (.cls), message (.msg), or Wi-Fi (.wfi) file for the selected category. Guest backups and unencrypted backups are supported, including SBA and unencrypted ZIP containers. Account-bound backups, custom passwords, encrypted ZIP/7z containers, enterprise Wi-Fi, WEP, mixed Wi-Fi security modes, and pending MMS downloads or delivery reports are not supported. Messages require complete conversation recipients and attachments. SMS/MMS backup and restore require the device owner user. Imported backups have no passphrase protection. Import adds a backup to your library; select Restore to apply it.</string>
     <string name="swift_export_complete">Export complete. Refresh local backups in Swift Backup using guest mode.</string>
 
-    <string name="backup_headline">Back up your apps</string>
-    <string name="backup_subheadline">Keep your apps and their data ready for a fresh start.</string>
+    <string name="backup_headline">Keep what matters</string>
+    <string name="backup_subheadline">Save your apps, messages, call history, and Wi-Fi networks.</string>
+    <string name="system_data">System data</string>
+    <string name="system_calls">Call logs</string>
+    <string name="system_messages">Messages</string>
+    <string name="system_wifi">Wi-Fi</string>
+    <string name="system_calls_help">Call history for the current user. Voicemail recordings are excluded.</string>
+    <string name="system_messages_help">SMS and downloaded MMS, including attachments and drafts, for the device owner user. Pending MMS downloads, delivery reports, RCS, and chat app messages are excluded.</string>
+    <string name="system_wifi_help">Saved networks and passwords supported by Android backup. Enterprise and Passpoint networks are excluded.</string>
+    <string name="system_retention_label">Versions to keep for this category</string>
+    <string name="system_backup_title">Backing up system data</string>
+    <string name="system_restore_title">Restoring system data</string>
+    <string name="system_restore_complete">System data restored. Existing records were kept.</string>
+    <string name="system_restore_message">Merge the saved records with the current user’s data and skip duplicates. Messages waiting to send are restored as failed messages or drafts. If you cancel, records already restored will remain.</string>
+    <string name="system_wifi_restore_message">Restore saved Wi-Fi networks and passwords for the current user. Android backups may update matching saved networks; Swift imports keep existing networks. Android applies its Wi-Fi restore asynchronously. Check saved networks afterward.</string>
     <string name="library_headline">Your backups</string>
     <string name="library_subheadline">Everything you saved, ready to restore.</string>
     <string name="selection_label">READY TO BACK UP</string>
@@ -132,7 +148,7 @@
     <string name="progress_cancelling">Cancelling…</string>
     <string name="progress_installing">Installing %1$s…</string>
     <string name="progress_restoring_data">Restoring data for %1$s…</string>
-    <string name="progress_app_count">%1$d of %2$d apps processed</string>
+    <string name="progress_app_count">%1$d of %2$d items processed</string>
     <string name="backup_complete">Backup complete</string>
     <string name="restore_complete">Restore complete. You can reopen the app.</string>
     <string name="backup_cancelled">Backup cancelled</string>
