@@ -63,4 +63,9 @@ interface IAppDataBackupService {
     BackupResult importSwiftBackup(in String[] names, in List<ParcelFileDescriptor> files);
 
     BackupResult exportSwiftBackup(String backupId, in ParcelFileDescriptor destination);
+
+    String backupSystemData(int dataType, int userId, String passphrase, int keepVersions,
+                            IBackupProgressCallback callback);
+
+    BackupResult importSwiftSystemData(int dataType, in ParcelFileDescriptor source);
 }

@@ -59,6 +59,10 @@ public final class BackupResult implements Parcelable {
         return new BackupResult(STATUS_OK, ERROR_NONE, "OK");
     }
 
+    public static BackupResult ok(String message) {
+        return new BackupResult(STATUS_OK, ERROR_NONE, message);
+    }
+
     public static BackupResult partial(String message) {
         return new BackupResult(STATUS_PARTIAL, ERROR_NONE, message);
     }

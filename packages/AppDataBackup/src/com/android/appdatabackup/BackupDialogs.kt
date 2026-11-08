@@ -41,7 +41,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun BackupOptionsSheet(count: Int, onDismiss: () -> Unit, onConfirm: (BackupOptions) -> Unit) {
+fun BackupOptionsSheet(count: Int, onDismiss: () -> Unit, onConfirm: (BackupOptions) -> Unit,
+    dataType: Int = AppDataBackupRestoreManager.DATA_TYPE_APP) {
+    val systemData = dataType != AppDataBackupRestoreManager.DATA_TYPE_APP
     var components by rememberSaveable { mutableIntStateOf(AppDataBackupRestoreManager.COMPONENT_APK or
         AppDataBackupRestoreManager.COMPONENT_CE_DATA or AppDataBackupRestoreManager.COMPONENT_DE_DATA or
         AppDataBackupRestoreManager.COMPONENT_EXTERNAL) }
@@ -63,12 +65,15 @@ fun BackupOptionsSheet(count: Int, onDismiss: () -> Unit, onConfirm: (BackupOpti
                     Text(stringResource(R.string.backup_options_title),
                         style = MaterialTheme.typography.headlineSmallEmphasized,
                         modifier = Modifier.semantics { heading() })
-                    Text(pluralStringResource(R.plurals.selected_count, count, count),
+                    Text(if (systemData) stringResource(systemDataLabel(dataType))
+                        else pluralStringResource(R.plurals.selected_count, count, count),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (systemData) Text(stringResource(systemDataHelp(dataType)),
+                style = MaterialTheme.typography.bodyMedium)
+            if (!systemData) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 DialogSectionTitle(stringResource(R.string.section_include))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(
@@ -84,7 +89,7 @@ fun BackupOptionsSheet(count: Int, onDismiss: () -> Unit, onConfirm: (BackupOpti
                     style = MaterialTheme.typography.bodySmall,
                     color = if (components == 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+            if (!systemData) Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
                 Row(Modifier.fillMaxWidth().toggleable(value = excludeCache, role = Role.Switch,
                     onValueChange = { excludeCache = it }).padding(20.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -105,7 +110,7 @@ fun BackupOptionsSheet(count: Int, onDismiss: () -> Unit, onConfirm: (BackupOpti
                 OutlinedTextField(value = keepText, onValueChange = { if (it.all(Char::isDigit)) keepText = it },
                     modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(20.dp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    label = { Text(stringResource(R.string.retention_label)) },
+                    label = { Text(stringResource(if (systemData) R.string.system_retention_label else R.string.retention_label)) },
                     leadingIcon = { Icon(Icons.Rounded.History, null) }, isError = !validRetention,
                     supportingText = { Text(stringResource(if (validRetention) R.string.retention_helper else R.string.retention_invalid)) })
             }
@@ -184,7 +189,10 @@ fun BackupActionDialog(record: BackupRecord, action: BackupAction, onDismiss: ()
             Column(Modifier.verticalScroll(rememberScrollState()).animateContentSize(),
                 verticalArrangement = Arrangement.spacedBy(20.dp)) {
                 Text(when (action) {
-                    BackupAction.Restore -> stringResource(R.string.confirm_restore_message)
+                    BackupAction.Restore -> stringResource(if (record.isSystemData) {
+                        if (record.dataType == AppDataBackupRestoreManager.DATA_TYPE_WIFI)
+                            R.string.system_wifi_restore_message else R.string.system_restore_message
+                    } else R.string.confirm_restore_message)
                     BackupAction.Verify -> stringResource(R.string.confirm_verify_message)
                     BackupAction.Delete -> stringResource(R.string.confirm_delete_message, record.label)
                 })

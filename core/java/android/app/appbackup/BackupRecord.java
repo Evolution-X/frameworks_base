@@ -42,11 +42,22 @@ public final class BackupRecord implements Parcelable {
     private final int mState;
     private final String mBackupDir;
     private final int mUserId;
+    private final int mDataType;
 
     public BackupRecord(String id, String packageName, String label,
             String versionName, long versionCode, long timestampMs,
             long apkSize, long ceDataSize, long deDataSize,
             int components, boolean encrypted, int state, String backupDir, int userId) {
+        this(id, packageName, label, versionName, versionCode, timestampMs, apkSize,
+                ceDataSize, deDataSize, components, encrypted, state, backupDir, userId,
+                AppDataBackupRestoreManager.DATA_TYPE_APP);
+    }
+
+    public BackupRecord(String id, String packageName, String label,
+            String versionName, long versionCode, long timestampMs,
+            long apkSize, long ceDataSize, long deDataSize,
+            int components, boolean encrypted, int state, String backupDir, int userId,
+            int dataType) {
         mId = id;
         mPackageName = packageName;
         mLabel = label;
@@ -61,6 +72,7 @@ public final class BackupRecord implements Parcelable {
         mState = state;
         mBackupDir = backupDir;
         mUserId = userId;
+        mDataType = dataType;
     }
 
     private BackupRecord(Parcel in) {
@@ -78,6 +90,7 @@ public final class BackupRecord implements Parcelable {
         mState = in.readInt();
         mBackupDir = in.readString();
         mUserId = in.readInt();
+        mDataType = in.readInt();
     }
 
     public String getId() { return mId; }
@@ -95,6 +108,10 @@ public final class BackupRecord implements Parcelable {
     public int getState() { return mState; }
     public String getBackupDir() { return mBackupDir; }
     public int getUserId() { return mUserId; }
+    public int getDataType() { return mDataType; }
+    public boolean isSystemData() {
+        return mDataType != AppDataBackupRestoreManager.DATA_TYPE_APP;
+    }
 
     @Override
     public void writeToParcel(Parcel dest, int flags) {
@@ -112,6 +129,7 @@ public final class BackupRecord implements Parcelable {
         dest.writeInt(mState);
         dest.writeString(mBackupDir);
         dest.writeInt(mUserId);
+        dest.writeInt(mDataType);
     }
 
     @Override
