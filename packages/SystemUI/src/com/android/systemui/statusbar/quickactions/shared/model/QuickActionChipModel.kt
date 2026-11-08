@@ -134,8 +134,23 @@ sealed interface PopupContentModel {
         val isRinging: Boolean = false,
         /** Package of the app the event stands for, so it steps aside while that app is open. */
         val ownerPackage: String? = null,
+        /** The in-call card's buttons, when the call offers them; null keeps the plain popup. */
+        val call: CallPopupModel? = null,
     ) : PopupContentModel
 }
+
+/** The in-call card's buttons; a `null` action means the calling app doesn't offer it. */
+data class CallPopupModel(
+    val incoming: Boolean,
+    val connected: Boolean,
+    val onAnswer: (() -> Unit)?,
+    val onDecline: (() -> Unit)?,
+    val onEnd: (() -> Unit)?,
+    val speakerOn: Boolean,
+    val onSpeaker: (() -> Unit)?,
+    val muted: Boolean,
+    val onMute: (() -> Unit)?,
+)
 
 /** Model for individual status bar quick action chips. */
 sealed class QuickActionChipModel {
