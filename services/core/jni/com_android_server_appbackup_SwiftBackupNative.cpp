@@ -36,8 +36,9 @@ void decompress(JNIEnv* env, jclass, jobject source, jlong offset, jlong size,
                 jobject destination, jlong expected) {
     const int input = jniGetFDFromFileDescriptor(env, source);
     const int output = jniGetFDFromFileDescriptor(env, destination);
+    constexpr jlong maxBytes = jlong{1} << 40;
     if (input < 0 || output < 0 || offset < 0 || size <= 0 || expected <= 0 ||
-        size > (8LL << 30) || expected > (8LL << 30) || offset > (8LL << 30)) {
+        size > maxBytes || expected > maxBytes || offset > maxBytes - size) {
         fail(env, "Invalid Swift decompression bounds");
         return;
     }
