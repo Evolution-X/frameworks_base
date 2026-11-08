@@ -250,7 +250,9 @@ internal fun CosIslandShell(
             content = {
                 Box(
                     Modifier.wrapContentSize()
-                        .onSizeChanged { if (key == shownKey) natural = it }
+                        // The content lambda already shows the new chip while the old one
+                        // closes, so its size has to be taken whatever the shown key is.
+                        .onSizeChanged { natural = it }
                         .graphicsLayer {
                             scaleX = scale.value
                             scaleY = scale.value
