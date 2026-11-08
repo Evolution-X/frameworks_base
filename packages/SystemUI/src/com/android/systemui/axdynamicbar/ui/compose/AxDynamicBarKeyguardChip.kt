@@ -115,10 +115,10 @@ import android.graphics.drawable.Drawable
 import java.util.Calendar
 
 private val ChipHeight = 36.dp
-// The keyguard battery chip is the only always-on line that used the smallest type token
-// (PillPrimary -> labelSmallEmphasized, 11sp), which made it visibly smaller than the AOD
-// date/weather line (widget_label_font_size, 16dp). Match that 16sp so the readout is the
-// same size as the other lines.
+// The keyguard battery chip used the smallest type token (PillPrimary ->
+// labelSmallEmphasized, 11sp) for every line, which made it visibly smaller than the AOD
+// date/weather line (widget_label_font_size, 16dp). Use 16sp for the whole chip content so
+// the readout and all of its secondary info match the other lines.
 private val BatteryChipText: TextStyle
     @Composable get() = PillPrimary.copy(fontSize = 16.sp, lineHeight = 20.sp)
 private val ChipShape = ShapeChip
@@ -704,7 +704,7 @@ private fun KeyguardBatteryChip(
                         )
                         Text(
                             parts[1],
-                            style = TsCaption,
+                            style = BatteryChipText,
                             color = contentColor.copy(alpha = AlphaSecondary),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -727,26 +727,25 @@ private fun KeyguardBatteryChip(
                 val timeRemaining = info.timeRemaining
                 val tertiaryColor = contentColor.copy(alpha = AlphaTertiary)
                 val secondaryColor = contentColor.copy(alpha = AlphaSecondary)
-                val labelSmallFontSize = MaterialTheme.typography.labelSmall.fontSize
-                val pillPrimaryFontSize = BatteryChipText.fontSize
-                val infoLine = remember(info.level, secondaryLabel, timeRemaining, contentColor, labelSmallFontSize, pillPrimaryFontSize) {
+                val infoFontSize = BatteryChipText.fontSize
+                val infoLine = remember(info.level, secondaryLabel, timeRemaining, contentColor, infoFontSize) {
                     buildAnnotatedString {
-                        withStyle(SpanStyle(color = contentColor, fontSize = pillPrimaryFontSize)) {
+                        withStyle(SpanStyle(color = contentColor, fontSize = infoFontSize)) {
                             append("${info.level}%")
                         }
                         if (secondaryLabel != null) {
-                            withStyle(SpanStyle(color = tertiaryColor, fontSize = labelSmallFontSize)) {
+                            withStyle(SpanStyle(color = tertiaryColor, fontSize = infoFontSize)) {
                                 append(" · ")
                             }
-                            withStyle(SpanStyle(color = secondaryColor, fontSize = labelSmallFontSize)) {
+                            withStyle(SpanStyle(color = secondaryColor, fontSize = infoFontSize)) {
                                 append(secondaryLabel)
                             }
                         }
                         if (timeRemaining != null) {
-                            withStyle(SpanStyle(color = tertiaryColor, fontSize = labelSmallFontSize)) {
+                            withStyle(SpanStyle(color = tertiaryColor, fontSize = infoFontSize)) {
                                 append(" · ")
                             }
-                            withStyle(SpanStyle(color = secondaryColor, fontSize = labelSmallFontSize)) {
+                            withStyle(SpanStyle(color = secondaryColor, fontSize = infoFontSize)) {
                                 append(timeRemaining)
                             }
                         }
@@ -756,7 +755,7 @@ private fun KeyguardBatteryChip(
                     infoLine,
                     maxLines = 1,
                     overflow = TextOverflow.Clip,
-                    modifier = Modifier.widthIn(max = 130.dp).basicMarquee(iterations = 1),
+                    modifier = Modifier.widthIn(max = 180.dp).basicMarquee(iterations = 1),
                 )
             }
         }
@@ -899,7 +898,7 @@ private fun KeyguardPrimaryText(event: IslandEvent, color: Color, modifier: Modi
                     )
                     Text(
                         parts[1],
-                        style = TsCaption,
+                        style = BatteryChipText,
                         color = color.copy(alpha = AlphaSecondary),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
