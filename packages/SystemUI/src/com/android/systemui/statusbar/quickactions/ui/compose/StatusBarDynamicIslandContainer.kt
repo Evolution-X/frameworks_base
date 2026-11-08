@@ -260,7 +260,7 @@ fun StatusBarDynamicIslandContainer(
                     },
                     modifier =
                         Modifier.swipeUpToHide(chip.chipId, slopPx) { currentChip.hide() }
-                            .pointerInput(chips.size) {
+                            .pointerInput(chips.size, chip.chipId) {
                                 detectHorizontalDragGestures(
                                     onDragStart = { dragged = 0f },
                                     onDragEnd = {
