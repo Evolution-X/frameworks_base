@@ -74,6 +74,7 @@ fun IslandGlassCard(
     primaryAction: PopupActionModel? = null,
     secondaryAction: PopupActionModel? = null,
     primaryActionColor: Color = GlassPrimaryFill,
+    secondaryActionColor: Color = GlassButtonFill,
     below: (@Composable () -> Unit)? = null,
 ) {
     AxBlurSurface(
@@ -134,7 +135,7 @@ fun IslandGlassCard(
                                 GlassRoundButton(it, fill = primaryActionColor, size = 52)
                             }
                             secondaryAction?.let {
-                                GlassRoundButton(it, fill = GlassButtonFill, size = 48)
+                                GlassRoundButton(it, fill = secondaryActionColor, size = 48)
                             }
                         }
                     }
