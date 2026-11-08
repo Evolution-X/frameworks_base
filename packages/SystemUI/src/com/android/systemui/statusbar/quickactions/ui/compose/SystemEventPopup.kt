@@ -58,6 +58,7 @@ import com.android.systemui.common.ui.compose.Icon as StatusBarIcon
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.quickactions.popups.shared.model.BluetoothBatteryComponent
 import com.android.systemui.statusbar.quickactions.popups.shared.model.BluetoothBatteryModel
+import com.android.systemui.statusbar.quickactions.popups.shared.model.SystemEventKind
 import com.android.systemui.statusbar.quickactions.shared.model.PopupContentModel
 
 private val EventPopupShape = RoundedCornerShape(32.dp)
@@ -66,6 +67,12 @@ private val EventPopupShape = RoundedCornerShape(32.dp)
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SystemEventPopup(model: PopupContentModel.SystemEvent, modifier: Modifier = Modifier) {
+    model.call
+        ?.takeIf { model.kind == SystemEventKind.Call && islandGlassCards() }
+        ?.let {
+            CallIslandCard(model, it, modifier)
+            return
+        }
     val accent = model.accent ?: IslandAccents.Connectivity
     PopupSurface(
         shape = EventPopupShape,

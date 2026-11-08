@@ -30,6 +30,7 @@ import com.android.systemui.statusbar.quickactions.popups.shared.model.Bluetooth
 import com.android.systemui.statusbar.quickactions.popups.shared.model.PopupActionModel
 import com.android.systemui.statusbar.quickactions.popups.shared.toSendAction
 import com.android.systemui.statusbar.quickactions.popups.shared.model.SystemEventKind
+import com.android.systemui.statusbar.quickactions.shared.model.CallPopupModel
 import com.android.systemui.statusbar.quickactions.shared.model.ChipContent
 import com.android.systemui.statusbar.quickactions.shared.model.ChipIcon
 import com.android.systemui.statusbar.quickactions.shared.model.PopupContentModel
@@ -101,6 +102,20 @@ constructor(
                 else -> context.getString(R.string.dynamic_island_event_calling)
             }
         val icon = Icon.Resource(R.drawable.ic_call, null)
+        val controls = event.controls
+        val call =
+            CallPopupModel(
+                    incoming = event.callType == "Phone:incoming",
+                    connected = event.connected,
+                    onAnswer = controls.answer.toSendAction(),
+                    onDecline = controls.decline.toSendAction(),
+                    onEnd = controls.hangUp.toSendAction(),
+                    speakerOn = controls.speakerOn == true,
+                    onSpeaker = controls.speaker.toSendAction(),
+                    muted = controls.muted == true,
+                    onMute = controls.mute.toSendAction(),
+                )
+                .takeIf { it.onAnswer != null || it.onDecline != null || it.onEnd != null }
         return QuickActionChipModel.PopupChip(
             chipId = QuickActionChipId.SystemEvent(event.id),
             icons = listOf(ChipIcon(icon = icon)),
@@ -123,6 +138,7 @@ constructor(
                     callStartTimeMs = event.callStartTimeMs.takeIf { event.connected },
                     isRinging = event.callType == "Phone:incoming",
                     ownerPackage = event.sbn.packageName,
+                    call = call,
                 ),
         )
     }

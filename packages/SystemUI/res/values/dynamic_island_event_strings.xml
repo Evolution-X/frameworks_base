@@ -41,6 +41,16 @@
     <string name="dynamic_island_event_incoming_call">Incoming call</string>
     <!-- Dynamic island: state of a call that is being dialled [CHAR LIMIT=24] -->
     <string name="dynamic_island_event_calling">Calling</string>
+    <!-- Dynamic island: button that answers an incoming call [CHAR LIMIT=24] -->
+    <string name="dynamic_island_call_answer">Answer</string>
+    <!-- Dynamic island: button that declines an incoming call [CHAR LIMIT=24] -->
+    <string name="dynamic_island_call_decline">Decline</string>
+    <!-- Dynamic island: button that ends a call [CHAR LIMIT=24] -->
+    <string name="dynamic_island_call_end">End call</string>
+    <!-- Dynamic island: button that toggles the speaker during a call [CHAR LIMIT=24] -->
+    <string name="dynamic_island_call_speaker">Speaker</string>
+    <!-- Dynamic island: button that toggles the microphone during a call [CHAR LIMIT=24] -->
+    <string name="dynamic_island_call_mute">Mute</string>
     <!-- Dynamic island: button that opens the app of a live update [CHAR LIMIT=24] -->
     <string name="dynamic_island_event_open">Open</string>
 </resources>
