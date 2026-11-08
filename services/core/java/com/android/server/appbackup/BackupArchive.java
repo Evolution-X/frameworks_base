@@ -231,6 +231,13 @@ final class BackupArchive {
         process(inFile, destDir, passphrase);
     }
 
+    static void extract(@NonNull File inFile, @NonNull File destDir,
+            @Nullable char[] passphrase, long maxBytes) throws IOException {
+        try (InputStream in = new BufferedInputStream(new FileInputStream(inFile))) {
+            process(in, destDir, passphrase, maxBytes);
+        }
+    }
+
     static void verify(@NonNull File inFile, @Nullable char[] passphrase) throws IOException {
         process(inFile, null, passphrase);
     }
@@ -263,6 +270,11 @@ final class BackupArchive {
 
     private static void process(@NonNull InputStream rawIn, @Nullable File destDir,
             @Nullable char[] passphrase) throws IOException {
+        process(rawIn, destDir, passphrase, Long.MAX_VALUE);
+    }
+
+    private static void process(@NonNull InputStream rawIn, @Nullable File destDir,
+            @Nullable char[] passphrase, long maxBytes) throws IOException {
         final InputStream in = (rawIn instanceof BufferedInputStream)
                 ? rawIn : new BufferedInputStream(rawIn);
         final JSONObject header = readHeader(in);
@@ -274,6 +286,14 @@ final class BackupArchive {
             try {
                 enc = header.getJSONObject("encryption");
                 entries = header.getJSONArray("entries");
+                long remaining = maxBytes;
+                for (int i = 0; i < entries.length(); i++) {
+                    final long size = entries.getJSONObject(i).getLong("size");
+                    if (size < 0 || size > remaining) {
+                        throw new IOException("Backup exceeds the extraction size limit");
+                    }
+                    remaining -= size;
+                }
                 scheme = enc.optString("scheme", SCHEME_NONE);
                 compression = header.optString("compression", COMP_NONE);
             } catch (JSONException e) {
