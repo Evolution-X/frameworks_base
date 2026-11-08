@@ -42,7 +42,6 @@ import android.util.Slog;
 import com.android.server.pm.Installer;
 import com.android.server.pm.Installer.InstallerException;
 
-import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -66,8 +65,6 @@ public class RestoreEngine {
     private static final int TAR_SIZE_OFFSET = 124;
     private static final int TAR_SIZE_LEN = 12;
     private static final int TAR_TYPE_OFFSET = 156;
-    private static final int TAR_LINKNAME_OFFSET = 157;
-    private static final int TAR_LINKNAME_LEN = 100;
 
     private final Context mContext;
     private final PackageManager mPm;
@@ -404,7 +401,7 @@ public class RestoreEngine {
                 final String name = readString(header, TAR_NAME_OFFSET, TAR_NAME_LEN);
                 if (name.isEmpty()) break;
 
-                final long size = readOctal(header, TAR_SIZE_OFFSET, TAR_SIZE_LEN);
+                final long size = readTarNumber(header, TAR_SIZE_OFFSET, TAR_SIZE_LEN);
                 final char type = (char) header[TAR_TYPE_OFFSET];
 
                 final String safeName = sanitizePath(name);
@@ -480,13 +477,19 @@ public class RestoreEngine {
         return new String(buf, offset, end - offset).trim();
     }
 
-    private static long readOctal(byte[] buf, int offset, int len) {
-        final String s = readString(buf, offset, len).trim();
-        if (s.isEmpty()) return 0;
+    private static long readTarNumber(byte[] buf, int offset, int len) throws IOException {
         try {
-            return Long.parseLong(s, 8);
-        } catch (NumberFormatException e) {
-            return 0;
+            if ((buf[offset] & 0x80) != 0 && (buf[offset] & 0xff) != 0x80) {
+                throw new IOException("Negative or overflowing tar size");
+            }
+            long value = org.apache.commons.compress.archivers.tar.TarUtils.parseOctalOrBinary(
+                    buf, offset, len);
+            if (value < 0 || value > SwiftBackupArchive.MAX_BYTES) {
+                throw new IOException("Tar entry size is out of range");
+            }
+            return value;
+        } catch (IllegalArgumentException e) {
+            throw new IOException("Invalid tar numeric field", e);
         }
     }
 
@@ -501,70 +504,12 @@ public class RestoreEngine {
 
     private static void assertTarEntriesSafe(@NonNull File archive, @NonNull String label,
             @NonNull String packageName) throws IOException {
-        try (InputStream in = new BufferedInputStream(new FileInputStream(archive))) {
-            final byte[] header = new byte[TAR_BLOCK_SIZE];
-            String pendingName = null;
-            String pendingLink = null;
-            while (true) {
-                if (readFully(in, header) != TAR_BLOCK_SIZE || isZeroBlock(header)) {
-                    break;
-                }
-                final long size = readOctal(header, TAR_SIZE_OFFSET, TAR_SIZE_LEN);
-                final char type = (char) (header[TAR_TYPE_OFFSET] & 0xFF);
-                if (type == 'L' || type == 'K') {
-                    final String longVal = readLongName(in, size);
-                    if (type == 'L') {
-                        pendingName = longVal;
-                    } else {
-                        pendingLink = longVal;
-                    }
-                    continue;
-                }
-                final String name = pendingName != null
-                        ? pendingName
-                        : readString(header, TAR_NAME_OFFSET, TAR_NAME_LEN);
-                final String link = pendingLink != null
-                        ? pendingLink
-                        : readString(header, TAR_LINKNAME_OFFSET, TAR_LINKNAME_LEN);
-                pendingName = null;
-                pendingLink = null;
-                if (isUnsafeTarPath(name)) {
-                    throw new IOException("Unsafe path in " + label + " tar for "
-                            + packageName + ": " + name);
-                }
-                if ((type == '1' || type == '2') && isUnsafeTarPath(link)) {
-                    throw new IOException("Unsafe link target in " + label + " tar for "
-                            + packageName + ": " + name + " -> " + link);
-                }
-                skipBytes(in, align512(size));
-            }
+        try {
+            SwiftBackupTar.checkRestoreLimits(archive);
+        } catch (IOException e) {
+            throw new IOException("Invalid " + label + " tar for " + packageName + ": "
+                    + e.getMessage(), e);
         }
-    }
-
-    private static String readLongName(@NonNull InputStream in, long size)
-            throws IOException {
-        if (size < 0 || size > 64 * 1024) {
-            throw new IOException("Implausible long-name record size: " + size);
-        }
-        final byte[] buf = new byte[(int) size];
-        if (readFully(in, buf) != buf.length) {
-            throw new IOException("Truncated long-name record");
-        }
-        skipBytes(in, align512(size) - size);
-        int end = buf.length;
-        while (end > 0 && buf[end - 1] == 0) end--;
-        return new String(buf, 0, end, java.nio.charset.StandardCharsets.UTF_8);
-    }
-
-    private static boolean isUnsafeTarPath(@Nullable String rawName) {
-        if (rawName == null) return true;
-        final String name = rawName.trim();
-        if (name.isEmpty()) return false;
-        if (name.startsWith("/")) return true;
-        for (String segment : name.split("/")) {
-            if ("..".equals(segment)) return true;
-        }
-        return false;
     }
 
     private static void deleteRecursive(@NonNull File file) {

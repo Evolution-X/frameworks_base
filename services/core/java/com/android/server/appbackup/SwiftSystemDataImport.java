@@ -10,6 +10,8 @@ import static android.app.appbackup.AppDataBackupRestoreManager.DATA_TYPE_MESSAG
 import static android.app.appbackup.AppDataBackupRestoreManager.DATA_TYPE_WIFI;
 import static com.android.server.appbackup.SwiftBackupArchive.require;
 
+import android.app.appbackup.BackupRecord;
+import android.app.appbackup.BackupResult;
 import android.util.JsonReader;
 import android.util.JsonToken;
 
@@ -36,6 +38,20 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 final class SwiftSystemDataImport {
+    static final class Result {
+        final BackupManifest manifest;
+        final BackupResult outcome;
+
+        Result(BackupManifest manifest, BackupResult outcome) {
+            this.manifest = manifest;
+            this.outcome = outcome;
+        }
+    }
+
+    private static final class IncompleteMmsException extends IOException {
+        IncompleteMmsException(String message) { super(message); }
+    }
+
     private static final SystemDataArchive.Check CHECK = () -> {};
     private static final String[] CALL_MAP = {"numberPresentation:presentation", "countryIso:countryiso",
             "dataUsage:data_usage", "newCall:new", "isRead:is_read", "geoCodedLocation:geocoded_location"};
@@ -52,8 +68,11 @@ final class SwiftSystemDataImport {
             "contentDisposition:cd", "contentId:cid", "contentLocation:cl", "contentStartType:ctt_s",
             "contentTypeType:ctt_t"};
 
-    static BackupManifest convert(File source, int type, File staging, int userId) throws IOException {
+    static Result convert(File source, int type, File staging, int userId) throws IOException {
         SystemDataSchema.requireType(type);
+        int[] skipped = {0};
+        String[] firstSkipped = {null};
+        int imported;
         try {
             File metadata = source;
             File unpacked = new File(staging, "swift-system");
@@ -101,7 +120,7 @@ final class SwiftSystemDataImport {
                 while (reader.hasNext()) {
                     require(++count <= SystemDataArchive.MAX_RECORDS, "Too many Swift records");
                     if (type == DATA_TYPE_MESSAGES) {
-                        conversation(reader, writer, unpacked);
+                        conversation(reader, writer, unpacked, skipped, firstSkipped);
                     } else {
                         JSONObject item = object(reader);
                         if (type == DATA_TYPE_CALL_LOGS) {
@@ -119,17 +138,26 @@ final class SwiftSystemDataImport {
                 reader.endObject();
                 require(reader.peek() == JsonToken.END_DOCUMENT, "Trailing Swift system data");
                 writer.finish();
+                imported = writer.count();
             }
             try (SystemDataArchive archive = new SystemDataArchive(payload)) {
                 archive.visit(row -> SystemDataSchema.validate(row, type, archive, CHECK), CHECK);
             }
-            return SystemDataEngine.pack(type, userId, staging, null);
+            require(imported > 0 || skipped[0] == 0,
+                    "No complete messages could be imported. " + firstSkipped[0]);
+            BackupResult outcome = skipped[0] == 0 ? BackupResult.ok() : BackupResult.partial(
+                    "Imported " + imported + " messages; skipped " + skipped[0]
+                            + " incomplete or unsupported MMS. " + firstSkipped[0]);
+            BackupManifest manifest = SystemDataEngine.pack(type, userId, staging, null,
+                    skipped[0] == 0 ? BackupRecord.STATE_OK : BackupRecord.STATE_PARTIAL);
+            return new Result(manifest, outcome);
         } catch (JSONException | IllegalStateException e) {
             throw new IOException("Invalid Swift system backup", e);
         }
     }
 
-    private static void conversation(JsonReader reader, SystemDataArchive.Writer writer, File unpacked)
+    private static void conversation(JsonReader reader, SystemDataArchive.Writer writer, File unpacked,
+            int[] skipped, String[] firstSkipped)
             throws IOException, JSONException {
         reader.beginObject();
         boolean found = false;
@@ -147,7 +175,13 @@ final class SwiftSystemDataImport {
                         writer.row(new JSONObject().put("kind", "sms")
                                 .put("values", map(item, SMS_MAP, SystemDataSchema.SMS)));
                     } else {
-                        writer.row(mms(item, writer, unpacked));
+                        try {
+                            writer.row(mms(item, writer, unpacked));
+                        } catch (IncompleteMmsException e) {
+                            require(++skipped[0] <= SystemDataArchive.MAX_RECORDS,
+                                    "Too many Swift messages");
+                            if (firstSkipped[0] == null) firstSkipped[0] = e.getMessage();
+                        }
                     }
                 }
                 reader.endArray();
@@ -162,11 +196,16 @@ final class SwiftSystemDataImport {
     private static JSONObject mms(JSONObject item, SystemDataArchive.Writer writer, File unpacked)
             throws IOException, JSONException {
         JSONObject values = map(item, MMS_MAP, SystemDataSchema.MMS);
+        int messageType = values.getInt("m_type");
+        if (messageType != 128 && messageType != 132) {
+            throw new IncompleteMmsException("MMS delivery reports and pending downloads cannot be imported.");
+        }
         JSONArray addresses = new JSONArray();
         JSONArray sourceAddresses = item.getJSONArray("addressItems");
         JSONArray recipients = item.optJSONArray("recipients");
-        require(recipients != null && recipients.length() > 0,
-                "Swift MMS backup is missing conversation recipients");
+        if (recipients == null || recipients.length() == 0) {
+            throw new IncompleteMmsException("Swift MMS backup is missing conversation recipients.");
+        }
         for (int i = 0; i < sourceAddresses.length(); i++) {
             JSONObject address = SystemDataSchema.fields(sourceAddresses.getJSONObject(i), SystemDataSchema.ADDRESS);
             addresses.put(address);
@@ -176,14 +215,24 @@ final class SwiftSystemDataImport {
         for (int i = 0; i < sourceParts.length(); i++) {
             JSONObject original = sourceParts.getJSONObject(i);
             JSONObject data = map(original, PART_MAP, SystemDataSchema.PART);
+            String cached = original.isNull("cachedFileName") ? "" : original.getString("cachedFileName");
+            if (!cached.isEmpty()) requireAttachmentName(cached);
+            boolean inline = SystemDataSchema.inlinePart(data.getString("ct"));
+            boolean stored = !cached.isEmpty()
+                    && new File(unpacked, "messages_backup/mms_data/" + cached).isFile();
+            if (!stored && !(inline && (cached.isEmpty() || !data.isNull("text")))) {
+                throw new IncompleteMmsException("Referenced MMS attachments are missing from the Swift file.");
+            }
+        }
+        for (int i = 0; i < sourceParts.length(); i++) {
+            JSONObject original = sourceParts.getJSONObject(i);
+            JSONObject data = map(original, PART_MAP, SystemDataSchema.PART);
             JSONObject part = new JSONObject().put("values", data);
-            String cached = original.optString("cachedFileName", "");
+            String cached = original.isNull("cachedFileName") ? "" : original.getString("cachedFileName");
             String ct = data.getString("ct");
             boolean text = SystemDataSchema.inlinePart(ct);
-            if (!cached.isEmpty()) {
-                requireAttachmentName(cached);
-                File file = new File(unpacked, "messages_backup/mms_data/" + cached);
-                require(file.isFile(), "Missing Swift MMS attachment");
+            File file = new File(unpacked, "messages_backup/mms_data/" + cached);
+            if (!cached.isEmpty() && file.isFile()) {
                 if (text) {
                     require(file.length() <= (1 << 20), "MMS text is too large");
                     data.put("text", Files.readString(file.toPath(), StandardCharsets.UTF_8));
@@ -205,20 +254,26 @@ final class SwiftSystemDataImport {
     private static JSONObject wifi(JSONObject item) throws IOException, JSONException {
         JSONObject values = new JSONObject();
         JSONObject password = item.optJSONObject("passwordInfo");
-        String ssid = item.getString("SSID");
-        values.put("SSID", password == null ? ssid : unescape(ssid));
-        if (!item.isNull("hiddenSSID")) values.put("hiddenSSID", item.getBoolean("hiddenSSID"));
-        String psk = item.isNull("preSharedKey") ? "" : item.getString("preSharedKey");
         if (password != null) {
             require(password.optString("entEapMethod", "").isEmpty(),
                     "Enterprise Wi-Fi credentials cannot be imported");
-            if (psk.isEmpty() && !password.isNull("psk")) psk = password.getString("psk");
-            psk = unescape(psk);
         }
-        values.put("preSharedKey", psk);
+        if (!item.isNull("hiddenSSID")) values.put("hiddenSSID", item.getBoolean("hiddenSSID"));
         JSONArray keyManagement = item.optJSONArray("allowedKeyManagement");
         if (keyManagement != null) values.put("allowedKeyManagement", keyManagement);
         SystemWifiBackup.supplementSwift(values, password);
+        if (!values.has("SSID")) {
+            String ssid = item.getString("SSID");
+            values.put("SSID", swiftWifiString(password == null ? ssid : unescape(ssid), true));
+        }
+        if (!values.has("preSharedKey")) {
+            String psk = item.isNull("preSharedKey") ? "" : item.getString("preSharedKey");
+            if (password != null) {
+                if (psk.isEmpty() && !password.isNull("psk")) psk = password.getString("psk");
+                psk = unescape(psk);
+            }
+            values.put("preSharedKey", swiftWifiString(psk, false));
+        }
         JSONArray ciphers = item.optJSONArray("allowedGroupCiphers");
         if (values.getJSONArray("allowedKeyManagement").optInt(0) == 1 && ciphers != null) {
             require(ciphers.optInt(0) != 1 && ciphers.optInt(1) != 1,
@@ -226,6 +281,18 @@ final class SwiftSystemDataImport {
         }
         SystemWifiBackup.configuration(values);
         return values;
+    }
+
+    private static String swiftWifiString(String value, boolean ssid) {
+        if (value.isEmpty() || (!ssid && value.equals("*"))
+                || (value.length() >= 2 && value.startsWith("\"") && value.endsWith("\""))) {
+            return value;
+        }
+        if (value.length() % 2 == 0 && (ssid || value.length() == 64)
+                && value.matches("[0-9a-fA-F]+")) {
+            return value;
+        }
+        return "\"" + value + "\"";
     }
 
     private static String unescape(String text) throws IOException {
