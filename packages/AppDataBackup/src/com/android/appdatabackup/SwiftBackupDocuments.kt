@@ -7,6 +7,7 @@ package com.android.appdatabackup
 
 import android.content.ContentResolver
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import java.io.File
 import java.io.IOException
@@ -14,9 +15,11 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicReference
 import java.util.zip.CRC32
 import java.util.zip.CheckedInputStream
 import java.util.zip.ZipFile
+import kotlin.concurrent.thread
 
 internal object SwiftBackupDocuments {
     private val extensions = setOf("app", "splits", "dat", "extdat", "med", "exp", "xml", "libs")
@@ -26,6 +29,55 @@ internal object SwiftBackupDocuments {
         children(resolver, document(tree))
             .filter { !it.directory && it.name.substringAfterLast('.') in extensions }
             .map { it.name to it.uri }
+
+    fun <T> withReadPipes(resolver: ContentResolver, sources: List<Uri>,
+        action: (List<ParcelFileDescriptor>) -> T): T {
+        require(sources.size in 1..10) { "Select one Swift backup version" }
+        val pipes = mutableListOf<Array<ParcelFileDescriptor>>()
+        val failure = AtomicReference<Exception?>()
+        val activeInput = AtomicReference<java.io.InputStream?>()
+        var producer: Thread? = null
+        try {
+            sources.forEach { pipes += ParcelFileDescriptor.createReliablePipe() }
+            producer = thread(isDaemon = true, name = "SwiftImportReader") {
+                try {
+                    sources.forEachIndexed { index, uri ->
+                        if (Thread.currentThread().isInterrupted) throw java.io.InterruptedIOException()
+                        val input = resolver.openInputStream(uri)
+                            ?: throw IOException("Cannot open Swift backup file")
+                        activeInput.set(input)
+                        input.use {
+                            val output = ParcelFileDescriptor.AutoCloseOutputStream(pipes[index][1])
+                            try {
+                                val buffer = ByteArray(65536)
+                                while (true) {
+                                    if (Thread.currentThread().isInterrupted) throw java.io.InterruptedIOException()
+                                    val count = input.read(buffer)
+                                    if (count < 0) break
+                                    output.write(buffer, 0, count)
+                                }
+                            } catch (e: Exception) {
+                                failure.compareAndSet(null, e)
+                                runCatching { pipes[index][1].closeWithError("Cannot read Swift backup file") }
+                                throw e
+                            } finally { output.close() }
+                        }
+                        activeInput.set(null)
+                    }
+                } catch (e: Exception) {
+                    failure.compareAndSet(null, e)
+                    pipes.forEach { runCatching { it[1].closeWithError("Cannot read Swift backup file") } }
+                }
+            }
+            val result = action(pipes.map { it[0] })
+            failure.get()?.let { throw it }
+            return result
+        } finally {
+            producer?.interrupt()
+            runCatching { activeInput.getAndSet(null)?.close() }
+            pipes.forEach { pair -> pair.forEach { runCatching { it.close() } } }
+        }
+    }
 
     fun export(resolver: ContentResolver, tree: Uri, packageName: String, archive: File) {
         ZipFile(archive).use { zip ->

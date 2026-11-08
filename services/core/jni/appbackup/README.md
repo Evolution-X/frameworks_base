@@ -19,10 +19,13 @@ uses Swift's public certificate-derived identity. Google account keys and custom
 passwords are not supported. Exports use unencrypted SBA1 payloads and guest
 metadata. Swift requires a CE data entry when restoring private app data, so
 DE-only exports are rejected. Permissions and Swift's additional settings are
-not transferred. Each transfer is limited to 8 GiB of input and unpacked data.
+not transferred. Each transfer is limited to 1 TiB of input and unpacked data.
 
 Exports use POSIX extended tar headers for paths that grow beyond ustar limits
-after adding Swift's package directory. Imports normalize paths back to installd's
-ustar layout and enforce its entry limit across combined external-data archives.
+after adding Swift's package directory. Imports use ustar headers where possible
+and GNU long-name records for longer paths, preserving filenames up to filesystem
+limits. This requires installd's matching GNU long-name support for both private
+and external data. Restore validation counts file/directory entries independently
+of long-name records, including across combined external-data archives.
 The app writes the Swift metadata file last and removes a new version folder if
 any companion file fails to transfer or fails its ZIP checksum check.

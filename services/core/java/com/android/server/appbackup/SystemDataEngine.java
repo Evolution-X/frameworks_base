@@ -182,11 +182,16 @@ final class SystemDataEngine {
     }
 
     static BackupManifest pack(int type, int userId, File staging, char[] passphrase) throws IOException {
+        return pack(type, userId, staging, passphrase, BackupRecord.STATE_OK);
+    }
+
+    static BackupManifest pack(int type, int userId, File staging, char[] passphrase, int state)
+            throws IOException {
         File payload = new File(staging, SystemDataArchive.FILE_NAME);
         BackupManifest manifest = new BackupManifest("system_" + UUID.randomUUID(),
                 SystemDataSchema.identity(type), SystemDataSchema.label(type), "1", 1,
                 System.currentTimeMillis(), 0, payload.length(), 0, 0, 0,
-                passphrase != null && passphrase.length > 0, BackupRecord.STATE_OK, "", userId, type);
+                passphrase != null && passphrase.length > 0, state, "", userId, type);
         BackupArchive.write(new File(staging, "import.vbak"), manifest.toJson(),
                 Collections.singletonList(payload), passphrase);
         return manifest;

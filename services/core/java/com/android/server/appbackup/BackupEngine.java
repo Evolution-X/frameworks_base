@@ -125,7 +125,7 @@ public class BackupEngine {
                     ceDataSize = tarAppDataViaInstalld(packageName, userId,
                             Installer.FLAG_STORAGE_CE, ceArchive, excludeCache);
                 } catch (IOException e) {
-                    Slog.w(TAG, "Failed to archive CE data for " + packageName + ": " + e);
+                    Slog.w(TAG, "Failed to archive CE data for " + packageName, e);
                     partial = true;
                 }
             }
@@ -138,7 +138,7 @@ public class BackupEngine {
                     deDataSize = tarAppDataViaInstalld(packageName, userId,
                             Installer.FLAG_STORAGE_DE, deArchive, excludeCache);
                 } catch (IOException e) {
-                    Slog.w(TAG, "Failed to archive DE data for " + packageName + ": " + e);
+                    Slog.w(TAG, "Failed to archive DE data for " + packageName, e);
                     partial = true;
                 }
             }
@@ -151,7 +151,7 @@ public class BackupEngine {
                     extDataSize = tarAppDataViaInstalld(packageName, userId,
                             Installer.FLAG_STORAGE_EXTERNAL, extArchive, excludeCache);
                 } catch (IOException e) {
-                    Slog.w(TAG, "Failed to archive external data for " + packageName + ": " + e);
+                    Slog.w(TAG, "Failed to archive external data for " + packageName, e);
                     partial = true;
                 }
             }
@@ -246,9 +246,12 @@ public class BackupEngine {
                         | ParcelFileDescriptor.MODE_WRITE_ONLY
                         | ParcelFileDescriptor.MODE_TRUNCATE)) {
             mInstaller.tarAppData(packageName, userId, storageFlag, pfd, excludeCache);
-        } catch (InstallerException e) {
+        } catch (InstallerException | IOException e) {
+            if (dest.exists() && !dest.delete()) {
+                throw new IllegalStateException("Cannot remove incomplete app-data archive", e);
+            }
             throw new IOException("tarAppData failed for " + packageName
-                    + " (storageFlag=" + storageFlag + ")", e);
+                    + " (storageFlag=" + storageFlag + "): " + e.getMessage(), e);
         }
         final long size = dest.length();
         if (size <= 1024L) {
