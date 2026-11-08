@@ -163,7 +163,7 @@ constructor(
                 // tile.
                 tiles.map {
                     val wide = !colorOSStyle && largeTiles.contains(it.spec)
-                    SizedTileImpl(it, if (wide) largeTilesSpan else 1)
+                    SizedTileImpl(it, if (wide) largeTilesSpan.coerceAtMost(columns) else 1)
                 }
             }
         val squishiness by viewModel.squishinessViewModel.squishiness.collectAsStateWithLifecycle()
