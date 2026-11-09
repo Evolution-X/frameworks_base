@@ -52,6 +52,40 @@
             android:importantForAccessibility="yes" />
     </LinearLayout>
     <LinearLayout
+        android:id="@+id/keep_screen_awake"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="@dimen/screenrecord_option_padding">
+        <ImageView
+            android:layout_width="@dimen/screenrecord_option_icon_size"
+            android:layout_height="@dimen/screenrecord_option_icon_size"
+            android:src="@drawable/ic_screen_awake"
+            android:tint="@color/materialColorOnSurfaceVariant"
+            android:layout_marginEnd="@dimen/screenrecord_option_padding"
+            android:importantForAccessibility="no"/>
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:layout_marginEnd="@dimen/screenrecord_show_taps_margin_end"
+            android:text="@string/screenrecord_keep_screen_awake_label"
+            android:textAppearance="@style/TextAppearance.ScreenRecord.SwitchLabel"
+            android:contentDescription="@string/screenrecord_keep_screen_awake_label"/>
+
+        <Switch
+            android:layout_width="wrap_content"
+            android:minWidth="48dp"
+            android:layout_height="48dp"
+            android:id="@+id/screenrecord_keep_screen_awake_switch"
+            android:contentDescription="@string/screenrecord_keep_screen_awake_label"
+            style="@style/ScreenRecord.Switch"
+            android:importantForAccessibility="yes" />
+    </LinearLayout>
+    <LinearLayout
         android:id="@+id/show_taps"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

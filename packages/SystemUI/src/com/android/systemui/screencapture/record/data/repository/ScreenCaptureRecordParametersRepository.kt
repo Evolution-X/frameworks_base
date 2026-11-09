@@ -77,6 +77,15 @@ constructor(@Application private val context: Context, private val userTracker: 
             Prefs.putInt(userContext, PREF_HEVC, if (value) 1 else 0)
         }
 
+    private val keepScreenAwakeState =
+        mutableStateOf(Prefs.getInt(userContext, PREF_KEEP_AWAKE, 0) == 1)
+    var keepScreenAwake: Boolean
+        get() = keepScreenAwakeState.value
+        set(value) {
+            keepScreenAwakeState.value = value
+            Prefs.putInt(userContext, PREF_KEEP_AWAKE, if (value) 1 else 0)
+        }
+
     private fun loadAudioSource(): ScreenRecordingAudioSource {
         val useAudio = Prefs.getInt(userContext, PREF_AUDIO, 0) == 1
         if (!useAudio) return ScreenRecordingAudioSource.NONE
@@ -100,5 +109,6 @@ constructor(@Application private val context: Context, private val userTracker: 
         private const val PREF_AUDIO = "screenrecord_use_audio"
         private const val PREF_AUDIO_SOURCE = "screenrecord_audio_source"
         private const val PREF_HEVC = "screenrecord_use_hevc"
+        private const val PREF_KEEP_AWAKE = "screenrecord_keep_screen_awake"
     }
 }

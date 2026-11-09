@@ -391,4 +391,7 @@
     <string name="qs_nothing_slider_volume">Volume</string>
     <string name="qs_nothing_slider_add_brightness">Add brightness slider</string>
     <string name="qs_nothing_slider_add_volume">Add volume slider</string>
+
+    <!-- Screen record dialog -->
+    <string name="screenrecord_keep_screen_awake_label">Keep the screen awake</string>
 </resources>

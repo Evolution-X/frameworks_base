@@ -379,6 +379,7 @@ constructor(
                     lowQuality = toolbarViewModel.recordParametersViewModel.lowQuality,
                     longerDuration = toolbarViewModel.recordParametersViewModel.longerDuration,
                     hevc = toolbarViewModel.recordParametersViewModel.hevc,
+                    keepScreenAwake = toolbarViewModel.recordParametersViewModel.keepScreenAwake,
                 )
             )
         }

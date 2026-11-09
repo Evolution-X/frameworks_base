@@ -256,6 +256,7 @@ constructor(
         val lowQuality = recordDetailsParametersViewModel.lowQuality
         val longerDuration = recordDetailsParametersViewModel.longerDuration
         val hevc = recordDetailsParametersViewModel.hevc
+        val keepScreenAwake = recordDetailsParametersViewModel.keepScreenAwake
         when (target) {
             is ScreenCaptureTarget.Fullscreen -> {
                 val shouldShowTaps = recordDetailsParametersViewModel.shouldShowTaps
@@ -268,6 +269,7 @@ constructor(
                         lowQuality = lowQuality,
                         longerDuration = longerDuration,
                         hevc = hevc,
+                        keepScreenAwake = keepScreenAwake,
                     )
                 )
             }
@@ -307,6 +309,7 @@ constructor(
                         lowQuality = lowQuality,
                         longerDuration = longerDuration,
                         hevc = hevc,
+                        keepScreenAwake = keepScreenAwake,
                     )
                 )
             }
