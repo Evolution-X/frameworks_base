@@ -17,9 +17,7 @@
 package com.android.systemui.screencapture.record.data.repository
 
 import android.content.Context
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import com.android.systemui.Prefs
 import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.screencapture.common.ScreenCaptureScope
@@ -51,7 +49,24 @@ constructor(@Application private val context: Context, private val userTracker: 
             Prefs.putInt(userContext, PREF_TAPS, if (value) 1 else 0)
         }
 
-    var shouldShowFrontCamera: Boolean by mutableStateOf(false)
+    private val shouldShowFrontCameraState =
+        mutableStateOf(Prefs.getInt(userContext, PREF_FRONT_CAMERA, 0) == 1)
+    var shouldShowFrontCamera: Boolean
+        get() = shouldShowFrontCameraState.value
+        set(value) {
+            shouldShowFrontCameraState.value = value
+            Prefs.putInt(userContext, PREF_FRONT_CAMERA, if (value) 1 else 0)
+        }
+
+    /** In-memory off switch. Does not write [PREF_FRONT_CAMERA]. */
+    fun suspendFrontCamera() {
+        shouldShowFrontCameraState.value = false
+    }
+
+    /** Reloads [PREF_FRONT_CAMERA] into the in-memory switch. */
+    fun restoreFrontCamera() {
+        shouldShowFrontCameraState.value = Prefs.getInt(userContext, PREF_FRONT_CAMERA, 0) == 1
+    }
 
     private val lowQualityState = mutableStateOf(Prefs.getInt(userContext, PREF_LOW, 0) == 1)
     var lowQuality: Boolean
@@ -104,6 +119,7 @@ constructor(@Application private val context: Context, private val userTracker: 
 
     companion object {
         private const val PREF_TAPS = "screenrecord_show_taps"
+        private const val PREF_FRONT_CAMERA = "screenrecord_show_front_camera"
         private const val PREF_LOW = "screenrecord_use_low_quality"
         private const val PREF_LONGER = "screenrecord_use_longer_timeout"
         private const val PREF_AUDIO = "screenrecord_use_audio"

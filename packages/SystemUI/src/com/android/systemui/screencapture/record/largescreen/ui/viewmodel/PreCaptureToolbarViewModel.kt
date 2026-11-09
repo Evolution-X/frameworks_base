@@ -18,6 +18,7 @@ package com.android.systemui.screencapture.record.largescreen.ui.viewmodel
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Rect
 import android.net.Uri
 import android.os.Environment
@@ -25,6 +26,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.core.net.toUri
 import com.android.internal.logging.UiEventLogger
+import com.android.systemui.Flags
 import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.dagger.qualifiers.Background
 import com.android.systemui.lifecycle.HydratedActivatable
@@ -74,7 +76,9 @@ constructor(
 
     val showClicksAndKeysSupported = featuresInteractor.showClicksAndKeysSupported
 
-    val frontCameraSupported = featuresInteractor.frontCameraSupported
+    val frontCameraSupported =
+        (featuresInteractor.frontCameraSupported || Flags.newScreenRecordToolbarSelfie()) &&
+            context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_FRONT)
 
     val customSaveLocationUriString: String by
         largeScreenCaptureParametersInteractor.customSaveLocationUriString.hydratedStateOf(

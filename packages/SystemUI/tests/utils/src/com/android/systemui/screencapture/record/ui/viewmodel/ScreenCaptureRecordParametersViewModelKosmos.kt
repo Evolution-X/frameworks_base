@@ -20,7 +20,6 @@ import com.android.internal.logging.uiEventLogger
 import com.android.systemui.kosmos.Kosmos
 import com.android.systemui.kosmos.Kosmos.Fixture
 import com.android.systemui.screencapture.record.camera.domain.interactor.screenCaptureCameraHintInteractor
-import com.android.systemui.screencapture.record.camera.domain.interactor.screenRecordCameraInteractor
 import com.android.systemui.screencapture.record.domain.interactor.screenCaptureRecordFeaturesInteractor
 import com.android.systemui.screencapture.record.domain.interactor.screenCaptureRecordParametersInteractor
 import com.android.systemui.screencapture.record.smallscreen.domain.interactor.recordDetailsTargetInteractor
@@ -35,7 +34,6 @@ val Kosmos.screenCaptureRecordParametersViewModelFactory by Fixture {
         override fun create(): ScreenCaptureRecordParametersViewModel {
             return ScreenCaptureRecordParametersViewModel(
                 interactor = screenCaptureRecordParametersInteractor,
-                screenRecordCameraInteractor = screenRecordCameraInteractor,
                 screenCaptureRecordFeaturesInteractor = screenCaptureRecordFeaturesInteractor,
                 recordDetailsTargetInteractor = recordDetailsTargetInteractor,
                 screenCaptureCameraHintInteractor = screenCaptureCameraHintInteractor,

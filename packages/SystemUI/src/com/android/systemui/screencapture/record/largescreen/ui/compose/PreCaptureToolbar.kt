@@ -196,6 +196,7 @@ fun PreCaptureToolbar(
                 CaptureSettingsMenu(
                     viewModel,
                     screenRecordingSelected = selectedCaptureType == ScreenCaptureType.RECORDING,
+                    frontCameraAllowed = selectedCaptureRegion == ScreenCaptureRegion.FULLSCREEN,
                 )
             }
 
