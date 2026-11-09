@@ -1272,16 +1272,12 @@ private fun NothingSlider(
     val totalRange = (valueRange.endInclusive - valueRange.start).coerceAtLeast(1f)
     val fraction = ((value - valueRange.start) / totalRange).coerceIn(0f, 1f)
 
-    val maxContentWidth = rememberNothingQSMaxContentWidth()
     val trackColor = NothingQsColors.sliderTrack
     val fillColor = NothingQsColors.sliderFill
     val sliderHeight = dimensionResource(R.dimen.qs_nothing_brightness_slider_height)
 
     BoxWithConstraints(
         modifier = modifier
-            .fillMaxWidth()
-            .wrapContentWidth()
-            .widthIn(max = maxContentWidth)
             .fillMaxWidth()
             .height(sliderHeight)
             .clip(RoundedCornerShape(50))
@@ -1444,6 +1440,15 @@ fun BrightnessSliderContainer(
         DpSize(dimensions.backgroundFrameWidth, dimensions.backgroundFrameHeight)
 
     val isRestricted = restriction is PolicyRestriction.Restricted
+    val isNothingStyle = LocalNothingQsStyle.current
+    val nothingMaxContentWidth = rememberNothingQSMaxContentWidth()
+    // Cap the width here so the slider background and the mirror backdrop match the slider.
+    val nothingWidthCap =
+        if (isNothingStyle) {
+            Modifier.fillMaxWidth().wrapContentWidth().widthIn(max = nothingMaxContentWidth)
+        } else {
+            Modifier
+        }
 
     val brightnessSlider: @Composable () -> Unit = {
         BrightnessSlider(
@@ -1467,7 +1472,8 @@ fun BrightnessSliderContainer(
             },
             onIconClick = { viewModel.onIconClick() },
             modifier =
-                Modifier.borderOnFocus(
+                nothingWidthCap
+                    .borderOnFocus(
                         color = MaterialTheme.colorScheme.secondary,
                         cornerSize = CornerSize(trackCornerDp),
                     )
@@ -1503,7 +1509,8 @@ fun BrightnessSliderContainer(
         VolumeSlider(
             hapticsViewModelFactory = viewModel.hapticsViewModelFactory,
             modifier =
-                Modifier.borderOnFocus(
+                nothingWidthCap
+                    .borderOnFocus(
                         color = MaterialTheme.colorScheme.secondary,
                         cornerSize = CornerSize(trackCornerDp),
                     )
