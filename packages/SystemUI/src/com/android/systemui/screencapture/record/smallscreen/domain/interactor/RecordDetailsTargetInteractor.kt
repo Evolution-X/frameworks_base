@@ -152,8 +152,11 @@ constructor(
             .onEach {
                 val selectedTask = it.currentTargetModel
                 if (!selectedTask.canUseCamera) {
-                    parametersInteractor.shouldShowFrontCamera = false
+                    // Don't write the preference. Switching back to the full screen restores it.
+                    parametersInteractor.suspendFrontCamera()
                     cameraInteractor.stopStream()
+                } else {
+                    parametersInteractor.restoreFrontCamera()
                 }
                 if (!selectedTask.canUseMarkup) {
                     markupInteractor.setEnabled(false)

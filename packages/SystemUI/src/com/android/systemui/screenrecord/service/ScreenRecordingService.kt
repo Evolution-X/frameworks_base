@@ -27,6 +27,7 @@ import android.os.Looper
 import android.os.PowerManager
 import android.os.Process
 import android.util.Log
+import android.view.Display
 import android.widget.Toast
 import androidx.annotation.StringRes
 import com.android.systemui.Flags
@@ -36,6 +37,7 @@ import com.android.systemui.screencapture.data.repository.StaticScreenCaptureDev
 import com.android.systemui.screencapture.record.domain.interactor.ScreenCaptureRecordFeaturesInteractor
 import com.android.systemui.screenrecord.ScreenMediaRecorder
 import com.android.systemui.screenrecord.ScreenMediaRecorder.SavedRecording
+import com.android.systemui.screenrecord.ScreenRecordCameraOverlay
 import com.android.systemui.screenrecord.ScreenRecordingAudioSource
 import com.android.systemui.screenrecord.data.repository.ScreenRecordingPreferenceRepository
 import com.android.systemui.screenrecord.notification.NotificationInteractor
@@ -94,6 +96,8 @@ open class ScreenRecordingService : ComponentService() {
     private var recordingContext: RecordingContext? = null
     private var callback: IScreenRecordingServiceCallback? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    private var cameraOverlay: ScreenRecordCameraOverlay? = null
+    private var cameraOverlayDisplayId = Display.INVALID_DISPLAY
 
     override fun onCreate() {
         super.onCreate()
@@ -131,11 +135,12 @@ open class ScreenRecordingService : ComponentService() {
     }
 
     override fun onDestroy() {
+        clearCameraOverlay()
         wakeLock?.takeIf { it.isHeld }?.release()
         super.onDestroy()
     }
 
-    private fun RecordingContext.startRecording() {
+    private fun RecordingContext.startRecording(): Boolean {
         screenRecordingPreferenceRepository.setShouldShowTaps(shouldShowTaps)
         if (shouldShowSeconds) {
             screenRecordingPreferenceRepository.setShouldShowSeconds(shouldShowSeconds)
@@ -152,7 +157,13 @@ open class ScreenRecordingService : ComponentService() {
                 val notificationManager = getSystemService(NotificationManager::class.java)
                 notificationManager?.notify(null, notificationId, notification)
             }
+            setCameraOverlay(
+                displayId,
+                captureTarget == null && shouldShowFrontCamera,
+            )
+            return true
         } catch (e: Exception) {
+            clearCameraOverlay()
             updateWakeLock(keepScreenAwake = keepScreenAwake, held = false)
             screenRecordingPreferenceRepository.maybeRestoreSetting()
             Log.e(tag, "Error starting screen recording", e)
@@ -162,6 +173,7 @@ open class ScreenRecordingService : ComponentService() {
                 stopForeground(STOP_FOREGROUND_DETACH)
             }
             stopSelf()
+            return false
         }
     }
 
@@ -193,6 +205,7 @@ open class ScreenRecordingService : ComponentService() {
     }
 
     private fun RecordingContext.stopRecording(@StopReason reason: Int) {
+        clearCameraOverlay()
         var recordingUri: Uri? = null
         try {
             recordingUri = recorder.createRecordingUri()
@@ -237,6 +250,12 @@ open class ScreenRecordingService : ComponentService() {
                     parameters.shouldShowSeconds
                 )
             }
+            if (recordingContext != null) {
+                setCameraOverlay(
+                    parameters.displayId,
+                    parameters.captureTarget == null && parameters.shouldShowFrontCamera,
+                )
+            }
         }
 
         override fun startRecording(parameters: ScreenRecordingParameters) {
@@ -255,6 +274,7 @@ open class ScreenRecordingService : ComponentService() {
                     shouldShowTaps = parameters.shouldShowTaps,
                     shouldShowSeconds = parameters.shouldShowSeconds,
                     keepScreenAwake = parameters.keepScreenAwake,
+                    shouldShowFrontCamera = parameters.shouldShowFrontCamera,
                     recorder =
                         ScreenMediaRecorder(
                             this@ScreenRecordingService,
@@ -269,8 +289,9 @@ open class ScreenRecordingService : ComponentService() {
                             parameters.hevc,
                         ),
                 )
-            context.startRecording()
-            recordingContext = context
+            if (context.startRecording()) {
+                recordingContext = context
+            }
         }
     }
 
@@ -282,8 +303,28 @@ open class ScreenRecordingService : ComponentService() {
         val shouldShowTaps: Boolean,
         val shouldShowSeconds: Boolean,
         val keepScreenAwake: Boolean,
+        val shouldShowFrontCamera: Boolean,
         val notificationId: Int,
     )
+
+    private fun setCameraOverlay(displayId: Int, show: Boolean) {
+        if (!show) {
+            clearCameraOverlay()
+            return
+        }
+        if (cameraOverlay != null && cameraOverlayDisplayId == displayId) return
+        clearCameraOverlay()
+        val overlay = ScreenRecordCameraOverlay(this, displayId)
+        cameraOverlay = overlay
+        cameraOverlayDisplayId = displayId
+        overlay.show()
+    }
+
+    private fun clearCameraOverlay() {
+        cameraOverlay?.hide()
+        cameraOverlay = null
+        cameraOverlayDisplayId = Display.INVALID_DISPLAY
+    }
 
     private fun updateWakeLock(keepScreenAwake: Boolean, held: Boolean) {
         val lock = wakeLock ?: return

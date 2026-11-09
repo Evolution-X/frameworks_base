@@ -270,6 +270,9 @@ constructor(
                         longerDuration = longerDuration,
                         hevc = hevc,
                         keepScreenAwake = keepScreenAwake,
+                        shouldShowFrontCamera =
+                            recordDetailsParametersViewModel.canUseFrontCamera &&
+                                recordDetailsParametersViewModel.shouldShowFrontCamera,
                     )
                 )
             }
@@ -310,6 +313,7 @@ constructor(
                         longerDuration = longerDuration,
                         hevc = hevc,
                         keepScreenAwake = keepScreenAwake,
+                        shouldShowFrontCamera = false,
                     )
                 )
             }

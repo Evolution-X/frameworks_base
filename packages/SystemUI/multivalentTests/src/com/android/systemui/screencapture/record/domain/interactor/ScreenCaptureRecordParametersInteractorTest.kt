@@ -88,12 +88,43 @@ class ScreenCaptureRecordParametersInteractorTest : SysuiTestCase() {
     @Test
     fun changingShouldShowFrontCamera() =
         kosmos.runTest {
-            val newShouldShowFrontCamera = true
-            assertThat(underTest.shouldShowFrontCamera).isNotEqualTo(newShouldShowFrontCamera)
+            underTest.shouldShowFrontCamera = false
+            assertThat(underTest.shouldShowFrontCamera).isFalse()
 
-            underTest.shouldShowFrontCamera = newShouldShowFrontCamera
+            underTest.shouldShowFrontCamera = true
 
-            assertThat(underTest.shouldShowFrontCamera).isEqualTo(newShouldShowFrontCamera)
+            assertThat(underTest.shouldShowFrontCamera).isTrue()
+        }
+
+    @Test
+    fun suspendFrontCamera_doesNotForgetSavedChoice() =
+        kosmos.runTest {
+            underTest.shouldShowFrontCamera = true
+
+            underTest.suspendFrontCamera()
+
+            assertThat(underTest.shouldShowFrontCamera).isFalse()
+
+            underTest.restoreFrontCamera()
+
+            assertThat(underTest.shouldShowFrontCamera).isTrue()
+        }
+
+    @Test
+    fun changingShouldShowFrontCamera_whileRecording_updatesService() =
+        kosmos.runTest {
+            underTest.shouldShowFrontCamera = false
+            screenRecordingServiceInteractor.startRecording(screenRecordingParameters())
+
+            underTest.shouldShowFrontCamera = true
+
+            val serviceStatus by collectLastValue(screenRecordingServiceInteractor.status)
+            assertThat(
+                    (serviceStatus as ScreenRecordingStatus.Started)
+                        .parameters
+                        .shouldShowFrontCamera
+                )
+                .isTrue()
         }
 
     @Test

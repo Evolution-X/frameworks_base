@@ -16,6 +16,7 @@
 
 package com.android.systemui.screencapture.record.smallscreen.ui.compose
 
+import android.content.pm.PackageManager
 import android.content.res.Resources
 import android.media.MediaCodecList
 import android.media.MediaFormat
@@ -47,6 +48,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -76,9 +78,13 @@ fun RecordDetailsSettings(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val hasFrontCamera =
+        remember(context) {
+            context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_FRONT)
+        }
     LaunchedEffect(parametersViewModel.shouldShowHint) {
         if (parametersViewModel.shouldShowHint) {
-            Toast.makeText(context, R.string.screen_record_selfie_hint, Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, R.string.screenrecord_camera_hint, Toast.LENGTH_SHORT).show()
             parametersViewModel.onCameraHintShown()
         }
     }
@@ -144,7 +150,7 @@ fun RecordDetailsSettings(
                 modifier = Modifier,
             )
             RichSwitch(
-                visible = parametersViewModel.canUseFrontCamera,
+                visible = hasFrontCamera && parametersViewModel.canUseFrontCamera,
                 icon =
                     loadIcon(
                         viewModel = drawableLoaderViewModel,
