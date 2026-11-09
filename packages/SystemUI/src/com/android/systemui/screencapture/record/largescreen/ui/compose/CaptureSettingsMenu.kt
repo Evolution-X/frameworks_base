@@ -198,6 +198,21 @@ fun CaptureSettingsMenu(viewModel: PreCaptureToolbarViewModel, screenRecordingSe
                 )
             }
 
+            val keepAwakeIcon by
+                loadIcon(
+                    viewModel = viewModel,
+                    resId = R.drawable.ic_screen_awake,
+                    contentDescription = null,
+                )
+
+            SettingsMenuItem(
+                text = stringResource(R.string.screenrecord_keep_screen_awake_label),
+                leadingIcon = keepAwakeIcon,
+                checked = recordParameters.keepScreenAwake,
+                onCheckedChange = { recordParameters.setKeepScreenAwake(it) },
+                enabled = screenRecordingSelected,
+            )
+
             if (viewModel.customSaveLocationSupported) {
                 SaveLocationDropdown(
                     viewModel = viewModel,
