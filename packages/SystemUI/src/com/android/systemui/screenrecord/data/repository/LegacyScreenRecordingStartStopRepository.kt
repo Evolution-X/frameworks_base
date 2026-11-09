@@ -50,6 +50,7 @@ constructor(private val userContextProvider: UserContextProvider) :
                         lowQuality,
                         longerDuration,
                         hevc,
+                        keepScreenAwake,
                     )
                 },
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
