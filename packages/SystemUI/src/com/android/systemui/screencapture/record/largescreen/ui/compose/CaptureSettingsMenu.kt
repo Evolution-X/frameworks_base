@@ -54,7 +54,11 @@ import com.android.systemui.screencapture.record.largescreen.ui.viewmodel.PreCap
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun CaptureSettingsMenu(viewModel: PreCaptureToolbarViewModel, screenRecordingSelected: Boolean) {
+fun CaptureSettingsMenu(
+    viewModel: PreCaptureToolbarViewModel,
+    screenRecordingSelected: Boolean,
+    frontCameraAllowed: Boolean,
+) {
     val recordParameters = viewModel.recordParametersViewModel
 
     val settingsButtonContentDescription =
@@ -135,7 +139,7 @@ fun CaptureSettingsMenu(viewModel: PreCaptureToolbarViewModel, screenRecordingSe
                 enabled = screenRecordingSelected,
             )
 
-            if (viewModel.frontCameraSupported) {
+            if (viewModel.frontCameraSupported && frontCameraAllowed) {
                 val frontCameraIcon by
                     loadIcon(
                         viewModel = viewModel,
