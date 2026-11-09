@@ -58,4 +58,9 @@ constructor(private val repository: ScreenRecordingServiceRepository) {
     fun updateShouldShowTaps(shouldShowTaps: Boolean) {
         repository.updateParameters { copy(shouldShowTaps = shouldShowTaps) }
     }
+
+    /** Updates the selfie preview if there is an ongoing recording. */
+    fun updateShouldShowFrontCamera(shouldShowFrontCamera: Boolean) {
+        repository.updateParameters { copy(shouldShowFrontCamera = shouldShowFrontCamera) }
+    }
 }

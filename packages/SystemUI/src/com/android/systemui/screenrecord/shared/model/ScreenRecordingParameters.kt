@@ -34,6 +34,8 @@ constructor(
     val longerDuration: Boolean = false,
     val hevc: Boolean = false,
     val keepScreenAwake: Boolean = false,
+    /** Front-camera preview. Callers must leave this false unless [captureTarget] is null. */
+    val shouldShowFrontCamera: Boolean = false,
 ) : Parcelable {
 
     constructor(
@@ -55,6 +57,7 @@ constructor(
         parcel.readBoolean(),
         parcel.readBoolean(),
         parcel.readBoolean(),
+        parcel.readBoolean(),
     )
 
     override fun describeContents(): Int = 0
@@ -71,6 +74,7 @@ constructor(
             writeBoolean(longerDuration)
             writeBoolean(hevc)
             writeBoolean(keepScreenAwake)
+            writeBoolean(shouldShowFrontCamera)
         }
 
     companion object CREATOR : Parcelable.Creator<ScreenRecordingParameters> {
