@@ -208,6 +208,19 @@ fun RecordDetailsSettings(
                 onCheckedChange = { parametersViewModel.setHevc(it) },
                 modifier = Modifier,
             )
+            RichSwitch(
+                visible = true,
+                icon =
+                    loadIcon(
+                        viewModel = drawableLoaderViewModel,
+                        resId = R.drawable.ic_screen_awake,
+                        contentDescription = null,
+                    ),
+                label = stringResource(R.string.screenrecord_keep_screen_awake_label),
+                checked = parametersViewModel.keepScreenAwake,
+                onCheckedChange = { parametersViewModel.setKeepScreenAwake(it) },
+                modifier = Modifier,
+            )
             SettingsRow(visible = true, modifier = Modifier.padding(top = 4.dp)) {
                 Crossfade(
                     targetState = targetViewModel.warningMessageRes,

@@ -80,6 +80,12 @@ constructor(
         }
         get() = repository.hevc
 
+    var keepScreenAwake: Boolean
+        set(value) {
+            repository.keepScreenAwake = value
+        }
+        get() = repository.keepScreenAwake
+
     val canChangeAudioSource: StateFlow<Boolean> =
         serviceInteractor.status
             .map { it.canChangeAudioSource() }

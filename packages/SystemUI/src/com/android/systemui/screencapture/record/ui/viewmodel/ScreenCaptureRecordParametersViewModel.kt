@@ -79,6 +79,8 @@ constructor(
 
     val hevc: Boolean by interactor::hevc
 
+    val keepScreenAwake: Boolean by interactor::keepScreenAwake
+
     var shouldRecordDevice: Boolean
         get() =
             with(interactor) {
@@ -160,6 +162,10 @@ constructor(
 
     fun setHevc(hevc: Boolean) {
         interactor.hevc = hevc
+    }
+
+    fun setKeepScreenAwake(keepScreenAwake: Boolean) {
+        interactor.keepScreenAwake = keepScreenAwake
     }
 
     @AssistedFactory

@@ -115,6 +115,7 @@ class ScreenRecordPermissionContentManager(
     private lateinit var longerDurationSwitch: Switch
     private lateinit var skipTimeSwitch: Switch
     private lateinit var hevcSwitch: Switch
+    private lateinit var keepAwakeSwitch: Switch
     private lateinit var tapsView: View
     private lateinit var options: Spinner
 
@@ -169,6 +170,7 @@ class ScreenRecordPermissionContentManager(
             containerView.requireViewById(R.id.screenrecord_longer_timeout_switch)
         skipTimeSwitch = containerView.requireViewById(R.id.screenrecord_skip_time_switch)
         hevcSwitch = containerView.requireViewById(R.id.screenrecord_hevc_switch)
+        keepAwakeSwitch = containerView.requireViewById(R.id.screenrecord_keep_screen_awake_switch)
 
         tapsView = containerView.requireViewById(R.id.show_taps)
         updateTapsViewVisibility()
@@ -181,6 +183,7 @@ class ScreenRecordPermissionContentManager(
         longerDurationSwitch.setOnTouchListener { _, event -> event.action == ACTION_MOVE }
         skipTimeSwitch.setOnTouchListener { _, event -> event.action == ACTION_MOVE }
         hevcSwitch.setOnTouchListener { _, event -> event.action == ACTION_MOVE }
+        keepAwakeSwitch.setOnTouchListener { _, event -> event.action == ACTION_MOVE }
 
         options = containerView.requireViewById(R.id.screen_recording_options)
         val a: ArrayAdapter<*> =
@@ -246,6 +249,7 @@ class ScreenRecordPermissionContentManager(
         val longerDuration = longerDurationSwitch.isChecked
         val skipTime = skipTimeSwitch.isChecked
         val hevc = hevcSwitch.isChecked
+        val keepAwake = keepAwakeSwitch.isChecked
 
         savePrefs()
 
@@ -262,6 +266,7 @@ class ScreenRecordPermissionContentManager(
                         lowQuality = lowQuality,
                         longerDuration = longerDuration,
                         hevc = hevc,
+                        keepScreenAwake = keepAwake,
                     )
                 )
             },
@@ -296,6 +301,7 @@ class ScreenRecordPermissionContentManager(
         Prefs.putInt(userContext, PREF_AUDIO_SOURCE, options.selectedItemPosition)
         Prefs.putInt(userContext, PREF_SKIP, if (skipTimeSwitch.isChecked) 1 else 0)
         Prefs.putInt(userContext, PREF_HEVC, if (hevcSwitch.isChecked) 1 else 0)
+        Prefs.putInt(userContext, PREF_KEEP_AWAKE, if (keepAwakeSwitch.isChecked) 1 else 0)
     }
 
     private fun loadPrefs() {
@@ -307,6 +313,7 @@ class ScreenRecordPermissionContentManager(
         options.setSelection(Prefs.getInt(userContext, PREF_AUDIO_SOURCE, 0))
         skipTimeSwitch.isChecked = Prefs.getInt(userContext, PREF_SKIP, 0) == 1
         hevcSwitch.isChecked = Prefs.getInt(userContext, PREF_HEVC, 1) == 1
+        keepAwakeSwitch.isChecked = Prefs.getInt(userContext, PREF_KEEP_AWAKE, 0) == 1
     }
 
     private inner class CaptureTargetResultReceiver :
@@ -344,6 +351,7 @@ class ScreenRecordPermissionContentManager(
         private const val PREF_AUDIO_SOURCE = "screenrecord_audio_source"
         private const val PREF_SKIP = "screenrecord_skip_timer"
         private const val PREF_HEVC = "screenrecord_use_hevc"
+        private const val PREF_KEEP_AWAKE = "screenrecord_keep_screen_awake"
 
         fun createOptionList(displayManager: DisplayManager): List<ScreenShareOption> {
             val connectedDisplays = getConnectedDisplays(displayManager)
