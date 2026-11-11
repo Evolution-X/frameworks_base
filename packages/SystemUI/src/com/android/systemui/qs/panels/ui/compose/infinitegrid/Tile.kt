@@ -90,6 +90,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.integerResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.trace
@@ -1246,12 +1247,62 @@ fun rememberNothingQSMaxCellSize(): Dp {
     return if (maxCellSize > 0.dp) maxCellSize else Dp.Unspecified
 }
 
-/** Width of the four capped columns and their gaps in the Nothing style grid. */
+/** Columns the Nothing style layout is authored on: the editor and saved positions use them. */
+const val NOTHING_LAYOUT_COLUMNS = 4
+
+/** Columns of the Nothing style grid on this screen, 4 unless the screen is wide enough for more. */
 @Composable
-fun rememberNothingQSMaxContentWidth(): Dp {
+fun rememberNothingQSColumns(): Int = integerResource(R.integer.qs_nothing_columns)
+
+/** Width of the capped [columns] and their gaps in the Nothing style grid. */
+@Composable
+fun rememberNothingQSMaxContentWidth(columns: Int = NOTHING_LAYOUT_COLUMNS): Dp {
     val maxCellSize = rememberNothingQSMaxCellSize()
-    return if (maxCellSize == Dp.Unspecified) Dp.Unspecified else maxCellSize * 4 + 16.dp * 3
+    return if (maxCellSize == Dp.Unspecified) {
+        Dp.Unspecified
+    } else {
+        maxCellSize * columns + 16.dp * (columns - 1)
+    }
 }
+
+/** Whether the grid is wider than the 4 columns the saved positions were authored on. */
+fun isNothingReflow(columns: Int): Boolean = columns != NOTHING_LAYOUT_COLUMNS
+
+/**
+ * Saved positions are authored on the 4 column editor, so on other widths the tiles flow in their
+ * saved order instead: sorted by saved row, then column, with unplaced tiles last.
+ */
+fun <T> List<T>.inNothingLayoutOrder(
+    layout: Map<TileSpec, Pair<Int, Int>>,
+    columns: Int,
+    spec: (T) -> TileSpec,
+): List<T> {
+    if (!isNothingReflow(columns)) return this
+    return sortedWith(
+        compareBy(
+            { layout[spec(it)]?.first ?: Int.MAX_VALUE },
+            { layout[spec(it)]?.second ?: Int.MAX_VALUE },
+        )
+    )
+}
+
+/** The saved positions to place tiles at on [columns] columns: none when the tiles reflow. */
+fun Map<TileSpec, Pair<Int, Int>>.forNothingColumns(
+    columns: Int
+): Map<TileSpec, Pair<Int, Int>> = if (isNothingReflow(columns)) emptyMap() else this
+
+/** Sliders keep their place and share of the width, scaled to [columns] columns. */
+fun List<NothingSliderItem>.forNothingColumns(columns: Int): List<NothingSliderItem> =
+    if (!isNothingReflow(columns)) {
+        this
+    } else {
+        map {
+            it.copy(
+                col = it.col * columns / NOTHING_LAYOUT_COLUMNS,
+                span = it.span * columns / NOTHING_LAYOUT_COLUMNS,
+            )
+        }
+    }
 
 @Composable
 fun rememberQSTileLabelHide(): Boolean {

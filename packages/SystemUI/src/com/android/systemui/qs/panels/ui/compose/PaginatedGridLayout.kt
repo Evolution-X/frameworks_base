@@ -72,6 +72,10 @@ import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsStyl
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingSliderContent
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.NothingLayout
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.NothingSliderItem
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.forNothingColumns
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.inNothingLayoutOrder
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.isNothingReflow
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingQSColumns
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingQSMaxContentWidth
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingLayout
 import com.android.systemui.qs.panels.ui.compose.toolbar.EditModeButton
@@ -108,13 +112,20 @@ constructor(
         // chunks of rows x columns, with fewer rows so the panel does not need to scroll.
         val colorOSStyle = LocalColorOSQsStyle.current
         val rows = if (colorOSStyle) LocalColorOSGridRows.current else viewModel.rows
-        // The Nothing style places circles, pills and quads on a 4 column grid, four rows a page.
+        // The Nothing style places circles, pills and quads on a square cell grid, four rows a page.
+        // It has 4 columns, or more on wide screens, where the saved positions are not used.
         val nothingStyle = LocalNothingQsStyle.current
         val nothingLayout = if (nothingStyle) rememberNothingLayout() else NothingLayout.None
-        val (quadTiles, tileLayout) = nothingLayout
+        val nothingColumns = rememberNothingQSColumns()
+        val (quadTiles, savedTileLayout) = nothingLayout
+        val tileLayout = savedTileLayout.forNothingColumns(nothingColumns)
         // Sliders are only placed where the host can draw them
         val nothingSliders =
-            if (LocalNothingSliderContent.current != null) nothingLayout.sliders else emptyList()
+            if (LocalNothingSliderContent.current != null) {
+                nothingLayout.sliders.forNothingColumns(nothingColumns)
+            } else {
+                emptyList()
+            }
         val largeTiles by viewModel.largeTiles.collectAsStateWithLifecycle()
         val pagesWithPlacements =
             remember(
@@ -124,7 +135,8 @@ constructor(
                 nothingStyle,
                 largeTiles,
                 quadTiles,
-                tileLayout,
+                savedTileLayout,
+                nothingColumns,
                 nothingSliders,
                 *delegateGridViewModel.pageKeys,
             ) {
@@ -132,8 +144,9 @@ constructor(
                 var pageSliders = emptyList<List<NothingSliderItem>>()
                 val pageList =
                 if (nothingStyle) {
+                    val orderedTiles = tiles.inNothingLayoutOrder(savedTileLayout, nothingColumns) { it.spec }
                     val spans =
-                        tiles.map {
+                        orderedTiles.map {
                             when {
                                 quadTiles.contains(it.spec) ->
                                     GridSpan(colSpan = 2, rowSpan = 2)
@@ -143,7 +156,7 @@ constructor(
                             }
                         }
                     val preferredPlacements =
-                        tiles
+                        orderedTiles
                             .mapIndexedNotNull { index, tile ->
                                 tileLayout[tile.spec]?.let { index to it }
                             }
@@ -156,15 +169,16 @@ constructor(
                     val placements =
                         calculate2DPlacements(
                             spans,
-                            NOTHING_COLUMNS,
+                            nothingColumns,
                             preferredPlacements = preferredPlacements,
                             maxRowsPerPage = NOTHING_ROWS_PER_PAGE,
                             reserved = reserved,
+                            fillGaps = isNothingReflow(nothingColumns),
                         )
                     // Rows are global here, but each page lays out its own tiles from row 0
                     pagePlacements =
                         placements.associate {
-                            tiles[it.index].spec to
+                            orderedTiles[it.index].spec to
                                 (it.row % NOTHING_ROWS_PER_PAGE to it.col)
                         }
                     val grouped = placements.groupBy { it.row / NOTHING_ROWS_PER_PAGE }
@@ -181,7 +195,7 @@ constructor(
                         }
                     pageIndices
                         .map { pageIndex ->
-                            grouped[pageIndex].orEmpty().map { tiles[it.index] }
+                            grouped[pageIndex].orEmpty().map { orderedTiles[it.index] }
                         }
                         .ifEmpty { listOf(emptyList()) }
                 } else if (colorOSStyle) {
@@ -199,7 +213,7 @@ constructor(
 
         val pagerState = rememberPagerState(0) { pages.size }
         val pagerMaxWidth =
-            if (nothingStyle) rememberNothingQSMaxContentWidth() else Dp.Unspecified
+            if (nothingStyle) rememberNothingQSMaxContentWidth(nothingColumns) else Dp.Unspecified
 
         LaunchedEffect(listening, pagerState) {
             snapshotFlow { listening() }
@@ -293,7 +307,6 @@ constructor(
     }
 }
 
-private const val NOTHING_COLUMNS = 4
 private const val NOTHING_ROWS_PER_PAGE = 4
 
 private object Dimensions {
