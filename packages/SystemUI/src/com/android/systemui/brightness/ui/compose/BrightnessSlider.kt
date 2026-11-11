@@ -136,6 +136,7 @@ import com.android.systemui.common.shared.colors.SystemUISliderColors
 import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.NothingQsColors
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingQSColumns
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingQSMaxContentWidth
 import com.android.systemui.compose.modifiers.sysuiResTag
 import com.android.systemui.gradient.GradientColors
@@ -1443,7 +1444,7 @@ fun BrightnessSliderContainer(
 
     val isRestricted = restriction is PolicyRestriction.Restricted
     val isNothingStyle = LocalNothingQsStyle.current
-    val nothingMaxContentWidth = rememberNothingQSMaxContentWidth()
+    val nothingMaxContentWidth = rememberNothingQSMaxContentWidth(rememberNothingQSColumns())
     // Cap the width here so the slider background and the mirror backdrop match the slider.
     val nothingWidthCap =
         if (isNothingStyle) {

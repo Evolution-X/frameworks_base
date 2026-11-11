@@ -78,6 +78,9 @@
     <bool name="config_themedBatteryPillOutline">false</bool>
     <bool name="config_themedBatteryPillNub">true</bool>
 
+    <!-- Columns of the Nothing style QS grid. Saved tile positions are authored on 4. -->
+    <integer name="qs_nothing_columns">4</integer>
+
     <!-- Notification counter -->
     <integer name="status_bar_notification_info_maxnum">999</integer>
 
