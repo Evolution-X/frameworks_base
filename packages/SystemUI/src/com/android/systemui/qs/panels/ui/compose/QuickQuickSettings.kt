@@ -45,7 +45,11 @@ import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalQSQuadTiles
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.Tile
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSPanelStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingQSMaxCellSize
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.forNothingColumns
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.inNothingLayoutOrder
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.isNothingReflow
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingLayout
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingQSColumns
 import com.android.systemui.qs.panels.ui.viewmodel.BounceableTileViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.QuickQuickSettingsViewModel
 import com.android.systemui.qs.shared.ui.QuickSettings.Elements.toElementKey
@@ -155,14 +159,18 @@ private fun ContentScope.NothingQuickQuickSettings(
     modifier: Modifier,
     listening: () -> Boolean,
 ) {
-    val columns = NOTHING_COLUMNS
+    val columns = rememberNothingQSColumns()
     val squishiness by viewModel.squishinessViewModel.squishiness.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    val (quadTiles, tileLayout) = rememberNothingLayout()
+    val (quadTiles, savedTileLayout) = rememberNothingLayout()
+    val tileLayout = savedTileLayout.forNothingColumns(columns)
     val largeTiles by viewModel.iconTilesViewModel.largeTiles.collectAsStateWithLifecycle()
     val noBounce = remember { BounceableInfo(BounceableTileViewModel(), null, null, false) }
 
-    val allTiles = viewModel.allTileViewModels.map { it.tile }
+    val allTiles =
+        viewModel.allTileViewModels
+            .map { it.tile }
+            .inNothingLayoutOrder(savedTileLayout, columns) { it.spec }
     val allSpans =
         remember(allTiles, largeTiles, quadTiles) {
             allTiles.map {
@@ -182,12 +190,13 @@ private fun ContentScope.NothingQuickQuickSettings(
     // Same placements as the first page of the expanded panel, cut to the first rows, so the tiles
     // do not move when the panel expands. Tiles saved further down stay out of the QQS.
     val qqsPlacements =
-        remember(allSpans, preferredPlacements) {
+        remember(allSpans, preferredPlacements, columns) {
             calculate2DPlacements(
                     allSpans,
                     columns,
                     preferredPlacements = preferredPlacements,
                     maxRowsPerPage = NOTHING_ROWS_PER_PAGE,
+                    fillGaps = isNothingReflow(columns),
                 )
                 .filter { it.row + it.rowSpan <= NOTHING_QQS_MAX_ROWS }
         }
@@ -232,7 +241,6 @@ private fun ContentScope.NothingQuickQuickSettings(
     TileListener(qqsTiles, listening)
 }
 
-private const val NOTHING_COLUMNS = 4
 private const val NOTHING_QQS_MAX_ROWS = 2
 // Keep in sync with the rows per page of the expanded panel in PaginatedGridLayout.
 private const val NOTHING_ROWS_PER_PAGE = 4
