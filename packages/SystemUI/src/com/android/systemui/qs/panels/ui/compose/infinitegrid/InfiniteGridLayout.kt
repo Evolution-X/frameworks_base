@@ -144,7 +144,7 @@ constructor(
 
         if (nothingStyle) {
             NothingTileGrid(
-                tiles = tiles,
+                pageTiles = tiles,
                 largeTiles = largeTiles,
                 viewModel = viewModel,
                 textFeedbackViewModel = textFeedbackViewModel,
@@ -225,7 +225,7 @@ constructor(
      */
     @Composable
     private fun ContentScope.NothingTileGrid(
-        tiles: List<TileViewModel>,
+        pageTiles: List<TileViewModel>,
         largeTiles: Set<TileSpec>,
         viewModel: com.android.systemui.qs.panels.ui.viewmodel.InfiniteGridViewModel,
         textFeedbackViewModel: TextFeedbackContentViewModel,
@@ -236,7 +236,19 @@ constructor(
         val squishiness by viewModel.squishinessViewModel.squishiness.collectAsStateWithLifecycle()
         val scope = rememberCoroutineScope()
         val nothingLayout = rememberNothingLayout()
-        val (quadTiles, tileLayout) = nothingLayout
+        val columns = rememberNothingQSColumns()
+        val (quadTiles, savedTileLayout) = nothingLayout
+        val tileLayout = savedTileLayout.forNothingColumns(columns)
+        val pagePlacements = LocalNothingPagePlacements.current
+        // A pager already ordered the tiles of its pages, a lone grid orders its own.
+        val tiles =
+            remember(pageTiles, savedTileLayout, columns, pagePlacements) {
+                if (pagePlacements == null) {
+                    pageTiles.inNothingLayoutOrder(savedTileLayout, columns) { it.spec }
+                } else {
+                    pageTiles
+                }
+            }
         val noBounce = remember { BounceableInfo(BounceableTileViewModel(), null, null, false) }
         // Sliders are drawn by the host. Without a pager the first page is the only one.
         val sliderContent = LocalNothingSliderContent.current
@@ -245,7 +257,7 @@ constructor(
                 emptyList()
             } else {
                 LocalNothingPageSliders.current
-                    ?: nothingLayout.sliders.filter { it.row < NOTHING_ROWS }
+                    ?: nothingLayout.sliders.forNothingColumns(columns).filter { it.row < NOTHING_ROWS }
             }
         val sliderRowHeight = dimensionResource(R.dimen.qs_nothing_brightness_slider_height)
         val sliderRowHeights =
@@ -263,7 +275,6 @@ constructor(
                     }
                 }
             }
-        val pagePlacements = LocalNothingPagePlacements.current
         val preferredPlacements =
             remember(tiles, tileLayout, pagePlacements) {
                 tiles
@@ -284,18 +295,19 @@ constructor(
                 }
             }
         val placements =
-            remember(nothingSpans, preferredPlacements, sliderPlacements) {
+            remember(nothingSpans, preferredPlacements, sliderPlacements, columns) {
                 calculate2DPlacements(
                     nothingSpans,
-                    NOTHING_COLUMNS,
+                    columns,
                     maxRows = NOTHING_ROWS,
                     preferredPlacements = preferredPlacements,
                     reserved = sliderPlacements,
+                    fillGaps = isNothingReflow(columns),
                 ) + sliderPlacements
             }
 
         TwoDimensionalSpannedGrid(
-            columns = NOTHING_COLUMNS,
+            columns = columns,
             columnSpacing = NOTHING_SPACING,
             rowSpacing = NOTHING_SPACING,
             customPlacements = placements,
@@ -530,6 +542,5 @@ constructor(
     }
 }
 
-private const val NOTHING_COLUMNS = 4
 private const val NOTHING_ROWS = 4
 private val NOTHING_SPACING = 16.dp
