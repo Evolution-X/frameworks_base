@@ -35,8 +35,6 @@ interface IFontManager {
 
     int updateFontFallbacks(in List<FontUpdateRequest> fallbackRequests);
 
-    void clearUpdates();
-
     int installCustomFont(in ParcelFileDescriptor fontFd);
 
     int clearCustomFont();
