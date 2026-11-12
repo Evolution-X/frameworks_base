@@ -21,6 +21,7 @@ import android.graphics.Color
 import android.os.Handler
 import android.os.UserHandle
 import android.provider.Settings
+import com.android.internal.graphics.EdgeLightRenderer
 import com.android.systemui.dagger.qualifiers.Main
 import com.android.systemui.settings.UserTracker
 import java.util.concurrent.Executor
@@ -49,6 +50,11 @@ data class EdgeLightSettings(
     val intensity: Float = EDGE_LIGHT_DEFAULT_INTENSITY,
     val displayMode: Int = EDGE_LIGHT_MODE_LOCKSCREEN,
     val triggerUnlockOnly: Boolean = false,
+    val animationSpeed: Int = 100,
+    val designLength: Int = 35,
+    val designSize: Int = 30,
+    val designDensity: Int = 50,
+    val animationDirection: Int = 0,
 ) {
     val showOnLockscreen: Boolean
         get() = isEnabled &&
@@ -98,20 +104,30 @@ class EdgeLightSettingsRepository @Inject constructor(
         fun string(key: String, default: String) =
             Settings.System.getStringForUser(resolver, key, userId) ?: default
 
+        val displayMode = int(Settings.System.EDGE_LIGHT_DISPLAY_MODE, EDGE_LIGHT_MODE_LOCKSCREEN)
+            .takeIf { it in EDGE_LIGHT_MODE_LOCKSCREEN..EDGE_LIGHT_MODE_BOTH }
+            ?: EDGE_LIGHT_MODE_LOCKSCREEN
         return EdgeLightSettings(
             isEnabled = int(Settings.System.EDGE_LIGHT_ENABLED, 0) == 1,
             colorMode = string(Settings.System.EDGE_LIGHT_COLOR_MODE, "accent"),
             customColor = int(Settings.System.EDGE_LIGHT_CUSTOM_COLOR, Color.WHITE),
             pulseCount = int(Settings.System.EDGE_LIGHT_PULSE_COUNT, 3).coerceIn(1, 5),
             strokeWidth = int(Settings.System.EDGE_LIGHT_STROKE_WIDTH, 8).coerceIn(2, 32),
-            edgeStyle = string(Settings.System.EDGE_LIGHT_STYLE, "default"),
-            animationEffect = string(Settings.System.EDGE_LIGHT_ANIMATION_EFFECT, "none"),
-            spread = (int(Settings.System.EDGE_LIGHT_SPREAD, 0) / 100f).coerceIn(0.05f, 1f),
+            edgeStyle = EdgeLightRenderer.normalizeStyle(
+                string(Settings.System.EDGE_LIGHT_STYLE, "default")),
+            animationEffect = EdgeLightRenderer.normalizeEffect(
+                string(Settings.System.EDGE_LIGHT_ANIMATION_EFFECT, "none")),
+            spread = (int(Settings.System.EDGE_LIGHT_SPREAD, 0) / 100f).coerceIn(0f, 0.6f),
             intensity = (int(Settings.System.EDGE_LIGHT_INTENSITY, 0) / 100f).coerceIn(0f, 1f),
-            displayMode = int(Settings.System.EDGE_LIGHT_DISPLAY_MODE, EDGE_LIGHT_MODE_LOCKSCREEN)
-                .takeIf { it in EDGE_LIGHT_MODE_LOCKSCREEN..EDGE_LIGHT_MODE_BOTH }
-                ?: EDGE_LIGHT_MODE_LOCKSCREEN,
-            triggerUnlockOnly = int(Settings.System.EDGE_LIGHT_TRIGGER_UNLOCK_ONLY, 0) == 1,
+            displayMode = displayMode,
+            triggerUnlockOnly = displayMode != EDGE_LIGHT_MODE_LOCKSCREEN &&
+                int(Settings.System.EDGE_LIGHT_TRIGGER_UNLOCK_ONLY, 0) == 1,
+            animationSpeed = int(Settings.System.EDGE_LIGHT_ANIMATION_SPEED, 100).coerceIn(25, 200),
+            designLength = int(Settings.System.EDGE_LIGHT_DESIGN_LENGTH, 35).coerceIn(5, 100),
+            designSize = int(Settings.System.EDGE_LIGHT_DESIGN_SIZE, 30).coerceIn(5, 100),
+            designDensity = int(Settings.System.EDGE_LIGHT_DESIGN_DENSITY, 50).coerceIn(10, 100),
+            animationDirection = int(Settings.System.EDGE_LIGHT_ANIMATION_DIRECTION, 0)
+                .takeIf { it in 0..1 } ?: 0,
         )
     }
 
@@ -128,6 +144,11 @@ class EdgeLightSettingsRepository @Inject constructor(
             Settings.System.EDGE_LIGHT_SPREAD,
             Settings.System.EDGE_LIGHT_INTENSITY,
             Settings.System.EDGE_LIGHT_TRIGGER_UNLOCK_ONLY,
+            Settings.System.EDGE_LIGHT_ANIMATION_SPEED,
+            Settings.System.EDGE_LIGHT_DESIGN_LENGTH,
+            Settings.System.EDGE_LIGHT_DESIGN_SIZE,
+            Settings.System.EDGE_LIGHT_DESIGN_DENSITY,
+            Settings.System.EDGE_LIGHT_ANIMATION_DIRECTION,
         )
     }
 }

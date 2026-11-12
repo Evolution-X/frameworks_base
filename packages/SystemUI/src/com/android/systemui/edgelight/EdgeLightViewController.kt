@@ -221,6 +221,11 @@ class EdgeLightViewController @Inject constructor(
             animationEffect = settings.animationEffect
             userSpread = settings.spread
             userIntensity = settings.intensity
+            animationSpeed = settings.animationSpeed
+            designLength = settings.designLength
+            designSize = settings.designSize
+            designDensity = settings.designDensity
+            animationDirection = settings.animationDirection
         }
         updateColor()
     }
@@ -395,7 +400,7 @@ class EdgeLightViewController @Inject constructor(
     }
 
     private fun startLockscreenPulse(notificationKey: String? = null) {
-        if (!currentSettings.showOnLockscreen ||
+        if (currentSettings.triggerUnlockOnly || !currentSettings.showOnLockscreen ||
             (!keyguardStateController.isShowing && !statusBarStateController.isDozing) ||
             keyguardStateController.isKeyguardGoingAway ||
             keyguardStateController.isKeyguardFadingAway ||
