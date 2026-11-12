@@ -6988,6 +6988,14 @@ public final class Settings {
         public static final String HIDE_STATUS_BAR_IN_SCREENSHOT = "hide_status_bar_in_screenshot";
 
         /**
+         * Whether system dialogs and toasts should use background blur.
+         *   0 = disabled
+         *   1 = enabled (default)
+         * @hide
+         */
+        public static final String DIALOG_BLUR_ENABLED = "dialog_blur_enabled";
+
+        /**
          * Whether allowing pocket service to register sensors and dispatch informations.
          *   0 = disabled
          *   1 = enabled
