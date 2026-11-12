@@ -989,7 +989,7 @@ public class Typeface {
             final int weight = mStyle == null ? 400 : mStyle.getWeight();
             final int italic =
                     (mStyle == null || mStyle.getSlant() == FontStyle.FONT_SLANT_UPRIGHT) ?  0 : 1;
-            final Font firstFont = mFamilies.get(0).getSize() > 0
+            final Font firstFont = !mFamilies.isEmpty() && mFamilies.get(0).getSize() > 0
                     ? mFamilies.get(0).getFont(0) : null;
             final Typeface override =
                     FontController.getBundledFontOverride(firstFont, weight, italic == 1);
@@ -1422,8 +1422,13 @@ public class Typeface {
      * @hide
      */
     @Nullable
-    public static Typeface getSystemTypeface(@NonNull String familyName) {
-        return sSystemFontMap.get(familyName);
+    public static Typeface getSystemTypeface(@Nullable String familyName) {
+        if (familyName == null) {
+            return null;
+        }
+        synchronized (SYSTEM_FONT_MAP_LOCK) {
+            return sSystemFontMap.get(familyName);
+        }
     }
 
     /** @hide */
