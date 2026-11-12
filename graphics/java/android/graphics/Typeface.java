@@ -27,8 +27,11 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.TestApi;
 import android.annotation.UiThread;
+import android.app.ActivityThread;
+import android.app.Application;
 import android.compat.annotation.UnsupportedAppUsage;
 import android.content.res.AssetManager;
+import android.content.res.Resources;
 import android.graphics.fonts.Font;
 import android.graphics.fonts.FontFamily;
 import android.graphics.fonts.FontStyle;
@@ -986,7 +989,7 @@ public class Typeface {
             final int weight = mStyle == null ? 400 : mStyle.getWeight();
             final int italic =
                     (mStyle == null || mStyle.getSlant() == FontStyle.FONT_SLANT_UPRIGHT) ?  0 : 1;
-            final Font firstFont = !mFamilies.isEmpty() && mFamilies.get(0).getSize() > 0
+            final Font firstFont = mFamilies.get(0).getSize() > 0
                     ? mFamilies.get(0).getFont(0) : null;
             final Typeface override =
                     FontController.getBundledFontOverride(firstFont, weight, italic == 1);
@@ -1419,13 +1422,8 @@ public class Typeface {
      * @hide
      */
     @Nullable
-    public static Typeface getSystemTypeface(@Nullable String familyName) {
-        if (familyName == null) {
-            return null;
-        }
-        synchronized (SYSTEM_FONT_MAP_LOCK) {
-            return sSystemFontMap.get(familyName);
-        }
+    public static Typeface getSystemTypeface(@NonNull String familyName) {
+        return sSystemFontMap.get(familyName);
     }
 
     /** @hide */
@@ -1714,6 +1712,60 @@ public class Typeface {
                 Arrays.asList(
                         tf, tfBold, tfItalic, tfItalicBold),
                 Arrays.asList(tf, Typeface.SERIF, Typeface.MONOSPACE));
+
+        if (FontController.isDefaultFont(fontFamily)) {
+            retargetStaticDefaults(null, null);
+        } else {
+            retargetStaticDefaults(tf, tfBold);
+        }
+    }
+
+    private static Typeface sOriginalDefault;
+    private static Typeface sOriginalDefaultBold;
+
+    @Nullable
+    private static Typeface resolveConcrete(@Nullable Typeface t) {
+        while (t != null && t.mPendingTypeface != null) {
+            final Typeface next = t.mPendingTypeface.get();
+            if (next == null || next == t) {
+                return null;
+            }
+            t = next;
+        }
+        return t;
+    }
+
+    private void retargetPendingTypeface(@Nullable Typeface target) {
+        if (mPendingTypeface == null) {
+            return;
+        }
+        final Typeface concrete = resolveConcrete(target);
+        // Never point a placeholder at itself or at another placeholder (would loop in
+        // getNativeInstance()).
+        if (concrete == null || concrete == this || concrete.mPendingTypeface != null) {
+            return;
+        }
+        mPendingTypeface.set(concrete);
+    }
+
+    private static void retargetStaticDefaults(@Nullable Typeface regular,
+            @Nullable Typeface bold) {
+        synchronized (SYSTEM_FONT_MAP_LOCK) {
+            if (sOriginalDefault == null) {
+                sOriginalDefault = resolveConcrete(DEFAULT);
+                sOriginalDefaultBold = resolveConcrete(DEFAULT_BOLD);
+            }
+            final Typeface newRegular = regular != null ? regular : sOriginalDefault;
+            final Typeface newBold = bold != null ? bold : sOriginalDefaultBold;
+            if (newRegular == null || newBold == null) {
+                return;
+            }
+            DEFAULT.retargetPendingTypeface(newRegular);
+            if (SANS_SERIF != DEFAULT) {
+                SANS_SERIF.retargetPendingTypeface(newRegular);
+            }
+            DEFAULT_BOLD.retargetPendingTypeface(newBold);
+        }
     }
 
     /** @hide */

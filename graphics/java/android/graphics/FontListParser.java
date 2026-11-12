@@ -39,7 +39,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -111,35 +110,17 @@ public class FontListParser {
             long lastModifiedDate,
             int configVersion
     ) throws IOException, XmlPullParserException {
-        final List<String> customizationXmlPaths = new ArrayList<>();
+        FontCustomizationParser.Result oemCustomization;
         if (oemCustomizationXmlPath != null) {
-            customizationXmlPaths.add(oemCustomizationXmlPath);
-        }
-        return parse(fontsXmlPath, systemFontDir, customizationXmlPaths, productFontDir,
-                updatableFontMap, lastModifiedDate, configVersion);
-    }
-
-    /**
-     * Parses system font config XMLs with multiple OEM customization layers.
-     */
-    public static FontConfig parse(
-            @NonNull String fontsXmlPath,
-            @NonNull String systemFontDir,
-            @NonNull List<String> customizationXmlPaths,
-            @Nullable String productFontDir,
-            @Nullable Map<String, File> updatableFontMap,
-            long lastModifiedDate,
-            int configVersion
-    ) throws IOException, XmlPullParserException {
-        FontCustomizationParser.Result oemCustomization = new FontCustomizationParser.Result();
-        for (String customizationXmlPath : customizationXmlPaths) {
-            try (InputStream is = new FileInputStream(customizationXmlPath)) {
-                oemCustomization = mergeCustomizationResults(
-                        oemCustomization,
-                        FontCustomizationParser.parse(is, productFontDir, updatableFontMap));
+            try (InputStream is = new FileInputStream(oemCustomizationXmlPath)) {
+                oemCustomization = FontCustomizationParser.parse(is, productFontDir,
+                        updatableFontMap);
             } catch (IOException e) {
-                // OEM customization may not exist. Ignoring.
+                // OEM customization may not exists. Ignoring
+                oemCustomization = new FontCustomizationParser.Result();
             }
+        } else {
+            oemCustomization = new FontCustomizationParser.Result();
         }
 
         try (InputStream is = new FileInputStream(fontsXmlPath)) {
@@ -149,23 +130,6 @@ public class FontListParser {
             return readFamilies(parser, systemFontDir, oemCustomization, updatableFontMap,
                     lastModifiedDate, configVersion, false /* filter out the non-existing files */);
         }
-    }
-
-    private static FontCustomizationParser.Result mergeCustomizationResults(
-            @NonNull FontCustomizationParser.Result base,
-            @NonNull FontCustomizationParser.Result extra) {
-        final Map<String, NamedFamilyList> namedFamilies =
-                new HashMap<>(base.getAdditionalNamedFamilies());
-        namedFamilies.putAll(extra.getAdditionalNamedFamilies());
-
-        final List<FontConfig.Customization.LocaleFallback> localeFallbacks =
-                new ArrayList<>(base.getLocaleFamilyCustomizations());
-        localeFallbacks.addAll(extra.getLocaleFamilyCustomizations());
-
-        final List<FontConfig.Alias> aliases = new ArrayList<>(base.getAdditionalAliases());
-        aliases.addAll(extra.getAdditionalAliases());
-
-        return new FontCustomizationParser.Result(namedFamilies, localeFallbacks, aliases);
     }
 
     /**
