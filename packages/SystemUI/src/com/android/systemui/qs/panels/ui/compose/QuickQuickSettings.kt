@@ -35,6 +35,9 @@ import com.android.systemui.grid.ui.compose.TwoDimensionalSpannedGrid
 import com.android.systemui.grid.ui.compose.VerticalSpannedGrid
 import com.android.systemui.grid.ui.compose.calculate2DPlacements
 import com.android.systemui.qs.composefragment.ui.GridAnchor
+import com.android.systemui.qs.panels.shared.model.SizedTile
+import com.android.systemui.qs.panels.shared.model.SizedTileImpl
+import com.android.systemui.qs.panels.shared.model.splitInRowsSequence
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSQsStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalQSBluetoothDevices
@@ -67,22 +70,31 @@ fun ContentScope.QuickQuickSettings(
     val classicStyle = rememberQSPanelStyle()
     // ColorOS style: QQS shows only the round icons, the labels stay in the expanded panel.
     val colorOSStyle = LocalColorOSQsStyle.current
+    // ColorOS style: a row the next, too wide, tile did not fit into hands its free columns to its
+    // last icon tile, so QQS does not show a lone circle next to an empty gap.
+    val rowTiles =
+        remember(sizedTiles, columns, colorOSStyle, classicStyle) {
+            if (colorOSStyle && !classicStyle) {
+                sizedTiles.widenLastIconTiles(columns, viewModel.largeTilesSpan)
+            } else {
+                sizedTiles
+            }
+        }
 
     Box(modifier = modifier) {
         GridAnchor()
 
-        val bounceables =
-            remember(sizedTiles) { List(sizedTiles.size) { BounceableTileViewModel() } }
-        val spans by remember(sizedTiles) { derivedStateOf { sizedTiles.fastMap { it.width } } }
+        val bounceables = remember(rowTiles) { List(rowTiles.size) { BounceableTileViewModel() } }
+        val spans by remember(rowTiles) { derivedStateOf { rowTiles.fastMap { it.width } } }
         VerticalSpannedGrid(
             columns = columns,
             columnSpacing = dimensionResource(R.dimen.qs_tile_margin_horizontal),
             rowSpacing = dimensionResource(R.dimen.qs_tile_margin_vertical),
             spans = spans,
             modifier = Modifier.sysuiResTag("qqs_tile_layout"),
-            keys = { sizedTiles[it].tile.spec },
+            keys = { rowTiles[it].tile.spec },
         ) { spanIndex, column, isFirstInColumn, isLastInColumn ->
-            val it = sizedTiles[spanIndex]
+            val it = rowTiles[spanIndex]
             Element(it.tile.spec.toElementKey(), Modifier) {
                 Tile(
                     tile = it.tile,
@@ -110,6 +122,28 @@ fun ContentScope.QuickQuickSettings(
 
     TileListener(tiles, listening)
 }
+
+/**
+ * Hands the free columns of every row of this [columns] wide grid to the last icon tile of the row,
+ * widened up to [largeSpan], so a row never ends in a gap that the next tile did not fit into.
+ */
+private fun <T> List<SizedTile<T>>.widenLastIconTiles(
+    columns: Int,
+    largeSpan: Int,
+): List<SizedTile<T>> =
+    splitInRowsSequence(this, columns)
+        .flatMap { row ->
+            val free = columns - row.sumOf { it.width }
+            val last = row.indexOfLast { it.isIcon }
+            row.mapIndexed { index, tile ->
+                if (index == last && free > 0) {
+                    SizedTileImpl(tile.tile, (tile.width + free).coerceAtMost(largeSpan))
+                } else {
+                    tile
+                }
+            }
+        }
+        .toList()
 
 /**
  * Nothing style QQS: the first two rows of the same 2D placements as the expanded panel, on 4
