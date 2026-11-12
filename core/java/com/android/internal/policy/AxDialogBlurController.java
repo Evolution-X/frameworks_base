@@ -147,6 +147,9 @@ public final class AxDialogBlurController {
                 mSettingsObserver);
         mResolver.registerContentObserver(Settings.Secure.getUriFor(BLUR_RADIUS), false,
                 mSettingsObserver);
+        mResolver.registerContentObserver(
+                Settings.System.getUriFor(Settings.System.DIALOG_BLUR_ENABLED), false,
+                mSettingsObserver);
         mWindowManager.addCrossWindowBlurEnabledListener(mHandler::post, mBlurListener);
         mRootView.getViewTreeObserver().addOnPreDrawListener(mPreDrawListener);
         updateSettings();
@@ -195,7 +198,8 @@ public final class AxDialogBlurController {
                 SystemProperties.getBoolean("ro.custom.blur.enable", true) ? 0 : 1;
         final boolean enabled = mCrossWindowBlurEnabled
                 && Settings.Global.getInt(mResolver, Settings.Global.DISABLE_WINDOW_BLURS,
-                        defaultDisabled) == 0;
+                        defaultDisabled) == 0
+                && Settings.System.getInt(mResolver, Settings.System.DIALOG_BLUR_ENABLED, 1) != 0;
         final float maxRadius = MAX_BLUR_RADIUS_DP
                 * mContext.getResources().getDisplayMetrics().density;
         final float radius = Settings.Secure.getFloat(mResolver, BLUR_RADIUS, maxRadius);
