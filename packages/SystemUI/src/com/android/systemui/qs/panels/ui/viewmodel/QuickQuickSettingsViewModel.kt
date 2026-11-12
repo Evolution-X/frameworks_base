@@ -72,7 +72,8 @@ constructor(
             initialValue = quickQuickSettingsRowInteractor.defaultRows
         )
 
-    private val largeTilesSpan: Int
+    /** How many columns a large tile spans in quick quick settings. */
+    val largeTilesSpan: Int
         get() = qsColumnsViewModel.largeSpan
 
     private val currentTiles by tilesInteractor.currentTiles.hydratedStateOf()
