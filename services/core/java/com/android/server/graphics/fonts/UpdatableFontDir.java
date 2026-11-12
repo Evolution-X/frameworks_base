@@ -16,7 +16,6 @@
 
 package com.android.server.graphics.fonts;
 
-import static com.android.server.graphics.fonts.FontManagerService.axFontFeatureSupport;
 import static com.android.server.graphics.fonts.FontManagerService.SystemFontException;
 
 import android.annotation.NonNull;
@@ -97,6 +96,8 @@ final class UpdatableFontDir {
     /** Interface to mock fs-verity in tests. */
     interface FsverityUtil {
         boolean isFromTrustedProvider(String path, byte[] pkcs7Signature);
+
+        boolean hasFsverity(String path);
 
         void setUpFsverity(String path) throws IOException;
 
@@ -277,7 +278,7 @@ final class UpdatableFontDir {
                     continue;
                 }
 
-                FontFileInfo fontFileInfo = validateFontFile(fontFile, signature);
+                FontFileInfo fontFileInfo = validateFontFile(fontFile, signature, isCustomFont);
                 if (fontConfig == null) {
                     // Use preinstalled font config for checking revision number.
                     fontConfig = mConfigSupplier.apply(Collections.emptyMap());
@@ -740,17 +741,14 @@ final class UpdatableFontDir {
                         FontManager.RESULT_ERROR_FAILED_TO_WRITE_FONT_FILE,
                         "Failed to write font file to storage.", e);
             }
-            boolean isUnsignedCustomFont = axFontFeatureSupport && pkcs7Signature.length == 0;
-            if (!isUnsignedCustomFont) {
-                try {
-                    // Do not parse font file before setting up fs-verity.
-                    // setUpFsverity throws IOException if failed.
-                    mFsverityUtil.setUpFsverity(tempNewFontFile.getAbsolutePath());
-                } catch (IOException e) {
-                    throw new SystemFontException(
-                            FontManager.RESULT_ERROR_VERIFICATION_FAILURE,
-                            "Failed to setup fs-verity.", e);
-                }
+            try {
+                // Do not parse font file before setting up fs-verity.
+                // setUpFsverity throws IOException if failed.
+                mFsverityUtil.setUpFsverity(tempNewFontFile.getAbsolutePath());
+            } catch (IOException e) {
+                throw new SystemFontException(
+                        FontManager.RESULT_ERROR_VERIFICATION_FAILURE,
+                        "Failed to setup fs-verity.", e);
             }
             String fontFileName;
             try {
@@ -805,7 +803,8 @@ final class UpdatableFontDir {
                             "Failed to create custom font marker", e);
                 }
             }
-            FontFileInfo fontFileInfo = validateFontFile(newFontFile, pkcs7Signature);
+            FontFileInfo fontFileInfo = validateFontFile(
+                    newFontFile, pkcs7Signature, isCustomFont);
 
             // Try to create Typeface and treat as failure something goes wrong.
             try {
@@ -876,10 +875,6 @@ final class UpdatableFontDir {
     private boolean isValidEmojiFontUpdate(FontFileInfo fontFileInfo,
             @Nullable FontUpdateRequest.Family prioritizedFamily,
             FontConfig fontConfig) {
-        // Custom emoji fonts are user supplied and may be older than the preinstalled one.
-        if (axFontFeatureSupport) {
-            return true;
-        }
         if (prioritizedFamily != null
                 && prioritizedFamily.getLang() != null
                 && EMOJI_LANG.equals(prioritizedFamily.getLang().toLanguageTags())) {
@@ -985,7 +980,16 @@ final class UpdatableFontDir {
     @NonNull
     private FontFileInfo validateFontFile(File file, byte[] pkcs7Signature)
             throws SystemFontException {
-        if (!mFsverityUtil.isFromTrustedProvider(file.getAbsolutePath(), pkcs7Signature)) {
+        return validateFontFile(file, pkcs7Signature, false);
+    }
+
+    private FontFileInfo validateFontFile(
+            File file, byte[] pkcs7Signature, boolean isCustomFont)
+            throws SystemFontException {
+        boolean verified = isCustomFont
+                ? mFsverityUtil.hasFsverity(file.getAbsolutePath())
+                : mFsverityUtil.isFromTrustedProvider(file.getAbsolutePath(), pkcs7Signature);
+        if (!verified) {
             throw new SystemFontException(
                     FontManager.RESULT_ERROR_VERIFICATION_FAILURE,
                     "Font validation failed. Fs-verity is not enabled: " + file);

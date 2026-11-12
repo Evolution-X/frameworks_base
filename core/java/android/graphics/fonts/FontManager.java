@@ -120,10 +120,9 @@ public class FontManager {
     /**
      * Indicates a failure due to disabled font updater.
      *
-     * This is typically returned due to missing Linux kernel feature.
-     * The font updater only works with the Linux kernel that has fs-verity feature. The fs-verity
-     * is required after the device shipped with Android 11. Thus the updated device may not have
-     * fs-verity feature and font updater is disabled.
+     * This is returned when fs-verity cannot be enabled for updated font files. Devices that
+     * shipped with Android 11 or later are assumed to support it. Older devices are checked
+     * directly, and the updater stays disabled when the font filesystem does not support it.
      */
     public static final int RESULT_ERROR_FONT_UPDATER_DISABLED = -7;
 
@@ -411,23 +410,7 @@ public class FontManager {
         }
     }
 
-
-    /**
-     * @hide
-     */
-    public void clearUpdates() {
-        try {
-            mIFontManager.clearUpdates();
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * Installs a user supplied font file as the system-wide UI font.
-     *
-     * @hide
-     */
+    /** @hide */
     @RequiresPermission(Manifest.permission.UPDATE_FONTS)
     public @ResultCode int installCustomFont(@NonNull ParcelFileDescriptor fontFd) {
         Objects.requireNonNull(fontFd);
@@ -438,11 +421,7 @@ public class FontManager {
         }
     }
 
-    /**
-     * Removes the user supplied system-wide UI font installed by {@link #installCustomFont}.
-     *
-     * @hide
-     */
+    /** @hide */
     @RequiresPermission(Manifest.permission.UPDATE_FONTS)
     public @ResultCode int clearCustomFont() {
         try {
@@ -452,11 +431,7 @@ public class FontManager {
         }
     }
 
-    /**
-     * Returns the PostScript name of the installed custom font, or null if there is none.
-     *
-     * @hide
-     */
+    /** @hide */
     @RequiresPermission(Manifest.permission.UPDATE_FONTS)
     public @Nullable String getCustomFontName() {
         try {

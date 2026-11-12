@@ -46,7 +46,6 @@ import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
-import com.android.internal.util.android.FontController;
 import com.android.text.flags.Flags;
 
 import org.junit.After;
@@ -130,15 +129,16 @@ public final class UpdatableFontDirTest {
 
         @Override
         public boolean isFromTrustedProvider(String path, byte[] signature) {
-            // Same as FontManagerService: unsigned custom fonts are trusted without fs-verity.
-            if (FontManagerService.axFontFeatureSupport && signature.length == 0) {
-                return true;
-            }
             if (!mHasFsverityPaths.contains(path)) {
                 return false;
             }
             String fakeSignature = new String(signature, StandardCharsets.UTF_8);
             return GOOD_SIGNATURE.equals(fakeSignature);
+        }
+
+        @Override
+        public boolean hasFsverity(String path) {
+            return mHasFsverityPaths.contains(path);
         }
 
         @Override
@@ -509,15 +509,13 @@ public final class UpdatableFontDirTest {
     }
 
     @Test
-    public void isOverridableFamily_matchesFrameworkUiFamiliesOnly() {
-        assertThat(FontController.isOverridableFamily("sans-serif")).isTrue();
-        assertThat(FontController.isOverridableFamily("google-sans-text")).isTrue();
-        assertThat(FontController.isOverridableFamily("variable-body-medium")).isTrue();
-        assertThat(FontController.isOverridableFamily("roboto-flex")).isTrue();
-        assertThat(FontController.isOverridableFamily("serif")).isFalse();
-        assertThat(FontController.isOverridableFamily("monospace")).isFalse();
-        assertThat(FontController.isOverridableFamily("google-sans-flex-clock")).isFalse();
-        assertThat(FontController.isOverridableFamily("google-sans-mono")).isFalse();
+    public void isUiFontFamilyName_matchesFrameworkUiFamiliesOnly() {
+        assertThat(UpdatableFontDir.isUiFontFamilyName("sans-serif")).isTrue();
+        assertThat(UpdatableFontDir.isUiFontFamilyName("google-sans-text")).isTrue();
+        assertThat(UpdatableFontDir.isUiFontFamilyName("variable-body-medium")).isTrue();
+        assertThat(UpdatableFontDir.isUiFontFamilyName("roboto-flex")).isTrue();
+        assertThat(UpdatableFontDir.isUiFontFamilyName("serif")).isFalse();
+        assertThat(UpdatableFontDir.isUiFontFamilyName("monospace")).isFalse();
     }
 
     @Test
@@ -886,6 +884,11 @@ public final class UpdatableFontDirTest {
             @Override
             public boolean isFromTrustedProvider(String path, byte[] signature) {
                 return mFakeFsverityUtil.isFromTrustedProvider(path, signature);
+            }
+
+            @Override
+            public boolean hasFsverity(String path) {
+                return mFakeFsverityUtil.hasFsverity(path);
             }
 
             @Override
