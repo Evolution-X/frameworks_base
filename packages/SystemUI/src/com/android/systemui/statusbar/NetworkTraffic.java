@@ -170,6 +170,10 @@ public class NetworkTraffic extends TextView implements DarkReceiver, StatusIcon
     @Override
     protected void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
+        // TextPaint.density is only read once in the TextView constructor, so the dip based
+        // spans would keep resolving against the old density after a display size change.
+        getPaint().density = getResources().getDisplayMetrics().density;
+        mAppliedText = null;
         // Font weight adjustment (Bold text) / font changes arrive via configuration.
         applyBoldTypeface();
         mCurrentWidth = -1;
