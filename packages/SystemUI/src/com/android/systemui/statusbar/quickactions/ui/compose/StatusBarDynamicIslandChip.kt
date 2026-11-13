@@ -199,7 +199,7 @@ fun StatusBarDynamicIslandChip(
                 .then(boundsModifier)
                 .then(
                     if (cos) {
-                        Modifier.height(CosIsland.height(cutoutSpec.holeSize))
+                        Modifier.height(CosIsland.height(cutoutSpec.holeSize, heightScale))
                             .widthIn(min = CosIsland.MinWidth, max = CosIsland.MaxWidth)
                     } else {
                         Modifier.defaultMinSize(minHeight = 32.dp * heightScale)
@@ -999,7 +999,7 @@ private fun compactIslandWidthFor(content: PopupContentModel): Dp? {
 }
 
 @Composable
-private fun rememberDynamicIslandSizeScale(): Pair<Float, Float> {
+internal fun rememberDynamicIslandSizeScale(): Pair<Float, Float> {
     val context = LocalContext.current
     val widthScale by
         remember {
