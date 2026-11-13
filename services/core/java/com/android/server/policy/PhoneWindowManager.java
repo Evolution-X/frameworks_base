@@ -704,8 +704,10 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     private Action mAppSwitchPressAction;
     private Action mAppSwitchLongPressAction;
     private Action mEdgeLongSwipeAction;
-    private Action mThreeFingersSwipeAction;
-    private Action mShakeGestureAction;
+    // Read from the input thread in ThreeFingersSwipeListener callback.
+    private volatile Action mThreeFingersSwipeAction;
+    // Read from the sensor thread in ShakeGestureService callback.
+    private volatile Action mShakeGestureAction;
 
     // support for activating the lock screen while the screen is on
     private HashSet<Integer> mAllowLockscreenWhenOnDisplays = new HashSet<>();
@@ -864,7 +866,11 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     private ScreenshotHelper mScreenshotHelper;
 
     private ThreeFingersSwipeListener mThreeFingersSwipe;
-    private boolean mThreeFingersSwipeHasAction;
+    private volatile boolean mThreeFingersSwipeHasAction;
+    // Serializes (un)registration of pointer event listeners with WindowManager. Must never be
+    // taken while holding mLock, see updatePointerEventListeners().
+    private final Object mPointerListenerLock = new Object();
+    private boolean mThreeFingersSwipeRegistered;
 
     private class PolicyHandler extends Handler {
 
@@ -3516,20 +3522,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 LineageSettings.System.KEY_THREE_FINGERS_SWIPE_ACTION,
                 Action.NOTHING);
 
-        if (mThreeFingersSwipe != null && mThreeFingersSwipeAction != threeFingersSwipeAction) {
+        if (mThreeFingersSwipe != null) {
             mThreeFingersSwipeAction = threeFingersSwipeAction;
-            if (mThreeFingersSwipeAction != Action.NOTHING && !mThreeFingersSwipeHasAction) {
-                mThreeFingersSwipeHasAction = true;
-                mWindowManagerFuncs.registerPointerEventListener(mThreeFingersSwipe, DEFAULT_DISPLAY);
-            } else if (mThreeFingersSwipeAction == Action.NOTHING && mThreeFingersSwipeHasAction) {
-                mWindowManagerFuncs.unregisterPointerEventListener(mThreeFingersSwipe, DEFAULT_DISPLAY);
-                mThreeFingersSwipeHasAction = false;
-            }
-            try {
-                mActivityManagerService.setThreeFingersSwipeActive(mThreeFingersSwipeHasAction);
-            } catch (Exception e) {
-                // Do nothing
-            }
+            mThreeFingersSwipeHasAction = threeFingersSwipeAction != Action.NOTHING;
         }
 
         mShakeGestureAction = Action.fromSettings(resolver,
@@ -3727,11 +3722,44 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 updateKidsModeSettings = true;
             }
         }
+        updatePointerEventListeners();
         if (updateKidsModeSettings) {
             updateKidsModeSettings(kidsModeEnabled);
         }
         if (updateRotation) {
             updateRotation(true);
+        }
+    }
+
+    /**
+     * Syncs the pointer event listener registration with WindowManager to the state recorded by
+     * updateKeyAssignments(). Registering takes WindowManagerGlobalLock, and WM calls back into
+     * the policy with that lock held (finishTransition -> onAppTransitionFinishedLocked -> mLock),
+     * so this must run after mLock has been released.
+     */
+    private void updatePointerEventListeners() {
+        if (Thread.holdsLock(mLock)) {
+            Slog.wtf(TAG, "updatePointerEventListeners called with mLock held");
+        }
+        synchronized (mPointerListenerLock) {
+            if (mThreeFingersSwipe != null) {
+                final boolean threeFingersEnabled = mThreeFingersSwipeHasAction;
+                if (threeFingersEnabled != mThreeFingersSwipeRegistered) {
+                    if (threeFingersEnabled) {
+                        mWindowManagerFuncs.registerPointerEventListener(
+                                mThreeFingersSwipe, DEFAULT_DISPLAY);
+                    } else {
+                        mWindowManagerFuncs.unregisterPointerEventListener(
+                                mThreeFingersSwipe, DEFAULT_DISPLAY);
+                    }
+                    mThreeFingersSwipeRegistered = threeFingersEnabled;
+                    try {
+                        mActivityManagerService.setThreeFingersSwipeActive(threeFingersEnabled);
+                    } catch (Exception e) {
+                        // Do nothing
+                    }
+                }
+            }
         }
     }
 
