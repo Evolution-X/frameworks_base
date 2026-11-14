@@ -1629,9 +1629,6 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
     public void onBrightnessChanged(boolean upOrCancel) {
         if (mBrightnessChanged && upOrCancel) {
             mBrightnessChanged = false;
-            if (mShadeController.isExpandedVisible()) {
-                getNotificationShadeWindowViewController().fling(10, false, false);
-            }
             mDisplayManager.setBrightness(mDisplayId, mCurrentBrightness);
         }
     }
