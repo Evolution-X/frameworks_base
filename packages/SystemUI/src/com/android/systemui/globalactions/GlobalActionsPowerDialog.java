@@ -19,6 +19,7 @@ import android.annotation.NonNull;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.res.Resources;
+import android.provider.Settings;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -77,7 +78,9 @@ public class GlobalActionsPowerDialog {
                 context.getTheme()));
         window.addFlags(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM);
         window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-        if (blurUtils.supportsBlursOnWindows()) {
+        if (blurUtils.supportsBlursOnWindows()
+                && Settings.System.getInt(context.getContentResolver(),
+                        Settings.System.DIALOG_BLUR_ENABLED, 1) != 0) {
             window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
             int blurBehindRadius = context.getResources()
                     .getDimensionPixelSize(com.android.systemui.res.R.dimen.max_window_blur_radius);
