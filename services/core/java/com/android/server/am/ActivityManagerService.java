@@ -1786,9 +1786,6 @@ public class ActivityManagerService extends IActivityManager.Stub
     static final HostingRecord sNullHostingRecord =
             new HostingRecord(HostingRecord.HOSTING_TYPE_EMPTY);
 
-    private volatile boolean mThreeFingersSwipeEnabled;
-    private volatile boolean mThreeFingerGestureActive;
-
     /**
      * Used to notify activity lifecycle events.
      */
@@ -21377,11 +21374,6 @@ public class ActivityManagerService extends IActivityManager.Stub
     }
 
     @Override
-    public boolean isThreeFingersSwipeActive() {
-        return mThreeFingersSwipeEnabled && mThreeFingerGestureActive;
-    }
-
-    @Override
     public boolean isSandboxAppLocked(String packageName, int userId) {
         return AxSandboxService.getInstance().isAppLocked(packageName, userId);
     }
@@ -21560,15 +21552,5 @@ public class ActivityManagerService extends IActivityManager.Stub
     @Override
     public String getSandboxSpoofedSetting(String callingPackage, String settingName, int userId) {
         return AxSandboxService.getInstance().getSpoofedSetting(callingPackage, settingName, userId);
-    }
-
-    @Override
-    public void setThreeFingersSwipeActive(boolean active) {
-        mThreeFingersSwipeEnabled = active;
-    }
-
-    @Override
-    public void setThreeGestureStateActive(boolean active) {
-        mThreeFingerGestureActive = active;
     }
 }
