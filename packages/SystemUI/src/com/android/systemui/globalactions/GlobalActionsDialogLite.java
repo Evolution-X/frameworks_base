@@ -3385,7 +3385,9 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
             window.setTitle(""); // prevent Talkback from speaking first item name twice
             window.addFlags(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM);
             window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-            if (mBlurUtils.supportsBlursOnWindows()) {
+            if (mBlurUtils.supportsBlursOnWindows()
+                    && Settings.System.getInt(mContext.getContentResolver(),
+                            Settings.System.DIALOG_BLUR_ENABLED, 1) != 0) {
                 // Enable blur behind
                 // Enable dim behind since we are setting some amount dim for the blur.
                 window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
