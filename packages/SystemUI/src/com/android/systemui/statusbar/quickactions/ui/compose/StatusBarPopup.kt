@@ -128,9 +128,10 @@ fun StatusBarPopup(
         }
     // Only a popup under a top camera opens from the island's edge; side-docked ones sit beside it.
     val popupTopPx = if (sideEdge == null) chipBoundsInScreen?.top?.toInt() else null
-    // How far the popup's content has to be pushed down so it starts below the camera.
+    // How far the popup's content has to be pushed down so it starts below the camera. Not for a
+    // ColorOS card, which is placed below it.
     val cameraClearance =
-        if (popupTopPx != null && cameraBottomPx != null) {
+        if (!cos && popupTopPx != null && cameraBottomPx != null) {
             with(density) { (cameraBottomPx - popupTopPx).coerceAtLeast(0).toDp() }
         } else {
             0.dp
@@ -145,6 +146,8 @@ fun StatusBarPopup(
             sideMarginPx,
             popupTopPx,
             edgePaddingPx,
+            cameraBottomPx,
+            cos,
         ) {
             object : PopupPositionProvider {
                 override fun calculatePosition(
@@ -187,7 +190,12 @@ fun StatusBarPopup(
                         }
                     val y =
                         if (popupTopPx != null) {
-                            popupTopPx - edgePaddingPx
+                            // A ColorOS card opens fully below the camera, so its surface and
+                            // tint are one piece. The others run up behind it and push their
+                            // content down by the camera clearance instead.
+                            (popupTopPx - edgePaddingPx).let {
+                                if (cos) it.coerceAtLeast(cameraBottomPx ?: 0) else it
+                            }
                         } else {
                             anchorBounds.top + yOffsetPx
                         }
