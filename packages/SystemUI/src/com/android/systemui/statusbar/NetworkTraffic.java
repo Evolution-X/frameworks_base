@@ -271,8 +271,6 @@ public class NetworkTraffic extends TextView implements DarkReceiver, StatusIcon
         // "Bold text" accessibility adjustment on top of this.
         final Typeface bold = Typeface.create(base, 700, false);
         setTypeface(bold);
-        // If the family has no heavy instance, fall back to synthetic bold.
-        getPaint().setFakeBoldText(getTypeface() != null && getTypeface().getWeight() < 600);
     }
 
     public void setIsUsingQs(boolean value) {
