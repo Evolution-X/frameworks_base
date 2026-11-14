@@ -1037,13 +1037,17 @@ private val ColorOSHeaderIconOnLightImage = Color.Black
 /**
  * The two buttons above the panel: edit on the start side and settings on the end side, round
  * glass like the tiles that are off. A missing [onSettings], or a button that the footer settings
- * hide, leaves its place empty.
+ * hide, leaves its place empty. The panel has no power button, so a long press on settings opens
+ * the power menu ([onSettingsLongClick]), and a long press on edit opens the Evolver settings
+ * ([onEditLongClick]), which the long press of the regular settings button does.
  */
 @Composable
 internal fun ColorOSHeaderButtons(
     onEdit: (Expandable) -> Unit,
     onSettings: ((Expandable) -> Unit)?,
     modifier: Modifier = Modifier,
+    onEditLongClick: ((Expandable) -> Unit)? = null,
+    onSettingsLongClick: ((Expandable) -> Unit)? = null,
 ) {
     val glass = colorOSGlass(blurred = LocalColorOSGlassBlur.current != null)
     // The same settings that hid the buttons of the footer. A hidden button keeps its place, so
@@ -1067,6 +1071,7 @@ internal fun ColorOSHeaderButtons(
                 description = stringResource(R.string.accessibility_quick_settings_edit),
                 glass = glass,
                 onClick = onEdit,
+                onLongClick = onEditLongClick,
             )
         } else {
             Spacer(Modifier.size(ColorOSHeaderButtonSize))
@@ -1079,6 +1084,7 @@ internal fun ColorOSHeaderButtons(
                 description = stringResource(R.string.accessibility_quick_settings_settings),
                 glass = glass,
                 onClick = onSettings,
+                onLongClick = onSettingsLongClick,
             )
         } else {
             Spacer(Modifier.size(ColorOSHeaderButtonSize))
@@ -1094,6 +1100,7 @@ private fun ColorOSHeaderButton(
     description: String,
     glass: ColorOSGlass,
     onClick: (Expandable) -> Unit,
+    onLongClick: ((Expandable) -> Unit)? = null,
 ) {
     val pressSource = remember { MutableInteractionSource() }
     val onLightImage by QsHeaderImageTint.lightFlow(region).collectAsState()
@@ -1101,6 +1108,7 @@ private fun ColorOSHeaderButton(
         color = Color.Unspecified,
         shape = CircleShape,
         onClick = onClick,
+        onLongClick = onLongClick,
         interactionSource = pressSource,
         useModifierBasedImplementation = true,
         defaultMinSize = false,
