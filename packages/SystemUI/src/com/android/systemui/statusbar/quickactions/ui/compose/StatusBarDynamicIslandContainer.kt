@@ -57,6 +57,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings.observeDynamicIslandColorOSStyle
 import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings.readDynamicIslandColorOSStyle
+import com.android.systemui.statusbar.quickactions.popups.shared.model.SystemEventKind
+import com.android.systemui.statusbar.quickactions.shared.model.PopupContentModel
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipId
 import com.android.systemui.statusbar.quickactions.shared.model.QuickActionChipModel
 import kotlinx.coroutines.delay
@@ -254,6 +256,7 @@ fun StatusBarDynamicIslandContainer(
                     visible = selectedChip != null && !popupVisible,
                     hole = cutoutSpec.holeSize,
                     moons = chips.size > 1,
+                    tall = chip.isCallChip(),
                     onGone = {
                         present = false
                         leaving[0] = null
@@ -440,3 +443,6 @@ private fun Modifier.swipeUpToHide(key: Any, slopPx: Float, onHide: () -> Unit):
             }
         }
     }
+
+internal fun QuickActionChipModel.PopupChip.isCallChip(): Boolean =
+    (popupContent as? PopupContentModel.SystemEvent)?.kind == SystemEventKind.Call

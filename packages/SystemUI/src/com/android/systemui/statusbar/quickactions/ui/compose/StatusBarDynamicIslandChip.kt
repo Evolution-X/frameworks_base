@@ -111,6 +111,15 @@ fun StatusBarDynamicIslandChip(
 ) {
     val isMediaChip = viewModel.popupContent is PopupContentModel.Media
     val chipShape = RoundedCornerShape(50)
+    val cosMedia = (viewModel.popupContent as? PopupContentModel.Media)?.takeIf { cos }?.model
+    val cosArtTint =
+        if (cosMedia != null) {
+            rememberCosArtTint(
+                remember(cosMedia.artworkIcon) { (cosMedia.artworkIcon as? IconModel.Loaded)?.drawable }
+            )
+        } else {
+            Color.Transparent
+        }
     val colors = viewModel.colors
     val (widthScale, heightScale) = rememberDynamicIslandSizeScale()
     val chipContentColor =
@@ -199,8 +208,21 @@ fun StatusBarDynamicIslandChip(
                 .then(boundsModifier)
                 .then(
                     if (cos) {
-                        Modifier.height(CosIsland.height(cutoutSpec.holeSize, heightScale))
-                            .widthIn(min = CosIsland.MinWidth, max = CosIsland.MaxWidth)
+                        Modifier.height(
+                                CosIsland.height(
+                                    cutoutSpec.holeSize,
+                                    heightScale,
+                                    viewModel.isCallChip(),
+                                )
+                            )
+                            .widthIn(
+                                min =
+                                    if (viewModel.isCallChip()) CosIsland.CallMinWidth
+                                    else CosIsland.MinWidth,
+                                max = CosIsland.MaxWidth,
+                            )
+                            // The tint is inside the capsule, not a box over its rounded ends.
+                            .background(cosArtTint, RoundedCornerShape(50))
                     } else {
                         Modifier.defaultMinSize(minHeight = 32.dp * heightScale)
                             .widthIn(
