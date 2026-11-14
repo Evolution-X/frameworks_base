@@ -36,6 +36,7 @@ import android.view.WindowManager;
 import com.android.internal.R;
 import com.android.internal.app.AlertActivity;
 import com.android.internal.graphics.drawable.BackgroundBlurDrawable;
+import com.android.internal.util.ArrayUtils;
 
 import java.util.function.Consumer;
 
@@ -44,6 +45,14 @@ public final class AxDialogBlurController {
     private static final String BLUR_RADIUS = "system_blur_radius";
     private static final float MAX_BLUR_RADIUS_DP = 34f;
     private static final int SURFACE_ALPHA = 0x8A;
+    private static final String[] BLUR_EXCLUDED_PACKAGES = {
+            "com.google.android.projection.gearhead",
+            "com.google.android.youtube",
+            "com.google.android.apps.maps",
+            "ru.yandex.yandexmaps",
+            "ru.yandex.yandexnavi",
+            "com.waze",
+    };
 
     private final Context mContext;
     private final Window mWindow;
@@ -88,8 +97,10 @@ public final class AxDialogBlurController {
     }
 
     public static AxDialogBlurController createToast(Context context, View view,
-            WindowManager windowManager, WindowManager.LayoutParams params) {
-        if (params.type != WindowManager.LayoutParams.TYPE_TOAST || !isSupported(context)) {
+            WindowManager windowManager, WindowManager.LayoutParams params, String packageName) {
+        if (params.type != WindowManager.LayoutParams.TYPE_TOAST
+                || ArrayUtils.contains(BLUR_EXCLUDED_PACKAGES, packageName)
+                || !isSupported(context)) {
             return null;
         }
         return new AxDialogBlurController(context, view, null, params, windowManager);
@@ -98,6 +109,7 @@ public final class AxDialogBlurController {
     private static boolean isSupported(Context context) {
         final ApplicationInfo app = context.getApplicationInfo();
         return (app.isSystemApp() || app.isUpdatedSystemApp())
+                && !ArrayUtils.contains(BLUR_EXCLUDED_PACKAGES, app.packageName)
                 && CrossWindowBlurListeners.CROSS_WINDOW_BLUR_SUPPORTED
                 && ActivityManager.isHighEndGfx()
                 && !SystemProperties.getBoolean("persist.sysui.disableBlur", false);
