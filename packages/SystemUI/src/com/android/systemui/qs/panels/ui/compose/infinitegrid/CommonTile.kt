@@ -596,7 +596,7 @@ fun NothingCircleTileContent(
     val context = LocalContext.current
     val icon = iconProvider(context)
     val isActive = visualState == android.service.quicksettings.Tile.STATE_ACTIVE
-    val iconColor = if (isActive) Color.Black else Color.White
+    val iconColor = if (isActive) NothingQsColors.contentOnActive else NothingQsColors.content
     val animatedIconColor by animateColorAsState(iconColor, label = "NothingCircleIconColor")
     val iconSize = 28.dp
 
