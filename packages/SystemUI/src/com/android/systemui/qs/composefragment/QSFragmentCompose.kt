@@ -1172,6 +1172,10 @@ constructor(
                                             ColorOSHeaderButtons(
                                                 onEdit = { editButton.onButtonClick() },
                                                 onSettings = settings?.onClick,
+                                                onEditLongClick = settings?.onLongClick,
+                                                onSettingsLongClick =
+                                                    viewModel.footerActionsViewModel
+                                                        .onPowerMenuClick,
                                             )
                                         },
                                         onOpenDevices = {

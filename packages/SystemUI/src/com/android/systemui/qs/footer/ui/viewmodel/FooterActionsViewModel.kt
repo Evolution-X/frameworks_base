@@ -87,6 +87,12 @@ class FooterActionsViewModel(
     /** The model for the power button. */
     val power: FooterActionsButtonViewModel?,
 
+    /**
+     * Opens the power menu, for UIs that have no power button of their own. It is available even
+     * when [power] is null.
+     */
+    val onPowerMenuClick: (Expandable) -> Unit = {},
+
     /** The model for the text feedback. */
     val textFeedback: Flow<TextFeedbackViewModel>,
 
@@ -346,6 +352,7 @@ fun createFooterActionsViewModel(
         userSwitcher = userSwitcher,
         settings = settings,
         power = power,
+        onPowerMenuClick = ::onPowerButtonClicked,
         observeDeviceMonitoringDialogRequests = ::observeDeviceMonitoringDialogRequests,
         textFeedback = textFeedback,
     )
