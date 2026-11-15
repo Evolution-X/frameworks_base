@@ -243,6 +243,12 @@ constructor(
                 privateFlags =
                     WindowManager.LayoutParams.PRIVATE_FLAG_TRUSTED_OVERLAY or
                         WindowManager.LayoutParams.PRIVATE_FLAG_EXCLUDE_FROM_SCREEN_MAGNIFICATION
+                if (udfpsHelper != null) {
+                    // Share the top layer with the dim layer, which is added first, so the
+                    // illumination dot stays above it and the privacy dot stays below it.
+                    privateFlags = privateFlags or
+                        WindowManager.LayoutParams.PRIVATE_FLAG_IS_ROUNDED_CORNERS_OVERLAY
+                }
                 // Avoid announcing window title.
                 accessibilityTitle = " "
                 inputFeatures = WindowManager.LayoutParams.INPUT_FEATURE_SPY
