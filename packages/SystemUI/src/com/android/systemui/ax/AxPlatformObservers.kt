@@ -159,7 +159,6 @@ class AxPlatformObservers @Inject constructor(
         configurationController.addCallback(configurationListener)
         statusBarStateController.addCallback(dozeCallback)
         keyguardStateController.addCallback(keyguardCallback)
-        accessPointController.addAccessPointCallback(accessPointCallback)
         securityController.addCallback(vpnCallback)
         castController.addCallback(castCallback)
     }
