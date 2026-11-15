@@ -136,10 +136,15 @@ constructor(
                 textFeedbackContentViewModelFactory.create(context)
             }
 
-        val columns = viewModel.columnsWithMediaViewModel.columns
+        val colorOSStyle = LocalColorOSQsStyle.current
+        // The ColorOS panel is built on four columns, like its pills, media card and sliders, and
+        // the pager cuts its pages for four. Wide screens ask for 6 columns, which squashed the
+        // round tiles into narrow ovals.
+        val columns =
+            if (colorOSStyle) ColorOSGridColumns
+            else viewModel.columnsWithMediaViewModel.columns
         val largeTilesSpan = viewModel.columnsWithMediaViewModel.largeSpan
         val largeTiles by viewModel.iconTilesViewModel.largeTilesState
-        val colorOSStyle = LocalColorOSQsStyle.current
         val nothingStyle = LocalNothingQsStyle.current
 
         if (nothingStyle) {
