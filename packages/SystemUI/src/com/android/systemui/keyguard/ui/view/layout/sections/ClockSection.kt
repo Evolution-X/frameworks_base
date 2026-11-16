@@ -140,6 +140,9 @@ constructor(
             }
 
             if (!keyguardClockViewModel.isLargeClockVisible.value) {
+                // The inactive large weather face anchors Smartspace above its date view.
+                // The small face owns the top anchor, so discard that stale bottom constraint.
+                clear(sharedR.id.bc_smartspace_view, BOTTOM)
                 if (keyguardClockViewModel.shouldDateWeatherBeBelowSmallClock.value) {
                     connect(
                         sharedR.id.bc_smartspace_view,
