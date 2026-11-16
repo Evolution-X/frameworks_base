@@ -23,6 +23,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Configuration;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.Typeface;
@@ -118,9 +119,6 @@ public class NetworkTraffic extends TextView implements DarkReceiver, StatusIcon
         setElegantTextHeight(false);
         setIncludeFontPadding(false);
         super.setTextColor(mTint);
-
-        // Nothing to show until the monitor says otherwise.
-        setVisibility(View.GONE);
     }
 
     public static NetworkTraffic fromContext(Context context, String slot) {
@@ -214,12 +212,26 @@ public class NetworkTraffic extends TextView implements DarkReceiver, StatusIcon
         return parent instanceof View && ((View) parent).isShown();
     }
 
+    /**
+     * Only gates drawing, it never touches View#setVisibility(). StatusIconContainer drives
+     * setVisibleState() from onLayout(), and its ViewState also writes the view's visibility on
+     * every layout, so changing it here requested a layout from inside a layout pass and fought
+     * with the container. Size is owned by updateWidth(); a NetworkTraffic that is hidden has no
+     * width and is skipped by StatusIconContainer#onMeasure() via isIconVisible().
+     */
     private void updateVisibility() {
         final boolean shown = mWantVisible && mVisibleState == STATE_ICON;
         if (shown != mShown) {
             mShown = shown;
-            setVisibility(shown ? View.VISIBLE : View.GONE);
+            invalidate();
         }
+    }
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        // Also covers STATE_DOT / STATE_HIDDEN, which this view has no way to draw.
+        if (!mShown) return;
+        super.onDraw(canvas);
     }
 
     private void updateWidth() {
