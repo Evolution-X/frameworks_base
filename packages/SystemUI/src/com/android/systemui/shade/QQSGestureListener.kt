@@ -24,8 +24,10 @@ import android.view.MotionEvent
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.plugins.FalsingManager
 import com.android.systemui.plugins.statusbar.StatusBarStateController
+import com.android.systemui.shade.domain.interactor.ShadeInteractor
 import com.android.systemui.statusbar.StatusBarState
 import com.android.systemui.statusbar.phone.CentralSurfaces
+import dagger.Lazy
 import lineageos.providers.LineageSettings
 import javax.inject.Inject
 
@@ -36,10 +38,13 @@ class QQSGestureListener @Inject constructor(
         private val powerManager: PowerManager,
         private val statusBarStateController: StatusBarStateController,
         private val centralSurfaces: CentralSurfaces,
+        private val shadeInteractor: Lazy<ShadeInteractor>,
 ) : GestureDetector.SimpleOnGestureListener() {
 
     private var doubleTapToSleepEnabled = false
     private val quickQsOffsetHeight: Int
+    private var tapStartedOnSleepSurface = false
+    private var doubleTapStartedOnSleepSurface = false
 
     init {
         val contentObserver = object : ContentObserver(null) {
@@ -59,22 +64,52 @@ class QQSGestureListener @Inject constructor(
                 com.android.internal.R.dimen.quick_qs_offset_height)
     }
 
-    override fun onDoubleTapEvent(e: MotionEvent): Boolean {
-        // Go to sleep when double tapping the QQS status bar
-        // or lockscreen (keyguard showing, but not bouncer)
-        if (
-            e.actionMasked == MotionEvent.ACTION_UP &&
-                !statusBarStateController.isDozing &&
-                doubleTapToSleepEnabled &&
-                (e.getY() < quickQsOffsetHeight ||
-                    statusBarStateController.getState() == StatusBarState.KEYGUARD &&
-                        !centralSurfaces.isBouncerShowing()) &&
-                !falsingManager.isFalseDoubleTap
-        ) {
-            powerManager.goToSleep(e.getEventTime())
-            return true
-        }
+    override fun onDown(e: MotionEvent): Boolean {
+        tapStartedOnSleepSurface = isSleepSurface(e)
         return false
+    }
+
+    override fun onSingleTapUp(e: MotionEvent): Boolean {
+        tapStartedOnSleepSurface = tapStartedOnSleepSurface && isSleepSurface(e)
+        return false
+    }
+
+    override fun onDoubleTap(e: MotionEvent): Boolean {
+        // GestureDetector reports this before onDown for the second tap.
+        doubleTapStartedOnSleepSurface = tapStartedOnSleepSurface && isSleepSurface(e)
+        return false
+    }
+
+    override fun onDoubleTapEvent(e: MotionEvent): Boolean {
+        doubleTapStartedOnSleepSurface =
+            doubleTapStartedOnSleepSurface && isSleepSurface(e)
+        if (e.actionMasked == MotionEvent.ACTION_CANCEL) {
+            doubleTapStartedOnSleepSurface = false
+            tapStartedOnSleepSurface = false
+            return false
+        }
+        if (e.actionMasked != MotionEvent.ACTION_UP) {
+            return false
+        }
+
+        val shouldSleep = doubleTapStartedOnSleepSurface && tapStartedOnSleepSurface &&
+            !falsingManager.isFalseDoubleTap
+        doubleTapStartedOnSleepSurface = false
+        if (shouldSleep) {
+            powerManager.goToSleep(e.eventTime)
+        }
+        return shouldSleep
+    }
+
+    private fun isSleepSurface(e: MotionEvent): Boolean {
+        val shade = shadeInteractor.get()
+        // The legacy keyguard panel itself is expanded, so use normalized expansion rather
+        // than isAnyExpanded. QS/shade contacts, including header taps, belong to their UI.
+        return !statusBarStateController.isDozing && doubleTapToSleepEnabled &&
+            shade.shadeExpansion.value <= 0f && shade.qsExpansion.value <= 0f &&
+            (e.y < quickQsOffsetHeight ||
+                statusBarStateController.state == StatusBarState.KEYGUARD &&
+                    !centralSurfaces.isBouncerShowing())
     }
 
 }
