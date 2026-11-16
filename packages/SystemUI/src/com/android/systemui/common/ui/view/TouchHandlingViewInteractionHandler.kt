@@ -20,6 +20,7 @@ package com.android.systemui.common.ui.view
 import android.companion.virtualdevice.flags.Flags
 import android.content.Context
 import android.graphics.Point
+import android.os.SystemClock
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.ViewConfiguration
@@ -69,6 +70,20 @@ class TouchHandlingViewInteractionHandler(
 
     var isLongPressHandlingEnabled: Boolean = false
     var isDoubleTapHandlingEnabled: Boolean = false
+        set(value) {
+            if (field == value) return
+            field = value
+            if (!value) {
+                // Disabling lockscreen gestures transfers touch ownership to another surface.
+                // Do not join taps across that boundary when the lockscreen becomes eligible.
+                doubleTapAwaitingUp = false
+                lastDoubleTapDownEventTime = null
+                val now = SystemClock.uptimeMillis()
+                val cancel = MotionEvent.obtain(now, now, MotionEvent.ACTION_CANCEL, 0f, 0f, 0)
+                gestureDetector.onTouchEvent(cancel)
+                cancel.recycle()
+            }
+        }
     var scheduledLongPressHandle: DisposableHandle? = null
 
     private var doubleTapAwaitingUp: Boolean = false
