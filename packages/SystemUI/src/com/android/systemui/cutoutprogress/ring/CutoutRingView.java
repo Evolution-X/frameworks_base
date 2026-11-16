@@ -16,6 +16,8 @@
 
 package com.android.systemui.cutoutprogress.ring;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.res.Configuration;
@@ -100,6 +102,9 @@ public final class CutoutRingView extends View {
     private boolean mChargingPulseEnabled = true;
     private float mChargingPulsePhase = 0f;
     private ValueAnimator mChargingPulseAnim = null;
+    // True from startChargingPulse() until stopChargingPulse(), including the idle gap.
+    private boolean mChargingPulseLoop = false;
+    private final Runnable mChargingPulseCycle = this::startChargingPulseCycle;
     private float mChargingDisplayPct = 0f;
     private ValueAnimator mChargingLevelAnim = null;
 
@@ -341,6 +346,12 @@ public final class CutoutRingView extends View {
 
     public void setChargingState(boolean charging, int batteryPct) {
         boolean wasCharging = mIsCharging;
+        if (wasCharging == charging && mBatteryPct == batteryPct
+                && (!charging || (mChargingDisplayPct > 0f
+                        && (mChargingPulseLoop || !(mChargingPulseEnabled && sCfgChargingPulse))))) {
+            // ACTION_BATTERY_CHANGED also fires for voltage/temperature; nothing to redraw.
+            return;
+        }
         mIsCharging = charging;
         mBatteryPct = batteryPct;
 
@@ -356,7 +367,7 @@ public final class CutoutRingView extends View {
 
         animateChargingLevelTo(batteryPct);
 
-        if (mChargingPulseEnabled && sCfgChargingPulse && mChargingPulseAnim == null) {
+        if (mChargingPulseEnabled && sCfgChargingPulse && !mChargingPulseLoop) {
             startChargingPulse();
         }
         invalidate();
@@ -364,6 +375,7 @@ public final class CutoutRingView extends View {
 
     public void setBatteryIndicatorState(boolean active, int batteryPct) {
         boolean wasActive = mIsBatteryIndicatorActive;
+        if (wasActive == active && mBatteryIndicatorPct == batteryPct) return;
         mIsBatteryIndicatorActive = active;
         mBatteryIndicatorPct = batteryPct;
 
@@ -386,7 +398,7 @@ public final class CutoutRingView extends View {
         sCfgChargingPulse = enabled;
         if (!enabled) {
             stopChargingPulse();
-        } else if (mIsCharging && mChargingPulseAnim == null) {
+        } else if (mIsCharging && !mChargingPulseLoop) {
             startChargingPulse();
         }
     }
@@ -414,25 +426,69 @@ public final class CutoutRingView extends View {
 
     private void startChargingPulse() {
         stopChargingPulse();
-        mChargingPulseAnim = ValueAnimator.ofFloat(0f, 1f);
-        mChargingPulseAnim.setDuration(CHARGING_PULSE_DURATION_MS);
-        mChargingPulseAnim.setRepeatCount(ValueAnimator.INFINITE);
-        mChargingPulseAnim.setRepeatMode(ValueAnimator.REVERSE);
-        mChargingPulseAnim.setInterpolator(new LinearInterpolator());
-        mChargingPulseAnim.setStartDelay(0);
-        mChargingPulseAnim.addUpdateListener(a -> {
+        mChargingPulseLoop = true;
+        startChargingPulseCycle();
+    }
+
+    /**
+     * Plays a single pulse, then idles for {@link #CHARGING_PULSE_INTERVAL_MS} without drawing.
+     * An infinite animator would invalidate this full-screen layer on every vsync.
+     */
+    private void startChargingPulseCycle() {
+        if (!mChargingPulseLoop || mChargingPulseAnim != null) return;
+        if (!isAttachedToWindow() || getWindowVisibility() != VISIBLE) return;
+        final ValueAnimator anim = ValueAnimator.ofFloat(0f, 1f, 0f);
+        mChargingPulseAnim = anim;
+        anim.setDuration(CHARGING_PULSE_DURATION_MS * 2);
+        anim.setInterpolator(new LinearInterpolator());
+        anim.addUpdateListener(a -> {
             mChargingPulsePhase = (float) a.getAnimatedValue();
             invalidate();
         });
-        mChargingPulseAnim.start();
+        anim.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                if (mChargingPulseAnim != anim) return;
+                mChargingPulseAnim = null;
+                mChargingPulsePhase = 0f;
+                invalidate();
+                if (mChargingPulseLoop) {
+                    postDelayed(mChargingPulseCycle, CHARGING_PULSE_INTERVAL_MS);
+                }
+            }
+        });
+        anim.start();
+    }
+
+    private void pauseChargingPulse() {
+        removeCallbacks(mChargingPulseCycle);
+        final ValueAnimator anim = mChargingPulseAnim;
+        if (anim != null) {
+            mChargingPulseAnim = null;
+            anim.cancel();
+        }
+        mChargingPulsePhase = 0f;
     }
 
     private void stopChargingPulse() {
-        if (mChargingPulseAnim != null) {
-            mChargingPulseAnim.cancel();
-            mChargingPulseAnim = null;
+        mChargingPulseLoop = false;
+        pauseChargingPulse();
+    }
+
+    @Override
+    protected void onWindowVisibilityChanged(int visibility) {
+        super.onWindowVisibilityChanged(visibility);
+        if (visibility == VISIBLE) {
+            if (mChargingPulseLoop) startChargingPulseCycle();
+        } else {
+            pauseChargingPulse();
         }
-        mChargingPulsePhase = 0f;
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        pauseChargingPulse();
     }
 
     private void stopChargingAnimations() {
