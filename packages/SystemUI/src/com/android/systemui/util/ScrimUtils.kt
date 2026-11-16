@@ -46,7 +46,7 @@ class ScrimUtils private constructor(context: Context?) {
         fun onScreenTurnedOff() {}
         fun onUserChanged() {}
         fun setPulsing(pulsing: Boolean) {}
-        fun onNotificationPosted(sbn: StatusBarNotification) {}
+        fun onNotificationPosted(sbn: StatusBarNotification, isSilent: Boolean) {}
         fun onNotificationRemoved(sbn: StatusBarNotification) {}
         fun onKeyguardLayoutChanged() {}
         fun onKeyguardAlphaChanged(alpha: Float) {}
@@ -266,8 +266,8 @@ class ScrimUtils private constructor(context: Context?) {
         listeners.notify { it.onUserChanged() }
     }
 
-    fun onNotificationPosted(sbn: StatusBarNotification) {
-        listeners.notifyOnMain { it.onNotificationPosted(sbn) }
+    fun onNotificationPosted(sbn: StatusBarNotification, isSilent: Boolean) {
+        listeners.notifyOnMain { it.onNotificationPosted(sbn, isSilent) }
     }
 
     fun onNotificationRemoved(sbn: StatusBarNotification) {
