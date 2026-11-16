@@ -23,6 +23,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.unit.dp
@@ -92,10 +93,17 @@ fun ContentScope.QuickQuickSettings(
         val spans by remember(rowTiles) { derivedStateOf { rowTiles.fastMap { it.width } } }
         VerticalSpannedGrid(
             columns = columns,
-            columnSpacing = dimensionResource(R.dimen.qs_tile_margin_horizontal),
-            rowSpacing = dimensionResource(R.dimen.qs_tile_margin_vertical),
+            // Share the QS spacing so tiles don't shift when the panel expands.
+            columnSpacing =
+                if (colorOSStyle) dimensionResource(R.dimen.qs_tile_margin_horizontal)
+                else qsTileColumnSpacing(columns),
+            rowSpacing =
+                if (colorOSStyle) dimensionResource(R.dimen.qs_tile_margin_vertical)
+                else qsTileRowSpacing(columns, classicStyle),
             spans = spans,
             modifier = Modifier.sysuiResTag("qqs_tile_layout"),
+            // Center compact tiles on the same row as taller large tiles.
+            verticalAlignment = Alignment.CenterVertically,
             keys = { rowTiles[it].tile.spec },
         ) { spanIndex, column, isFirstInColumn, isLastInColumn ->
             val it = rowTiles[spanIndex]
@@ -113,6 +121,10 @@ fun ContentScope.QuickQuickSettings(
                             columns = columns,
                             isFirstInRow = isFirstInColumn,
                             isLastInRow = isLastInColumn,
+                            // Compact tiles bounce their content instead of their container.
+                            bouncesContainer = { index ->
+                                colorOSStyle || !(classicStyle || rowTiles[index].isIcon)
+                            },
                         ),
                     tileHapticsViewModelFactory = viewModel.tileHapticsViewModelFactory,
                     // There should be no QuickQuickSettings when the details view is enabled.

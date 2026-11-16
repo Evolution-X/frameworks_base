@@ -46,9 +46,11 @@ import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -300,6 +302,8 @@ fun ContentScope.Tile(
         val shapeMode = if (colorOSStyle || nothingStyle) 0 else userShapeMode
         val animationStyle = rememberQSTileAnimationStyle()
         val wantCircle = shapeMode == 4 && iconOnly
+        // Compact tiles bounce their content, so the press does not resize their neighbors.
+        val compactTile = (classicStyle || iconOnly) && !nothingStyle && !colorOSStyle
         val tileShape =
             if (nothingStyle) {
                 when {
@@ -421,7 +425,7 @@ fun ContentScope.Tile(
                             }
                         )
                         .thenIf(!wantCircle) {
-                            modifier.borderOnFocus(
+                            Modifier.borderOnFocus(
                                 color = focusBorderColor,
                                 outerShape.topEnd,
                             )
@@ -431,20 +435,29 @@ fun ContentScope.Tile(
                             if (nothingStyle) {
                                 // The Nothing grid hands each tile a fixed cell to fill.
                                 Modifier.fillMaxSize()
+                            } else if (classicStyle || iconOnly) {
+                                // Keep compact tiles square when the grid cell is narrower.
+                                Modifier.fillMaxWidth()
+                                    .capHeightToWidth(
+                                        CommonTileDefaults.TileHeight,
+                                        tileHeight - CommonTileDefaults.TileHeight,
+                                    )
                             } else {
                                 Modifier.fillMaxWidth().height(tileHeight)
                             }
                         )
                         .tileToggleAnimation(animationStyle, uiState.visualState)
-                        .bounceable(
-                            currentBounceableInfo.bounceable,
-                            currentBounceableInfo.previousTile,
-                            currentBounceableInfo.nextTile,
-                            orientation = Orientation.Horizontal,
-                            bounceEnd = currentBounceableInfo.bounceEnd,
-                            // ColorOS presses with colorOSPress instead of the width bounce.
-                            interactionSource = interactionSource.takeIf { !colorOSStyle },
-                        ),
+                        .thenIf(!compactTile) {
+                            Modifier.bounceable(
+                                currentBounceableInfo.bounceable,
+                                currentBounceableInfo.previousTile,
+                                currentBounceableInfo.nextTile,
+                                orientation = Orientation.Horizontal,
+                                bounceEnd = currentBounceableInfo.bounceEnd,
+                                // ColorOS presses with colorOSPress instead of the width bounce.
+                                interactionSource = interactionSource.takeIf { !colorOSStyle },
+                            )
+                        },
             ) { expandable ->
                 // Use main click on long press for small, available dual target tiles.
                 // Open settings otherwise.
@@ -469,8 +482,15 @@ fun ContentScope.Tile(
                         .takeIf { !useLongClickToSettings || uiState.handlesSettingsClick }
 
                 // Bounce the tile's container if it is toggleable and is not a large
-                // dual target tile. These don't toggle on main click.
-                val bounceContainer = uiState.isToggleable && (iconOnly || !isDualTarget)
+                // dual target tile (these don't toggle on main click) and has room to grow.
+                // Otherwise bounce its content. Nothing and ColorOS manage their own press.
+                val bounceContainer =
+                    !compactTile &&
+                        uiState.isToggleable &&
+                        (iconOnly || !isDualTarget) &&
+                        (nothingStyle ||
+                            colorOSStyle ||
+                            currentBounceableInfo.canBounceContainer)
                 val click: (() -> Unit)? =
                     onClick@{
                             if (!isClickable) return@onClick
@@ -518,7 +538,9 @@ fun ContentScope.Tile(
                                 }
                                 .thenIf(!classicStyle) {
                                     Modifier
-                                        .size(tileHeight)
+                                        .widthIn(max = tileHeight)
+                                        .fillMaxWidth()
+                                        .aspectRatio(1f)
                                         .align(Alignment.Center)
                                         .clip(CircleShape)
                                         .then(
