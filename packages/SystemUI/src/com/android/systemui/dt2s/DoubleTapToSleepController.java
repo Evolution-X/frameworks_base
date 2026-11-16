@@ -32,6 +32,7 @@ import com.android.systemui.keyguard.KeyguardUnlockAnimationController;
 import com.android.systemui.keyguard.KeyguardWmStateRefactor;
 import com.android.systemui.keyguard.data.repository.InWindowLauncherUnlockAnimationRepository;
 import com.android.systemui.plugins.FalsingManager;
+import com.android.systemui.shade.domain.interactor.ShadeInteractor;
 import com.android.systemui.shared.system.InputChannelCompat;
 import com.android.systemui.shared.system.InputMonitorCompat;
 import com.android.systemui.shared.system.TaskStackChangeListener;
@@ -39,6 +40,7 @@ import com.android.systemui.shared.system.TaskStackChangeListeners;
 import com.android.systemui.shared.system.smartspace.SmartspaceState;
 import com.android.systemui.statusbar.CommandQueue;
 import com.android.systemui.tuner.TunerService;
+import com.android.systemui.util.kotlin.JavaAdapter;
 import com.android.wm.shell.shared.FocusTransitionListener;
 import com.android.wm.shell.shared.ShellTransitions;
 
@@ -101,6 +103,8 @@ public final class DoubleTapToSleepController implements CoreStartable, TunerSer
     private final LauncherProxyService mLauncherProxyService;
     private final Lazy<KeyguardUnlockAnimationController> mKeyguardUnlockAnimationController;
     private final Lazy<InWindowLauncherUnlockAnimationRepository> mInWindowLauncherRepository;
+    private final ShadeInteractor mShadeInteractor;
+    private final JavaAdapter mJavaAdapter;
 
     private InputMonitorCompat mInputMonitorCompat;
     private InputChannelCompat.InputEventReceiver mInputEventReceiver;
@@ -141,7 +145,9 @@ public final class DoubleTapToSleepController implements CoreStartable, TunerSer
             ShellTransitions shellTransitions,
             LauncherProxyService launcherProxyService,
             Lazy<KeyguardUnlockAnimationController> keyguardUnlockAnimationController,
-            Lazy<InWindowLauncherUnlockAnimationRepository> inWindowLauncherRepository) {
+            Lazy<InWindowLauncherUnlockAnimationRepository> inWindowLauncherRepository,
+            ShadeInteractor shadeInteractor,
+            JavaAdapter javaAdapter) {
         mContext = context;
         mPowerManager = powerManager;
         mFalsingManager = falsingManager;
@@ -153,10 +159,16 @@ public final class DoubleTapToSleepController implements CoreStartable, TunerSer
         mLauncherProxyService = launcherProxyService;
         mKeyguardUnlockAnimationController = keyguardUnlockAnimationController;
         mInWindowLauncherRepository = inWindowLauncherRepository;
+        mShadeInteractor = shadeInteractor;
+        mJavaAdapter = javaAdapter;
     }
 
     @Override
     public void start() {
+        // Expanding shade/QS leaves the launcher task focused. Stop its global input monitor
+        // and discard pending taps/sleep while SystemUI owns the interaction.
+        mJavaAdapter.alwaysCollectFlow(mShadeInteractor.isAnyExpanded(),
+                expanded -> updateMonitoring());
         mTunerService.addTunable(this, DOUBLE_TAP_SLEEP_GESTURE);
 
         TaskStackChangeListeners.getInstance().registerTaskStackListener(
@@ -215,13 +227,14 @@ public final class DoubleTapToSleepController implements CoreStartable, TunerSer
 
     /**
      * Single place that decides whether a double tap may put the device to sleep: the Pixel
-     * Launcher home screen has focus, with no overview, soft keyboard or expanded bubble on top
-     * of it. The lockscreen, shade and QS panel have their own handlers on the same toggle and
-     * are left alone.
+     * Launcher home screen has focus, with no shade/QS, overview, soft keyboard or expanded
+     * bubble on top of it. The lockscreen, shade and QS panel have their own handlers on the
+     * same toggle and are left alone.
      */
     private boolean canHandleGesture() {
         return mEnabled.get()
                 && mLauncherHomeForeground
+                && !mShadeInteractor.isAnyExpanded().getValue()
                 && !mOverviewShown
                 && !mImeVisible
                 && !mBubbleExpanded;
@@ -495,6 +508,8 @@ public final class DoubleTapToSleepController implements CoreStartable, TunerSer
     }
 
     private void triggerSleep() {
+        // Eligibility can change during SLEEP_DELAY_MS, before a state collector runs.
+        if (!canHandleGesture()) return;
         Log.d(TAG, "DT2S: goToSleep");
         try {
             mPowerManager.goToSleep(SystemClock.uptimeMillis());
