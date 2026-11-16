@@ -201,4 +201,12 @@
     <item msgid="6641673879029894995">"غير مفعَّل"</item>
     <item msgid="5806682401126108403">"مفعَّل"</item>
   </string-array>
+
+    <!-- Added: completed Arabic translations (string-arrays) -->
+    <string-array name="tile_states_default">
+        <item>@string/tile_unavailable</item>
+        <item>@string/switch_bar_off</item>
+        <item>@string/switch_bar_on</item>
+    </string-array>
+
 </resources>
