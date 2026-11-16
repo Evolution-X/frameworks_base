@@ -48,11 +48,13 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
@@ -97,6 +99,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.dimensionResource
@@ -114,6 +117,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -185,6 +189,18 @@ internal fun colorOSTileRim(): Brush =
  */
 internal val LocalColorOSTileSize = compositionLocalOf { CommonTileDefaults.ColorOSTileHeight }
 
+/**
+ * Caps the icon part of a compact tile ([iconHeight]) to the width it is given, so it stays square
+ * in dense grids, and keeps [labelHeight] below it.
+ */
+internal fun Modifier.capHeightToWidth(iconHeight: Dp, labelHeight: Dp = 0.dp): Modifier =
+    layout { measurable, constraints ->
+        val width = constraints.maxWidth
+        val height = minOf(iconHeight.roundToPx(), width) + labelHeight.roundToPx()
+        val placeable = measurable.measure(Constraints.fixed(width, height))
+        layout(width, height) { placeable.place(0, 0) }
+    }
+
 @Composable
 fun ClassicTileContent(
     label: String,
@@ -250,7 +266,9 @@ fun ClassicTileContent(
     ) {
         Box(
             modifier = Modifier
-                .size(iconBoxSize)
+                .widthIn(max = iconBoxSize)
+                .fillMaxWidth()
+                .aspectRatio(1f)
                 .colorOSPress(pressSource)
                 .then(
                     if (onGlass) {
