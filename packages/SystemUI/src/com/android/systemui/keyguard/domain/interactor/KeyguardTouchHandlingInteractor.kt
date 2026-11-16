@@ -44,7 +44,7 @@ import com.android.systemui.power.domain.interactor.PowerInteractor
 import com.android.systemui.res.R
 import com.android.systemui.scene.domain.interactor.SceneInteractor
 import com.android.systemui.scene.shared.flag.SceneContainerFlag
-import com.android.systemui.scene.shared.model.Overlays
+import com.android.systemui.scene.shared.model.Scenes
 import com.android.systemui.securelockdevice.domain.interactor.SecureLockDeviceInteractor
 import com.android.systemui.shade.PulsingGestureListener
 import com.android.systemui.shade.ShadeDisplayAware
@@ -132,24 +132,23 @@ constructor(
             )
 
     /**
-     * True while a bouncer overlay show/hide transition is actively in flight.
+     * Whether the scene container is showing only the idle lock screen.
      *
-     * Double-tap-to-sleep must not fire while this is true: the double-tap gesture can land on
-     * the lockscreen surface at the same moment a bouncer overlay transition is settling (e.g.
-     * triggered by a near-simultaneous single tap or face-auth), and invoking
-     * PowerManager#goToSleep mid-transition causes the scene state machine to repeatedly
-     * re-enter ShowOrHideOverlay, flooding the main thread and ANRing input dispatch.
+     * The legacy QS visibility flag is not updated by scene-based shade overlays. Those
+     * overlays and their transitions own touches even while the underlying keyguard remains
+     * fully transitioned to LOCKSCREEN. This also excludes bouncer transitions, where sleeping
+     * can cause the scene state machine to repeatedly re-enter ShowOrHideOverlay.
      */
-    private fun isBouncerOverlayTransitioning(): Flow<Boolean> {
+    private fun isSceneLockscreenIdle(): Flow<Boolean> {
         if (!SceneContainerFlag.isEnabled) {
-            return flowOf(false)
+            return flowOf(true)
         }
-        return sceneInteractor.get().transitionStateFlow.map { state ->
-            state is ObservableTransitionState.Transition &&
-                state is ObservableTransitionState.Transition.ShowOrHideOverlay &&
-                state.overlay == Overlays.Bouncer
-        }
+        return sceneInteractor.get().transitionStateFlow.map(::isSceneLockscreenIdle)
     }
+
+    private fun isSceneLockscreenIdle(state: ObservableTransitionState): Boolean =
+        state is ObservableTransitionState.Idle &&
+            state.currentScene == Scenes.Lockscreen && state.currentOverlays.isEmpty()
 
     /** Whether the double tap handling handling feature should be enabled. */
     val isDoubleTapHandlingEnabled: StateFlow<Boolean> =
@@ -159,18 +158,18 @@ constructor(
                     repository.isQuickSettingsVisible,
                     isDoubleTapSettingEnabled(),
                     secureLockDeviceInteractor.get().isSecureLockDeviceEnabled,
-                    isBouncerOverlayTransitioning(),
+                    isSceneLockscreenIdle(),
                 ) {
                     isFullyTransitionedToLockScreen,
                     isQuickSettingsVisible,
                     isDoubleTapSettingEnabled,
                     isSecureLockDeviceEnabled,
-                    isBouncerOverlayTransitioning ->
+                    isSceneLockscreenIdle ->
                     isFullyTransitionedToLockScreen == 1f &&
                         !isQuickSettingsVisible &&
                         isDoubleTapSettingEnabled &&
                         !isSecureLockDeviceEnabled &&
-                        !isBouncerOverlayTransitioning
+                        isSceneLockscreenIdle
                 }
             } else {
                 flowOf(false)
@@ -293,7 +292,13 @@ constructor(
 
     /** Notifies that the lockscreen has been double clicked. */
     fun onDoubleClick() {
-        if (isDoubleTapHandlingEnabled.value) {
+        // Read the current scene directly: the collected enablement may still describe the
+        // frame before a shade overlay or transition took ownership of this touch.
+        val isSceneLockscreenIdle = !SceneContainerFlag.isEnabled ||
+            sceneInteractor.get().transitionState.run {
+                isIdle(Scenes.Lockscreen) && currentOverlays.isEmpty()
+            }
+        if (isDoubleTapHandlingEnabled.value && isSceneLockscreenIdle) {
             Log.d(TAG, "going to sleep due to double tap")
             powerManager.goToSleep(systemClock.uptimeMillis())
         } else {
