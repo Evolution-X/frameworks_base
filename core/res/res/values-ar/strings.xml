@@ -2722,4 +2722,23 @@
     <string name="do_not_disturb_sync_notification_channel_name" msgid="8652220979613037381">"مزامنة ميزة \"عدم الإزعاج\""</string>
     <string name="do_not_disturb_sync_notification_title" msgid="6732475150089465528">"عدم الإزعاج"</string>
     <string name="do_not_disturb_sync_notification_content" msgid="2755604717509797896">"تمّت المزامنة من جهازك المجاور"</string>
+
+    <!-- Added: completed Arabic translations (strings) -->
+    <string name="wfcSpnFormat_spn"><xliff:g id="spn" example="Operator">%s</xliff:g></string>
+    <string name="crossSimFormat_spn"><xliff:g id="spn" example="Operator">%s</xliff:g></string>
+    <string name="vcn_management_service">خدمة إدارة VCN</string>
+    <string name="face_acquired_dark_glasses_detected">@string/face_acquired_dark_glasses_detected_alt</string>
+    <string name="face_acquired_mouth_covering_detected">@string/face_acquired_mouth_covering_detected_alt</string>
+    <string name="network_available_sign_in_detailed"><xliff:g id="network_ssid">%1$s</xliff:g></string>
+    <string name="locale_replacement">""</string>
+    <string name="alternate_eri_file">/data/eri.xml</string>
+    <string name="default_audio_route_id">default_audio_route</string>
+    <string name="bluetooth_a2dp_audio_route_id">bluetooth_a2dp_audio_route</string>
+    <string name="time_placeholder">--</string>
+    <string name="radial_numbers_typeface">@string/config_bodyFontFamily</string>
+    <string name="sans_serif">@string/config_bodyFontFamily</string>
+    <string name="date_picker_month_typeface">@string/config_bodyFontFamilyMedium</string>
+    <string name="date_picker_day_of_week_typeface">@string/config_bodyFontFamilyMedium</string>
+    <string name="date_picker_day_typeface">@string/config_bodyFontFamilyMedium</string>
+
 </resources>
