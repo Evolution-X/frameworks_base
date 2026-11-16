@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.toMutableStateList
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
@@ -51,6 +52,8 @@ import com.android.systemui.qs.panels.ui.compose.EditTileListState
 import com.android.systemui.qs.panels.ui.compose.PaginatableGridLayout
 import com.android.systemui.qs.panels.ui.compose.TileListener
 import com.android.systemui.qs.panels.ui.compose.bounceableInfo
+import com.android.systemui.qs.panels.ui.compose.qsTileColumnSpacing
+import com.android.systemui.qs.panels.ui.compose.qsTileRowSpacing
 import com.android.systemui.qs.panels.ui.viewmodel.BounceableTileViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.DetailsViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.EditTileViewModel
@@ -182,14 +185,14 @@ constructor(
         val spans by remember(sizedTiles) { derivedStateOf { sizedTiles.fastMap { it.width } } }
         VerticalSpannedGrid(
             columns = columns,
-            columnSpacing =
-                if (colorOSStyle) ColorOSGap
-                else dimensionResource(R.dimen.qs_tile_margin_horizontal),
+            columnSpacing = if (colorOSStyle) ColorOSGap else qsTileColumnSpacing(columns),
             rowSpacing =
                 if (colorOSStyle) colorOSIconRowGap(labelsHidden)
-                else dimensionResource(R.dimen.qs_tile_margin_vertical),
+                else qsTileRowSpacing(columns, classicStyle),
             spans = spans,
             keys = { sizedTiles[it].tile.spec },
+            // Center compact tiles on the same row as taller large tiles.
+            verticalAlignment = Alignment.CenterVertically,
             modifier = modifier,
         ) { spanIndex, column, isFirstInColumn, isLastInColumn ->
             val it = sizedTiles[spanIndex]
@@ -212,6 +215,12 @@ constructor(
                             columns = columns,
                             isFirstInRow = isFirstInColumn,
                             isLastInRow = isLastInColumn,
+                            // Compact tiles bounce their content instead of their container.
+                            bouncesContainer = { index ->
+                                colorOSStyle ||
+                                    !(classicStyle ||
+                                        iconTilesViewModel.isIconTile(sizedTiles[index].tile.spec))
+                            },
                         ),
                     detailsViewModel = detailsViewModel,
                     isVisible = listening,
