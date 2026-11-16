@@ -269,7 +269,7 @@ class EdgeLightViewController @Inject constructor(
         requestUnlockedPulse()
     }
 
-    override fun onNotificationPosted(sbn: StatusBarNotification) {
+    override fun onNotificationPosted(sbn: StatusBarNotification, isSilent: Boolean) {
         if (sbn.userId != UserHandle.USER_ALL &&
             userTracker.userProfiles.none { it.id == sbn.userId }) return
         if (currentSettings.triggerUnlockOnly) {
