@@ -301,7 +301,8 @@ fun ActionButton(
     val isHidden = appearance == ActionButtonAppearance.Hidden
     val hiddenAlpha by animateFloatAsState(if (isHidden) 0f else 1f, label = "Action button alpha")
 
-    val foregroundColor = colorResource(PinBouncerConstants.Color.action)
+    val foregroundColor =
+        if (liquidGlassEnabled()) Color.White else colorResource(PinBouncerConstants.Color.action)
 
     val backgroundColorOrTransparentWhenHidden =
         when (appearance) {

@@ -16,6 +16,12 @@
 
 package com.android.systemui.bouncer.ui.composable
 
+import android.content.res.Configuration
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalConfiguration
+import com.android.compose.theme.PlatformTheme
+import com.android.systemui.qs.shared.style.liquidGlassEnabled
 import android.app.AlertDialog
 import android.content.DialogInterface
 import androidx.annotation.VisibleForTesting
@@ -146,7 +152,34 @@ fun ContentScope.BouncerContent(
     val isOneHandedModeSupported by viewModel.isOneHandedModeSupported.collectAsStateWithLifecycle()
     val layout = calculateLayout(isOneHandedModeSupported = isOneHandedModeSupported)
 
-    BouncerContentLayout(layout, viewModel, dialogFactory, modifier = modifier)
+    GlassBouncerColors { BouncerContentLayout(layout, viewModel, dialogFactory, modifier = modifier) }
+}
+
+/** Dims the backdrop and uses the dark palette for the Liquid Glass bouncer in the light theme. */
+@Composable
+private fun GlassBouncerColors(content: @Composable () -> Unit) {
+    val configuration = LocalConfiguration.current
+    val night =
+        (configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_YES
+    if (!liquidGlassEnabled() || night) {
+        content()
+        return
+    }
+    val darkConfiguration =
+        remember(configuration) {
+            Configuration(configuration).apply {
+                uiMode =
+                    (uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or
+                        Configuration.UI_MODE_NIGHT_YES
+            }
+        }
+    Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)))
+        CompositionLocalProvider(LocalConfiguration provides darkConfiguration) {
+            PlatformTheme(isDarkTheme = true, content = content)
+        }
+    }
 }
 
 @Composable
