@@ -524,6 +524,7 @@ public final class NotificationPanelViewController implements
     private final int mDisplayId;
     private boolean mDoubleTapToSleepEnabled;
     private GestureDetector mDoubleTapGesture;
+    private boolean mSleepGestureAllowedForTouch;
     private boolean mTripleTapToFreeformEnabled;
     /** A double tap was detected; a third tap within the double tap timeout opens freeform. */
     private boolean mTripleTapArmed;
@@ -877,6 +878,9 @@ public final class NotificationPanelViewController implements
                 new GestureDetector.SimpleOnGestureListener() {
             @Override
             public boolean onDoubleTap(MotionEvent e) {
+                if (!mSleepGestureAllowedForTouch || !isSleepGestureAllowed()) {
+                    return false;
+                }
                 if (mTripleTapToFreeformEnabled) {
                     // Wait for triple press otherwise go to sleep
                     mTripleTapArmed = true;
@@ -4077,7 +4081,7 @@ public final class NotificationPanelViewController implements
                 mDeferredDoubleTapSleepRunnable = () -> {
                     mDeferredDoubleTapSleepRunnable = null;
                     mTripleTapArmed = false;
-                    if (mPowerManager != null) {
+                    if (mPowerManager != null && isSleepGestureAllowed()) {
                         mPowerManager.goToSleep(mSystemClock.uptimeMillis());
                     }
                 };
@@ -4093,6 +4097,27 @@ public final class NotificationPanelViewController implements
             mHandler.removeCallbacks(mDeferredDoubleTapSleepRunnable);
             mDeferredDoubleTapSleepRunnable = null;
         }
+    }
+
+    private boolean isSleepGestureAllowed() {
+        // A bare legacy keyguard has an expanded panel height. Its normalized shade amount,
+        // unlike that panel height, is zero until the notification shade is dragged down.
+        return !mPulsing && !mDozing && !mCentralSurfaces.isBouncerShowing()
+                && mShadeRepository.getQsExpansion().getValue() <= 0f
+                && (isKeyguardShowing()
+                        ? mShadeRepository.getLockscreenShadeExpansion().getValue() <= 0f
+                        : isFullyCollapsed());
+    }
+
+    private void cancelSleepGesture(MotionEvent event) {
+        mSleepGestureAllowedForTouch = false;
+        mTripleTapArmed = false;
+        mLastTapUpTime = -1L;
+        cancelDeferredDoubleTapSleep();
+        MotionEvent cancel = MotionEvent.obtain(event);
+        cancel.setAction(MotionEvent.ACTION_CANCEL);
+        mDoubleTapGesture.onTouchEvent(cancel);
+        cancel.recycle();
     }
 
     /**
@@ -4149,6 +4174,10 @@ public final class NotificationPanelViewController implements
         public boolean onInterceptTouchEvent(MotionEvent event) {
             if (!mUseExternalTouch) {
                 return false;
+            }
+
+            if (!isSleepGestureAllowed()) {
+                cancelSleepGesture(event);
             }
 
             // Logging every motion event is very costly, even when tracing/logcat
@@ -4357,14 +4386,20 @@ public final class NotificationPanelViewController implements
                 return false;
             }
 
-            if (!mPulsing && !mDozing) {
-                if (mDoubleTapToSleepEnabled || mTripleTapToFreeformEnabled) {
+            if (mDoubleTapToSleepEnabled || mTripleTapToFreeformEnabled) {
+                if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                    mSleepGestureAllowedForTouch = isSleepGestureAllowed();
+                }
+                mSleepGestureAllowedForTouch &= isSleepGestureAllowed();
+                if (mSleepGestureAllowedForTouch) {
                     if (mTripleTapToFreeformEnabled) {
                         // Run before the detector so the tap that completes a triple tap is not
                         // seen by it before our own tap streak has been updated.
                         handleTripleTapGesture(event);
                     }
                     mDoubleTapGesture.onTouchEvent(event);
+                } else {
+                    cancelSleepGesture(event);
                 }
             }
 
