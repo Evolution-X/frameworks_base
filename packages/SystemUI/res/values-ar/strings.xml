@@ -1893,4 +1893,13 @@
     <string name="ace_attribution_settings_button_accessibility_description" msgid="8426163772933746374">"زرّ الإعدادات"</string>
     <string name="ace_attribution_thumbs_up_button_accessibility_description" msgid="3561722934830934360">"زر إرسال الملاحظات \"يعجبني\""</string>
     <string name="ace_attribution_thumbs_down_button_accessibility_description" msgid="5471283747650437662">"زر إرسال الملاحظات \"لا يعجبني\""</string>
+
+    <!-- Added: completed Arabic translations (strings) -->
+    <string name="keyguard_face_failed_use_fp">@string/fingerprint_dialog_use_fingerprint_instead</string>
+    <string name="accessibility_casting">@string/quick_settings_casting</string>
+    <string name="quick_settings_screensaver_label">شاشة التوقف</string>
+    <string name="media_projection_entry_app_permission_dialog_option_text_single_app">@string/screen_share_permission_dialog_option_single_app</string>
+    <string name="media_projection_entry_app_permission_dialog_option_text_entire_screen">@string/screen_share_permission_dialog_option_entire_screen</string>
+    <string name="zen_alarm_warning_indef">لن تسمع منبّهك التالي <xliff:g id="when" example="at 7:00 AM">%1$s</xliff:g> ما لم تقم بإيقاف هذا الخيار قبل ذلك الحين</string>
+
 </resources>
