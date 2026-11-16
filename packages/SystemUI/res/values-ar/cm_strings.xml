@@ -64,4 +64,21 @@
     <string name="vpn_credentials_username">اسم المستخدم</string>
     <string name="vpn_credentials_password">كلمة المرور</string>
     <string name="vpn_credentials_dialog_connect">اتصال</string>
+
+    <!-- Added: completed Arabic translations (strings) -->
+    <string name="accessibility_adaptive_brightness">السطوع التكيّفي</string>
+    <string name="status_bar_icons_title">أيقونات شريط الحالة</string>
+    <string name="status_bar_firewall">الجدار الناري</string>
+    <string name="battery_notification_channel_tv">تحذير البطارية</string>
+    <string name="screenshot_delete_label">حذف</string>
+    <string name="screenshot_delete_description">حذف لقطة الشاشة</string>
+    <string name="screenrecord_lowquality_label">جودة أقل</string>
+    <string name="screenrecord_lowquality_summary">لحجم ملف أصغر</string>
+    <string name="screenrecord_longer_timeout_switch_label">حد حجم ملف أكبر</string>
+    <string name="screenrecord_longer_timeout_switch_summary">تحديد حجم التسجيل بحد أقصى 15 جيجابايت</string>
+    <string name="screenrecord_skip_time_label">تخطي المؤقّت</string>
+    <string name="screenrecord_skip_time_summary">إزالة مهلة الثواني الثلاث</string>
+    <string name="screenrecord_hevc_switch_label">ترميز HEVC</string>
+    <string name="screenrecord_hevc_switch_summary">استخدام مرمّز HEVC الأكثر كفاءة</string>
+
 </resources>
