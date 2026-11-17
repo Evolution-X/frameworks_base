@@ -918,7 +918,7 @@ public final class CutoutRingView extends View {
         sCfgErrorColor = 0xFFF44336;
         sCfgFlashColor = Color.WHITE;
         sCfgStrokeDp = 2f;
-        sCfgRingGap = 1.155f;
+        sCfgRingGap = 1.0f;
         sCfgOpacity = 90;
         sCfgBgColor = 0xFF808080;
         sCfgBgOpacity = 30;
