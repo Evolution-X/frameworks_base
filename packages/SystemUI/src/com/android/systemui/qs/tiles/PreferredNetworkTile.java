@@ -48,8 +48,6 @@ public class PreferredNetworkTile extends QSTileImpl<State> {
     private static final boolean DEBUG = false;
 
     private static final int TYPE_UNKNOWN = 0;
-    private static final int TYPE_2G = 1;
-    private static final int TYPE_3G = 2;
     private static final int TYPE_4G = 3;
     private static final int TYPE_5G = 4;
 
@@ -142,8 +140,6 @@ public class PreferredNetworkTile extends QSTileImpl<State> {
         int current = getCurrentType(tm);
         state.state = current == TYPE_UNKNOWN ? Tile.STATE_UNAVAILABLE : Tile.STATE_ACTIVE;
         switch (current) {
-            case TYPE_2G: state.secondaryLabel = "2G"; break;
-            case TYPE_3G: state.secondaryLabel = "3G"; break;
             case TYPE_4G:
                 if (mTelephonyDisplayInfo != null) {
                     switch (mTelephonyDisplayInfo.getOverrideNetworkType()) {
@@ -200,8 +196,6 @@ public class PreferredNetworkTile extends QSTileImpl<State> {
 
     private long getMaskForType(int type) {
         switch (type) {
-            case TYPE_2G: return TelephonyManager.NETWORK_CLASS_BITMASK_2G;
-            case TYPE_3G: return TelephonyManager.NETWORK_CLASS_BITMASK_3G;
             case TYPE_4G: return TelephonyManager.NETWORK_CLASS_BITMASK_4G;
             case TYPE_5G: return TelephonyManager.NETWORK_CLASS_BITMASK_5G;
             default: return 0;
@@ -212,7 +206,7 @@ public class PreferredNetworkTile extends QSTileImpl<State> {
         long allowed = tm.getAllowedNetworkTypesForReason(
                 TelephonyManager.ALLOWED_NETWORK_TYPES_REASON_USER);
 
-        for (int type : new int[]{TYPE_5G, TYPE_4G, TYPE_3G, TYPE_2G}) {
+        for (int type : new int[]{TYPE_5G, TYPE_4G}) {
             if ((allowed & getMaskForType(type)) != 0) {
                 return type;
             }
@@ -222,7 +216,7 @@ public class PreferredNetworkTile extends QSTileImpl<State> {
     }
 
     private int getNextType(TelephonyManager tm, int currentType) {
-        int[] order = {TYPE_2G, TYPE_3G, TYPE_4G, TYPE_5G};
+        int[] order = {TYPE_4G, TYPE_5G};
         int idx = 0;
         long supported = tm.getAllowedNetworkTypesForReason(
                 TelephonyManager.ALLOWED_NETWORK_TYPES_REASON_CARRIER);
