@@ -483,6 +483,11 @@ public class NotificationBackgroundView extends View implements Dumpable,
         mBackgroundBlurDrawable.setVisible(false, false);
         mBackgroundBlurDrawable.setCallback(null);
         mBackgroundBlurDrawable = null;
+        // The COS material is drawn by the window blur: a card that has lost its blur (moved
+        // from the lock screen into the shade) needs its own fill again.
+        if (mBackground != null) {
+            setTint(mTintColor != 0 ? mTintColor : mNormalColor);
+        }
         invalidate();
     }
 
