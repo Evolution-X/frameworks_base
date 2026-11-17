@@ -534,6 +534,7 @@ fun BrightnessSlider(
                     hapticsEnabled = hapticsEnabled,
                     gradientColors = gradientColors,
                     buttonSize = dimensions.thumbHeight,
+                    glassAccent = glass,
                 )
             }
         }
@@ -1222,22 +1223,25 @@ private fun drawAutoBrightnessButton(
     hapticsEnabled: Boolean,
     gradientColors: GradientColors? = null,
     buttonSize: Dp = 52.dp,
+    glassAccent: Color? = null,
 ) {
     val view = LocalView.current
     val coroutineScope = rememberCoroutineScope()
     val autoBrush: Brush? = if (autoMode) gradientColors?.diagonal() else null
+    // Liquid Glass: the same white fill on a glass control as the slider it sits beside.
     val backgroundColor by animateColorAsState(
         targetValue = if (autoMode) {
-            MaterialTheme.colorScheme.primary
+            if (glassAccent != null) Color.White else MaterialTheme.colorScheme.primary
         } else {
-            LocalAndroidColorScheme.current.surfaceEffect1
+            if (glassAccent != null) LiquidGlassControl
+            else LocalAndroidColorScheme.current.surfaceEffect1
         }
     )
     val iconTint by animateColorAsState(
         targetValue = if (autoMode) {
-            MaterialTheme.colorScheme.onPrimary
+            if (glassAccent != null) Color.Black else MaterialTheme.colorScheme.onPrimary
         } else {
-            MaterialTheme.colorScheme.onSurface
+            if (glassAccent != null) Color.White else MaterialTheme.colorScheme.onSurface
         }
     )
     val painterRes = if (autoMode) {
