@@ -886,6 +886,11 @@ public class WindowManagerService extends IWindowManager.Stub
                 EVOLUTION_WINDOW_BLOCK_SCREENRECORD_DETECTION);
         private final Uri mEvolutionHideScreenCaptureStatusUri = Settings.Global.getUriFor(
                 HIDE_SCREEN_CAPTURE_STATUS);
+        private final Uri mLiquidGlassUri = Settings.Secure.getUriFor(LIQUID_GLASS_SETTING);
+        private final Uri mLiquidGlassStyleUri =
+                Settings.Secure.getUriFor(LIQUID_GLASS_STYLE_SETTING);
+        private final Uri mLiquidGlassRefractionUri =
+                Settings.Secure.getUriFor(LIQUID_GLASS_REFRACTION_SETTING);
 
         public SettingsObserver() {
             super(new Handler());
@@ -936,11 +941,22 @@ public class WindowManagerService extends IWindowManager.Stub
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(mEvolutionHideScreenCaptureStatusUri, false, this,
                     UserHandle.USER_ALL);
+            resolver.registerContentObserver(mLiquidGlassUri, false, this, UserHandle.USER_ALL);
+            resolver.registerContentObserver(mLiquidGlassStyleUri, false, this,
+                    UserHandle.USER_ALL);
+            resolver.registerContentObserver(mLiquidGlassRefractionUri, false, this,
+                    UserHandle.USER_ALL);
         }
 
         @Override
         public void onChange(boolean selfChange, Uri uri) {
             if (uri == null) {
+                return;
+            }
+
+            if (mLiquidGlassUri.equals(uri) || mLiquidGlassStyleUri.equals(uri)
+                    || mLiquidGlassRefractionUri.equals(uri)) {
+                syncLiquidGlass(mContext.getContentResolver());
                 return;
             }
 
@@ -1022,6 +1038,7 @@ public class WindowManagerService extends IWindowManager.Stub
             updateMagnifyIme();
             updateEvolutionBlockScreenCaptureDetection();
             updateWallpaperZoomEnabled();
+            syncLiquidGlass(mContext.getContentResolver());
         }
 
         void updateWallpaperZoomEnabled() {
@@ -7937,6 +7954,34 @@ public class WindowManagerService extends IWindowManager.Stub
     @Override
     public int getDockedStackSide() {
         return 0;
+    }
+
+    // The Liquid Glass switches of Evolver, handed to SurfaceFlinger as properties.
+    private static final String LIQUID_GLASS_SETTING = "liquid_glass";
+    private static final String LIQUID_GLASS_PROPERTY = "persist.sys.evolution.liquid_glass";
+
+    private static final String LIQUID_GLASS_STYLE_SETTING = "liquid_glass_style";
+    private static final String LIQUID_GLASS_STYLE_PROPERTY =
+            "persist.sys.evolution.liquid_glass_style";
+
+    // How strongly the iOS style's glass rims refract, 0-100% of the strongest bend.
+    private static final String LIQUID_GLASS_REFRACTION_SETTING = "liquid_glass_refraction";
+    private static final String LIQUID_GLASS_REFRACTION_PROPERTY =
+            "persist.sys.evolution.liquid_glass_refraction";
+    private static final int LIQUID_GLASS_REFRACTION_DEFAULT = 60;
+
+    private static void syncLiquidGlass(ContentResolver resolver) {
+        final boolean on = Settings.Secure.getIntForUser(resolver, LIQUID_GLASS_SETTING, 0,
+                UserHandle.USER_CURRENT) != 0;
+        SystemProperties.set(LIQUID_GLASS_PROPERTY, on ? "1" : "0");
+        final int style = Settings.Secure.getIntForUser(resolver, LIQUID_GLASS_STYLE_SETTING, 0,
+                UserHandle.USER_CURRENT);
+        SystemProperties.set(LIQUID_GLASS_STYLE_PROPERTY, style == 1 ? "cos" : "ios");
+        final int refraction = Settings.Secure.getIntForUser(resolver,
+                LIQUID_GLASS_REFRACTION_SETTING, LIQUID_GLASS_REFRACTION_DEFAULT,
+                UserHandle.USER_CURRENT);
+        SystemProperties.set(LIQUID_GLASS_REFRACTION_PROPERTY,
+                Integer.toString(Math.max(0, Math.min(100, refraction))));
     }
 
     void setForceDesktopModeOnExternalDisplays(boolean forceDesktopModeOnExternalDisplays) {
