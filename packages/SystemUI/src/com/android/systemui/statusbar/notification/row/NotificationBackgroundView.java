@@ -207,7 +207,7 @@ public class NotificationBackgroundView extends View implements Dumpable,
 
     private final RectF mGlassBounds = new RectF();
 
-    /** Strokes the Liquid Glass rim around a card. Not drawn under the ColorOS panel. */
+    /** Strokes the Liquid Glass rim around a card. Not drawn on a card with a ColorOS material. */
     private void drawGlassRim(Canvas canvas, @Nullable Rect bounds) {
         if (bounds == null || bounds.isEmpty() || !LiquidGlass.isOnShade(getContext())
                 || (mCosMaterial != 0 && mBackgroundBlurDrawable != null)) {

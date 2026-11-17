@@ -148,8 +148,8 @@ object LiquidGlass {
             }
 
     /**
-     * Whether the ColorOS QS panel is picked. It draws its own glass, so the shade surfaces below
-     * stay off Liquid Glass under it, whatever the global switch says.
+     * Whether the ColorOS QS panel is picked. It no longer gates Liquid Glass, the global switch
+     * decides that. It only picks the ColorOS card material, and keeps the dual tone shade off.
      */
     fun colorOsPanel(context: Context): State<Boolean> =
         colorOsPanelState
@@ -209,13 +209,11 @@ object LiquidGlass {
     @JvmStatic fun isEnabled(context: Context): Boolean = enabled(context).value
 
     /**
-     * Whether the shade and its notifications draw Liquid Glass: the global switch, except under
-     * the ColorOS panel style. This only decides the glass surfaces. The shade colors always come
+     * Whether the shade and its notifications draw Liquid Glass: the global switch alone, under
+     * the ColorOS panel too. This only decides the glass surfaces. The shade colors always come
      * from ShadeColors and its shade_color_style, which Liquid Glass does not replace.
      */
-    @JvmStatic
-    fun isOnShade(context: Context): Boolean =
-        enabled(context).value && !colorOsPanel(context).value
+    @JvmStatic fun isOnShade(context: Context): Boolean = enabled(context).value
 
     /**
      * Whether the shade's header and empty-shade text are white in the light theme too. PenguinOS
@@ -226,14 +224,24 @@ object LiquidGlass {
     @Suppress("UNUSED_PARAMETER")
     fun whiteShadeContent(context: Context): Boolean = false
 
-    /** Whether the shade cards take the ColorOS glass: Liquid Glass on the shade, ColorOS style. */
+    /**
+     * Whether the shade cards take the ColorOS glass: Liquid Glass on the shade, with the ColorOS
+     * Liquid Glass style or the ColorOS panel. Penguin keys this off its COS shade feature, the
+     * ColorOS panel is the equivalent here.
+     */
     @JvmStatic
-    fun isCosStyle(context: Context): Boolean = isOnShade(context) && cosStyle(context).value
+    fun isCosStyle(context: Context): Boolean =
+        isOnShade(context) && (cosStyle(context).value || colorOsPanel(context).value)
+
+    /** Dual tone shade: Liquid Glass on the shade, the switch on, off under the ColorOS panel. */
+    @JvmStatic
+    fun isDualToneShade(context: Context): Boolean =
+        isOnShade(context) && dualTone(context).value && !colorOsPanel(context).value
 
     /** Needs [isOnShade] to have been called once with a context, which starts the observers. */
     @JvmStatic
     fun notificationGap(res: Resources, default: Int): Int =
-        if (state?.value == true && colorOsPanelState?.value != true)
+        if (state?.value == true)
             (NOTIFICATION_GAP_DP * res.displayMetrics.density).roundToInt()
         else default
 
@@ -876,16 +884,8 @@ fun Modifier.glassRim(shape: Shape, strength: Float = 1f): Modifier =
         else -> glassBlurRegion(shape).liquidGlassRim(shape, strength)
     }
 
-/** [liquidGlassEnabled] off the ColorOS panel, for the shade and its QS surfaces. */
-@Composable
-fun liquidGlassOnShade(): Boolean {
-    val context = LocalContext.current
-    LiquidGlassTune.generation.value
-    // Read both states here, so a change of either recomposes the caller.
-    val enabled = remember(context) { LiquidGlass.enabled(context) }
-    val colorOs = remember(context) { LiquidGlass.colorOsPanel(context) }
-    return enabled.value && !colorOs.value
-}
+/** [liquidGlassEnabled] for the shade and its QS surfaces, the ColorOS panel included. */
+@Composable fun liquidGlassOnShade(): Boolean = liquidGlassEnabled()
 
 @Composable
 fun liquidGlassCosStyle(): Boolean {
@@ -904,9 +904,8 @@ fun Modifier.glassBlurRegion(shape: Shape, material: Int = 0): Modifier {
     val view = LocalView.current
     val drawable = remember(view) { arrayOfNulls<BackgroundBlurDrawable>(1) }
     LiquidGlassTune.generation.value
-    // The glass never draws under the ColorOS panel here (see LiquidGlass.isOnShade), so there is
-    // no COS shade glass for the tiles to share a blur pass with.
-    val cosShade = false
+    val context = LocalContext.current
+    val cosShade = remember(context) { LiquidGlass.colorOsPanel(context) }.value
     val panelBlur = LiquidGlassTune.f("cos_panel_blur", 62.0f)
     val radius =
         if (material >= 5) panelBlur.toInt()
