@@ -77,15 +77,15 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
 object LiquidGlass {
-    private const val SETTING = "penguin_liquid_glass"
-    private const val STYLE_SETTING = "penguin_liquid_glass_style"
-    private const val DUAL_TONE_SETTING = "penguin_liquid_glass_dual_tone"
+    private const val SETTING = "liquid_glass"
+    private const val STYLE_SETTING = "liquid_glass_style"
+    private const val DUAL_TONE_SETTING = "liquid_glass_dual_tone"
 
     private var state: State<Boolean>? = null
     private var cosState: State<Boolean>? = null
     private var dualToneState: State<Boolean>? = null
 
-    /** Penguin Laboratory's dual-tone shade switch for Liquid Glass. */
+    /** Evolver's dual-tone shade switch for Liquid Glass. */
     fun dualTone(context: Context): State<Boolean> =
         dualToneState
             ?: synchronized(this) {
