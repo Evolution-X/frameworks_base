@@ -144,7 +144,7 @@ public final class CutoutProgressSettings {
     private static final int DEF_ERROR_COLOR = 0xFFF44336;
     private static final int DEF_FINISH_FLASH_COLOR = Color.WHITE;
     private static final float DEF_STROKE_DP = 2.0f;
-    private static final float DEF_RING_GAP = 1.155f;
+    private static final float DEF_RING_GAP = 1.0f;
     private static final int DEF_OPACITY = 90;
     private static final boolean DEF_CLOCKWISE = true;
     private static final int DEF_FINISH_STYLE = 0;
