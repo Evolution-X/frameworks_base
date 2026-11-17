@@ -226,6 +226,10 @@ object LiquidGlass {
     @Suppress("UNUSED_PARAMETER")
     fun whiteShadeContent(context: Context): Boolean = false
 
+    /** Whether the shade cards take the ColorOS glass: Liquid Glass on the shade, ColorOS style. */
+    @JvmStatic
+    fun isCosStyle(context: Context): Boolean = isOnShade(context) && cosStyle(context).value
+
     /** Needs [isOnShade] to have been called once with a context, which starts the observers. */
     @JvmStatic
     fun notificationGap(res: Resources, default: Int): Int =

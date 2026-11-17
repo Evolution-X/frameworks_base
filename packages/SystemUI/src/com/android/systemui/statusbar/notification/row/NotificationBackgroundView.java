@@ -21,7 +21,9 @@ import static com.android.systemui.util.ColorUtilKt.hexColorString;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.content.res.Configuration;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Path;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
@@ -207,7 +209,8 @@ public class NotificationBackgroundView extends View implements Dumpable,
 
     /** Strokes the Liquid Glass rim around a card. Not drawn under the ColorOS panel. */
     private void drawGlassRim(Canvas canvas, @Nullable Rect bounds) {
-        if (bounds == null || bounds.isEmpty() || !LiquidGlass.isOnShade(getContext())) {
+        if (bounds == null || bounds.isEmpty() || !LiquidGlass.isOnShade(getContext())
+                || (mCosMaterial != 0 && mBackgroundBlurDrawable != null)) {
             return;
         }
         mGlassBounds.set(bounds);
@@ -222,7 +225,23 @@ public class NotificationBackgroundView extends View implements Dumpable,
      */
     private int surfaceFor(int tintColor) {
         if (tintColor != mNormalColor || !LiquidGlass.isOnShade(getContext())) return tintColor;
+        // The ColorOS material frosts the card itself, so the fill stays clear.
+        if (mCosMaterial != 0) return Color.TRANSPARENT;
         return LiquidGlass.viewSurface();
+    }
+
+    private int mCosMaterial;
+
+    /** Picks the ColorOS card material (dark 7, light 8) for the blur region, or none. */
+    private void updateCosMaterial() {
+        mCosMaterial = 0;
+        if (mBackgroundBlurDrawable == null) return;
+        if (LiquidGlass.isCosStyle(getContext())) {
+            final boolean dark = (getResources().getConfiguration().uiMode
+                    & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+            mCosMaterial = dark ? 7 : 8;
+        }
+        mBackgroundBlurDrawable.setMaterial(mCosMaterial);
     }
 
     private void drawBlur(Canvas canvas, @Nullable Rect backgroundBounds) {
@@ -446,6 +465,7 @@ public class NotificationBackgroundView extends View implements Dumpable,
                 getResources().getDimensionPixelSize(R.dimen.notification_background_blur_radius));
         mBackgroundBlurDrawable.setXfermode(null);
         mBackgroundBlurDrawable.setCallback(this);
+        updateCosMaterial();
         mBackgroundBlurDrawable.setColor(
                 surfaceFor(mTintColor != 0 ? mTintColor : mNormalColor));
         if (!isAggregatedVisible()) {
@@ -507,6 +527,7 @@ public class NotificationBackgroundView extends View implements Dumpable,
     }
 
     public void setTint(int tintColor) {
+        updateCosMaterial();
         Drawable baseLayer = getBaseBackgroundLayer();
         final int surface = surfaceFor(tintColor);
         if (mIsBlurSupported) {
