@@ -61,6 +61,7 @@ import com.android.systemui.statusbar.quickactions.stopwatch.ui.viewmodel.Stopwa
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -367,6 +368,60 @@ constructor(
             }
     }
 
+    /**
+     * Opens the card of a call that is not ringing, such as one placed from the dialler, for a few
+     * seconds the first time it shows in the island, even beside other activities. Only chips the
+     * island shows count, so nothing opens while it is hidden or on the dialler's own screen, and a
+     * popup that is already open is left alone. A ringing call belongs to [showRingingCall] and
+     * counts as shown, so answering it does not open its card a second time.
+     */
+    private suspend fun peekCallOnFirstShow() = coroutineScope {
+        val peeked = mutableSetOf<QuickActionChipId>()
+        var peekJob: Job? = null
+        snapshotFlow {
+                val calls =
+                    systemEventChips.chips.filter {
+                        (it.popupContent as? PopupContentModel.SystemEvent)?.kind ==
+                            SystemEventKind.Call
+                    }
+                CallPeekState(
+                    calls = calls.map { it.chipId }.toSet(),
+                    ringing =
+                        calls
+                            .filter {
+                                (it.popupContent as? PopupContentModel.SystemEvent)?.isRinging ==
+                                    true
+                            }
+                            .map { it.chipId }
+                            .toSet(),
+                    shown = shownQuickActionChips.map { it.chipId }.toSet(),
+                    popupOpen = currentShownPopupChipId != null,
+                )
+            }
+            .distinctUntilChanged()
+            .collect { state ->
+                peeked.retainAll(state.calls)
+                peeked += state.ringing
+                if (state.popupOpen) return@collect
+                val call =
+                    (state.calls - peeked).firstOrNull { it in state.shown } ?: return@collect
+                peeked += call
+                currentShownPopupChipId = call
+                peekJob?.cancel()
+                peekJob = launch {
+                    delay(CALL_PEEK_MS)
+                    if (currentShownPopupChipId == call) currentShownPopupChipId = null
+                }
+            }
+    }
+
+    private data class CallPeekState(
+        val calls: Set<QuickActionChipId>,
+        val ringing: Set<QuickActionChipId>,
+        val shown: Set<QuickActionChipId>,
+        val popupOpen: Boolean,
+    )
+
     override suspend fun onActivated() {
         coroutineScope {
             context.contentResolver.registerContentObserver(
@@ -417,6 +472,7 @@ constructor(
             launch { liveActivityChips.activate() }
             launch { peekChargingOnPlugIn() }
             launch { showRingingCall() }
+            launch { peekCallOnFirstShow() }
             launch {
                 // A swiped-away chip comes back once it ends or shows something new.
                 snapshotFlow {
@@ -538,5 +594,6 @@ constructor(
     private companion object {
         const val CHARGING_PEEK_MS = 3_500L
         const val CHARGING_PEEK_WAIT_MS = 1_000L
+        const val CALL_PEEK_MS = 5_000L
     }
 }
