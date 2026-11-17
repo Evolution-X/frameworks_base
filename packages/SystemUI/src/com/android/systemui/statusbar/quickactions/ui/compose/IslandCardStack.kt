@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -195,6 +196,15 @@ private fun StackedCard(
 
     var topInStack by remember { mutableFloatStateOf(0f) }
     val swipe = remember { Animatable(0f) }
+    var cardWidth by remember { mutableFloatStateOf(0f) }
+    // Shared by the layer alpha and the window blur behind a glass card, which ignores the layer.
+    val cardAlpha = remember {
+        {
+            val swipeFade = if (cardWidth > 0f) 1f - abs(swipe.value) / cardWidth else 1f
+            (open.value * 1.6f).coerceAtMost(1f) * swipeFade.coerceIn(0f, 1f)
+        }
+    }
+    val parentGlassAlpha = LocalIslandGlassAlpha.current
     val scope = rememberCoroutineScope()
     val currentOnDismiss by rememberUpdatedState(onDismiss)
 
@@ -223,10 +233,9 @@ private fun StackedCard(
                         scaleY = scale
                         transformOrigin = TransformOrigin(0.5f, 0f)
                         translationX = swipe.value
-                        val swipeFade =
-                            if (size.width > 0f) 1f - abs(swipe.value) / size.width else 1f
-                        alpha = (f * 1.6f).coerceAtMost(1f) * swipeFade.coerceIn(0f, 1f)
+                        alpha = cardAlpha()
                     }
+                    .onSizeChanged { cardWidth = it.width.toFloat() }
                     .pointerInput(chip.chipId) {
                         detectHorizontalDragGestures(
                             onDragEnd = {
@@ -265,7 +274,11 @@ private fun StackedCard(
                     ),
             propagateMinConstraints = true,
         ) {
-            IslandPopupContent(chip, fillWidth = true)
+            CompositionLocalProvider(
+                LocalIslandGlassAlpha provides { parentGlassAlpha() * cardAlpha() }
+            ) {
+                IslandPopupContent(chip, fillWidth = true)
+            }
         }
     }
 }
