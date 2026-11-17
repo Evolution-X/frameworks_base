@@ -71,6 +71,10 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.compose.PlatformSliderDefaults
+import com.android.systemui.common.shared.colors.SystemUISliderColors
+import com.android.systemui.qs.shared.style.LiquidGlassControl
+import com.android.systemui.qs.shared.style.LiquidGlassVolume
+import com.android.systemui.qs.shared.style.liquidGlassOn
 import com.android.compose.animation.scene.ContentScope
 import com.android.compose.animation.scene.ElementKey
 import com.android.compose.animation.scene.UserAction
@@ -444,7 +448,28 @@ private fun ContentScope.QuickSettingsLayout(
                                 volumeSliderViewModel.onValueChangeFinished()
                             },
                             onIconTapped = { volumeSliderViewModel.toggleMuted(volumeSliderState) },
-                            sliderColors = PlatformSliderDefaults.defaultPlatformSliderColors(),
+                            sliderColors =
+                                PlatformSliderDefaults.defaultPlatformSliderColors().let {
+                                    if (!liquidGlassOn) it
+                                    else
+                                        it.copy(
+                                            trackColor = LiquidGlassControl,
+                                            indicatorColor = Color.White,
+                                            iconColor = LiquidGlassVolume,
+                                            labelColorOnIndicator = LiquidGlassVolume,
+                                            labelColorOnTrack = Color.White,
+                                        )
+                                },
+                            materialSliderColors =
+                                if (!liquidGlassOn) SystemUISliderColors.Defaults
+                                else
+                                    SystemUISliderColors.Defaults.copy(
+                                        thumbColor = Color.White,
+                                        activeTrackColor = Color.White,
+                                        inactiveTrackColor = LiquidGlassControl,
+                                        activeTickColor = LiquidGlassVolume,
+                                        inactiveTickColor = Color.White,
+                                    ),
                             hapticsViewModelFactory =
                                 volumeSliderViewModel.getSliderHapticsViewModelFactory(),
                             dimensions = QuickSettingsShade.Dimensions.VolumeSliderDimensions,
