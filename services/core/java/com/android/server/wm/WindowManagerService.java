@@ -891,8 +891,6 @@ public class WindowManagerService extends IWindowManager.Stub
                 Settings.Secure.getUriFor(LIQUID_GLASS_STYLE_SETTING);
         private final Uri mLiquidGlassRefractionUri =
                 Settings.Secure.getUriFor(LIQUID_GLASS_REFRACTION_SETTING);
-        private final Uri mQsPanelStyleUri =
-                Settings.System.getUriFor(Settings.System.QS_PANEL_STYLE);
 
         public SettingsObserver() {
             super(new Handler());
@@ -948,7 +946,6 @@ public class WindowManagerService extends IWindowManager.Stub
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(mLiquidGlassRefractionUri, false, this,
                     UserHandle.USER_ALL);
-            resolver.registerContentObserver(mQsPanelStyleUri, false, this, UserHandle.USER_ALL);
         }
 
         @Override
@@ -958,7 +955,7 @@ public class WindowManagerService extends IWindowManager.Stub
             }
 
             if (mLiquidGlassUri.equals(uri) || mLiquidGlassStyleUri.equals(uri)
-                    || mLiquidGlassRefractionUri.equals(uri) || mQsPanelStyleUri.equals(uri)) {
+                    || mLiquidGlassRefractionUri.equals(uri)) {
                 syncLiquidGlass(mContext.getContentResolver());
                 return;
             }
@@ -7973,19 +7970,9 @@ public class WindowManagerService extends IWindowManager.Stub
             "persist.sys.evolution.liquid_glass_refraction";
     private static final int LIQUID_GLASS_REFRACTION_DEFAULT = 60;
 
-    // Value of Settings.System.QS_PANEL_STYLE for the ColorOS panel.
-    private static final int QS_PANEL_STYLE_COLOROS = 2;
-
     private static void syncLiquidGlass(ContentResolver resolver) {
-        // The ColorOS panel draws its own glass materials, and SurfaceFlinger would turn the
-        // shade's whole-window blur into Liquid Glass (or into the COS panel material) under it,
-        // so the glass stays off while that panel style is picked. The user's switch is kept.
-        final boolean colorOsPanel = Settings.System.getIntForUser(resolver,
-                Settings.System.QS_PANEL_STYLE, 0, UserHandle.USER_CURRENT)
-                == QS_PANEL_STYLE_COLOROS;
-        final boolean on = !colorOsPanel
-                && Settings.Secure.getIntForUser(resolver, LIQUID_GLASS_SETTING, 0,
-                        UserHandle.USER_CURRENT) != 0;
+        final boolean on = Settings.Secure.getIntForUser(resolver, LIQUID_GLASS_SETTING, 0,
+                UserHandle.USER_CURRENT) != 0;
         SystemProperties.set(LIQUID_GLASS_PROPERTY, on ? "1" : "0");
         final int style = Settings.Secure.getIntForUser(resolver, LIQUID_GLASS_STYLE_SETTING, 0,
                 UserHandle.USER_CURRENT);
