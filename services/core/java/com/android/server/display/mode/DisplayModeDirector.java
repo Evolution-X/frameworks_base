@@ -2566,6 +2566,14 @@ public class DisplayModeDirector {
                 return;
             }
 
+            if (mDefaultDisplayState != Display.STATE_UNKNOWN && !isDeviceActive()) {
+                if (mLoggingEnabled) {
+                    Slog.d(TAG, "Display not on (state=" + mDefaultDisplayState
+                            + "), keeping flicker refresh rate votes");
+                }
+                return;
+            }
+
             int refreshRateInLowZone = Math.min(mPeakRefreshRate, mRefreshRateInLowZone);
             boolean insideLowZone = hasValidLowZone() && isInsideLowZone(mBrightness, mAmbientLux);
             if (insideLowZone) {
@@ -2644,6 +2652,12 @@ public class DisplayModeDirector {
             if (mDefaultDisplayState != state) {
                 mDefaultDisplayState = state;
                 updateSensorStatus();
+                if (isDeviceActive()) {
+                    // Votes are frozen while the display is not on; refresh them now.
+                    synchronized (mLock) {
+                        updateFlickerRefreshRateVotes();
+                    }
+                }
             }
         }
 
