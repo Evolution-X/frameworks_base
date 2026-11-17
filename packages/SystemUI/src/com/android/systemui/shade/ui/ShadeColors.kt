@@ -149,8 +149,7 @@ object ShadeColors {
     }
 
     /** Dual tone for Liquid Glass, off under the ColorOS panel, which has its own card glass. */
-    private fun glassDualTone(context: Context): Boolean =
-        LiquidGlass.isOnShade(context) && LiquidGlass.dualTone(context).value
+    private fun glassDualTone(context: Context): Boolean = LiquidGlass.isDualToneShade(context)
 
     @JvmStatic
     fun glassEdge(context: Context): Int {
