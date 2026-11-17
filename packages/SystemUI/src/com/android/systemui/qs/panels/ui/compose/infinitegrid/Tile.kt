@@ -181,7 +181,10 @@ private val COLOROS_DATA_TILES = setOf("cell", "mobile_data", "mobiledata")
 private val COLOROS_WIFI_TILES = setOf("wifi")
 
 /** How much of a round tile that cannot be used is left, the whole tile fades, glass included. */
-private const val ColorOSUnavailableAlpha = 0.45f
+private const val ColorOSUnavailableAlpha = 0.6f
+
+/** How much of its colour the label and icon of a wide ColorOS tile that cannot be used keep. */
+private const val ColorOSUnavailableContentAlpha = 0.55f
 
 /** Tiles whose icon is dark ink on the white bubble of a dark panel, instead of blue. */
 private val COLOROS_INK_TILES = setOf("dnd", "dark", "night")
@@ -1597,11 +1600,23 @@ private object TileDefaults {
                 )
             STATE_INACTIVE -> inactive
             // A round tile that cannot be used keeps the colours of one that is off and is faded
-            // as a whole by the caller. The wide tiles keep the greyed out colours, with the icon
-            // circle of a pill that is off.
+            // as a whole by the caller. The wide tiles keep the surface and the icon circle of
+            // one that is off and only dim their content: the stock greyed out colours are too
+            // faint over the glass.
             else ->
-                if (iconOnly) inactive
-                else unavailableTileColors().copy(iconBackground = bubbleOff)
+                if (iconOnly) {
+                    inactive
+                } else {
+                    val dimmed = onSurface.copy(alpha = ColorOSUnavailableContentAlpha)
+                    inactive.copy(
+                        label = dimmed,
+                        secondaryLabel = dimmed,
+                        icon = dimmed,
+                        outline = dimmed,
+                        classicLabel = dimmed,
+                        classicSecondaryLabel = dimmed,
+                    )
+                }
         }
     }
 
