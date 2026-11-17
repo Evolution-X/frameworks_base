@@ -24,6 +24,7 @@ import android.service.notification.StatusBarNotification
 import com.android.systemui.Dumpable
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dump.DumpManager
+import com.android.systemui.qs.shared.style.LiquidGlass
 import com.android.systemui.statusbar.notification.collection.NotifCollectionCache
 import com.android.systemui.util.asIndenting
 import com.android.systemui.util.time.SystemClock
@@ -58,7 +59,9 @@ interface NotificationIconStyleProvider {
  */
 abstract class NotificationIconStyleProviderBase : NotificationIconStyleProvider {
     override fun shouldShowAppIcon(notification: StatusBarNotification, context: Context): Boolean {
-        return !prefersSmallIcon(notification.notification) &&
+        // Liquid Glass shows the app icon, like iOS, even when the app asks for its small icon.
+        val glass = LiquidGlass.isOnShade(context)
+        return (glass || !prefersSmallIcon(notification.notification)) &&
             packageHasAppIcon(notification, context)
     }
 

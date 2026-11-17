@@ -97,6 +97,7 @@ import com.android.systemui.plugins.PluginListener;
 import com.android.systemui.plugins.statusbar.NotificationMenuRowPlugin;
 import com.android.systemui.plugins.statusbar.NotificationMenuRowPlugin.MenuItem;
 import com.android.systemui.plugins.statusbar.StatusBarStateController;
+import com.android.systemui.qs.shared.style.LiquidGlass;
 import com.android.systemui.res.R;
 import com.android.systemui.scene.shared.flag.SceneContainerFlag;
 import com.android.systemui.statusbar.NotificationLockscreenUserManager.RedactionType;
@@ -4068,7 +4069,9 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
             mShowNoBackground = true;
             mChildrenContainer.updateHeaderForExpansion(mShowNoBackground);
         } else if (mIsSummaryWithChildren) {
-            mShowNoBackground = !mShowGroupBackgroundWhenExpanded && isGroupExpanded()
+            // Glass keeps the group's own background while it is expanded, like iOS stacks.
+            mShowNoBackground = !LiquidGlass.isOnShade(mContext)
+                    && !mShowGroupBackgroundWhenExpanded && isGroupExpanded()
                     && !isGroupExpansionChanging() && !isUserSwipingToExpandRow();
             mChildrenContainer.updateHeaderForExpansion(mShowNoBackground);
             List<ExpandableNotificationRow> children = mChildrenContainer.getAttachedChildren();

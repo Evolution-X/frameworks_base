@@ -23,6 +23,7 @@ import androidx.annotation.VisibleForTesting
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.media.controls.domain.pipeline.MediaDataManager
+import com.android.systemui.qs.shared.style.LiquidGlass
 import com.android.systemui.res.R
 import com.android.systemui.scene.shared.flag.SceneContainerFlag
 import com.android.systemui.shade.ShadeDisplayAware
@@ -449,7 +450,14 @@ constructor(
         maxNotificationsExcludesMedia = NotificationMinimalism.isEnabled
 
         dividerHeight =
-            max(1f, resources.getDimensionPixelSize(R.dimen.notification_divider_height).toFloat())
+            max(
+                1f,
+                LiquidGlass.notificationGap(
+                        resources,
+                        resources.getDimensionPixelSize(R.dimen.notification_divider_height),
+                    )
+                    .toFloat(),
+            )
     }
 
     private val NotificationStackScrollLayout.childrenSequence: Sequence<ExpandableView>

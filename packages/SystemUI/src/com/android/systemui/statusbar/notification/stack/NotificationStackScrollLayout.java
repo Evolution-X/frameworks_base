@@ -98,6 +98,7 @@ import com.android.systemui.Dependency;
 import com.android.systemui.Dumpable;
 import com.android.systemui.ExpandHelper;
 import com.android.systemui.notifications.ui.YSpace;
+import com.android.systemui.qs.shared.style.LiquidGlass;
 import com.android.systemui.res.R;
 import com.android.systemui.scene.shared.flag.SceneContainerFlag;
 import com.android.systemui.shade.QSHeaderBoundsProvider;
@@ -990,8 +991,10 @@ public class NotificationStackScrollLayout
         mStackScrollAlgorithm.initView(context);
         mStateAnimator.initView(context);
         mAmbientState.reload(context);
-        mPaddingBetweenElements = Math.max(1,
-                res.getDimensionPixelSize(R.dimen.notification_divider_height));
+        // isOnShade starts the observers notificationGap reads.
+        LiquidGlass.isOnShade(context);
+        mPaddingBetweenElements = Math.max(1, LiquidGlass.notificationGap(res,
+                res.getDimensionPixelSize(R.dimen.notification_divider_height)));
         mMinimumSpacingBetweenChildren = Math.max(1,
                 res.getDimensionPixelSize(R.dimen.notification_minimum_spacing_between_children));
         mMinTopOverScrollToEscape = res.getDimensionPixelSize(
