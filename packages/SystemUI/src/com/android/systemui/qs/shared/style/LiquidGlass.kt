@@ -768,6 +768,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.trackGla
                     } ?: continue
                 if (!accept(down.position)) continue
                 launch { lift.animateTo(1f, PressSpring) }
+                var dragged = false
                 while (true) {
                     val event = awaitPointerEvent(PointerEventPass.Initial)
                     val change = event.changes.firstOrNull { it.id == down.id } ?: break
@@ -775,6 +776,11 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.trackGla
                     val d = change.position - down.position
                     val reach = 10.dp.toPx()
                     val dist = hypot(d.x, d.y)
+                    // A drag scrolls or pulls the shade; let go of the press there.
+                    if (dist > viewConfiguration.touchSlop) {
+                        dragged = true
+                        break
+                    }
                     val pull =
                         if (dist == 0f) 0f
                         else reach * (1f - 1f / (1f + dist / (reach * 3f))) / dist
@@ -782,6 +788,11 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.trackGla
                 }
                 launch { lift.animateTo(0f, releaseSpring()) }
                 launch { lean.animateTo(Offset.Zero, releaseSpring()) }
+                while (dragged) {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                    if (!change.pressed) break
+                }
             }
         }
     }
