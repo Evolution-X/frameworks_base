@@ -134,10 +134,15 @@ import com.android.systemui.brightness.ui.viewmodel.BrightnessSliderViewModel
 import com.android.systemui.brightness.ui.viewmodel.Drag
 import com.android.systemui.common.shared.colors.SystemUISliderColors
 import com.android.systemui.common.shared.model.Icon
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSQsStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.NothingQsColors
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingQSColumns
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingQSMaxContentWidth
+import com.android.systemui.qs.shared.style.LiquidGlassBrightness
+import com.android.systemui.qs.shared.style.LiquidGlassControl
+import com.android.systemui.qs.shared.style.LiquidGlassVolume
+import com.android.systemui.qs.shared.style.liquidGlassOn
 import com.android.systemui.compose.modifiers.sysuiResTag
 import com.android.systemui.gradient.GradientColors
 import com.android.systemui.gradient.diagonal
@@ -177,6 +182,7 @@ fun BrightnessSlider(
     showToast: () -> Unit = {},
     hapticsViewModelFactory: SliderHapticsViewModel.Factory,
     dimensions: BrightnessSliderDimensions = BrightnessSliderDimensions.Default,
+    glassAccent: Color? = null,
 ) {
     val context = LocalContext.current
     val cr = context.contentResolver
@@ -212,7 +218,21 @@ fun BrightnessSlider(
         } else {
             null
         }
-    val baseColors = SystemUISliderColors.Defaults
+    // Liquid Glass: a white fill on a glass track, icons in the accent colour. The gradient
+    // style keeps its own colours.
+    val glass = glassAccent.takeIf { gradientColors == null }
+    val baseColors =
+        if (glass == null) {
+            SystemUISliderColors.Defaults
+        } else {
+            SystemUISliderColors.Defaults.copy(
+                thumbColor = Color.White,
+                activeTrackColor = Color.White,
+                inactiveTrackColor = LiquidGlassControl,
+                activeTickColor = glass,
+                inactiveTickColor = Color.White,
+            )
+        }
     val colors =
         if (gradientColors != null) {
             baseColors.copy(activeTrackColor = Color.Transparent)
@@ -537,6 +557,7 @@ private fun VolumeSlider(
     hapticsViewModelFactory: SliderHapticsViewModel.Factory,
     modifier: Modifier = Modifier,
     dimensions: BrightnessSliderDimensions = BrightnessSliderDimensions.Default,
+    glassAccent: Color? = null,
 ) {
     val context = LocalContext.current
     val cr = context.contentResolver
@@ -565,7 +586,21 @@ private fun VolumeSlider(
     val isGradientEnabled = rememberGradientEnabled(Settings.System.QS_BRIGHTNESS_SLIDER_GRADIENT)
     val gradientColors: GradientColors? = rememberGradientColors().takeIf { isGradientEnabled }
 
-    val baseColors = SystemUISliderColors.Defaults
+    // Liquid Glass: a white fill on a glass track, icons in the accent colour. The gradient
+    // style keeps its own colours.
+    val glass = glassAccent.takeIf { gradientColors == null }
+    val baseColors =
+        if (glass == null) {
+            SystemUISliderColors.Defaults
+        } else {
+            SystemUISliderColors.Defaults.copy(
+                thumbColor = Color.White,
+                activeTrackColor = Color.White,
+                inactiveTrackColor = LiquidGlassControl,
+                activeTickColor = glass,
+                inactiveTickColor = Color.White,
+            )
+        }
     val colors =
         if (gradientColors != null) {
             baseColors.copy(activeTrackColor = Color.Transparent)
@@ -1453,6 +1488,9 @@ fun BrightnessSliderContainer(
             Modifier
         }
 
+    // Liquid Glass applies to the stock sliders only: Nothing and ColorOS draw their own.
+    val glassSliders =
+        liquidGlassOn && !isNothingStyle && !LocalColorOSQsStyle.current
     val brightnessSlider: @Composable () -> Unit = {
         BrightnessSlider(
             enabled = enabled && !isRestricted,
@@ -1505,6 +1543,7 @@ fun BrightnessSliderContainer(
                 )
             },
             dimensions = dimensions,
+            glassAccent = if (glassSliders) LiquidGlassBrightness else null,
         )
     }
 
@@ -1525,6 +1564,7 @@ fun BrightnessSliderContainer(
                     )
                     .fillMaxWidth(),
             dimensions = dimensions,
+            glassAccent = if (glassSliders) LiquidGlassVolume else null,
         )
     }
 
