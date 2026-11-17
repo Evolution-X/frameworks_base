@@ -78,9 +78,16 @@ constructor(
                 val prefs = getSharedPrefs(userInfo.id)
                 prefs.observe().emitOnStart().map {
                     val loaded = prefs.getLargeTilesSpecs()
-                    loaded.migrateInternetTile().also {
+                    val migratedInternet = loaded.migrateInternetTile()
+                    val migrated = migratedInternet.migrateCaffeineTile()
+                    migrated.also {
                         if (loaded != it) {
-                            logger.logMigration()
+                            if (migratedInternet != loaded) {
+                                logger.logMigration()
+                            }
+                            if (it != migratedInternet) {
+                                logger.logCaffeineMigration()
+                            }
                             writeLargeTileSpecs(it, changeDefault = false)
                         }
                     }
@@ -218,4 +225,24 @@ constructor(
         private const val EDIT_TOOLTIP_SHOWN_KEY = "edit_tooltip_shown"
         const val FILE_NAME = "quick_settings_prefs"
     }
+}
+
+/** The default large tiles set before caffeine was added to it. */
+private val legacyDefaultLargeTiles: Set<TileSpec> =
+    setOf("internet", "bt", "dnd", "cast").map(TileSpec::create).toSet()
+
+/**
+ * Adds the caffeine tile to sets of large tiles that are still on the legacy default set (i.e. the
+ * user never customized large tiles), so that the tile renders with its remaining time subtitle.
+ */
+private fun Set<TileSpec>.migrateCaffeineTile(): Set<TileSpec> {
+    return if (this == legacyDefaultLargeTiles) {
+        this + TileSpec.create("caffeine")
+    } else {
+        this
+    }
+}
+
+private fun Logger.logCaffeineMigration() {
+    i("Migration performed: caffeine added to legacy default large tiles")
 }
