@@ -43,6 +43,7 @@ import androidx.annotation.NonNull;
 
 import com.android.internal.graphics.ColorUtils;
 import com.android.systemui.common.shared.colors.SurfaceEffectColors;
+import com.android.systemui.qs.shared.style.LiquidGlass;
 import com.android.systemui.res.R;
 import com.android.systemui.scene.shared.flag.SceneContainerFlag;
 import com.android.systemui.shade.ui.ShadeColors;
@@ -342,6 +343,17 @@ public class FooterView extends StackScrollerDecorView {
             }
         } else {
             scHigh = 0;
+        }
+        if (LiquidGlass.isOnShade(mContext)) {
+            // The buttons take the same faint frost as the cards.
+            final int surface = LiquidGlass.viewSurface();
+            final ColorFilter glass = new PorterDuffColorFilter(surface | 0xFF000000, SRC_ATOP);
+            final int glassAlpha = Color.alpha(surface);
+            for (Drawable bg : new Drawable[] {clearAllBg, settingsBg, historyBg}) {
+                if (bg == null) continue;
+                bg.setColorFilter(glass);
+                bg.setAlpha(glassAlpha);
+            }
         }
 
         mClearAllButton.setBackground(clearAllBg);

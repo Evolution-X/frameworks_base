@@ -3,7 +3,9 @@ package com.android.systemui.statusbar.notification
 import android.util.FloatProperty
 import android.view.View
 import androidx.annotation.FloatRange
+import com.android.systemui.qs.shared.style.LiquidGlass
 import com.android.systemui.res.R
+import com.android.systemui.statusbar.notification.row.ExpandableNotificationRow
 import com.android.systemui.statusbar.notification.SourceType.Companion.from
 import com.android.systemui.statusbar.notification.stack.AnimationProperties
 import com.android.systemui.statusbar.notification.stack.StackStateAnimator
@@ -340,9 +342,21 @@ constructor(internal val targetView: View, private val roundable: Roundable, max
     internal var bottomRoundness = 0f
         private set
 
+    private val fullyRounded: Boolean
+        get() =
+            targetView is ExpandableNotificationRow && LiquidGlass.isOnShade(targetView.context)
+
+    private val effectiveTop: Float
+        get() = if (fullyRounded) 1f else topRoundness
+
+    private val effectiveBottom: Float
+        get() = if (fullyRounded) 1f else bottomRoundness
+
     internal val topCornerRadius: Float
         get() {
             val height = roundable.clipHeight
+            val topRoundness = effectiveTop
+            val bottomRoundness = effectiveBottom
             val topRadius = topRoundness * maxRadius
             val bottomRadius = bottomRoundness * maxRadius
 
@@ -360,6 +374,8 @@ constructor(internal val targetView: View, private val roundable: Roundable, max
     internal val bottomCornerRadius: Float
         get() {
             val height = roundable.clipHeight
+            val topRoundness = effectiveTop
+            val bottomRoundness = effectiveBottom
             val topRadius = topRoundness * maxRadius
             val bottomRadius = bottomRoundness * maxRadius
 
