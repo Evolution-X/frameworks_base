@@ -631,6 +631,8 @@ public class NotificationStackScrollLayout
     private boolean mIsOnLockscreen;
     /** Whether child rows have been told to drop their background blur regions. */
     private boolean mBlurRegionsSuppressed;
+    /** Whether this stack, or an ancestor, is hidden, which a row's blur region does not follow. */
+    private boolean mBlurRegionsHidden;
 
     /** Pass splitShadeStateController to view and update split shade */
     public void passSplitShadeStateController(SplitShadeStateController splitShadeStateController) {
@@ -1744,12 +1746,23 @@ public class NotificationStackScrollLayout
         }
     }
 
+    @Override
+    public void onVisibilityAggregated(boolean isVisible) {
+        super.onVisibilityAggregated(isVisible);
+        // The bouncer hides the stack without fading it; the rows' window blur would stay behind
+        // as empty glass cards under it.
+        if (mBlurRegionsHidden != !isVisible) {
+            mBlurRegionsHidden = !isVisible;
+            updateChildrenBlurRegionSuppression(getAlpha());
+        }
+    }
+
     /** Drop child blur regions while faded out (they ignore ancestor alpha), restore when visible. */
     private void updateChildrenBlurRegionSuppression(float alpha) {
         if (!lockscreenBlurForNotifications()) {
             return;
         }
-        boolean suppressed = alpha < 0.01f;
+        boolean suppressed = alpha < 0.01f || mBlurRegionsHidden;
         if (mBlurRegionsSuppressed == suppressed) {
             return;
         }
