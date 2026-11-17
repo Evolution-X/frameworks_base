@@ -24,9 +24,11 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -36,6 +38,8 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.MeasureScope
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.constrainHeight
@@ -48,6 +52,7 @@ import com.android.compose.nestedscroll.PriorityNestedScrollConnection
 import com.android.internal.jank.Cuj.CUJ_NOTIFICATION_SHADE_SCROLL_FLING
 import com.android.internal.jank.InteractionJankMonitor
 import com.android.systemui.notifications.ui.composable.notificationScrimNestedScrollConnection
+import com.android.systemui.qs.shared.style.LocalGlassClipBottom
 import com.android.systemui.scene.session.ui.composable.SaveableSession
 import com.android.systemui.scene.session.ui.composable.sessionCoroutineScope
 import com.android.systemui.statusbar.notification.stack.shared.model.ShadeScrollState
@@ -169,6 +174,14 @@ fun ContentScope.SingleShadeNestedScrollLayout(
             .collect { shouldCollapse -> if (shouldCollapse) scrimOffset.animateTo(0f) }
     }
     var scrimHeight by remember { mutableIntStateOf(0) }
+    val scrimTop = remember { mutableFloatStateOf(Float.POSITIVE_INFINITY) }
+    val headerGlassClip =
+        remember(scrimOffset, contentScrollState) {
+            {
+                if (scrimOffset.value < 0f || contentScrollState.value > 0) scrimTop.floatValue
+                else Float.POSITIVE_INFINITY
+            }
+        }
     Layout(
         modifier = modifier,
         contents =
@@ -192,11 +205,15 @@ fun ContentScope.SingleShadeNestedScrollLayout(
                         statusBarHeader()
                     }
                 },
-                { mediaAndQqsHeader() },
+                {
+                    CompositionLocalProvider(LocalGlassClipBottom provides headerGlassClip) {
+                        mediaAndQqsHeader()
+                    }
+                },
                 {
                     val flingBehavior = ScrollableDefaults.flingBehavior()
                     Box(
-                        Modifier
+                        Modifier.onPlaced { scrimTop.floatValue = it.positionInWindow().y }
                             // When part of the gesture was used to scroll Notifications, don't
                             // allow Scene changes by swipes.
                             .disableSwipesWhenScrolling()
