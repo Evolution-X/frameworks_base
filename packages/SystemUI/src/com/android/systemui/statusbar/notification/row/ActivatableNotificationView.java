@@ -30,6 +30,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Point;
+import android.os.Looper;
 import android.util.AttributeSet;
 import android.util.IndentingPrintWriter;
 import android.util.MathUtils;
@@ -216,7 +217,17 @@ public abstract class ActivatableNotificationView extends ExpandableOutlineView 
      */
     protected void initBackground() {
         mBackgroundNormal.setCustomBackground(R.drawable.notification_material_bg);
-        mBackgroundNormal.setBlurBackgroundEnabled(usesBlurredBackground());
+        updateBlurBackground();
+    }
+
+    private void updateBlurBackground() {
+        if (Looper.getMainLooper().isCurrentThread()) {
+            mBackgroundNormal.setBlurBackgroundEnabled(usesBlurredBackground());
+        } else {
+            // Rows are inflated on the NotifInflation thread, but the blur setup must run on the
+            // UI thread; the posted action runs once the row is attached.
+            post(this::updateBlurBackground);
+        }
     }
 
     protected boolean hideBackground() {
