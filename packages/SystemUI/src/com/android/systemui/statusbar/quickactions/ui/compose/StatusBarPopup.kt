@@ -304,6 +304,8 @@ fun StatusBarPopup(
         val cardShiftX = remember { Animatable(0f) }
         val reveal = remember { Animatable(1f) }
         val veil = remember { Animatable(0f) }
+        // The window blur ignores the veil and the layer alpha, so it fades with them.
+        val glassAlpha = remember { { alpha.value * (1f - veil.value) } }
         val cosCornerPx = with(density) { CosCardCorner.toPx() }
         var stackTopCardHeight by remember { mutableFloatStateOf(0f) }
         val colorMode = rememberPopupColorMode()
@@ -549,14 +551,16 @@ fun StatusBarPopup(
                                 }
                             )
                 ) {
-                    if (stackedChips != null) {
-                        IslandCardStack(
-                            chips = stackedChips,
-                            isVisible = isVisible,
-                            onTopCardHeight = { stackTopCardHeight = it },
-                        )
-                    } else {
-                        IslandPopupContent(viewModel)
+                    CompositionLocalProvider(LocalIslandGlassAlpha provides glassAlpha) {
+                        if (stackedChips != null) {
+                            IslandCardStack(
+                                chips = stackedChips,
+                                isVisible = isVisible,
+                                onTopCardHeight = { stackTopCardHeight = it },
+                            )
+                        } else {
+                            IslandPopupContent(viewModel)
+                        }
                     }
                 }
             }

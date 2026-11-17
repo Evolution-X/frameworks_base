@@ -38,15 +38,19 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.android.axion.blur.AxBlurSurface
 import com.android.systemui.common.ui.compose.Icon
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSTileRim
+import com.android.systemui.qs.shared.style.LiquidGlassBlue
+import com.android.systemui.qs.shared.style.liquidGlassEnabled
 import com.android.systemui.statusbar.quickactions.popups.shared.model.PopupActionModel
 
 /** True when the island draws its ColorOS style glass cards. */
@@ -73,15 +77,37 @@ fun IslandGlassCard(
     onClick: (() -> Unit)? = null,
     primaryAction: PopupActionModel? = null,
     secondaryAction: PopupActionModel? = null,
-    primaryActionColor: Color = GlassPrimaryFill,
+    primaryActionColor: Color = Color.Unspecified,
     secondaryActionColor: Color = GlassButtonFill,
     below: (@Composable () -> Unit)? = null,
 ) {
+    val liquid = liquidGlassEnabled()
+    val primaryFill =
+        primaryActionColor.takeOrElse { if (liquid) LiquidGlassBlue else GlassPrimaryFill }
+    val cardModifier =
+        modifier
+            .widthIn(min = 300.dp, max = 400.dp)
+            .pressScale(enabled = onClick != null, pressedScale = 0.97f) { onClick?.invoke() }
+    if (liquid) {
+        // Liquid glass: PopupSurface draws the blur, tint and rim, and keeps the content off the
+        // camera lens, so the body adds no clearance of its own.
+        PopupSurface(shape = GlassCardShape, modifier = cardModifier) {
+            GlassCardBody(
+                primary,
+                secondary,
+                glyph,
+                primaryAction,
+                secondaryAction,
+                primaryFill,
+                secondaryActionColor,
+                below,
+                clearance = 0.dp,
+            )
+        }
+        return
+    }
     AxBlurSurface(
-        modifier =
-            modifier
-                .widthIn(min = 300.dp, max = 400.dp)
-                .pressScale(enabled = onClick != null, pressedScale = 0.97f) { onClick?.invoke() },
+        modifier = cardModifier,
         shape = GlassCardShape,
         cornerRadius = 28.dp,
         surfaceColor = GlassNoBlurFill,
@@ -89,60 +115,79 @@ fun IslandGlassCard(
         highlight = ColorOSTileRim,
     ) {
         CompositionLocalProvider(LocalContentColor provides Color.White) {
-            Column(
-                modifier =
-                    Modifier.fillMaxWidth()
-                        // Keep the content off the camera lens; the glass runs up around it.
-                        .padding(top = LocalPopupCameraClearance.current)
-                        .padding(horizontal = 20.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                        glyph()
-                    }
-                    Spacer(Modifier.width(14.dp))
-                    Column(modifier = Modifier.weight(1f)) {
+            GlassCardBody(
+                primary,
+                secondary,
+                glyph,
+                primaryAction,
+                secondaryAction,
+                primaryFill,
+                secondaryActionColor,
+                below,
+                // Keep the content off the camera lens; the glass runs up around it.
+                clearance = LocalPopupCameraClearance.current,
+            )
+        }
+    }
+}
+
+@Composable
+private fun GlassCardBody(
+    primary: String,
+    secondary: String?,
+    glyph: @Composable () -> Unit,
+    primaryAction: PopupActionModel?,
+    secondaryAction: PopupActionModel?,
+    primaryFill: Color,
+    secondaryFill: Color,
+    below: (@Composable () -> Unit)?,
+    clearance: Dp,
+) {
+    Column(
+        modifier =
+            Modifier.fillMaxWidth()
+                .padding(top = clearance)
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) { glyph() }
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = primary,
+                    fontSize = 26.sp,
+                    lineHeight = 30.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                secondary
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let {
                         Text(
-                            text = primary,
-                            fontSize = 26.sp,
-                            lineHeight = 30.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
+                            text = it,
+                            fontSize = 14.sp,
+                            lineHeight = 18.sp,
+                            color = Color.White.copy(alpha = 0.7f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        secondary
-                            ?.takeIf { it.isNotBlank() }
-                            ?.let {
-                                Text(
-                                    text = it,
-                                    fontSize = 14.sp,
-                                    lineHeight = 18.sp,
-                                    color = Color.White.copy(alpha = 0.7f),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
                     }
-                    if (primaryAction != null || secondaryAction != null) {
-                        Spacer(Modifier.width(12.dp))
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            primaryAction?.let {
-                                GlassRoundButton(it, fill = primaryActionColor, size = 52)
-                            }
-                            secondaryAction?.let {
-                                GlassRoundButton(it, fill = secondaryActionColor, size = 48)
-                            }
-                        }
-                    }
+            }
+            if (primaryAction != null || secondaryAction != null) {
+                Spacer(Modifier.width(12.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    primaryAction?.let { GlassRoundButton(it, fill = primaryFill, size = 52) }
+                    secondaryAction?.let { GlassRoundButton(it, fill = secondaryFill, size = 48) }
                 }
-                below?.invoke()
             }
         }
+        below?.invoke()
     }
 }
 
