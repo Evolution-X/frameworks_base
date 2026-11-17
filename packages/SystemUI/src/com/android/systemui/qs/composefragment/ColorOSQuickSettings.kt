@@ -309,18 +309,15 @@ internal fun ContentScope.ColorOSQuickSettingsLayout(
     TileListener(fixed + listOfNotNull(pillTile), listening)
 
     // Null where SurfaceFlinger cannot blur behind the shade, the flat fills stay then.
-    // The modules are revealed when the shade opens and hidden when it closes, and the glass goes
-    // out quickly with it.
-    val leaving = rememberColorOSLeaving(expansion)
-    val glassFade = rememberColorOSGlassFade(leaving)
+    // The modules cascade in from the top as the shade opens and lift away bottom first as it
+    // closes, following the drag, and each one fades its own glass with it.
     val reveal: () -> Float = { colorOSExpansionReveal(expansion()) }
     // The glass is a blur region of the window, so it does not follow the alpha the scene
     // transition gives the content. The content fades in later than the panel is revealed, and
     // without its alpha the glass would show up before the tiles do.
     val glassBlur =
         rememberColorOSGlassBlur {
-            glassAlpha() * glassFade.value * reveal() *
-                (QuickSettings.Elements.QuickSettingsContent.currentAlpha() ?: 1f)
+            glassAlpha() * (QuickSettings.Elements.QuickSettingsContent.currentAlpha() ?: 1f)
         }
     val glass = colorOSGlass(blurred = glassBlur != null)
 
@@ -355,16 +352,18 @@ internal fun ContentScope.ColorOSQuickSettingsLayout(
 
                 // Row 1: Wi-Fi + Bluetooth, or what stands in for the one that is missing
                 if (fixed.isNotEmpty()) {
-                    Row(
-                        horizontalArrangement = spacedBy(ColorOSGap),
-                        modifier = Modifier.colorOSModuleReveal(1, leaving, reveal),
-                    ) {
-                        fixed.forEach { tile ->
-                            with(infiniteGridLayout) {
-                                ColorOSWideTile(tile, listening, Modifier.weight(1f))
+                    ColorOSModuleGlass(1, reveal) {
+                        Row(
+                            horizontalArrangement = spacedBy(ColorOSGap),
+                            modifier = Modifier.colorOSModuleReveal(1, reveal),
+                        ) {
+                            fixed.forEach { tile ->
+                                with(infiniteGridLayout) {
+                                    ColorOSWideTile(tile, listening, Modifier.weight(1f))
+                                }
                             }
+                            if (fixed.size < 2) Box(Modifier.weight(1f))
                         }
-                        if (fixed.size < 2) Box(Modifier.weight(1f))
                     }
                 }
 
@@ -372,83 +371,89 @@ internal fun ContentScope.ColorOSQuickSettingsLayout(
             // tiles below: the media card covers columns 1-2 and each slider one of columns 3-4.
             val moduleHeight = tileSize * 2 + ColorOSGap
             val sliderWidth = minOf(columnSize, moduleHeight / ColorOSSliderAspect)
-            Row(
-                horizontalArrangement = spacedBy(ColorOSGap),
-                modifier =
-                    Modifier.colorOSModuleReveal(2, leaving, reveal)
-                        .fillMaxWidth()
-                        .height(moduleHeight),
-            ) {
-                Box(
+            ColorOSModuleGlass(2, reveal) {
+                Row(
+                    horizontalArrangement = spacedBy(ColorOSGap),
                     modifier =
-                        Modifier.width(columnSize * 2 + ColorOSGap)
-                            .fillMaxHeight()
-                            // Playing and idle share the same glass slot, like the other ColorOS
-                            // cards, the media card only lays out its content on it.
-                            .glassSurface(glass, ColorOSMediaShape),
-                    contentAlignment = Alignment.Center,
+                        Modifier.colorOSModuleReveal(2, reveal)
+                            .fillMaxWidth()
+                            .height(moduleHeight),
                 ) {
-                    mediaHost(Modifier.matchParentSize())
-                    if (showMedia) {
-                        media(Modifier.fillMaxSize())
-                    } else {
-                        ColorOSIdleMediaCard(Modifier.fillMaxSize())
+                    Box(
+                        modifier =
+                            Modifier.width(columnSize * 2 + ColorOSGap)
+                                .fillMaxHeight()
+                                // Playing and idle share the same glass slot, like the other
+                                // ColorOS cards, the media card only lays out its content on it.
+                                .glassSurface(glass, ColorOSMediaShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        mediaHost(Modifier.matchParentSize())
+                        if (showMedia) {
+                            media(Modifier.fillMaxSize())
+                        } else {
+                            ColorOSIdleMediaCard(Modifier.fillMaxSize())
+                        }
                     }
-                }
-                Box(Modifier.width(columnSize).fillMaxHeight(), Alignment.Center) {
-                    ColorOSBrightnessSlider(
-                        viewModel = brightnessViewModel,
-                        glass = glass,
-                        modifier = Modifier.width(sliderWidth).fillMaxHeight(),
-                    )
-                }
-                Box(Modifier.width(columnSize).fillMaxHeight(), Alignment.Center) {
-                    ColorOSVolumeSlider(
-                        audioVolumeInteractor = audioVolumeInteractor,
-                        glass = glass,
-                        modifier = Modifier.width(sliderWidth).fillMaxHeight(),
-                    )
+                    Box(Modifier.width(columnSize).fillMaxHeight(), Alignment.Center) {
+                        ColorOSBrightnessSlider(
+                            viewModel = brightnessViewModel,
+                            glass = glass,
+                            modifier = Modifier.width(sliderWidth).fillMaxHeight(),
+                        )
+                    }
+                    Box(Modifier.width(columnSize).fillMaxHeight(), Alignment.Center) {
+                        ColorOSVolumeSlider(
+                            audioVolumeInteractor = audioVolumeInteractor,
+                            glass = glass,
+                            modifier = Modifier.width(sliderWidth).fillMaxHeight(),
+                        )
+                    }
                 }
             }
 
             // Row 3: My Devices + ringer switch, as ColorOS 17 has them. The mobile data tile is
                 // one of the round tiles below.
-                Row(
-                    horizontalArrangement = spacedBy(ColorOSGap),
-                    modifier = Modifier.colorOSModuleReveal(3, leaving, reveal),
-                ) {
-                    if (pillTile != null) {
-                        with(infiniteGridLayout) {
-                            ColorOSWideTile(pillTile, listening, Modifier.weight(1f))
+                ColorOSModuleGlass(3, reveal) {
+                    Row(
+                        horizontalArrangement = spacedBy(ColorOSGap),
+                        modifier = Modifier.colorOSModuleReveal(3, reveal),
+                    ) {
+                        if (pillTile != null) {
+                            with(infiniteGridLayout) {
+                                ColorOSWideTile(pillTile, listening, Modifier.weight(1f))
+                            }
+                        } else {
+                            ColorOSMyDevices(
+                                glass = glass,
+                                height = tileSize,
+                                onClick = onOpenDevices,
+                                modifier = Modifier.weight(1f),
+                            )
                         }
-                    } else {
-                        ColorOSMyDevices(
+                        ColorOSRingerSwitch(
+                            audioVolumeInteractor = audioVolumeInteractor,
                             glass = glass,
                             height = tileSize,
-                            onClick = onOpenDevices,
                             modifier = Modifier.weight(1f),
                         )
                     }
-                    ColorOSRingerSwitch(
-                        audioVolumeInteractor = audioVolumeInteractor,
-                        glass = glass,
-                        height = tileSize,
-                        modifier = Modifier.weight(1f),
-                    )
                 }
 
                 // Everything else: round icon tiles with labels (the grid handles paging + listening)
                 if (rest.isNotEmpty()) {
-                    with(gridLayout) {
-                        TileGrid(
-                            tiles = rest,
-                            modifier =
-                                Modifier.colorOSModuleReveal(4, leaving, reveal)
-                                    .fillMaxWidth()
-                                    .padding(top = ColorOSGridTopPadding),
-                            listening = listening,
-                            enableRevealEffect = false,
-                        )
+                    ColorOSModuleGlass(4, reveal) {
+                        with(gridLayout) {
+                            TileGrid(
+                                tiles = rest,
+                                modifier =
+                                    Modifier.colorOSModuleReveal(4, reveal)
+                                        .fillMaxWidth()
+                                        .padding(top = ColorOSGridTopPadding),
+                                listening = listening,
+                                enableRevealEffect = false,
+                            )
+                        }
                     }
                 }
             }

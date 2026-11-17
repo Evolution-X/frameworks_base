@@ -5,35 +5,18 @@
 
 package com.android.systemui.qs.composefragment
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.State
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
-import com.android.systemui.qs.panels.ui.compose.infinitegrid.colorOSSpring
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-
-/** How far the shown fraction of the panel has to move before it counts as a direction. */
-private const val ColorOSLeavingSlop = 0.004f
-
-/** A panel that is on its way out is not on its way in again below this shown fraction. */
-private const val ColorOSReopenFloor = 0.03f
-
-/** The modules of the panel start 16ms after each other, and slower the further down they are. */
-private const val ColorOSRevealStaggerMs = 16L
-private const val ColorOSRevealFrom = 0.8f
-private const val ColorOSRevealResponse = 0.2f
-private const val ColorOSRevealResponseStep = 0.01f
-private const val ColorOSHideResponse = 0.1f
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSGlassBlur
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSGlassBlur
 
 /** The panel starts to show at this fraction of its expansion, glass and modules together. */
 private const val ColorOSExpandRevealStart = 0.25f
@@ -43,17 +26,13 @@ private const val ColorOSExpandRevealEnd = 0.85f
 
 /**
  * How much of the panel is shown for the given [expansion], 0 when closed and 1 when open. The
- * modules and the glass fade in with the expansion, so they follow the drag from the quick
+ * modules cascade with it and their glass fades with them, so they follow the drag from the quick
  * settings to the panel and are never out of step: the glass is drawn by SurfaceFlinger and has no
  * other way to know how far the panel has come.
  */
-internal fun colorOSExpansionReveal(expansion: Float): Float {
-    val t =
-        ((expansion - ColorOSExpandRevealStart) /
-                (ColorOSExpandRevealEnd - ColorOSExpandRevealStart))
-            .coerceIn(0f, 1f)
-    return t * t * (3f - 2f * t)
-}
+internal fun colorOSExpansionReveal(expansion: Float): Float =
+    ((expansion - ColorOSExpandRevealStart) / (ColorOSExpandRevealEnd - ColorOSExpandRevealStart))
+        .coerceIn(0f, 1f)
 
 /** The launch of an activity from the shade has run this far before the glass starts to go out. */
 private const val ColorOSLaunchGlassFadeStart = 0.7f
@@ -75,97 +54,65 @@ internal fun colorOSLaunchGlassFade(progress: Float): Float =
                 (ColorOSLaunchGlassFadeEnd - ColorOSLaunchGlassFadeStart))
             .coerceIn(0f, 1f)
 
-/** The glass comes back like the modules in the middle of the panel do. */
-private const val ColorOSGlassRevealIndex = 2
+/** Part of the reveal by which each module starts after the one above it. */
+private const val ColorOSCascadeStep = 0.07f
 
-/** Critically damped, which is a response of about 0.1s. */
-private const val ColorOSGlassFadeStiffness = 3948f
+/** Modules the cascade is spread over; later ones start with the last. */
+private const val ColorOSCascadeModules = 6
 
-/**
- * Whether the panel is on its way out: the shown fraction of it ([expansion], 0 when closed and 1
- * when open) is going down, or it is closed. It is true at rest while closed, so the modules wait
- * hidden and are revealed when the shade starts to open.
- */
-@Composable
-internal fun rememberColorOSLeaving(expansion: () -> Float): State<Boolean> {
-    val currentExpansion by rememberUpdatedState(expansion)
-    val leaving = remember { mutableStateOf(Snapshot.withoutReadObservation { expansion() } <= 0f) }
-    LaunchedEffect(Unit) {
-        var last = currentExpansion()
-        snapshotFlow { currentExpansion() }
-            .collect { value ->
-                when {
-                    value <= 0f || value < last - ColorOSLeavingSlop -> {
-                        leaving.value = true
-                        last = value
-                    }
-                    // A small bump of the fraction at the floor of a closed panel does not make
-                    // it come back.
-                    value > last + ColorOSLeavingSlop &&
-                        (!leaving.value || value > ColorOSReopenFloor) -> {
-                        leaving.value = false
-                        last = value
-                    }
-                }
-            }
-    }
-    return leaving
+/** The size a module has when it starts to drop in. */
+private const val ColorOSCascadeFrom = 0.9f
+
+private val ColorOSCascadeDrop = 24.dp
+private val ColorOSCascadeDropStep = 8.dp
+
+private fun colorOSCascadeProgress(shown: Float, index: Int): Float {
+    val start = ColorOSCascadeStep * (index - 1).coerceIn(0, ColorOSCascadeModules - 1)
+    val span = 1f - ColorOSCascadeStep * (ColorOSCascadeModules - 1)
+    return ((shown - start) / span).coerceIn(0f, 1f)
 }
 
-/**
- * The glass of the panel is drawn by SurfaceFlinger and does not follow the modules as they fade,
- * so it goes out with a stiff spring as soon as the panel is [leaving]. It comes back with the
- * modules, after the same delay and with the same spring as the ones in the middle of the panel,
- * so it never shows before the content does.
- */
-@Composable
-internal fun rememberColorOSGlassFade(leaving: State<Boolean>): State<Float> {
-    val isLeaving = leaving.value
-    val fade = remember { Animatable(if (isLeaving) 0f else 1f) }
-    LaunchedEffect(isLeaving) {
-        if (isLeaving) {
-            fade.animateTo(0f, spring(dampingRatio = 1f, stiffness = ColorOSGlassFadeStiffness))
-        } else {
-            delay(ColorOSGlassRevealIndex * ColorOSRevealStaggerMs)
-            fade.animateTo(
-                1f,
-                colorOSSpring(
-                    0f,
-                    ColorOSRevealResponse + ColorOSGlassRevealIndex * ColorOSRevealResponseStep,
-                ),
-            )
-        }
-    }
-    return fade.asState()
-}
+private fun colorOSCascadeAlpha(shown: Float, index: Int): Float =
+    (colorOSCascadeProgress(shown, index) * 1.6f).coerceAtMost(1f)
 
 /**
- * Scales a module of the panel from 0.8 to 1 while it fades in, [index] places down the panel, and
- * back out quickly when the panel is [leaving].
+ * Like ColorOS, the panel unfolds as a cascade that follows the finger: each module drops in from
+ * above, growing and fading in, a little after the one above it and from a little further, so the
+ * panel pours down. Closing, the bottom modules lift away first. [reveal] is how much of the panel
+ * is shown, from 0 to 1, and [index] counts from 1 at the top.
  */
 @Composable
-internal fun Modifier.colorOSModuleReveal(
-    index: Int,
-    leaving: State<Boolean>,
-    reveal: () -> Float,
-): Modifier {
-    val isLeaving = leaving.value
-    val scale = remember { Animatable(if (isLeaving) ColorOSRevealFrom else 1f) }
-    val alpha = remember { Animatable(if (isLeaving) 0f else 1f) }
-    LaunchedEffect(isLeaving) {
-        if (isLeaving) {
-            launch { scale.animateTo(ColorOSRevealFrom, colorOSSpring(0f, ColorOSHideResponse)) }
-            alpha.animateTo(0f, colorOSSpring(0f, ColorOSHideResponse))
-        } else {
-            delay(index * ColorOSRevealStaggerMs)
-            val response = ColorOSRevealResponse + index * ColorOSRevealResponseStep
-            launch { scale.animateTo(1f, colorOSSpring(0f, response)) }
-            alpha.animateTo(1f, colorOSSpring(0f, response))
+internal fun Modifier.colorOSModuleReveal(index: Int, reveal: () -> Float): Modifier {
+    val drop =
+        with(LocalDensity.current) {
+            (ColorOSCascadeDrop + ColorOSCascadeDropStep * (index - 1)).toPx()
         }
-    }
     return graphicsLayer {
-        scaleX = scale.value
-        scaleY = scale.value
-        this.alpha = alpha.value * reveal()
+        val shown = reveal()
+        val eased = LinearOutSlowInEasing.transform(colorOSCascadeProgress(shown, index))
+        translationY = -drop * (1f - eased)
+        val scale = ColorOSCascadeFrom + (1f - ColorOSCascadeFrom) * eased
+        scaleX = scale
+        scaleY = scale
+        alpha = colorOSCascadeAlpha(shown, index)
     }
+}
+
+/**
+ * The glass under a module is a window blur, which takes neither the fade nor the movement of the
+ * module: it fades with the module here, so each tile keeps its outline while it shows.
+ */
+@Composable
+internal fun ColorOSModuleGlass(index: Int, reveal: () -> Float, content: @Composable () -> Unit) {
+    val outer = LocalColorOSGlassBlur.current
+    if (outer == null) {
+        content()
+        return
+    }
+    val currentReveal by rememberUpdatedState(reveal)
+    val blur =
+        remember(outer, index) {
+            ColorOSGlassBlur { outer.alpha() * colorOSCascadeAlpha(currentReveal(), index) }
+        }
+    CompositionLocalProvider(LocalColorOSGlassBlur provides blur, content = content)
 }
