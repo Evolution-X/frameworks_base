@@ -45,6 +45,7 @@ import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalQSBluetoothDe
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalQSQuadTiles
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.Tile
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSPanelStyle
+import com.android.systemui.qs.shared.style.LocalGlassBlurAlpha
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingQSMaxCellSize
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.forNothingColumns
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.inNothingLayoutOrder
@@ -107,31 +108,38 @@ fun ContentScope.QuickQuickSettings(
             keys = { rowTiles[it].tile.spec },
         ) { spanIndex, column, isFirstInColumn, isLastInColumn ->
             val it = rowTiles[spanIndex]
-            Element(it.tile.spec.toElementKey(), Modifier) {
-                Tile(
-                    tile = it.tile,
-                    iconOnly = classicStyle || it.isIcon,
-                    squishiness = { squishiness },
-                    coroutineScope = scope,
-                    bounceableInfo =
-                        bounceables.bounceableInfo(
-                            it,
-                            index = spanIndex,
-                            column = column,
-                            columns = columns,
-                            isFirstInRow = isFirstInColumn,
-                            isLastInRow = isLastInColumn,
-                            // Compact tiles bounce their content instead of their container.
-                            bouncesContainer = { index ->
-                                colorOSStyle || !(classicStyle || rowTiles[index].isIcon)
-                            },
-                        ),
-                    tileHapticsViewModelFactory = viewModel.tileHapticsViewModelFactory,
-                    // There should be no QuickQuickSettings when the details view is enabled.
-                    detailsViewModel = null,
-                    isVisible = listening,
-                    hideLabel = colorOSStyle,
-                )
+            // Tile glass is a window blur region and ignores the element's fade, so a QQS tile
+            // faded out over the expanded QS grid would still blur through it.
+            val key = it.tile.spec.toElementKey()
+            val outerGlass = LocalGlassBlurAlpha.current
+            val glass = remember(outerGlass, key) { { outerGlass() * (key.currentAlpha() ?: 1f) } }
+            Element(key, Modifier) {
+                CompositionLocalProvider(LocalGlassBlurAlpha provides glass) {
+                    Tile(
+                        tile = it.tile,
+                        iconOnly = classicStyle || it.isIcon,
+                        squishiness = { squishiness },
+                        coroutineScope = scope,
+                        bounceableInfo =
+                            bounceables.bounceableInfo(
+                                it,
+                                index = spanIndex,
+                                column = column,
+                                columns = columns,
+                                isFirstInRow = isFirstInColumn,
+                                isLastInRow = isLastInColumn,
+                                // Compact tiles bounce their content instead of their container.
+                                bouncesContainer = { index ->
+                                    colorOSStyle || !(classicStyle || rowTiles[index].isIcon)
+                                },
+                            ),
+                        tileHapticsViewModelFactory = viewModel.tileHapticsViewModelFactory,
+                        // There should be no QuickQuickSettings when the details view is enabled.
+                        detailsViewModel = null,
+                        isVisible = listening,
+                        hideLabel = colorOSStyle,
+                    )
+                }
             }
         }
     }
@@ -230,10 +238,14 @@ private fun ContentScope.NothingQuickQuickSettings(
             modifier = Modifier.sysuiResTag("qqs_tile_layout"),
         ) { spanIndex, _ ->
             val it = qqsTiles[spanIndex]
-            Element(it.spec.toElementKey(), Modifier) {
+            val key = it.spec.toElementKey()
+            val outerGlass = LocalGlassBlurAlpha.current
+            val glass = remember(outerGlass, key) { { outerGlass() * (key.currentAlpha() ?: 1f) } }
+            Element(key, Modifier) {
                 CompositionLocalProvider(
                     LocalQSQuadTiles provides quadTiles,
                     LocalQSBluetoothDevices provides viewModel.connectedBluetoothDevices,
+                    LocalGlassBlurAlpha provides glass,
                 ) {
                     Tile(
                         tile = it,
