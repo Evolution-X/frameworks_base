@@ -25,6 +25,7 @@ import android.graphics.Canvas;
 import android.graphics.Path;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
@@ -41,6 +42,7 @@ import com.android.internal.graphics.drawable.BackgroundBlurDrawable;
 import com.android.internal.util.ContrastColorUtil;
 import com.android.systemui.Dumpable;
 import com.android.systemui.common.shared.colors.SurfaceEffectColors;
+import com.android.systemui.qs.shared.style.LiquidGlass;
 import com.android.systemui.res.R;
 import com.android.systemui.statusbar.notification.shared.NotificationAddXOnHoverToDismiss;
 import com.android.systemui.util.Assert;
@@ -146,6 +148,7 @@ public class NotificationBackgroundView extends View implements Dumpable,
                     drawBlur(canvas, null);
                 } else {
                     draw(canvas, mBackground);
+                    drawGlassRim(canvas, mBackground != null ? mBackground.getBounds() : null);
                 }
                 canvas.restore();
                 return;
@@ -162,9 +165,11 @@ public class NotificationBackgroundView extends View implements Dumpable,
             }
             if (mBackgroundBlurDrawable != null) {
                 drawBlur(canvas, backgroundBounds);
+                drawGlassRim(canvas, mBlurBounds);
             } else if (mBackground != null) {
                 mBackground.setBounds(backgroundBounds);
                 mBackground.draw(canvas);
+                drawGlassRim(canvas, backgroundBounds);
             }
 
             canvas.restore();
@@ -196,6 +201,28 @@ public class NotificationBackgroundView extends View implements Dumpable,
         path.lineTo(left, top);
 
         return path;
+    }
+
+    private final RectF mGlassBounds = new RectF();
+
+    /** Strokes the Liquid Glass rim around a card. Not drawn under the ColorOS panel. */
+    private void drawGlassRim(Canvas canvas, @Nullable Rect bounds) {
+        if (bounds == null || bounds.isEmpty() || !LiquidGlass.isOnShade(getContext())) {
+            return;
+        }
+        mGlassBounds.set(bounds);
+        LiquidGlass.drawRim(canvas, mGlassBounds, mCornerRadii,
+                getResources().getDisplayMetrics().density);
+    }
+
+    /**
+     * The fill of a card on Liquid Glass: a faint frost instead of the card color. Only the
+     * plain card color is swapped. Tinted cards (a conversation, a call) keep their own, and the
+     * shade colors are never touched, those stay with ShadeColors and shade_color_style.
+     */
+    private int surfaceFor(int tintColor) {
+        if (tintColor != mNormalColor || !LiquidGlass.isOnShade(getContext())) return tintColor;
+        return LiquidGlass.viewSurface();
     }
 
     private void drawBlur(Canvas canvas, @Nullable Rect backgroundBounds) {
@@ -419,7 +446,8 @@ public class NotificationBackgroundView extends View implements Dumpable,
                 getResources().getDimensionPixelSize(R.dimen.notification_background_blur_radius));
         mBackgroundBlurDrawable.setXfermode(null);
         mBackgroundBlurDrawable.setCallback(this);
-        mBackgroundBlurDrawable.setColor(mTintColor != 0 ? mTintColor : mNormalColor);
+        mBackgroundBlurDrawable.setColor(
+                surfaceFor(mTintColor != 0 ? mTintColor : mNormalColor));
         if (!isAggregatedVisible()) {
             mBackgroundBlurDrawable.setVisible(false, false);
         }
@@ -480,14 +508,15 @@ public class NotificationBackgroundView extends View implements Dumpable,
 
     public void setTint(int tintColor) {
         Drawable baseLayer = getBaseBackgroundLayer();
+        final int surface = surfaceFor(tintColor);
         if (mIsBlurSupported) {
-            ((GradientDrawable) baseLayer.mutate()).setColor(tintColor);
+            ((GradientDrawable) baseLayer.mutate()).setColor(surface);
         } else {
             baseLayer.mutate().setTintMode(PorterDuff.Mode.SRC_ATOP);
-            baseLayer.setTint(tintColor);
+            baseLayer.setTint(surface);
         }
         if (mBackgroundBlurDrawable != null) {
-            mBackgroundBlurDrawable.setColor(tintColor);
+            mBackgroundBlurDrawable.setColor(surface);
         }
         mTintColor = tintColor;
         setStatefulColors();
