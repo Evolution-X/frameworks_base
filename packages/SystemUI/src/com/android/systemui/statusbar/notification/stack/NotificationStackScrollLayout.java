@@ -556,6 +556,7 @@ public class NotificationStackScrollLayout
 
     /** Radius of the blur effect applied to the content of the NSSL. */
     private float mBlurRadius = 0f;
+    private NotificationGlassPress mGlassPress;
     @Nullable private RenderEffect mBlurEffect = null;
 
     /**
@@ -4108,6 +4109,10 @@ public class NotificationStackScrollLayout
 
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
+        if (LiquidGlass.isOnShade(mContext)) {
+            if (mGlassPress == null) mGlassPress = new NotificationGlassPress(this);
+            mGlassPress.onTouch(this, ev);
+        }
         if (NsslTouchDispatchFix.isEnabled()) {
             // IMPORTANT: Dispatch to super first to handle standard touch routing.
             // This triggers side effects on subsequent events (like ACTION_MOVE), potentially
