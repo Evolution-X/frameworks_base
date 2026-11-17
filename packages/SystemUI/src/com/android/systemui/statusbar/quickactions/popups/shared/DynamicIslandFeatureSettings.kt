@@ -119,10 +119,10 @@ object DynamicIslandFeatureSettings {
 
     /** Whether the island uses the ColorOS look; off unless the user turns it on. */
     fun ContentResolver.readDynamicIslandColorOSStyle(): Boolean =
-        readDynamicIslandFeatureEnabled(COLOROS_STYLE, defaultValue = false)
+        readDynamicIslandFeatureEnabled(COLOROS_STYLE, defaultValue = true)
 
     fun observeDynamicIslandColorOSStyle(context: Context): Flow<Boolean> =
-        observeDynamicIslandFeatureEnabled(context, COLOROS_STYLE, defaultValue = false)
+        observeDynamicIslandFeatureEnabled(context, COLOROS_STYLE, defaultValue = true)
 
     fun observeDynamicIslandFeatureEnabled(
         context: Context,
