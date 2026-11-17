@@ -23,6 +23,7 @@ import static com.android.systemui.util.ColorUtilKt.hexColorString;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.graphics.Color;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.util.AttributeSet;
@@ -577,6 +578,10 @@ public class NotificationShelf extends ActivatableNotificationView {
 
         // TODO(b/172289889) transition last icon in shelf to notification icon and vice versa.
         setVisibility(isHidden ? View.INVISIBLE : View.VISIBLE);
+        // The lock screen pill is glass over the wallpaper, so its icons stay white there.
+        mShelfIcons.setForcedOverrideIconColor(
+                mAmbientState.isOnKeyguard() && LiquidGlass.isOnShade(getContext())
+                        ? Color.WHITE : 0);
         mShelfIcons.calculateIconXTranslations();
         mShelfIcons.applyIconStates();
         for (int i = 0; i < getHostLayoutChildCount(); i++) {
