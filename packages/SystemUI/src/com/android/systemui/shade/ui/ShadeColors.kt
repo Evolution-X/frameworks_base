@@ -31,12 +31,16 @@ import android.provider.Settings
 import com.android.internal.graphics.ColorUtils
 import com.android.internal.graphics.cam.Cam
 import com.android.systemui.common.shared.colors.SurfaceEffectColors
+import com.android.systemui.qs.shared.style.LiquidGlass
+import com.android.systemui.qs.shared.style.LiquidGlassTune
 import com.android.systemui.res.R
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
 object ShadeColors {
+
+    private val LIQUID_GLASS_DUAL_TONE get() = LiquidGlassTune.f("dual_tone", 0.12f)
 
     enum class Style { AOSP, GLASS, TINTED }
 
@@ -133,8 +137,20 @@ object ShadeColors {
             notificationScrim(context, blurSupported)
         }
         if (!composited) return card
-        return ColorUtils.compositeColors(card, shadePanel(context, blurSupported, true))
+        val panel = shadePanel(context, blurSupported, true)
+        if (blurSupported && glassDualTone(context)) {
+            // Dual tone on glass: a faint tint behind notifications instead of a card color.
+            val alpha = (LIQUID_GLASS_DUAL_TONE.coerceIn(0f, 1f) * 255).roundToInt()
+            val tone =
+                ColorUtils.setAlphaComponent(context.getColor(R.color.notification_scrim_base), alpha)
+            return ColorUtils.compositeColors(tone, panel)
+        }
+        return ColorUtils.compositeColors(card, panel)
     }
+
+    /** Dual tone for Liquid Glass, off under the ColorOS panel, which has its own card glass. */
+    private fun glassDualTone(context: Context): Boolean =
+        LiquidGlass.isOnShade(context) && LiquidGlass.dualTone(context).value
 
     @JvmStatic
     fun glassEdge(context: Context): Int {
