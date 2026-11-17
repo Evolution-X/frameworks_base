@@ -29,6 +29,7 @@ import android.os.Looper;
 import android.os.PowerManager;
 import android.os.SystemClock;
 import android.service.quicksettings.Tile;
+import android.text.TextUtils;
 
 import androidx.annotation.Nullable;
 
@@ -225,8 +226,10 @@ public class CaffeineTile extends QSTileImpl<BooleanState> {
         state.hasLongClickEffect = false;
         if (state.value) {
             state.secondaryLabel = formatValueWithRemainingTime();
-            state.contentDescription =  mContext.getString(
-                    R.string.accessibility_quick_settings_caffeine_on);
+            state.contentDescription = TextUtils.concat(
+                    mContext.getString(R.string.accessibility_quick_settings_caffeine_on),
+                    " ",
+                    state.secondaryLabel);
             state.state = Tile.STATE_ACTIVE;
         } else {
             state.secondaryLabel = null;
