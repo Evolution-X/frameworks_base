@@ -28,12 +28,14 @@
 #include <sys/poll.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <dirent.h>
 #include <math.h>
 #include <fcntl.h>
 #include <utils/misc.h>
 #include <utils/Trace.h>
 #include <signal.h>
 #include <time.h>
+#include <cstdlib>
 #include <unistd.h>
 
 #include <cutils/properties.h>
@@ -668,14 +670,55 @@ bool BootAnimation::preloadAnimation() {
     return false;
 }
 
+// Picks a random installed boot animation for persist.sys.bootanim.name == "random":
+// the default zip plus every bootanimation_<name>.zip in /product/media, excluding
+// the custom and random names. Falls back to the default zip.
+static std::string pickRandomBootAnimation() {
+    std::vector<std::string> candidates;
+    const std::string dir = "/product/media";
+    if (access((dir + "/bootanimation.zip").c_str(), R_OK) == 0) {
+        candidates.push_back(dir + "/bootanimation.zip");
+    }
+    DIR *dirp = opendir(dir.c_str());
+    if (dirp != nullptr) {
+        struct dirent *entry;
+        while ((entry = readdir(dirp)) != nullptr) {
+            const std::string file = entry->d_name;
+            if (file.rfind("bootanimation_", 0) != 0) continue;
+            if (file.length() <= strlen("bootanimation_") + strlen(".zip")) continue;
+            if (file.compare(file.length() - 4, 4, ".zip") != 0) continue;
+            const std::string name = file.substr(strlen("bootanimation_"),
+                    file.length() - strlen("bootanimation_") - 4);
+            if (name == "custom" || name == "random") continue;
+            if (name.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789_") !=
+                    std::string::npos) {
+                continue;
+            }
+            const std::string path = dir + "/" + file;
+            if (access(path.c_str(), R_OK) == 0) candidates.push_back(path);
+        }
+        closedir(dirp);
+    }
+    if (candidates.empty()) return BOOT_ANIMATION_FILES[0];
+    static bool seeded = false;
+    if (!seeded) {
+        srand(time(nullptr));
+        seeded = true;
+    }
+    return candidates[rand() % candidates.size()];
+}
+
 // Resolves the requested boot animation. persist.sys.bootanim.name wins
-// ("custom" or a [a-z0-9_]+ key mapping to bootanimation_<key>.zip); the
-// legacy index in persist.sys.bootanimation_style is only used when no
-// name has been set yet.
+// ("custom", "random", or a [a-z0-9_]+ key mapping to bootanimation_<key>.zip);
+// the legacy index in persist.sys.bootanimation_style is only used when no name
+// has been set yet.
 static std::string resolveBootAnimationPath() {
     const std::string name = android::base::GetProperty("persist.sys.bootanim.name", "");
     if (name == "custom") {
         return "/data/misc/bootanim/bootanimation.zip";
+    }
+    if (name == "random") {
+        return pickRandomBootAnimation();
     }
     if (!name.empty()) {
         if (name != "default" &&
@@ -690,6 +733,26 @@ static std::string resolveBootAnimationPath() {
     // it can't be mapped here. SystemServer pins it to a name on this boot; show the default
     // animation until then.
     return BOOT_ANIMATION_FILES[0];
+}
+
+// Resolves the requested shutdown animation the same way the boot one is: a
+// "custom" value points to /data/misc/bootanim/shutdownanimation.zip and a
+// [a-z0-9_]+ key maps to shutdownanimation_<key>.zip. An unset property keeps
+// the stock shutdown animation.
+static std::string resolveShutdownAnimationPath() {
+    const std::string name = android::base::GetProperty("persist.sys.bootanim.shutdown", "");
+    if (name == "custom") {
+        return "/data/misc/bootanim/shutdownanimation.zip";
+    }
+    if (!name.empty()) {
+        if (name != "default" &&
+            name.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789_") ==
+                    std::string::npos) {
+            const std::string path = "/product/media/shutdownanimation_" + name + ".zip";
+            if (access(path.c_str(), R_OK) == 0) return path;
+        }
+    }
+    return "";
 }
 
 bool BootAnimation::findBootAnimationFileInternal(const std::vector<std::string> &files) {
@@ -729,9 +792,17 @@ void BootAnimation::findBootAnimationFile() {
     if (selectedBootAnimation != BOOT_ANIMATION_FILES[0]) {
         bootFiles.push_back(BOOT_ANIMATION_FILES[0]);
     }
-    static const std::vector<std::string> shutdownFiles = {
-        PRODUCT_SHUTDOWNANIMATION_FILE, OEM_SHUTDOWNANIMATION_FILE, SYSTEM_SHUTDOWNANIMATION_FILE, ""
-    };
+    // A custom or named shutdown animation from resolveShutdownAnimationPath()
+    // wins; an empty slot at the end keeps "no shutdown animation" as the last resort.
+    std::vector<std::string> shutdownFiles;
+    const std::string resolvedShutdown = resolveShutdownAnimationPath();
+    if (!resolvedShutdown.empty()) {
+        shutdownFiles.push_back(resolvedShutdown);
+    }
+    shutdownFiles.insert(shutdownFiles.end(), {
+        PRODUCT_SHUTDOWNANIMATION_FILE, OEM_SHUTDOWNANIMATION_FILE,
+        SYSTEM_SHUTDOWNANIMATION_FILE, ""
+    });
     static const std::vector<std::string> userspaceRebootFiles = {
         PRODUCT_USERSPACE_REBOOT_ANIMATION_FILE, OEM_USERSPACE_REBOOT_ANIMATION_FILE,
         SYSTEM_USERSPACE_REBOOT_ANIMATION_FILE,
