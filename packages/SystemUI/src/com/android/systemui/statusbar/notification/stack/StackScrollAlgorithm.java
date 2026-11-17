@@ -28,6 +28,7 @@ import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.policy.SystemBarUtils;
 import com.android.keyguard.BouncerPanelExpansionCalculator;
 import com.android.systemui.animation.ShadeInterpolation;
+import com.android.systemui.qs.shared.style.LiquidGlass;
 import com.android.systemui.res.R;
 import com.android.systemui.scene.shared.flag.SceneContainerFlag;
 import com.android.systemui.shade.transition.LargeScreenShadeInterpolator;
@@ -101,8 +102,9 @@ public class StackScrollAlgorithm {
 
     private void updateResources(Context context) {
         Resources res = context.getResources();
-        mPaddingBetweenElements = res.getDimensionPixelSize(
-                R.dimen.notification_divider_height);
+        LiquidGlass.isOnShade(context);
+        mPaddingBetweenElements = LiquidGlass.notificationGap(res,
+                res.getDimensionPixelSize(R.dimen.notification_divider_height));
         mCollapsedSize = res.getDimensionPixelSize(R.dimen.notification_min_height);
         mEnableNotificationClipping = res.getBoolean(R.bool.notification_enable_clipping);
         mClipNotificationScrollToTop = res.getBoolean(R.bool.config_clipNotificationScrollToTop);

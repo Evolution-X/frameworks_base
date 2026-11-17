@@ -42,6 +42,7 @@ import com.android.app.animation.Interpolators;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.policy.SystemBarUtils;
 import com.android.systemui.animation.ShadeInterpolation;
+import com.android.systemui.qs.shared.style.LiquidGlass;
 import com.android.systemui.res.R;
 import com.android.systemui.scene.shared.flag.SceneContainerFlag;
 import com.android.systemui.shade.transition.LargeScreenShadeInterpolator;
@@ -148,7 +149,9 @@ public class NotificationShelf extends ActivatableNotificationView {
     private void updateResources() {
         Resources res = getResources();
         mStatusBarHeight = SystemBarUtils.getStatusBarHeight(mContext);
-        mPaddingBetweenElements = res.getDimensionPixelSize(R.dimen.notification_divider_height);
+        LiquidGlass.isOnShade(mContext);
+        mPaddingBetweenElements = LiquidGlass.notificationGap(res,
+                res.getDimensionPixelSize(R.dimen.notification_divider_height));
         mMaxIconsOnLockscreen = res.getInteger(R.integer.max_notif_icons_on_lockscreen);
 
         ViewGroup.LayoutParams layoutParams = getLayoutParams();
