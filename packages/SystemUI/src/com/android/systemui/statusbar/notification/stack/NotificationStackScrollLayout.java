@@ -557,6 +557,7 @@ public class NotificationStackScrollLayout
     /** Radius of the blur effect applied to the content of the NSSL. */
     private float mBlurRadius = 0f;
     private NotificationGlassPress mGlassPress;
+    private float mBlurFade = 1f;
     @Nullable private RenderEffect mBlurEffect = null;
 
     /**
@@ -1739,7 +1740,7 @@ public class NotificationStackScrollLayout
     @Override
     public void setAlpha(float alpha) {
         super.setAlpha(alpha);
-        updateChildrenBlurRegionSuppression(alpha);
+        updateChildrenBlurRegionSuppression(alpha * mBlurFade);
         if (Trace.isEnabled()) {
             Trace.setCounter(
                     trackGroup(/* groupName= */ "shade", /* trackName= */ "NSSLResultingAlpha"),
@@ -1754,7 +1755,7 @@ public class NotificationStackScrollLayout
         // as empty glass cards under it.
         if (mBlurRegionsHidden != !isVisible) {
             mBlurRegionsHidden = !isVisible;
-            updateChildrenBlurRegionSuppression(getAlpha());
+            updateChildrenBlurRegionSuppression(getAlpha() * mBlurFade);
         }
     }
 
@@ -6739,6 +6740,20 @@ public class NotificationStackScrollLayout
     }
 
     private void updateBlurEffect() {
+        if (mBlurRadius > 0 && LiquidGlass.isOnShade(mContext)) {
+            // The cards' window blur is not part of this view's content, so a RenderEffect blur
+            // would leave it sharp under the bouncer. Fade the stack with the blur instead.
+            final float max = getResources().getDimensionPixelSize(
+                    R.dimen.max_shade_content_blur_radius) * 0.6f;
+            mBlurFade = 1f - Math.min(1f, mBlurRadius / Math.max(max, 1f));
+            mBlurEffect = null;
+            // The bouncer fades the drawn stack; the cards window blur, the shelf pills
+            // included, has to fade with it or it stays on screen.
+            updateChildrenBlurRegionSuppression(getAlpha() * mBlurFade);
+            return;
+        }
+        mBlurFade = 1f;
+        updateChildrenBlurRegionSuppression(getAlpha());
         if (mBlurRadius > 0) {
             mBlurEffect =
                     RenderEffect.createBlurEffect(mBlurRadius, mBlurRadius, Shader.TileMode.CLAMP);
@@ -6925,22 +6940,25 @@ public class NotificationStackScrollLayout
 
     @Override
     protected void dispatchDraw(@NonNull Canvas canvas) {
-        if (mBlurEffect != null) {
+        if (mBlurEffect != null || mBlurFade < 1f) {
             spewLog("Applying blur RenderEffect to NotificationStackScrollLayout");
-            // reuse the cached RenderNode to blur
-            mBlurNode.setPosition(0, 0, canvas.getWidth(), canvas.getHeight());
-            mBlurNode.setRenderEffect(mBlurEffect);
-            Canvas blurCanvas = mBlurNode.beginRecording();
-            // draw all the children (except HUNs) on the blurred canvas
-            super.dispatchDraw(blurCanvas);
-            mBlurNode.endRecording();
-            // apply clipping to the canvas
-            int saveCount = canvas.save();
-            applyClipToCanvas(canvas);
-            // draw the blurred content to the clipped canvas
-            canvas.drawRenderNode(mBlurNode);
-            // restore the canvas, so it doesn't clip anymore
-            canvas.restoreToCount(saveCount);
+            if (mBlurFade > 0f) {
+                // reuse the cached RenderNode to blur
+                mBlurNode.setPosition(0, 0, canvas.getWidth(), canvas.getHeight());
+                mBlurNode.setRenderEffect(mBlurEffect);
+                mBlurNode.setAlpha(mBlurFade);
+                Canvas blurCanvas = mBlurNode.beginRecording();
+                // draw all the children (except HUNs) on the blurred canvas
+                super.dispatchDraw(blurCanvas);
+                mBlurNode.endRecording();
+                // apply clipping to the canvas
+                int saveCount = canvas.save();
+                applyClipToCanvas(canvas);
+                // draw the blurred content to the clipped canvas
+                canvas.drawRenderNode(mBlurNode);
+                // restore the canvas, so it doesn't clip anymore
+                canvas.restoreToCount(saveCount);
+            }
             // draw the children that were left out during the dispatchDraw phase
             for (int i = 0; i < getChildCount(); i++) {
                 // TODO(b/388469101) draw these children in z-order
@@ -6974,7 +6992,7 @@ public class NotificationStackScrollLayout
     protected boolean drawChild(Canvas canvas, View child, long drawingTime) {
         boolean shouldUseClipping =
                 mShouldUseRoundedRectClipping || mShouldUseNegativeRoundedRectClipping;
-        if (mBlurEffect != null) {
+        if (mBlurEffect != null || mBlurFade < 1f) {
             if (shouldSkipBlurForChild(child)) {
                 // skip drawing this child during the regular dispatchDraw pass
                 return false;
