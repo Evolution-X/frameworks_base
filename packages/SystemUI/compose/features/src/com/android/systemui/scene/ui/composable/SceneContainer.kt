@@ -65,6 +65,7 @@ import com.android.systemui.scene.shared.model.SceneDataSourceDelegator
 import com.android.systemui.scene.ui.view.SceneJankMonitor
 import com.android.systemui.scene.ui.view.SceneTransitionLatencyMonitor
 import com.android.systemui.scene.ui.viewmodel.SceneContainerViewModel
+import com.android.systemui.shade.ui.composable.CosShadeGlass
 import com.android.systemui.shade.ui.composable.OverlayShade
 import kotlinx.coroutines.CoroutineScope
 import platform.test.motion.compose.values.isRunningMotionTest
@@ -301,6 +302,8 @@ private fun InternalSceneContainer(
             wallpaperViewModel = viewModel.wallpaperViewModel,
             modifier = Modifier.fillMaxSize(),
         )
+
+        CosShadeGlass(state, viewModel.isLaunchingActivity)
 
         SceneTransitionLayout(
             state = state,
