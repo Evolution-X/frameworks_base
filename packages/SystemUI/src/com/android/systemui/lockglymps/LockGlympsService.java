@@ -14,6 +14,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.ImageDecoder;
 import android.net.Uri;
 import android.os.Environment;
 import android.os.Handler;
@@ -38,7 +39,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
@@ -315,6 +318,9 @@ public class LockGlympsService extends Service {
      */
     private void preFetch() {
         if (!shouldDownload()) return;
+        // Prefetching is a convenience: never spend battery saver budget on it.
+        // On-demand changes keep working, they just skip the warm pool.
+        if (isPowerSaveMode()) return;
         int count = cachedImages().length;
         while (count < mCacheSize) {
             Bitmap bitmap = null;
@@ -470,7 +476,30 @@ public class LockGlympsService extends Service {
             query.color = taste.optString("color");
             query.preset = taste.optString("preset");
         }
+        JSONObject mood = dayNightOverlay();
+        if (mood != null && !mood.optString("topics").isEmpty()) {
+            // Day/night only steers the topic, so a user who never filled the
+            // extra block keeps exactly the taste they already chose.
+            query.topics = mood.optString("topics");
+        }
         return query;
+    }
+
+    /** Night block from 18:00 to 06:00 when the user turned day/night on. */
+    private JSONObject dayNightOverlay() {
+        try {
+            if (mTaste == null || !mTaste.optBoolean("dayNight", false)) return null;
+            int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
+            boolean night = hour < 6 || hour >= 18;
+            return mTaste.optJSONObject(night ? "night" : "day");
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private boolean isPowerSaveMode() {
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        return pm != null && pm.isPowerSaveMode();
     }
 
     private void changeWallpaper(int target) {
@@ -590,6 +619,11 @@ public class LockGlympsService extends Service {
             }
         }
         byte[] data = bytes.toByteArray();
+        Bitmap decoded = decodeCover(data);
+        if (decoded != null) {
+            return decoded;
+        }
+        // Fallback for formats or images the platform decoder rejects.
         BitmapFactory.Options bounds = new BitmapFactory.Options();
         bounds.inJustDecodeBounds = true;
         BitmapFactory.decodeByteArray(data, 0, data.length, bounds);
@@ -597,6 +631,36 @@ public class LockGlympsService extends Service {
         BitmapFactory.Options options = new BitmapFactory.Options();
         options.inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight);
         return BitmapFactory.decodeByteArray(data, 0, data.length, options);
+    }
+
+    /**
+     * Decodes straight to the smallest size that still covers 1080x1920.
+     * ImageDecoder applies the scale inside the decoder, so a 4K source never
+     * allocates its full pixel buffer just to be scaled down and recycled.
+     * Software allocation is required because WallpaperManager re-encodes the
+     * bitmap and hardware bitmaps cannot be read back.
+     */
+    private Bitmap decodeCover(byte[] data) {
+        if (data == null || data.length == 0) return null;
+        try {
+            ImageDecoder.Source source = ImageDecoder.createSource(ByteBuffer.wrap(data));
+            return ImageDecoder.decodeBitmap(source, this::applyCoverSize);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void applyCoverSize(ImageDecoder decoder, ImageDecoder.ImageInfo info,
+            ImageDecoder.Source source) {
+        int width = info.getSize().getWidth();
+        int height = info.getSize().getHeight();
+        if (width <= 0 || height <= 0) return;
+        float scale = Math.max((float) GlympsProvider.TARGET_WIDTH / width,
+                (float) GlympsProvider.TARGET_HEIGHT / height);
+        int targetWidth = Math.max(GlympsProvider.TARGET_WIDTH, Math.round(width * scale));
+        int targetHeight = Math.max(GlympsProvider.TARGET_HEIGHT, Math.round(height * scale));
+        decoder.setTargetSize(targetWidth, targetHeight);
+        decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);
     }
 
     private static int sampleSize(int width, int height) {
@@ -770,9 +834,25 @@ public class LockGlympsService extends Service {
             }
             current.put("time", System.currentTimeMillis());
             appendStats(current);
+            appendCacheStats(current);
             Settings.System.putString(getContentResolver(), KEY_CURRENT, current.toString());
         } catch (Exception e) {
             Log.w(TAG, "current save", e);
+        }
+    }
+
+    /** Publishes cache occupancy so the settings screen can show it. */
+    private void appendCacheStats(JSONObject target) {
+        try {
+            File[] images = cachedImages();
+            long bytes = 0;
+            for (File image : images) {
+                bytes += image.length();
+            }
+            target.put("cacheCount", images.length);
+            target.put("cacheMb", Math.round(bytes / (1024.0 * 1024.0) * 10.0) / 10.0);
+        } catch (Exception e) {
+            // cosmetic only
         }
     }
 
@@ -799,6 +879,12 @@ public class LockGlympsService extends Service {
 
     /** Bounded decode for cache entries (they are already at the target size). */
     private Bitmap decodeFileBounded(File file) {
+        try {
+            ImageDecoder.Source source = ImageDecoder.createSource(file);
+            return ImageDecoder.decodeBitmap(source, this::applyCoverSize);
+        } catch (Exception e) {
+            // fall through to the BitmapFactory path
+        }
         BitmapFactory.Options bounds = new BitmapFactory.Options();
         bounds.inJustDecodeBounds = true;
         BitmapFactory.decodeFile(file.getPath(), bounds);
