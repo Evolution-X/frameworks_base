@@ -54,6 +54,7 @@ import com.android.systemui.scene.shared.model.Overlays
 import com.android.systemui.scene.shared.model.Scenes
 import com.android.systemui.scene.ui.composable.Overlay
 import com.android.systemui.shade.ShadeDisplayAware
+import com.android.systemui.shade.domain.interactor.ShadeAnimationInteractor
 import com.android.systemui.shade.domain.interactor.ShadeModeInteractor
 import com.android.systemui.shade.shared.model.ShadeMode
 import com.android.systemui.statusbar.core.StatusBarForDesktop
@@ -101,6 +102,7 @@ constructor(
     private val toastDisplayer: Lazy<SceneContainerToastDisplayer>,
     @Assisted private val motionEventHandlerReceiver: (MotionEventHandler?) -> Unit,
     private val accessibilityInteractor: AccessibilityInteractor,
+    shadeAnimationInteractor: ShadeAnimationInteractor,
 ) : HydratedActivatable() {
 
     /** The scene that should be rendered. */
@@ -109,6 +111,9 @@ constructor(
 
     val blurViewModel: SceneTransitionBlurViewModel = sceneTransitionBlurViewModelFactory.create()
     val toBouncerTransitionViewModel = toBouncerTransitionViewModelFactory.create()
+
+    /** Whether an activity is launching from the shade with a transition animation. */
+    val isLaunchingActivity: StateFlow<Boolean> = shadeAnimationInteractor.isLaunchingActivity
 
     /** Whether the container is visible. */
     val isVisible: Boolean
