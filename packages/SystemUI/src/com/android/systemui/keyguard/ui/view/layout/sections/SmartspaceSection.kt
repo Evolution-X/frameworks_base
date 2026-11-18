@@ -72,16 +72,26 @@ constructor(
     private var pastVisibility: Int = -1
     private var disposableHandle: DisposableHandle? = null
 
+    // Snapshot taken in addViews() so that the other callbacks match what was inflated.
+    private var shouldShowSmartspace: Boolean = false
+
     override fun onRebuildBegin() {
         smartspaceController.suppressDisconnects = true
     }
 
     override fun onRebuildEnd() {
         smartspaceController.suppressDisconnects = false
+        if (!shouldShowSmartspace) {
+            // Smartspace was switched off: drop its stale visibility and end the session, which
+            // stayed connected while disconnects were suppressed.
+            keyguardSmartspaceInteractor.setBcSmartspaceVisibility(View.GONE)
+            smartspaceController.disconnect()
+        }
     }
 
     override fun addViews(constraintLayout: ConstraintLayout) {
-        if (!keyguardSmartspaceViewModel.isSmartspaceEnabled) return
+        shouldShowSmartspace = keyguardSmartspaceViewModel.isSmartspaceEnabled
+        if (!shouldShowSmartspace) return
 
         smartspaceView =
             smartspaceController.buildAndConnectView(context)?.also {
@@ -115,7 +125,7 @@ constructor(
     }
 
     override fun bindData(constraintLayout: ConstraintLayout) {
-        if (!keyguardSmartspaceViewModel.isSmartspaceEnabled) return
+        if (!shouldShowSmartspace) return
         disposableHandle?.dispose()
         disposableHandle =
             KeyguardSmartspaceViewBinder.bind(
@@ -127,7 +137,7 @@ constructor(
     }
 
     override fun applyConstraints(constraintSet: ConstraintSet) {
-        if (!keyguardSmartspaceViewModel.isSmartspaceEnabled) return
+        if (!shouldShowSmartspace) return
         val dateWeatherPaddingStart = KeyguardSmartspaceViewModel.getDateWeatherStartMargin(context)
         val smartspaceHorizontalPadding =
             KeyguardSmartspaceViewModel.getSmartspaceHorizontalMargin(context)
@@ -303,7 +313,8 @@ constructor(
     }
 
     override fun removeViews(constraintLayout: ConstraintLayout) {
-        if (!keyguardSmartspaceViewModel.isSmartspaceEnabled) return
+        // Not gated on the setting: it may have flipped since the views were added, and they
+        // still have to go.
 
         // The viewTreeObserver listener need to be removed before the view is detached, because the
         // viewTreeObserver is reset when the view is detached. See [View::getViewTreeObserver].
@@ -312,14 +323,20 @@ constructor(
         val list = listOf(smartspaceView, dateView, dateViewLargeClock)
         list.forEach {
             it?.let {
+                keyguardClockViewModel.burnInLayer?.removeView(it)
                 if (it.parent == constraintLayout) {
                     constraintLayout.removeView(it)
                 }
             }
         }
+        smartspaceView = null
+        dateView = null
+        dateViewLargeClock = null
         keyguardUnlockAnimationController.lockscreenSmartspace = null
 
         disposableHandle?.dispose()
+        disposableHandle = null
+        shouldShowSmartspace = false
     }
 
     private fun updateVisibility(constraintSet: ConstraintSet, isLargeClockVisible: Boolean) {
