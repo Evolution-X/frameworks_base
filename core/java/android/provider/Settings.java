@@ -7425,25 +7425,25 @@ public final class Settings {
         public static final String STATUSBAR_CLOCK_CHIP_GRADIENT_COLOR_MODE = "statusbar_clock_chip_gradient_color_mode";
 
         /**
-         * Clock chip custom gradient – start
+         * Clock chip custom gradient â€“ start
          * @hide
          */
         public static final String STATUSBAR_CLOCK_CHIP_GRADIENT_START_COLOR = "statusbar_clock_chip_gradient_start_color";
 
         /**
-         * Clock chip custom gradient – end
+         * Clock chip custom gradient â€“ end
          * @hide
          */
         public static final String STATUSBAR_CLOCK_CHIP_GRADIENT_END_COLOR = "statusbar_clock_chip_gradient_end_color";
 
         /**
-         * Clock chip custom gradient – angle
+         * Clock chip custom gradient â€“ angle
          * @hide
          */
         public static final String STATUSBAR_CLOCK_CHIP_GRADIENT_ANGLE = "statusbar_clock_chip_gradient_angle";
 
         /**
-         * Clock chip custom gradient – angle
+         * Clock chip custom gradient â€“ angle
          * @hide
          */
         public static final String STATUSBAR_CLOCK_CHIP_GRADIENT_MASK_TEXT = "statusbar_clock_chip_gradient_mask_text";
@@ -7777,6 +7777,36 @@ public final class Settings {
          * @hide
          */
         public static final String LOCK_GLYMPS_WALLPAPER_TARGET = "lock_glymps_wallpaper_target";
+
+        /**
+         * Lock Glymps wallpaper source for the lock screen (provider id:
+         * picsum, wallhaven, commons, openverse, local, custom)
+         * @hide
+         */
+        public static final String LOCK_GLYMPS_PROVIDER_LOCK = "lock_glymps_provider_lock";
+
+        /**
+         * Lock Glymps wallpaper source for the home screen (provider id as
+         * above)
+         * @hide
+         */
+        public static final String LOCK_GLYMPS_PROVIDER_HOME = "lock_glymps_provider_home";
+
+        /**
+         * Lock Glymps taste filters as JSON:
+         * {"lock":{"topics","categories","color","preset"},"home":{...}}
+         * @hide
+         */
+        public static final String LOCK_GLYMPS_TASTE = "lock_glymps_taste";
+
+        /**
+         * Metadata of the wallpaper applied last, as JSON:
+         * {"provider","attribution","license","sourcePage","time"}.
+         * Written by LockGlympsService so Settings (different UID) can show
+         * "About this wallpaper" without touching SystemUI storage.
+         * @hide
+         */
+        public static final String LOCK_GLYMPS_CURRENT = "lock_glymps_current";
 
         /**
          * Whether to show daily/weekly data usage in the QS footer.
