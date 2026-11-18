@@ -139,9 +139,7 @@ import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsStyl
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.NothingQsColors
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingQSColumns
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingQSMaxContentWidth
-import com.android.systemui.qs.shared.style.LiquidGlassBrightness
 import com.android.systemui.qs.shared.style.LiquidGlassControl
-import com.android.systemui.qs.shared.style.LiquidGlassVolume
 import com.android.systemui.qs.shared.style.liquidGlassOn
 import com.android.systemui.compose.modifiers.sysuiResTag
 import com.android.systemui.gradient.GradientColors
@@ -182,7 +180,7 @@ fun BrightnessSlider(
     showToast: () -> Unit = {},
     hapticsViewModelFactory: SliderHapticsViewModel.Factory,
     dimensions: BrightnessSliderDimensions = BrightnessSliderDimensions.Default,
-    glassAccent: Color? = null,
+    glass: Boolean = false,
 ) {
     val context = LocalContext.current
     val cr = context.contentResolver
@@ -218,20 +216,14 @@ fun BrightnessSlider(
         } else {
             null
         }
-    // Liquid Glass: a white fill on a glass track, icons in the accent colour. The gradient
-    // style keeps its own colours.
-    val glass = glassAccent.takeIf { gradientColors == null }
+    // Liquid Glass: a glass track, with the thumb, fill and icons keeping the Monet colors of the
+    // defaults. The gradient style keeps its own colors.
+    val useGlass = glass && gradientColors == null
     val baseColors =
-        if (glass == null) {
+        if (!useGlass) {
             SystemUISliderColors.Defaults
         } else {
-            SystemUISliderColors.Defaults.copy(
-                thumbColor = Color.White,
-                activeTrackColor = Color.White,
-                inactiveTrackColor = LiquidGlassControl,
-                activeTickColor = glass,
-                inactiveTickColor = Color.White,
-            )
+            SystemUISliderColors.Defaults.copy(inactiveTrackColor = LiquidGlassControl)
         }
     val colors =
         if (gradientColors != null) {
@@ -534,7 +526,7 @@ fun BrightnessSlider(
                     hapticsEnabled = hapticsEnabled,
                     gradientColors = gradientColors,
                     buttonSize = dimensions.thumbHeight,
-                    glassAccent = glass,
+                    glass = useGlass,
                 )
             }
         }
@@ -558,7 +550,7 @@ private fun VolumeSlider(
     hapticsViewModelFactory: SliderHapticsViewModel.Factory,
     modifier: Modifier = Modifier,
     dimensions: BrightnessSliderDimensions = BrightnessSliderDimensions.Default,
-    glassAccent: Color? = null,
+    glass: Boolean = false,
 ) {
     val context = LocalContext.current
     val cr = context.contentResolver
@@ -587,20 +579,14 @@ private fun VolumeSlider(
     val isGradientEnabled = rememberGradientEnabled(Settings.System.QS_BRIGHTNESS_SLIDER_GRADIENT)
     val gradientColors: GradientColors? = rememberGradientColors().takeIf { isGradientEnabled }
 
-    // Liquid Glass: a white fill on a glass track, icons in the accent colour. The gradient
-    // style keeps its own colours.
-    val glass = glassAccent.takeIf { gradientColors == null }
+    // Liquid Glass: a glass track, with the thumb, fill and icons keeping the Monet colors of the
+    // defaults. The gradient style keeps its own colors.
+    val useGlass = glass && gradientColors == null
     val baseColors =
-        if (glass == null) {
+        if (!useGlass) {
             SystemUISliderColors.Defaults
         } else {
-            SystemUISliderColors.Defaults.copy(
-                thumbColor = Color.White,
-                activeTrackColor = Color.White,
-                inactiveTrackColor = LiquidGlassControl,
-                activeTickColor = glass,
-                inactiveTickColor = Color.White,
-            )
+            SystemUISliderColors.Defaults.copy(inactiveTrackColor = LiquidGlassControl)
         }
     val colors =
         if (gradientColors != null) {
@@ -1223,25 +1209,25 @@ private fun drawAutoBrightnessButton(
     hapticsEnabled: Boolean,
     gradientColors: GradientColors? = null,
     buttonSize: Dp = 52.dp,
-    glassAccent: Color? = null,
+    glass: Boolean = false,
 ) {
     val view = LocalView.current
     val coroutineScope = rememberCoroutineScope()
     val autoBrush: Brush? = if (autoMode) gradientColors?.diagonal() else null
-    // Liquid Glass: the same white fill on a glass control as the slider it sits beside.
+    // Liquid Glass: the glass control of the slider it sits beside, with the Monet colors kept.
     val backgroundColor by animateColorAsState(
         targetValue = if (autoMode) {
-            if (glassAccent != null) Color.White else MaterialTheme.colorScheme.primary
+            MaterialTheme.colorScheme.primary
         } else {
-            if (glassAccent != null) LiquidGlassControl
+            if (glass) LiquidGlassControl
             else LocalAndroidColorScheme.current.surfaceEffect1
         }
     )
     val iconTint by animateColorAsState(
         targetValue = if (autoMode) {
-            if (glassAccent != null) Color.Black else MaterialTheme.colorScheme.onPrimary
+            MaterialTheme.colorScheme.onPrimary
         } else {
-            if (glassAccent != null) Color.White else MaterialTheme.colorScheme.onSurface
+            MaterialTheme.colorScheme.onSurface
         }
     )
     val painterRes = if (autoMode) {
@@ -1547,7 +1533,7 @@ fun BrightnessSliderContainer(
                 )
             },
             dimensions = dimensions,
-            glassAccent = if (glassSliders) LiquidGlassBrightness else null,
+            glass = glassSliders,
         )
     }
 
@@ -1568,7 +1554,7 @@ fun BrightnessSliderContainer(
                     )
                     .fillMaxWidth(),
             dimensions = dimensions,
-            glassAccent = if (glassSliders) LiquidGlassVolume else null,
+            glass = glassSliders,
         )
     }
 
