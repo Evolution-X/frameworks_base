@@ -27,13 +27,14 @@ import com.android.systemui.customization.clocks.R as custR
 import com.android.systemui.keyguard.shared.model.KeyguardSection
 import com.android.systemui.plugins.keyguard.ui.clocks.ClockViewIds
 import com.android.systemui.res.R
+import com.android.systemui.shade.ShadeDisplayAware
 import com.android.systemui.shared.R as sharedR
 import com.android.systemui.weather.WeatherImageView
 import com.android.systemui.weather.WeatherTextView
 import javax.inject.Inject
 
 class KeyguardWeatherViewSection @Inject constructor(
-    private val context: Context,
+    @ShadeDisplayAware private val context: Context,
 ) : KeyguardSection() {
 
     private var weatherImageView: WeatherImageView? = null
