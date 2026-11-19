@@ -231,6 +231,9 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
     private static final float NOT_INITIALIZED = -1;
     /** Value of {@link Settings.System#QS_PANEL_STYLE} for the ColorOS panel. */
     private static final int QS_PANEL_STYLE_COLOROS = 2;
+    /** The Liquid Glass settings that change the shade colors, see ShadeColors. */
+    private static final String[] LIQUID_GLASS_SETTINGS = {
+            "liquid_glass", "liquid_glass_style", "liquid_glass_dual_tone"};
 
     private ScrimState mState = ScrimState.UNINITIALIZED;
 
@@ -589,6 +592,14 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
                     false /* notifyForDescendants */,
                     panelStyleObserver,
                     UserHandle.USER_ALL);
+            // Liquid Glass picks the glass panel and the dual tone notification scrim.
+            for (String key : LIQUID_GLASS_SETTINGS) {
+                mContext.getContentResolver().registerContentObserver(
+                        Settings.Secure.getUriFor(key),
+                        false /* notifyForDescendants */,
+                        panelStyleObserver,
+                        UserHandle.USER_ALL);
+            }
         }
     }
 
