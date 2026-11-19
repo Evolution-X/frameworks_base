@@ -14916,6 +14916,14 @@ public final class Settings {
         public static final String PI_TENSOR_SPOOF = "pi_tensor_spoof";
 
         /**
+         * Wall-clock deadline (epoch millis) for a timed Tensor spoof session, or 0 when the
+         * spoof stays on until it is switched off.
+         * @hide
+         */
+        @Readable
+        public static final String PI_TENSOR_SPOOF_EXPIRES_AT = "pi_tensor_spoof_expires_at";
+
+        /**
          * Whether to use PIF spoof for Play store
          * @hide
          */
