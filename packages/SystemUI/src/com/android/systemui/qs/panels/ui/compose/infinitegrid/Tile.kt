@@ -81,6 +81,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
@@ -94,6 +95,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.integerResource
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.trace
 import com.android.app.tracing.coroutines.launchTraced as launch
@@ -111,9 +113,8 @@ import com.android.systemui.animation.Expandable
 import com.android.systemui.animation.TransitionAnimator.Companion.dynamicTargetResolutionEnabled
 import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.compose.modifiers.sysuiResTag
-import com.android.systemui.gradient.diagonal
-import com.android.systemui.gradient.rememberGradientColors
-import com.android.systemui.gradient.rememberGradientEnabled
+import com.android.systemui.gradient.brush
+import com.android.systemui.gradient.rememberGradient
 import com.android.systemui.haptics.msdl.qs.TileHapticsViewModel
 import com.android.systemui.lifecycle.rememberViewModel
 import com.android.systemui.qs.flags.QsDetailedView
@@ -983,11 +984,9 @@ fun rememberTileHaptic(): Boolean {
 
 @Composable
 fun rememberQSTileGradient(): Brush? {
-    val enabled = rememberGradientEnabled(Settings.System.QS_TILE_GRADIENT)
-    val gradientColors = rememberGradientColors()
-    return remember(enabled, gradientColors) {
-        if (enabled) gradientColors.diagonal() else null
-    }
+    val gradient = rememberGradient(Settings.System.QS_TILE_GRADIENT)
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    return remember(gradient, isRtl) { gradient?.brush(mirrored = isRtl) }
 }
 
 @Composable

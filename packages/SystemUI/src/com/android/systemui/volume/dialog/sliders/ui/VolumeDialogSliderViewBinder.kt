@@ -43,8 +43,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.compose.theme.PlatformTheme
 import com.android.systemui.common.ui.compose.Icon
 import com.android.systemui.gradient.GradientColors
-import com.android.systemui.gradient.rememberGradientColors
-import com.android.systemui.gradient.rememberGradientEnabled
+import com.android.systemui.gradient.rememberGradient
 import com.android.systemui.haptics.slider.SliderHapticFeedbackFilter
 import com.android.systemui.haptics.slider.compose.ui.SliderHapticsViewModel
 import com.android.systemui.res.R
@@ -123,8 +122,7 @@ private fun VolumeDialogSlider(
             VolumeSliderDimensions.Horizontal
         },
 ) {
-    val isGradientEnabled = rememberGradientEnabled(Settings.System.VOLUME_SLIDER_GRADIENT)
-    val gradient: GradientColors? = rememberGradientColors().takeIf { isGradientEnabled }
+    val gradient: GradientColors? = rememberGradient(Settings.System.VOLUME_SLIDER_GRADIENT)
 
     val baseColors =
         if (isVolumeDialogVertical) {

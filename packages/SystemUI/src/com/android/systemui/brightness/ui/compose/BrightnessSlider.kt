@@ -95,7 +95,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.painter.BitmapPainter
@@ -103,6 +102,7 @@ import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.dimensionResource
@@ -143,10 +143,9 @@ import com.android.systemui.qs.shared.style.LiquidGlassControl
 import com.android.systemui.qs.shared.style.liquidGlassOn
 import com.android.systemui.compose.modifiers.sysuiResTag
 import com.android.systemui.gradient.GradientColors
-import com.android.systemui.gradient.diagonal
-import com.android.systemui.gradient.horizontal
-import com.android.systemui.gradient.rememberGradientColors
-import com.android.systemui.gradient.rememberGradientEnabled
+import com.android.systemui.gradient.brush
+import com.android.systemui.gradient.drawActiveTrackGradient
+import com.android.systemui.gradient.rememberGradient
 import com.android.systemui.gradient.toPath
 import com.android.systemui.haptics.slider.SeekableSliderTrackerConfig
 import com.android.systemui.haptics.slider.SliderHapticFeedbackConfig
@@ -190,8 +189,8 @@ fun BrightnessSlider(
     val shapeMode = rememberSliderShapeMode()
     val trackCornerDp: Dp = trackCornerFor(shapeMode)
 
-    val isGradientEnabled = rememberGradientEnabled(Settings.System.QS_BRIGHTNESS_SLIDER_GRADIENT)
-    val gradientColors: GradientColors? = rememberGradientColors().takeIf { isGradientEnabled }
+    val gradientColors: GradientColors? =
+        rememberGradient(Settings.System.QS_BRIGHTNESS_SLIDER_GRADIENT)
 
     var value by remember(gammaValue) { mutableIntStateOf(gammaValue) }
     val animatedValue by
@@ -447,31 +446,19 @@ fun BrightnessSlider(
                                             .toPath()
                                     val isRtl = layoutDirection == LayoutDirection.Rtl
                                     val gradientBrush: Brush? =
-                                        gradientColors?.horizontal(reversed = isRtl)
+                                        gradientColors?.brush(mirrored = isRtl)
 
                                     onDrawWithContent {
                                         drawContent()
 
                                         if (gradientBrush != null) {
-                                            val gapPx = ThumbTrackGapSize.toPx()
-                                            val activeWidth =
-                                                (size.width * sliderState.coercedValueAsFraction -
-                                                        gapPx)
-                                                    .coerceIn(0f, size.width)
-                                            if (activeWidth > 0f) {
-                                                clipPath(trackPath) {
-                                                    drawRect(
-                                                        brush = gradientBrush,
-                                                        topLeft =
-                                                            if (isRtl) {
-                                                                Offset(size.width - activeWidth, 0f)
-                                                            } else {
-                                                                Offset.Zero
-                                                            },
-                                                        size = Size(activeWidth, size.height),
-                                                    )
-                                                }
-                                            }
+                                            drawActiveTrackGradient(
+                                                brush = gradientBrush,
+                                                trackPath = trackPath,
+                                                fraction = sliderState.coercedValueAsFraction,
+                                                gapPx = ThumbTrackGapSize.toPx(),
+                                                isRtl = isRtl,
+                                            )
                                         }
 
                                         val yOffset = size.height / 2 - iconSize.toSize().height / 2
@@ -576,8 +563,8 @@ private fun VolumeSlider(
     val shapeMode = rememberSliderShapeMode()
     val trackCornerDp: Dp = trackCornerFor(shapeMode)
 
-    val isGradientEnabled = rememberGradientEnabled(Settings.System.QS_BRIGHTNESS_SLIDER_GRADIENT)
-    val gradientColors: GradientColors? = rememberGradientColors().takeIf { isGradientEnabled }
+    val gradientColors: GradientColors? =
+        rememberGradient(Settings.System.QS_BRIGHTNESS_SLIDER_GRADIENT)
 
     // Liquid Glass: a glass track, with the thumb, fill and icons keeping the Monet colors of the
     // defaults. The gradient style keeps its own colors.
@@ -809,30 +796,19 @@ private fun VolumeSlider(
                                         .toPath()
                                 val isRtl = layoutDirection == LayoutDirection.Rtl
                                 val gradientBrush: Brush? =
-                                    gradientColors?.horizontal(reversed = isRtl)
+                                    gradientColors?.brush(mirrored = isRtl)
 
                                 onDrawWithContent {
                                     drawContent()
 
                                     if (gradientBrush != null) {
-                                        val gapPx = ThumbTrackGapSize.toPx()
-                                        val activeWidth =
-                                            (size.width * sliderState.coercedValueAsFraction - gapPx)
-                                                .coerceIn(0f, size.width)
-                                        if (activeWidth > 0f) {
-                                            clipPath(trackPath) {
-                                                drawRect(
-                                                    brush = gradientBrush,
-                                                    topLeft =
-                                                        if (isRtl) {
-                                                            Offset(size.width - activeWidth, 0f)
-                                                        } else {
-                                                            Offset.Zero
-                                                        },
-                                                    size = Size(activeWidth, size.height),
-                                                )
-                                            }
-                                        }
+                                        drawActiveTrackGradient(
+                                            brush = gradientBrush,
+                                            trackPath = trackPath,
+                                            fraction = sliderState.coercedValueAsFraction,
+                                            gapPx = ThumbTrackGapSize.toPx(),
+                                            isRtl = isRtl,
+                                        )
                                     }
 
                                     val yOffset = size.height / 2 - iconSize.toSize().height / 2
@@ -930,7 +906,11 @@ private fun VolumeRingerButton(
     }
 
     val isOn = ringerMode != AudioManager.RINGER_MODE_SILENT
-    val ringerBrush: Brush? = if (isOn) gradientColors?.diagonal() else null
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val ringerBrush: Brush? =
+        remember(gradientColors, isRtl, isOn) {
+            if (isOn) gradientColors?.brush(mirrored = isRtl) else null
+        }
 
     val backgroundColor by
         animateColorAsState(
@@ -1213,7 +1193,11 @@ private fun drawAutoBrightnessButton(
 ) {
     val view = LocalView.current
     val coroutineScope = rememberCoroutineScope()
-    val autoBrush: Brush? = if (autoMode) gradientColors?.diagonal() else null
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val autoBrush: Brush? =
+        remember(gradientColors, isRtl, autoMode) {
+            if (autoMode) gradientColors?.brush(mirrored = isRtl) else null
+        }
     // Liquid Glass: the glass control of the slider it sits beside, with the Monet colors kept.
     val backgroundColor by animateColorAsState(
         targetValue = if (autoMode) {

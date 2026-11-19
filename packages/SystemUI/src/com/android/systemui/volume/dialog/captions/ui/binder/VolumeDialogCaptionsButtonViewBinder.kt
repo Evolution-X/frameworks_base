@@ -30,6 +30,7 @@ import com.android.app.tracing.coroutines.launchInTraced
 import com.android.app.tracing.coroutines.launchTraced
 import com.android.systemui.Flags
 import com.android.systemui.dagger.qualifiers.Background
+import com.android.systemui.gradient.ArgbGradient
 import com.android.systemui.gradient.GradientSettings
 import com.android.systemui.res.R
 import com.android.systemui.volume.CaptionsToggleImageButton
@@ -69,14 +70,12 @@ constructor(
         val originalSelectionFill = selectionShape?.let { SelectionFill.capture(it) }
 
         val context = captionsButton.context
-        var gradientEnabled =
-            GradientSettings.isEnabled(context, Settings.System.VOLUME_SLIDER_GRADIENT)
-        var gradientColors = GradientSettings.argbColors(context)
+        var gradient: ArgbGradient? =
+            GradientSettings.argbGradient(context, Settings.System.VOLUME_SLIDER_GRADIENT)
         val gradientObserver =
             GradientSettings.registerObserver(context, Settings.System.VOLUME_SLIDER_GRADIENT) {
-                gradientEnabled =
-                    GradientSettings.isEnabled(context, Settings.System.VOLUME_SLIDER_GRADIENT)
-                gradientColors = GradientSettings.argbColors(context)
+                gradient =
+                    GradientSettings.argbGradient(context, Settings.System.VOLUME_SLIDER_GRADIENT)
             }
         coroutineContext.job.invokeOnCompletion {
             GradientSettings.unregisterObserver(context, gradientObserver)
@@ -116,8 +115,9 @@ constructor(
                     )
 
                     if (isEnabled && selectionShape != null) {
-                        if (gradientEnabled) {
-                            applyGradient(selectionShape, gradientColors)
+                        val currentGradient = gradient
+                        if (currentGradient != null) {
+                            currentGradient.applyTo(selectionShape, isLayoutRtl)
                         } else {
                             originalSelectionFill?.restore(selectionShape)
                         }
@@ -150,12 +150,6 @@ constructor(
             },
             bgHandler,
         )
-    }
-
-    private fun applyGradient(shape: GradientDrawable, gradientColors: Pair<Int, Int>) {
-        val (startColor, endColor) = gradientColors
-        shape.orientation = GradientDrawable.Orientation.TOP_BOTTOM
-        shape.colors = intArrayOf(startColor, endColor)
     }
 
     private class SelectionFill(

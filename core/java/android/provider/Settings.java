@@ -7966,6 +7966,14 @@ public final class Settings {
         public static final String CUSTOM_GRADIENT_END_COLOR = "custom_gradient_end_color";
 
         /**
+         * Gradient angle in degrees (0 - 360), counter-clockwise.
+         * 0 = start -> end (left -> right on tiles and buttons, along the fill direction
+         * on sliders), rotated counter-clockwise from there
+         * @hide
+         */
+        public static final String CUSTOM_GRADIENT_ANGLE = "custom_gradient_angle";
+
+        /**
          * Whether to play notification sound and vibration if screen is ON
          * 0 - never
          * 1 - always
