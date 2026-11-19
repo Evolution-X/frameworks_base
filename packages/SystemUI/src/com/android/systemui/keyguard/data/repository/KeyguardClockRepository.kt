@@ -193,6 +193,8 @@ constructor(
                 initialValue = null,
             )
 
+    // Custom clock styles follow the same dynamic/small selection as the plugin clocks; styles
+    // that are too big to grow just keep their size, see ClockStyle#setLargeClock.
     private fun getClockSize(): ClockSizeSetting {
         val isDoubleLineClock = secureSettings.getIntForUser(
             Settings.Secure.LOCKSCREEN_USE_DOUBLE_LINE_CLOCK,
@@ -201,17 +203,12 @@ constructor(
             ),
             UserHandle.USER_CURRENT
         )
-        val clockStyleEnabled = secureSettings.getIntForUser(
-            Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_STYLE,
-            0, // Default value
-            UserHandle.USER_CURRENT
-        ) != 0
         val lockscreenWidgetsEnabled = systemSettings.getIntForUser(
             "lockscreen_widgets_enabled",
             0, // Default value
             UserHandle.USER_CURRENT
         ) != 0
-        val clockSettingValue = if (clockStyleEnabled || lockscreenWidgetsEnabled) {
+        val clockSettingValue = if (lockscreenWidgetsEnabled) {
             0 
         } else {
             isDoubleLineClock
