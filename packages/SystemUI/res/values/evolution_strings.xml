@@ -397,4 +397,10 @@
     <string name="screenrecord_camera_preview">Selfie camera preview. Drag to move.</string>
     <!-- Hint shown when the selfie preview is enabled. [CHAR LIMIT=60] -->
     <string name="screenrecord_camera_hint">Drag the selfie camera to move it</string>
+    <!-- Speed tiers named by the drawn plug-in charging animations. [CHAR LIMIT=30] -->
+    <string name="charging_style_normal">Charging</string>
+    <string name="charging_style_fast">Fast charging</string>
+    <string name="charging_style_super">Super fast charging</string>
+    <!-- Tier and the charger's power, e.g. "Fast charging · 33 W". [CHAR LIMIT=40] -->
+    <string name="charging_style_watts"><xliff:g id="state" example="Fast charging">%1$s</xliff:g> \u00b7 <xliff:g id="watts" example="33">%2$d</xliff:g> W</string>
 </resources>
