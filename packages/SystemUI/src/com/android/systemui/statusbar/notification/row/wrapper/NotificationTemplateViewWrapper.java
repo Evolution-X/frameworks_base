@@ -275,6 +275,8 @@ public class NotificationTemplateViewWrapper extends NotificationHeaderViewWrapp
         // Reinspect the notification. Before the super call, because the super call also updates
         // the transformation types and we need to have our values set by then.
         resolveTemplateViews(row.getEntryAdapter().getSbn());
+        emphasizeForGlass(mTitle);
+        emphasizeForGlass(mAltTitle);
         super.onContentUpdated(row);
         // With the modern templates, a large icon visually overlaps the header, so we can't
         // hide the header, we must show it.

@@ -232,6 +232,9 @@ public class NotificationBackgroundView extends View implements Dumpable,
 
     private int mCosMaterial;
 
+    /** With Liquid Glass, a heavier frost than the stock card, as iOS blurs notifications. */
+    private static final float COS_CARD_BLUR_DP = 36f;
+
     /** Picks the ColorOS card material (dark 7, light 8) for the blur region, or none. */
     private void updateCosMaterial() {
         mCosMaterial = 0;
@@ -242,6 +245,12 @@ public class NotificationBackgroundView extends View implements Dumpable,
             mCosMaterial = dark ? 7 : 8;
         }
         mBackgroundBlurDrawable.setMaterial(mCosMaterial);
+        final float density = getResources().getDisplayMetrics().density;
+        mBackgroundBlurDrawable.setBlurRadius(
+                mCosMaterial != 0 && LiquidGlass.isOnShade(getContext())
+                        ? Math.round(COS_CARD_BLUR_DP * density)
+                        : getResources().getDimensionPixelSize(
+                                R.dimen.notification_background_blur_radius));
     }
 
     private void drawBlur(Canvas canvas, @Nullable Rect backgroundBounds) {
