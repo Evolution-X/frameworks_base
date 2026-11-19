@@ -25,6 +25,7 @@ import android.hardware.display.DisplayManager
 import android.provider.Settings
 import android.view.Display
 import android.view.IWindowManager
+import android.window.ScreenCapture
 import android.window.ScreenCaptureInternal
 import android.window.ScreenCaptureInternal.CaptureArgs
 import android.window.TaskSnapshotManager
@@ -46,8 +47,14 @@ constructor(
 ) : ImageCapture {
 
     override fun captureDisplay(displayId: Int, crop: Rect?): Bitmap? {
-        val captureArgs =
-            CaptureArgs.Builder().setSourceCrop(getSourceCrop(displayId, crop)).build()
+        val captureArgsBuilder =
+            CaptureArgs.Builder().setSourceCrop(getSourceCrop(displayId, crop))
+        if (shouldCaptureSecureContent()) {
+            captureArgsBuilder.setSecureContentPolicy(
+                ScreenCapture.ScreenCaptureParams.SECURE_CONTENT_POLICY_CAPTURE,
+            )
+        }
+        val captureArgs = captureArgsBuilder.build()
         val syncScreenCapture = ScreenCaptureInternal.createSyncCaptureListener()
         windowManager.captureDisplay(displayId, captureArgs, syncScreenCapture)
         val buffer = syncScreenCapture.getBuffer()
@@ -86,6 +93,21 @@ constructor(
             return null
         }
         return Rect(0, statusBarHeight, displaySize.x, displaySize.y)
+    }
+
+    private fun shouldCaptureSecureContent(): Boolean {
+        val resolver = context.contentResolver
+        val hideScreenCaptureStatus = Settings.Global.getInt(
+            resolver,
+            Settings.Global.HIDE_SCREEN_CAPTURE_STATUS,
+            0,
+        )
+        val ignoreSecureWindows = Settings.Global.getInt(
+            resolver,
+            Settings.Global.WINDOW_IGNORE_SECURE,
+            0,
+        )
+        return hideScreenCaptureStatus == 1 || ignoreSecureWindows == 1
     }
 
     private fun shouldHideStatusBar(): Boolean {

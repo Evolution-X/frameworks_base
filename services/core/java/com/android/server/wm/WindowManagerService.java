@@ -886,6 +886,8 @@ public class WindowManagerService extends IWindowManager.Stub
                 EVOLUTION_WINDOW_BLOCK_SCREENRECORD_DETECTION);
         private final Uri mEvolutionHideScreenCaptureStatusUri = Settings.Global.getUriFor(
                 HIDE_SCREEN_CAPTURE_STATUS);
+        private final Uri mWindowIgnoreSecureUri = Settings.Global.getUriFor(
+                Settings.Global.WINDOW_IGNORE_SECURE);
         private final Uri mLiquidGlassUri = Settings.Secure.getUriFor(LIQUID_GLASS_SETTING);
         private final Uri mLiquidGlassStyleUri =
                 Settings.Secure.getUriFor(LIQUID_GLASS_STYLE_SETTING);
@@ -940,6 +942,8 @@ public class WindowManagerService extends IWindowManager.Stub
             resolver.registerContentObserver(mEvolutionBlockScreenrecordDetectionUri, false, this,
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(mEvolutionHideScreenCaptureStatusUri, false, this,
+                    UserHandle.USER_ALL);
+            resolver.registerContentObserver(mWindowIgnoreSecureUri, false, this,
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(mLiquidGlassUri, false, this, UserHandle.USER_ALL);
             resolver.registerContentObserver(mLiquidGlassStyleUri, false, this,
@@ -1006,6 +1010,13 @@ public class WindowManagerService extends IWindowManager.Stub
 
             if (mDevelopmentOverrideDesktopExperienceUri.equals(uri)) {
                 updateDevelopmentOverrideDesktopExperience();
+                return;
+            }
+
+            if (mWindowIgnoreSecureUri.equals(uri)) {
+                synchronized (mGlobalLock) {
+                    mRoot.refreshSecureSurfaceState();
+                }
                 return;
             }
 
@@ -1179,6 +1190,7 @@ public class WindowManagerService extends IWindowManager.Stub
         void updateEvolutionBlockScreenCaptureDetection() {
             final ContentResolver resolver = mContext.getContentResolver();
             final boolean wasRecordDetectionBlocked = isScreenRecordDetectionBlocked();
+            final boolean wasHideScreenCaptureStatus = mEvolutionHideScreenCaptureStatus;
 
             mEvolutionWindowBlockScreenshotDetection = Settings.Global.getInt(
                     resolver, EVOLUTION_WINDOW_BLOCK_SCREENSHOT_DETECTION, 0) != 0;
@@ -1186,6 +1198,15 @@ public class WindowManagerService extends IWindowManager.Stub
                     resolver, EVOLUTION_WINDOW_BLOCK_SCREENRECORD_DETECTION, 0) != 0;
             mEvolutionHideScreenCaptureStatus = Settings.Global.getInt(
                     resolver, HIDE_SCREEN_CAPTURE_STATUS, 0) != 0;
+
+            if (wasHideScreenCaptureStatus != mEvolutionHideScreenCaptureStatus) {
+                // The hide switch also acts as the master switch for secure content capture
+                // (see getDisableSecureWindows()). Re-evaluate existing window surfaces so the
+                // new state applies without restarting apps.
+                synchronized (mGlobalLock) {
+                    mRoot.refreshSecureSurfaceState();
+                }
+            }
 
             // Screen recording detection is state based, so apps that already registered a
             // callback need to be told about the new state right away instead of only
@@ -11662,9 +11683,20 @@ public class WindowManagerService extends IWindowManager.Stub
         }
     }
 
+    /**
+     * Whether secure windows should be treated as non-secure.
+     *
+     * <p>True when the user enabled "Hide screen capture status" (which mirrors
+     * DisableFlagSecure and also allows capturing protected content), when the separate
+     * "Ignore secure window flags" option is enabled, or when the debuggable-only
+     * {@code DISABLE_SECURE_WINDOWS} setting is on.
+     */
     boolean getDisableSecureWindows() {
-        return Settings.Global.getInt(mContext.getContentResolver(),
-                Settings.Global.WINDOW_IGNORE_SECURE, 0) == 1 || mDisableSecureWindows;
+        // Keep the cached hide flag first so enabling it avoids a Settings lookup here.
+        return mEvolutionHideScreenCaptureStatus
+                || Settings.Global.getInt(mContext.getContentResolver(),
+                        Settings.Global.WINDOW_IGNORE_SECURE, 0) == 1
+                || mDisableSecureWindows;
     }
 
     /**
