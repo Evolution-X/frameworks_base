@@ -87,6 +87,8 @@ public class NotificationBackgroundView extends View implements Dumpable,
     private boolean mBlurBackgroundEnabled;
     // When true, the blur region is forced to alpha 0 (dropped from the aggregator) but kept around.
     private boolean mBlurRegionSuppressed;
+    // The alpha of the whole stack, which blur regions ignore as they are not drawn with the view.
+    private float mBlurRegionFade = 1f;
     private boolean mBlurHiddenInShelf;
     private int mBlurViewAlpha = 255;
     private final Rect mBlurBounds = new Rect();
@@ -538,7 +540,7 @@ public class NotificationBackgroundView extends View implements Dumpable,
             return;
         }
         final int alpha = mBlurRegionSuppressed || mBlurHiddenInShelf
-                ? 0 : mDrawableAlpha * mBlurViewAlpha / 255;
+                ? 0 : Math.round(mDrawableAlpha * mBlurViewAlpha / 255f * mBlurRegionFade);
         mBackgroundBlurDrawable.setAlpha(alpha);
     }
 
@@ -683,6 +685,18 @@ public class NotificationBackgroundView extends View implements Dumpable,
         }
         mBackground.setAlpha(drawableAlpha);
         updateBlurAlpha();
+    }
+
+    /** Fades the blur region with the stack, as it ignores the alpha of the views above. */
+    public void setBlurRegionFade(float fade) {
+        if (mBlurRegionFade == fade) {
+            return;
+        }
+        mBlurRegionFade = fade;
+        if (mBackgroundBlurDrawable != null && !mExpandAnimationRunning) {
+            updateBlurAlpha();
+            invalidate();
+        }
     }
 
     /** Drops the blur region without tearing down the drawable; blur regions ignore ancestor alpha. */
