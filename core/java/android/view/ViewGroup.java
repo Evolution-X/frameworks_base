@@ -163,20 +163,6 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 123768704)
     protected OnHierarchyChangeListener mOnHierarchyChangeListener;
 
-    /**
-     * @hide
-     */
-    public interface TouchObserver {
-        void onObserveTouch(MotionEvent ev);
-    }
-
-    private TouchObserver mTouchObserver;
-
-    /** @hide */
-    public void setTouchObserver(TouchObserver observer) {
-        mTouchObserver = observer;
-    }
-
     // The view contained within this ViewGroup that has or contains focus.
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     private View mFocused;
@@ -2770,9 +2756,6 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
     public boolean dispatchTouchEvent(MotionEvent ev) {
         if (mInputEventConsistencyVerifier != null) {
             mInputEventConsistencyVerifier.onTouchEvent(ev, 1);
-        }
-        if (mTouchObserver != null) {
-            mTouchObserver.onObserveTouch(ev);
         }
 
         // If the event targets the accessibility focused view and this is it, start
