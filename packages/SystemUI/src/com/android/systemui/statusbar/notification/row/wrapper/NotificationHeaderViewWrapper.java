@@ -23,6 +23,7 @@ import static com.android.systemui.statusbar.notification.TransformState.TRANSFO
 
 import android.app.Notification;
 import android.content.Context;
+import android.content.res.Configuration;
 import android.graphics.Typeface;
 import android.util.ArraySet;
 import android.view.NotificationHeaderView;
@@ -247,7 +248,38 @@ public class NotificationHeaderViewWrapper extends NotificationViewWrapper imple
                 mTransformationHelper.resetTransformedView(view);
             }
         }
+        applyCosExpandButtonColors();
     }
+
+    @Override
+    public void onReinflated() {
+        super.onReinflated();
+        // Reapplying the notification's views restores the app's pill colours on reused headers.
+        applyCosExpandButtonColors();
+    }
+
+    /**
+     * The ColorOS shade's cards are neutral glass, so their expand pills stay neutral too rather
+     * than taking each app's accent, which reads as a tinted button on the frost.
+     */
+    private void applyCosExpandButtonColors() {
+        // The shade's context, not the notification's, which is inflated with the app's theme.
+        final Context context = mRow.getContext();
+        if (mExpandButton == null || !LiquidGlass.isCosStyle(context)) {
+            return;
+        }
+        final boolean dark = (context.getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        final int pill = dark ? COS_DARK_EXPAND_PILL : COS_LIGHT_EXPAND_PILL;
+        final int text = context.getColor(com.android.internal.R.color.materialColorOnSurface);
+        mExpandButton.setDefaultPillColor(pill);
+        mExpandButton.setHighlightPillColor(pill);
+        mExpandButton.setDefaultTextColor(text);
+        mExpandButton.setHighlightTextColor(text);
+    }
+
+    private static final int COS_LIGHT_EXPAND_PILL = 0x1F000000;
+    private static final int COS_DARK_EXPAND_PILL = 0x33FFFFFF;
 
     /**
      * Adds the remaining TransformTypes to the TransformHelper. This is done to make sure that each
