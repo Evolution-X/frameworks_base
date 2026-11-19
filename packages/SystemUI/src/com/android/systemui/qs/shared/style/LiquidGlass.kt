@@ -247,7 +247,7 @@ object LiquidGlass {
 
     private const val NOTIFICATION_GAP_DP = 8
 
-    @JvmStatic fun viewSurface(): Int = LiquidGlassTune.color("view_surface", 0x1CFFFFFF)
+    @JvmStatic fun viewSurface(): Int = LiquidGlassTune.color("view_surface", 0x59121216)
 
     @JvmStatic
     fun headsUpSurface(): Int = LiquidGlassTune.color("headsup_surface", 0x33FFFFFF)
