@@ -917,6 +917,11 @@ public abstract class ActivatableNotificationView extends ExpandableOutlineView 
         }
     }
 
+    /** Fades this row's background blur region with the stack, see {@link NotificationBackgroundView#setBlurRegionFade}. */
+    public void setBlurRegionFade(float fade) {
+        mBackgroundNormal.setBlurRegionFade(fade);
+    }
+
     /** Suppresses/restores this row's background blur region while the stack is faded out. */
     public void setBlurRegionSuppressed(boolean suppressed) {
         mBackgroundNormal.setBlurRegionSuppressed(suppressed);
