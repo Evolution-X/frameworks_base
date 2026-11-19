@@ -3185,6 +3185,14 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
     }
 
     @Override
+    public void setBlurRegionFade(float fade) {
+        super.setBlurRegionFade(fade);
+        if (mIsSummaryWithChildren) {
+            mChildrenContainer.setBlurRegionFade(fade);
+        }
+    }
+
+    @Override
     public void setBlurRegionSuppressed(boolean suppressed) {
         super.setBlurRegionSuppressed(suppressed);
         if (mIsSummaryWithChildren) {

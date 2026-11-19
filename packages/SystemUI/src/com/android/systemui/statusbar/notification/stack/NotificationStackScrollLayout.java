@@ -635,6 +635,7 @@ public class NotificationStackScrollLayout
     private boolean mBlurRegionsSuppressed;
     /** Whether this stack, or an ancestor, is hidden, which a row's blur region does not follow. */
     private boolean mBlurRegionsHidden;
+    private float mBlurRegionFade = 1f;
 
     /** Pass splitShadeStateController to view and update split shade */
     public void passSplitShadeStateController(SplitShadeStateController splitShadeStateController) {
@@ -1764,7 +1765,18 @@ public class NotificationStackScrollLayout
         if (!lockscreenBlurForNotifications()) {
             return;
         }
-        boolean suppressed = alpha < 0.01f || mBlurRegionsHidden;
+        if (mBlurRegionFade != alpha) {
+            mBlurRegionFade = alpha;
+            for (int i = 0; i < getChildCount(); i++) {
+                if (getChildAt(i) instanceof ActivatableNotificationView anv) {
+                    anv.setBlurRegionFade(alpha);
+                }
+            }
+        }
+        // The negative clip (the shade opening over the stack) cuts the rows' content out, but
+        // not their window blur, which would stay behind as empty glass cards.
+        boolean suppressed =
+                alpha < 0.01f || mShouldUseNegativeRoundedRectClipping || mBlurRegionsHidden;
         if (mBlurRegionsSuppressed == suppressed) {
             return;
         }
@@ -3531,6 +3543,7 @@ public class NotificationStackScrollLayout
             if (mBlurRegionsSuppressed) {
                 row.setBlurRegionSuppressed(true);
             }
+            row.setBlurRegionFade(mBlurRegionFade);
         }
         generateAddAnimation(child, false /* fromMoreCard */);
         updateAnimationState(child);
@@ -6716,6 +6729,7 @@ public class NotificationStackScrollLayout
         if (Objects.equals(mScrollViewFields.negativeClippingShape, shape)) return;
         mScrollViewFields.negativeClippingShape = shape;
         mShouldUseNegativeRoundedRectClipping = shape != null;
+        updateChildrenBlurRegionSuppression(getAlpha() * mBlurFade);
         mNegativeRoundedClipPath.reset();
         if (shape != null) {
             ShadeScrimBounds bounds = shape.getBounds();
