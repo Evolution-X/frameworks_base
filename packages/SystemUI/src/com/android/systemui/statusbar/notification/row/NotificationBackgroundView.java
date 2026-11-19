@@ -227,30 +227,63 @@ public class NotificationBackgroundView extends View implements Dumpable,
         if (tintColor != mNormalColor || !LiquidGlass.isOnShade(getContext())) return tintColor;
         // The ColorOS material frosts the card itself, so the fill stays clear.
         if (mCosMaterial != 0) return Color.TRANSPARENT;
+        // A pinned heads-up floats over the app, so it gets a lighter glass of its own.
+        if (mHeadsUpGlass) return LiquidGlass.headsUpSurface();
         return LiquidGlass.viewSurface();
     }
+
+    private boolean mHeadsUpGlass;
 
     private int mCosMaterial;
 
     /** With Liquid Glass, a heavier frost than the stock card, as iOS blurs notifications. */
     private static final float COS_CARD_BLUR_DP = 36f;
 
-    /** Picks the ColorOS card material (dark 7, light 8) for the blur region, or none. */
+    /** A heads-up sits over the app, so its blur is lighter than that of a card in the shade. */
+    private static final float COS_HEADS_UP_BLUR_DP = 14f;
+
+    /**
+     * Draws the card as a heads-up floating over the app, which has no shade glass behind it:
+     * its own fill on Liquid Glass, and the ColorOS heads-up material under the ColorOS style.
+     */
+    public void setHeadsUpGlass(boolean headsUp) {
+        if (mHeadsUpGlass == headsUp) return;
+        mHeadsUpGlass = headsUp;
+        if (mBackground != null) {
+            setTint(mTintColor != 0 ? mTintColor : mNormalColor);
+        }
+    }
+
+    /**
+     * Picks the ColorOS material for the blur region, or none: the card material (dark 7, light 8),
+     * or the heads-up material (dark 9, light 10) while the card is a pinned heads-up.
+     */
     private void updateCosMaterial() {
         mCosMaterial = 0;
         if (mBackgroundBlurDrawable == null) return;
         if (LiquidGlass.isCosStyle(getContext())) {
             final boolean dark = (getResources().getConfiguration().uiMode
                     & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-            mCosMaterial = dark ? 7 : 8;
+            if (mHeadsUpGlass) {
+                mCosMaterial = dark ? BackgroundBlurDrawable.MATERIAL_HEADS_UP_DARK
+                        : BackgroundBlurDrawable.MATERIAL_HEADS_UP_LIGHT;
+            } else {
+                mCosMaterial = dark ? BackgroundBlurDrawable.MATERIAL_CARD_DARK
+                        : BackgroundBlurDrawable.MATERIAL_CARD_LIGHT;
+            }
         }
         mBackgroundBlurDrawable.setMaterial(mCosMaterial);
         final float density = getResources().getDisplayMetrics().density;
-        mBackgroundBlurDrawable.setBlurRadius(
-                mCosMaterial != 0 && LiquidGlass.isOnShade(getContext())
-                        ? Math.round(COS_CARD_BLUR_DP * density)
-                        : getResources().getDimensionPixelSize(
-                                R.dimen.notification_background_blur_radius));
+        final int blurRadius;
+        if (mCosMaterial != 0 && mHeadsUpGlass) {
+            blurRadius = Math.round(COS_HEADS_UP_BLUR_DP * density);
+        } else if (mCosMaterial != 0 && LiquidGlass.isOnShade(getContext())) {
+            blurRadius = Math.round(COS_CARD_BLUR_DP * density);
+        } else {
+            blurRadius = getResources().getDimensionPixelSize(
+                    R.dimen.notification_background_blur_radius);
+        }
+        mBackgroundBlurDrawable.setBlurRadius(blurRadius);
     }
 
     private void drawBlur(Canvas canvas, @Nullable Rect backgroundBounds) {

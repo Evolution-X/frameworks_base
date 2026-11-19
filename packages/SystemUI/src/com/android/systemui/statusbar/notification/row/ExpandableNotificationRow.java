@@ -984,6 +984,7 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
         int intrinsicBefore = getIntrinsicHeight();
         mIsHeadsUp = isHeadsUp;
         mPrivateLayout.setHeadsUp(isHeadsUp);
+        updateHeadsUpGlass();
         if (mIsSummaryWithChildren) {
             // The overflow might change since we allow more lines as HUN.
             mChildrenContainer.updateGroupOverflow();
@@ -1328,6 +1329,7 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
         int intrinsicHeight = getIntrinsicHeight();
         boolean wasAboveShelf = isAboveShelf();
         mPinnedStatus = pinnedStatus;
+        updateHeadsUpGlass();
         if (intrinsicHeight != getIntrinsicHeight()) {
             notifyHeightChanged(/* needsAnimation= */ false, "ENR.setPinnedStatus");
         }
@@ -1356,6 +1358,16 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
     @Override
     public boolean isPinned() {
         return mPinnedStatus.isPinned();
+    }
+
+    /**
+     * Only a pinned heads-up floats over the app and needs glass of its own. In the shade it is
+     * one of the cards drawn on the shade's glass, like the children of an opened group.
+     */
+    private void updateHeadsUpGlass() {
+        if (mBackgroundNormal != null) {
+            mBackgroundNormal.setHeadsUpGlass(mIsHeadsUp && isPinned());
+        }
     }
 
     @Override
