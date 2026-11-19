@@ -1835,6 +1835,13 @@ public class NotificationChildrenContainer extends ViewGroup
         }
     }
 
+    /** Propagates the blur region fade to the group's child rows. */
+    public void setBlurRegionFade(float fade) {
+        for (ExpandableNotificationRow child : mAttachedChildren) {
+            child.setBlurRegionFade(fade);
+        }
+    }
+
     /** Propagates blur region suppression to the group's child rows. */
     public void setBlurRegionSuppressed(boolean suppressed) {
         for (ExpandableNotificationRow child : mAttachedChildren) {
