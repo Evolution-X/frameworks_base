@@ -86,6 +86,12 @@ public class AxSpoofManager implements IAxSpoofManager {
     // setup. The flag is persisted, so later boots start spoofing straight away;
     // a clean flash wipes /data and the flag with it.
     private static final String ACTIVATED_KEY = "spoof_activated";
+    // Timed Tensor spoofing: the UI stores a wall-clock deadline (epoch millis, 0 = no expiry)
+    // next to the switch. The PackageManager gate honours the same deadline, so spoofed
+    // features stop being reported even before this manager gets a chance to run.
+    private static final String TENSOR_SPOOF_KEY = "pi_tensor_spoof";
+    private static final String TENSOR_SPOOF_EXPIRES_KEY = "pi_tensor_spoof_expires_at";
+    private static final String TENSOR_TARGETS_KEY = "tensor_targets";
     private static final String SETTINGS_PACKAGE = "com.android.settings";
 
     private static final String PIF_ENABLED_KEY = "spoof_pif_enabled";
@@ -152,6 +158,7 @@ public class AxSpoofManager implements IAxSpoofManager {
     private volatile boolean mActivated;
     private TaskStackListener mTaskListener;
     private final Runnable mRefreshAfterClear = this::refreshNow;
+    private final Runnable mTensorSpoofExpiry = this::enforceTensorSpoofExpiry;
 
     private final Map<String, String> mCache = new ConcurrentHashMap<>();
     private final HandlerThread mHandlerThread;
@@ -189,6 +196,11 @@ public class AxSpoofManager implements IAxSpoofManager {
                 if (uri == null) return;
                 final String last = uri.getLastPathSegment();
                 if (last == null) return;
+                if (TENSOR_SPOOF_KEY.equals(last)
+                        || TENSOR_SPOOF_EXPIRES_KEY.equals(last)) {
+                    scheduleTensorSpoofExpiry();
+                    return;
+                }
                 if (TRICKYSTORE_ENABLED_KEY.equals(last)) {
                     mDuckRkp.onSettingsChanged(true);
                     return;
@@ -210,6 +222,10 @@ public class AxSpoofManager implements IAxSpoofManager {
         }
         mResolver.registerContentObserver(Settings.System.getUriFor(TRICKYSTORE_ENABLED_KEY),
                 false, mObserver, UserHandle.USER_SYSTEM);
+        mResolver.registerContentObserver(Settings.Secure.getUriFor(TENSOR_SPOOF_KEY),
+                false, mObserver, UserHandle.USER_ALL);
+        mResolver.registerContentObserver(Settings.Secure.getUriFor(TENSOR_SPOOF_EXPIRES_KEY),
+                false, mObserver, UserHandle.USER_ALL);
 
         mActivated = Settings.Secure.getIntForUser(
                 mResolver, ACTIVATED_KEY, 0, UserHandle.USER_SYSTEM) != 0;
@@ -239,6 +255,9 @@ public class AxSpoofManager implements IAxSpoofManager {
         mContext.registerReceiverAsUser(mPackageAddedReceiver, UserHandle.ALL, filter, null, mHandler);
 
         if (mActivated) scheduleFirstRefresh();
+
+        // Re-arm a timed Tensor session that survived a reboot or a system_server restart.
+        scheduleTensorSpoofExpiry();
 
         mReady = true;
         Log.i(TAG, "AxSpoofManager ready");
@@ -445,6 +464,7 @@ public class AxSpoofManager implements IAxSpoofManager {
      * or sooner while a fresh install is still missing its keybox or PIF config.
      */
     private void performScheduledRefresh() {
+        enforceTensorSpoofExpiry();
         if (!mActivated) return;
         refreshNow();
         long delay = REFRESH_INTERVAL_MS;
@@ -725,6 +745,61 @@ public class AxSpoofManager implements IAxSpoofManager {
             }
         } catch (Exception e) {
             Log.w(TAG, "Failed to restart GMS family after refresh", e);
+        }
+    }
+
+    /**
+     * (Re)arms the one-shot deadline of the timed Tensor spoof: at boot, whenever the switch or
+     * the deadline changes, and from the hourly tick as a safety net after deep sleep.
+     */
+    private void scheduleTensorSpoofExpiry() {
+        mHandler.removeCallbacks(mTensorSpoofExpiry);
+        if (mResolver == null) return;
+        final long expiresAt = Settings.Secure.getLongForUser(
+                mResolver, TENSOR_SPOOF_EXPIRES_KEY, 0L, UserHandle.USER_SYSTEM);
+        if (expiresAt <= 0L) return;
+        mHandler.postDelayed(mTensorSpoofExpiry,
+                Math.max(0L, expiresAt - System.currentTimeMillis()));
+    }
+
+    /**
+     * Turns the Tensor spoof off once its deadline has passed: clears the switch and the
+     * deadline, then restarts the targeted apps so they re-read their real feature set.
+     */
+    private void enforceTensorSpoofExpiry() {
+        if (mResolver == null) return;
+        final long expiresAt = Settings.Secure.getLongForUser(
+                mResolver, TENSOR_SPOOF_EXPIRES_KEY, 0L, UserHandle.USER_SYSTEM);
+        if (expiresAt <= 0L) return;
+        if (System.currentTimeMillis() < expiresAt) {
+            scheduleTensorSpoofExpiry();
+            return;
+        }
+        Settings.Secure.putLongForUser(
+                mResolver, TENSOR_SPOOF_EXPIRES_KEY, 0L, UserHandle.USER_SYSTEM);
+        if (Settings.Secure.getIntForUser(
+                mResolver, TENSOR_SPOOF_KEY, 0, UserHandle.USER_SYSTEM) == 0) {
+            return;
+        }
+        Settings.Secure.putIntForUser(
+                mResolver, TENSOR_SPOOF_KEY, 0, UserHandle.USER_SYSTEM);
+        forceStopTensorTargets();
+        Log.i(TAG, "Tensor spoofing timed session expired, spoofing disabled");
+    }
+
+    /** Restarts the packages selected in Tensor feature targets after a timed session ends. */
+    private void forceStopTensorTargets() {
+        if (!mActivated) return;
+        final String raw = Settings.Secure.getStringForUser(
+                mResolver, TENSOR_TARGETS_KEY, UserHandle.USER_SYSTEM);
+        if (isEmpty(raw)) return;
+        try {
+            ActivityManager am = mContext.getSystemService(ActivityManager.class);
+            for (String pkg : raw.split(",")) {
+                if (!isEmpty(pkg)) am.forceStopPackage(pkg.trim());
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to restart Tensor targets after timed session", e);
         }
     }
 

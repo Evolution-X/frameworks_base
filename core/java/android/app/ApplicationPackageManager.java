@@ -219,6 +219,7 @@ public class ApplicationPackageManager extends PackageManager {
 
     // Spoof setting caches — refreshed by ContentObserver, avoids per-call Settings reads
     private static volatile boolean sTensorGlobalEnabled = false;
+    private static volatile long sTensorExpiresAt = 0L;
     private static volatile Set<String> sTensorTargets = null;
     private static volatile boolean sPhotosSpoofEnabled = true;
     private static boolean sSpoofObserverRegistered = false;
@@ -805,7 +806,7 @@ public class ApplicationPackageManager extends PackageManager {
             final String callingPkg = ActivityThread.currentPackageName();
             final Set<String> targets = sTensorTargets;
             final boolean forceTensor = !IS_TENSOR_DEVICE
-                    && sTensorGlobalEnabled
+                    && isTensorSpoofActive()
                     && callingPkg != null
                     && targets != null
                     && targets.contains(callingPkg);
@@ -986,7 +987,7 @@ public class ApplicationPackageManager extends PackageManager {
 
             // Check cached tensor targets — populated once and refreshed via ContentObserver
             final Set<String> targets = sTensorTargets;
-            if (sTensorGlobalEnabled
+            if (isTensorSpoofActive()
                     && pkg != null
                     && targets != null
                     && targets.contains(pkg)) {
@@ -2488,6 +2489,8 @@ public class ApplicationPackageManager extends PackageManager {
             try {
                 sTensorGlobalEnabled = Settings.Secure.getInt(
                         cr, "pi_tensor_spoof", 0) == 1;
+                sTensorExpiresAt = Settings.Secure.getLong(
+                        cr, Settings.Secure.PI_TENSOR_SPOOF_EXPIRES_AT, 0L);
                 final String raw = Settings.Secure.getString(cr, "tensor_targets");
                 sTensorTargets = (raw == null || raw.isEmpty())
                         ? Collections.emptySet()
@@ -2509,11 +2512,24 @@ public class ApplicationPackageManager extends PackageManager {
             cr.registerContentObserver(
                     Settings.Secure.getUriFor("tensor_targets"), false, observer);
             cr.registerContentObserver(
+                    Settings.Secure.getUriFor(Settings.Secure.PI_TENSOR_SPOOF_EXPIRES_AT),
+                    false, observer);
+            cr.registerContentObserver(
                     Settings.Secure.getUriFor(Settings.Secure.PI_PHOTOS_SPOOF), false, observer);
         } catch (Throwable t) {
             // Observer registration failed; feature will remain disabled
         }
         refresh.run();
+    }
+
+    /**
+     * Tensor spoofing is active while its switch is on and the optional timed-mode deadline
+     * (wall clock, epoch millis) has not passed. A zero deadline means no expiry.
+     */
+    private static boolean isTensorSpoofActive() {
+        if (!sTensorGlobalEnabled) return false;
+        final long expiresAt = sTensorExpiresAt;
+        return expiresAt <= 0L || System.currentTimeMillis() < expiresAt;
     }
 
     @RavenwoodIgnore
