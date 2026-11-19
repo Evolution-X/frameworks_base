@@ -7,16 +7,19 @@ package com.android.internal.util.evolution.glass;
 
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
+import android.graphics.BlurMaskFilter;
 import android.graphics.Canvas;
 import android.graphics.ColorFilter;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.graphics.RenderNode;
 import android.graphics.drawable.Drawable;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewConfiguration;
 import android.view.ViewTreeObserver;
 import android.widget.Checkable;
 import android.widget.ImageView;
@@ -26,7 +29,7 @@ import com.android.internal.dynamicanimation.animation.FloatValueHolder;
 import com.android.internal.dynamicanimation.animation.SpringAnimation;
 import com.android.internal.dynamicanimation.animation.SpringForce;
 
-final class LiquidTabBar implements ViewGroup.TouchObserver, ViewTreeObserver.OnPreDrawListener,
+final class LiquidTabBar implements ViewTreeObserver.OnPreDrawListener,
         View.OnLayoutChangeListener {
 
     private static final float SIDE_MARGIN_DP = 20f;
@@ -49,11 +52,17 @@ final class LiquidTabBar implements ViewGroup.TouchObserver, ViewTreeObserver.On
     private final float mOriginalElevation;
     private final android.view.ViewOutlineProvider mOriginalOutline;
 
-    private final FloatValueHolder mX = new FloatValueHolder();
-    private final SpringAnimation mXSpring = new SpringAnimation(mX);
-    private final FloatValueHolder mPress = new FloatValueHolder();
-    private final SpringAnimation mPressSpring = new SpringAnimation(mPress);
-    private float mVelocity;
+    private final LiquidMotion mMotion = new LiquidMotion(PRESSED_SCALE, this::onMotion);
+    private final Lens mLens = new Lens();
+    private final Drawable mOriginalForeground;
+
+    private final FloatValueHolder mOffset = new FloatValueHolder();
+    private final SpringAnimation mOffsetSpring = new SpringAnimation(mOffset);
+    private final float mTouchSlop;
+    private boolean mDragging;
+    private boolean mMoved;
+    private float mDownX;
+    private float mLastX;
 
     private final RectF mCapsule = new RectF();
     private final Rect mTmp = new Rect();
@@ -61,7 +70,6 @@ final class LiquidTabBar implements ViewGroup.TouchObserver, ViewTreeObserver.On
     private int mSelected = -1;
     private int mItemCount;
     private boolean mDark;
-    private boolean mPressed;
     private int mAddedPadding;
     private int mLastGlassKey;
     private float mLabelLuminance = -1f;
@@ -73,25 +81,16 @@ final class LiquidTabBar implements ViewGroup.TouchObserver, ViewTreeObserver.On
         mOriginalBackground = bar.getBackground();
         mOriginalElevation = bar.getElevation();
         mOriginalOutline = bar.getOutlineProvider();
-        mX.setValue(Float.NaN);
-
-        mXSpring.setSpring(new SpringForce().setDampingRatio(1f).setStiffness(1000f));
-        mXSpring.addUpdateListener((anim, value, velocity) -> {
-            mVelocity = velocity;
-            mPill.invalidateSelf();
-        });
-        mXSpring.addEndListener((anim, canceled, value, velocity) -> {
-            mVelocity = 0f;
-            mPill.invalidateSelf();
-        });
-        mPressSpring.setSpring(new SpringForce().setDampingRatio(1f).setStiffness(1000f));
-        mPressSpring.addUpdateListener((anim, value, velocity) -> mPill.invalidateSelf());
-        mPress.setValue(0f);
+        mOriginalForeground = bar.getForeground();
+        mTouchSlop = ViewConfiguration.get(bar.getContext()).getScaledTouchSlop();
+        mOffsetSpring.setSpring(new SpringForce().setDampingRatio(1f).setStiffness(300f));
+        mOffsetSpring.setMinimumVisibleChange(0.5f);
+        mOffsetSpring.addUpdateListener((anim, value, velocity) -> onMotion());
 
         bar.setBackground(mPill);
+        bar.setForeground(mLens);
         bar.setElevation(0f);
         bar.setOutlineProvider(null);
-        bar.setTouchObserver(this);
         bar.addOnLayoutChangeListener(this);
         bar.getViewTreeObserver().addOnPreDrawListener(this);
         restyleMaterialItems();
@@ -99,9 +98,12 @@ final class LiquidTabBar implements ViewGroup.TouchObserver, ViewTreeObserver.On
     }
 
     void remove() {
-        mXSpring.cancel();
-        mPressSpring.cancel();
-        mBar.setTouchObserver(null);
+        mMotion.cancel();
+        mOffsetSpring.cancel();
+        mBar.setScaleX(1f);
+        mBar.setScaleY(1f);
+        mBar.setTranslationX(0f);
+        mBar.setForeground(mOriginalForeground);
         mBar.removeOnLayoutChangeListener(this);
         mBar.getViewTreeObserver().removeOnPreDrawListener(this);
         LiquidGlass.removeFrom(mBar);
@@ -162,7 +164,7 @@ final class LiquidTabBar implements ViewGroup.TouchObserver, ViewTreeObserver.On
             insetItems(inset);
         }
         collectTabParts();
-        updateSelection(false);
+        updateSelection(mSelected >= 0);
         recolorTabs();
     }
 
@@ -172,7 +174,8 @@ final class LiquidTabBar implements ViewGroup.TouchObserver, ViewTreeObserver.On
         for (int i = 0; i < mItems.getChildCount(); i++) {
             View child = mItems.getChildAt(i);
             if (child.getVisibility() != View.VISIBLE || child.getWidth() == 0) continue;
-            View[] parts = new View[4];
+            View[] parts = new View[6];
+            parts[5] = child;
             collect(child, parts);
             mTabParts.add(parts);
         }
@@ -185,6 +188,7 @@ final class LiquidTabBar implements ViewGroup.TouchObserver, ViewTreeObserver.On
             else if (name.endsWith("item_icon_view") && v instanceof ImageView) parts[1] = v;
             else if (name.endsWith("large_label_view") && v instanceof TextView) parts[2] = v;
             else if (name.endsWith("small_label_view") && v instanceof TextView) parts[3] = v;
+            else if (name.endsWith("item_icon_container")) parts[4] = v;
         }
         if (v instanceof ViewGroup g) {
             for (int i = 0; i < g.getChildCount(); i++) collect(g.getChildAt(i), parts);
@@ -207,8 +211,12 @@ final class LiquidTabBar implements ViewGroup.TouchObserver, ViewTreeObserver.On
         for (int i = 0; i < mTabParts.size(); i++) {
             View[] parts = mTabParts.get(i);
             int color = i == mSelected ? accent : label;
-            if (parts[0] != null && parts[0].getVisibility() != View.INVISIBLE) {
-                parts[0].setVisibility(View.INVISIBLE);
+            if (parts[0] != null && parts[0].getBackground() != null) parts[0].setBackground(null);
+            for (int j = 4; j < 6; j++) {
+                if (parts[j] != null
+                        && parts[j].getBackground() instanceof android.graphics.drawable.RippleDrawable) {
+                    parts[j].setBackground(null);
+                }
             }
             if (parts[1] instanceof ImageView icon) {
                 ColorStateList tint = icon.getImageTintList();
@@ -287,21 +295,6 @@ final class LiquidTabBar implements ViewGroup.TouchObserver, ViewTreeObserver.On
         return false;
     }
 
-    private float centerOf(int index) {
-        if (mItems == null) return Float.NaN;
-        int seen = 0;
-        for (int i = 0; i < mItems.getChildCount(); i++) {
-            View child = mItems.getChildAt(i);
-            if (child.getVisibility() != View.VISIBLE || child.getWidth() == 0) continue;
-            if (seen++ == index) {
-                mTmp.set(0, 0, child.getWidth(), child.getHeight());
-                mBar.offsetDescendantRectToMyCoords(child, mTmp);
-                return mTmp.exactCenterX();
-            }
-        }
-        return Float.NaN;
-    }
-
     private void updateSelection(boolean animate) {
         if (mItems == null) {
             mSelected = -1;
@@ -316,20 +309,12 @@ final class LiquidTabBar implements ViewGroup.TouchObserver, ViewTreeObserver.On
             count++;
         }
         mItemCount = count;
-        if (selected < 0 || (selected == mSelected && !Float.isNaN(mX.getValue()) && !animate)) {
-            if (selected >= 0 && !mXSpring.isRunning() && !mPressed) {
-                mX.setValue(centerOf(selected));
-            }
-            mSelected = selected;
-            return;
-        }
-        float target = centerOf(selected);
-        if (Float.isNaN(target)) return;
-        if (mSelected < 0 || !animate) {
-            mXSpring.cancel();
-            mX.setValue(target);
-        } else {
-            mXSpring.animateToFinalPosition(target);
+        mMotion.setMax(count - 1);
+        if (selected < 0 || selected == mSelected) return;
+        if (mSelected < 0 || !animate || Float.isNaN(mMotion.value())) {
+            mMotion.snapTo(selected);
+        } else if (!mDragging) {
+            mMotion.animateToValue(selected);
         }
         mSelected = selected;
         mPill.invalidateSelf();
@@ -344,44 +329,114 @@ final class LiquidTabBar implements ViewGroup.TouchObserver, ViewTreeObserver.On
             relayout();
         }
         if (mBar.getElevation() != 0f) mBar.setElevation(0f);
-        if (mItems != null && !mPressed) updateSelection(true);
+        if (mItems != null && !mDragging) updateSelection(true);
         recolorTabs();
         return true;
     }
 
-    @Override
-    public void onObserveTouch(MotionEvent ev) {
+    void onObserveTouch(MotionEvent ev) {
         float x = ev.getX();
         switch (ev.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
-                if (!mCapsule.contains(x, ev.getY()) || mSelected < 0) return;
-                mPressed = true;
-                mPressSpring.animateToFinalPosition(1f);
-                followFinger(x);
+                if (!mCapsule.contains(x, ev.getY()) || mSelected < 0 || mItemCount < 2) return;
+                mDragging = true;
+                mMoved = false;
+                mDownX = x;
+                mLastX = x;
+                mOffsetSpring.cancel();
+                mOffset.setValue(0f);
+                mMotion.pressDown();
+                mMotion.updateValue(indexAt(x));
                 break;
             case MotionEvent.ACTION_MOVE:
-                if (mPressed) followFinger(x);
+                if (!mDragging) return;
+                float dx = x - mLastX;
+                mLastX = x;
+                if (Math.abs(x - mDownX) > mTouchSlop) mMoved = true;
+                if (dx != 0f && mMoved) {
+                    float rtl = mBar.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL ? -1f : 1f;
+                    mMotion.updateValue(mMotion.target() + rtl * dx / tabWidth());
+                    mOffset.setValue(mOffset.getValue() + dx);
+                    onMotion();
+                }
                 break;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
-                if (!mPressed) return;
-                mPressed = false;
-                mPressSpring.animateToFinalPosition(0f);
+                if (!mDragging) return;
+                mDragging = false;
+                int target = Math.round(mMotion.target());
+                boolean up = ev.getActionMasked() == MotionEvent.ACTION_UP;
+                if (up && mMoved && target != mSelected) {
+                    View tab = tabAt(target);
+                    if (tab != null) tab.performClick();
+                } else if (!up || mMoved) {
+                    target = mSelected;
+                }
+                mMotion.updateValue(target);
+                mMotion.release();
+                mOffsetSpring.animateToFinalPosition(0f);
                 mBar.postOnAnimation(() -> updateSelection(true));
                 break;
         }
     }
 
-    private void followFinger(float x) {
-        float half = pillWidth() / 2f;
-        float clamped = Math.max(mCapsule.left + dp(INNER_PADDING_DP) + half,
-                Math.min(mCapsule.right - dp(INNER_PADDING_DP) - half, x));
-        mXSpring.animateToFinalPosition(clamped);
+    private float tabWidth() {
+        return pillWidth();
     }
 
     private float pillWidth() {
         int count = Math.max(mItemCount, 1);
         return (mCapsule.width() - 2f * dp(INNER_PADDING_DP)) / count;
+    }
+
+    private float indexAt(float x) {
+        float inner = dp(INNER_PADDING_DP);
+        float index = (float) Math.floor((x - mCapsule.left - inner) / tabWidth());
+        if (mBar.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL) index = mItemCount - 1 - index;
+        return Math.max(0, Math.min(mItemCount - 1, index));
+    }
+
+    private View tabAt(int index) {
+        if (mItems == null) return null;
+        int seen = 0;
+        for (int i = 0; i < mItems.getChildCount(); i++) {
+            View child = mItems.getChildAt(i);
+            if (child.getVisibility() != View.VISIBLE || child.getWidth() == 0) continue;
+            if (seen++ == index) return child;
+        }
+        return null;
+    }
+
+    private float pillCenterX() {
+        float v = mMotion.value();
+        if (mBar.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL) v = mItemCount - 1 - v;
+        return mCapsule.left + dp(INNER_PADDING_DP) + (v + 0.5f) * tabWidth();
+    }
+
+    private void onMotion() {
+        float press = mMotion.press();
+        float w = Math.max(mBar.getWidth(), 1);
+        float barScale = 1f + dp(16f) / w * press;
+        mBar.setScaleX(barScale);
+        mBar.setScaleY(barScale);
+        float fraction = Math.max(-1f, Math.min(1f, mOffset.getValue() / w));
+        float eased = 1f - (1f - Math.abs(fraction)) * (1f - Math.abs(fraction));
+        mBar.setTranslationX(dp(4f) * Math.signum(fraction) * eased);
+        mPill.invalidateSelf();
+        mLens.invalidateSelf();
+    }
+
+    private boolean pillRect(RectF out) {
+        if (mSelected < 0 || Float.isNaN(mMotion.value()) || mCapsule.isEmpty()) return false;
+        float v = mMotion.velocity() / 10f;
+        float w = pillWidth() * mMotion.scaleX()
+                / (1f - Math.max(-0.2f, Math.min(0.2f, v * 0.75f)));
+        float h = (mCapsule.height() - 2f * dp(INNER_PADDING_DP)) * mMotion.scaleY()
+                * (1f - Math.max(-0.2f, Math.min(0.2f, v * 0.25f)));
+        float cx = pillCenterX();
+        float cy = mCapsule.centerY();
+        out.set(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f);
+        return true;
     }
 
     private void restyleMaterialItems() {
@@ -431,29 +486,93 @@ final class LiquidTabBar implements ViewGroup.TouchObserver, ViewTreeObserver.On
 
     private final class Pill extends Drawable {
         private final Paint mPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint mShadow = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final RectF mRect = new RectF();
+        private android.graphics.Bitmap mShadowBitmap;
+        private float mShadowW;
+        private float mShadowH;
+        private boolean mShadowDark;
+
+        private void drawShadow(Canvas canvas) {
+            float pad = dp(10f) * 2f;
+            if (mShadowBitmap == null || mShadowW != mCapsule.width()
+                    || mShadowH != mCapsule.height() || mShadowDark != mDark) {
+                mShadowW = mCapsule.width();
+                mShadowH = mCapsule.height();
+                mShadowDark = mDark;
+                int bw = Math.max(1, Math.round(mShadowW + 2 * pad));
+                int bh = Math.max(1, Math.round(mShadowH + 2 * pad));
+                mShadowBitmap = android.graphics.Bitmap.createBitmap(bw, bh,
+                        android.graphics.Bitmap.Config.ALPHA_8);
+                Canvas c = new Canvas(mShadowBitmap);
+                mShadow.setMaskFilter(new BlurMaskFilter(dp(10f), BlurMaskFilter.Blur.OUTER));
+                mShadow.setColor(0xFF000000);
+                float r = mShadowH / 2f;
+                c.drawRoundRect(pad, pad, pad + mShadowW, pad + mShadowH, r, r, mShadow);
+                mShadow.setMaskFilter(null);
+            }
+            mShadow.setColor(mDark ? 0x33000000 : 0x1A000000);
+            canvas.drawBitmap(mShadowBitmap, mCapsule.left - pad, mCapsule.top - pad, mShadow);
+        }
+
+        @Override
+        public void draw(Canvas canvas) {
+            if (mCapsule.isEmpty()) return;
+            drawShadow(canvas);
+
+            if (!pillRect(mRect)) return;
+            float press = mMotion.press();
+            float h = mRect.height();
+            int base = mDark ? 0xFFFFFF : 0x000000;
+            int alpha = Math.round(255 * 0.10f * (1f - press));
+            if (alpha > 0) {
+                mPaint.setColor((alpha << 24) | base);
+                canvas.drawRoundRect(mRect, h / 2f, h / 2f, mPaint);
+            }
+            int shade = Math.round(255 * 0.03f * press);
+            if (shade > 0) {
+                mPaint.setColor(shade << 24);
+                canvas.drawRoundRect(mRect, h / 2f, h / 2f, mPaint);
+            }
+        }
+
+        @Override
+        public void setAlpha(int alpha) {}
+
+        @Override
+        public void setColorFilter(ColorFilter colorFilter) {}
+
+        @Override
+        public int getOpacity() {
+            return PixelFormat.TRANSLUCENT;
+        }
+    }
+
+    private final class Lens extends Drawable {
+        private final RenderNode mNode = new RenderNode("LiquidTabBarLens");
+        private final LiquidGlass mGlass = new LiquidGlass();
+        private final Paint mFill = new Paint();
         private final RectF mRect = new RectF();
 
         @Override
         public void draw(Canvas canvas) {
-            float cx = mX.getValue();
-            if (mSelected < 0 || Float.isNaN(cx) || mCapsule.isEmpty()) return;
-            float press = mPress.getValue();
-            float scale = 1f + press * (PRESSED_SCALE - 1f);
-            float tabsPerSecond = mVelocity / Math.max(pillWidth(), 1f) / 10f;
-            float stretch = Math.max(-0.2f, Math.min(0.2f, tabsPerSecond * 0.75f));
-            float squash = Math.max(-0.2f, Math.min(0.2f, tabsPerSecond * 0.25f));
-            float w = pillWidth() * scale / (1f - Math.abs(stretch));
-            float h = (mCapsule.height() - 2f * dp(INNER_PADDING_DP)) * scale
-                    * (1f - Math.abs(squash));
-            float cy = mCapsule.centerY();
-            float inner = dp(INNER_PADDING_DP);
-            cx = Math.max(mCapsule.left + inner + w / 2f,
-                    Math.min(mCapsule.right - inner - w / 2f, cx));
-            mRect.set(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f);
-            int base = mDark ? 0xFFFFFF : 0x000000;
-            int alpha = Math.round(255 * (0.10f + 0.06f * press));
-            mPaint.setColor((alpha << 24) | base);
-            canvas.drawRoundRect(mRect, h / 2f, h / 2f, mPaint);
+            float press = mMotion.press();
+            if (press < 0.01f || !canvas.isHardwareAccelerated() || !pillRect(mRect)) return;
+            int w = Math.max(1, Math.round(mRect.width()));
+            int h = Math.max(1, Math.round(mRect.height()));
+            int left = Math.round(mRect.left);
+            int top = Math.round(mRect.top);
+            mNode.setPosition(left, top, left + w, top + h);
+            mGlass.setShape(0f, 0f, w, h, h / 2f)
+                    .setLens(dp(10f) * press, dp(14f) * press, dp(1.5f) * press)
+                    .setLook(0f, 1f, press, 0)
+                    .setInnerShadow(dp(8f), 0.15f * press);
+            mNode.setBackdropRenderEffect(mGlass.build());
+            Canvas c = mNode.beginRecording(w, h);
+            mFill.setColor(0x01000000);
+            c.drawRect(0f, 0f, 1f, 1f, mFill);
+            mNode.endRecording();
+            canvas.drawRenderNode(mNode);
         }
 
         @Override
