@@ -46,6 +46,9 @@ public final class LiquidTabBars {
     private final boolean mFloat;
     private final float mDensity;
     private final List<LiquidTabBar> mBars = new ArrayList<>();
+    private ComposeTabBar mComposeBar;
+    private long mNextComposeScan;
+    private int mComposeMisses;
     private final WeakHashMap<View, Boolean> mPadded = new WeakHashMap<>();
     private long mLastScan;
     private boolean mScanPending;
@@ -85,6 +88,14 @@ public final class LiquidTabBars {
                 mBars.remove(i);
             }
         }
+        if (mComposeBar != null) {
+            if (mComposeBar.mView.isAttachedToWindow() && mComposeBar.update()) {
+                attached = true;
+            } else {
+                mComposeBar.remove();
+                mComposeBar = null;
+            }
+        }
         if (attached || !(root instanceof ViewGroup)) return;
         long now = SystemClock.uptimeMillis();
         long wait = SCAN_INTERVAL_MS - (now - mLastScan);
@@ -100,7 +111,25 @@ public final class LiquidTabBars {
         }
         mLastScan = now;
         ViewGroup found = find((ViewGroup) root, root.getWidth(), root.getHeight());
-        if (found == null) return;
+        if (found == null) {
+            if (now >= mNextComposeScan) {
+                findCompose((ViewGroup) root, root.getHeight());
+                if (mComposeBar == null) {
+                    mComposeMisses = Math.min(mComposeMisses + 1, 4);
+                    mNextComposeScan = now + (SCAN_INTERVAL_MS << mComposeMisses);
+                } else {
+                    mComposeMisses = 0;
+                }
+            }
+            if (mComposeBar == null && !mScanPending) {
+                mScanPending = true;
+                root.postDelayed(() -> {
+                    mScanPending = false;
+                    if (root.isAttachedToWindow()) onLayout(root);
+                }, Math.max(mNextComposeScan - now, SCAN_INTERVAL_MS));
+            }
+            return;
+        }
         try {
             mBars.add(new LiquidTabBar(found));
             if (mFloat) floatOverContent(found);
@@ -128,6 +157,29 @@ public final class LiquidTabBars {
     }
 
     private final int[] mLocation = new int[2];
+
+    private void findCompose(ViewGroup group, int rootHeight) {
+        for (int i = 0; i < group.getChildCount(); i++) {
+            View child = group.getChildAt(i);
+            if (child.getVisibility() != View.VISIBLE || child.getWidth() == 0) continue;
+            child.getLocationInWindow(mLocation);
+            if (mLocation[1] + child.getHeight() < rootHeight - 4) continue;
+            if (child.getAccessibilityNodeProvider() != null) {
+                try {
+                    mComposeBar = ComposeTabBar.find(child);
+                } catch (RuntimeException e) {
+                    Log.w(TAG, "Could not look for a Compose tab bar", e);
+                }
+                if (mComposeBar != null) {
+                    return;
+                }
+            }
+            if (child instanceof ViewGroup g) {
+                findCompose(g, rootHeight);
+                if (mComposeBar != null) return;
+            }
+        }
+    }
 
     private ViewGroup find(ViewGroup group, int rootWidth, int rootHeight) {
         for (int i = 0; i < group.getChildCount(); i++) {
