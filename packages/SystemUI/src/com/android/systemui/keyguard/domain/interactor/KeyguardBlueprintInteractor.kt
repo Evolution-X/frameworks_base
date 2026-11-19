@@ -29,6 +29,9 @@ import com.android.systemui.keyguard.ui.view.layout.blueprints.DefaultKeyguardBl
 import com.android.systemui.keyguard.ui.view.layout.blueprints.SplitShadeKeyguardBlueprint
 import com.android.systemui.keyguard.ui.view.layout.blueprints.transitions.IntraBlueprintTransition.Config
 import com.android.systemui.keyguard.ui.view.layout.blueprints.transitions.IntraBlueprintTransition.Type
+import com.android.systemui.keyguard.ui.view.layout.sections.KeyguardClockStyleSection
+import com.android.systemui.keyguard.ui.view.layout.sections.KeyguardSliceViewSection
+import com.android.systemui.keyguard.ui.view.layout.sections.KeyguardWeatherViewSection
 import com.android.systemui.keyguard.ui.view.layout.sections.SmartspaceSection
 import com.android.systemui.scene.shared.flag.SceneContainerFlag
 import com.android.systemui.shade.ShadeDisplayAware
@@ -119,6 +122,21 @@ constructor(
 
     fun getCurrentBlueprint(): KeyguardBlueprint {
         return keyguardBlueprintRepository.blueprint.value
+    }
+
+    /**
+     * Rebuilds the sections whose views depend on whether a custom clock style is enabled, so
+     * switching between the plugin clock and a custom clock style applies without restarting.
+     */
+    fun rebuildCustomClockSections() {
+        val sections =
+            getCurrentBlueprint().sections.filter {
+                it is KeyguardClockStyleSection ||
+                    it is SmartspaceSection ||
+                    it is KeyguardSliceViewSection ||
+                    it is KeyguardWeatherViewSection
+            }
+        refreshBlueprint(Config(Type.NoTransition, rebuildSections = sections))
     }
 
     companion object {
