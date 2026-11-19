@@ -358,7 +358,7 @@ final class ComposeTabBar {
                 mGlassKey = key;
                 mGlass.setShape(0f, 0f, w, h, h / 2f)
                         .setLens(dp(24f), dp(24f), 0f)
-                        .setLook(dp(8f), 1.5f, dark ? 0.35f : 0.5f,
+                        .setLook(dp(20f), 1.5f, dark ? 0.35f : 0.5f,
                                 dark ? LiquidGlass.TINT_DARK : LiquidGlass.TINT_LIGHT);
                 mGlassNode.setBackdropRenderEffect(mGlass.build());
             }
