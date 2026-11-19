@@ -91,8 +91,8 @@ public final class LiquidGlass {
     }
     private float mBlurRadius;
 
-    public static final @ColorInt int TINT_LIGHT = 0x66FAFAFA;
-    public static final @ColorInt int TINT_DARK = 0x66121212;
+    public static final @ColorInt int TINT_LIGHT = 0x99F2F2F7;
+    public static final @ColorInt int TINT_DARK = 0x991C1C1E;
 
     public LiquidGlass setShape(float left, float top, float right, float bottom, float radius) {
         mShader.setFloatUniform("shape", left, top, right, bottom);

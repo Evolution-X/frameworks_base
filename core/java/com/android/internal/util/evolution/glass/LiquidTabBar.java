@@ -35,7 +35,7 @@ final class LiquidTabBar implements ViewTreeObserver.OnPreDrawListener,
     private static final float SIDE_MARGIN_DP = 20f;
     private static final float INNER_PADDING_DP = 4f;
     private static final float HEIGHT_DP = 64f;
-    private static final float BLUR_DP = 8f;
+    private static final float BLUR_DP = 20f;
     private static final float LENS_DP = 24f;
     private static final float PRESSED_SCALE = 78f / 56f;
 
