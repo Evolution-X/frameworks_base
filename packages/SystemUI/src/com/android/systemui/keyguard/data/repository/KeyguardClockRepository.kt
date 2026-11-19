@@ -48,6 +48,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -181,8 +182,14 @@ constructor(
     override val currentClockFontAxesWidth: Float?
         get() = clockRegistry.settings?.axes?.get(GSFAxes.WIDTH.tag)
 
+    private val clockFontFamily: Flow<String?> =
+        configurationRepository.onAnyConfigurationChange
+            .onStart { emit(Unit) }
+            .map { readClockFontFamily() }
+            .distinctUntilChanged()
+
     override val currentClock: StateFlow<ClockController?> =
-        currentClockId
+        combine(currentClockId, clockFontFamily) { clockId, _ -> clockId }
             .map {
                 clockEventController.clock = clockRegistry.createCurrentClock(context)
                 clockEventController.clock
@@ -214,6 +221,12 @@ constructor(
             isDoubleLineClock
         }
         return ClockSizeSetting.fromSettingValue(clockSettingValue)
+    }
+
+    private fun readClockFontFamily(): String? {
+        val res = context.resources
+        val id = res.getIdentifier("config_clockFontFamily", "string", "android")
+        return if (id != 0) res.getString(id) else null
     }
 
     private fun readCustomClockEnabled(): Boolean =
