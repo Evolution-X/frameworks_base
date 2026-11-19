@@ -18,8 +18,6 @@
 package com.android.systemui.keyguard.ui.view.layout.sections
 
 import android.content.Context
-import android.os.UserHandle
-import android.provider.Settings
 import android.view.View
 import androidx.constraintlayout.widget.Barrier
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -127,12 +125,7 @@ constructor(
             setAlpha(getNonTargetClockFace(clock).views, 0F)
 
             // Hide small clock when custom clock is enabled by setting alpha to 0
-            val isCustomClockEnabled = Settings.Secure.getIntForUser(
-                    context.contentResolver,
-                    Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_STYLE,
-                    0,
-                    UserHandle.USER_CURRENT
-            ) != 0
+            val isCustomClockEnabled = keyguardClockViewModel.isCustomClockEnabled.value
             
             if (isCustomClockEnabled) {
                 setAlpha(ClockViewIds.LOCKSCREEN_CLOCK_VIEW_SMALL, 0F)
@@ -172,12 +165,7 @@ constructor(
 
     private fun createUnifiedBarrierAndNotificationConstraints(constraintSet: ConstraintSet) {
         constraintSet.apply {
-            val isCustomClockEnabled = Settings.Secure.getIntForUser(
-                context.contentResolver,
-                Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_STYLE,
-                0,
-                UserHandle.USER_CURRENT
-            ) != 0
+            val isCustomClockEnabled = keyguardClockViewModel.isCustomClockEnabled.value
 
             val potentialBarrierViews = if (isCustomClockEnabled) {
                 listOf(
