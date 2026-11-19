@@ -58,6 +58,9 @@ public class StackScrollAlgorithm {
 
     private static final String TAG = "StackScrollAlgorithm";
     private static final SourceType STACK_SCROLL_ALGO = SourceType.from("StackScrollAlgorithm");
+    private static final float HUN_TO_STACK_FADE_OUT_END = 0.15f;
+    private static final float HUN_TO_STACK_FADE_IN_START = 0.5f;
+    private static final float HUN_TO_STACK_FADE_IN_END = 0.8f;
     private final ViewGroup mHostView;
     private final HeadsUpAnimator mHeadsUpAnimator;
 
@@ -229,6 +232,11 @@ public class StackScrollAlgorithm {
                         && !ambientState.isCurrentSceneLockscreen()) {
                 // Hide notifications when transitioning to/from AOD/Occluded to avoid glitches.
                 viewState.setAlpha(0, "aod transition");
+            }
+
+            if (SceneContainerFlag.isEnabled() && view instanceof ExpandableNotificationRow row
+                    && row.isPinned() && isHunMovingToStack(ambientState)) {
+                viewState.setAlpha(hunToStackAlpha(ambientState), "hun moving to stack");
             }
 
             // On the final call to {@link #resetViewState}, the alpha is set back to 1f but
@@ -916,6 +924,36 @@ public class StackScrollAlgorithm {
         }
     }
 
+    /**
+     * Pinned HUNs are only unpinned once the shade is fully open. While it opens, fade them out,
+     * move them to their place in the stack and fade them back in with the rest of the stack, so
+     * that they don't sit under the shade header and jump into the stack at the end.
+     */
+    private static boolean isHunMovingToStack(AmbientState ambientState) {
+        return ambientState.getExpansionFraction() > 0f
+                && ambientState.getQsExpansionFraction() == 0f
+                && !ambientState.isOnKeyguard();
+    }
+
+    private void moveHunToStackWhileExpanding(AmbientState ambientState, float stackY,
+            ExpandableViewState viewState) {
+        if (!isHunMovingToStack(ambientState)) return;
+        final float progress = MathUtils.constrain(
+                ambientState.getExpansionFraction() / HUN_TO_STACK_FADE_OUT_END, 0f, 1f);
+        viewState.setYTranslation(MathUtils.lerp(viewState.getYTranslation(), stackY, progress),
+                "StackScrollAlgorithm.moveHunToStackWhileExpanding");
+    }
+
+    private static float hunToStackAlpha(AmbientState ambientState) {
+        final float fraction = ambientState.getExpansionFraction();
+        if (fraction < HUN_TO_STACK_FADE_OUT_END) {
+            return 1f - fraction / HUN_TO_STACK_FADE_OUT_END;
+        }
+        final float fadeIn = MathUtils.constrain((fraction - HUN_TO_STACK_FADE_IN_START)
+                / (HUN_TO_STACK_FADE_IN_END - HUN_TO_STACK_FADE_IN_START), 0f, 1f);
+        return fadeIn * ambientState.getPlaceholderAlpha();
+    }
+
     private void updateHeadsUpStates(StackScrollAlgorithmState algorithmState,
             AmbientState ambientState) {
         int childCount = algorithmState.visibleChildren.size();
@@ -964,6 +1002,7 @@ public class StackScrollAlgorithm {
                 continue;
             }
             ExpandableViewState childState = row.getViewState();
+            final float stackY = childState.getYTranslation();
             boolean shouldSetTopHeadsUpEntry;
             if (SceneContainerFlag.isEnabled()) {
                 shouldSetTopHeadsUpEntry = row.isHeadsUp();
@@ -1100,6 +1139,9 @@ public class StackScrollAlgorithm {
                     childState.setYTranslation(
                             childState.getYTranslation() - ambientState.getScrollY(),
                             "StackScrollAlgorithm.updateHeadsUpStates.scroll");
+                }
+                if (SceneContainerFlag.isEnabled()) {
+                    moveHunToStackWhileExpanding(ambientState, stackY, childState);
                 }
             }
             if (row.isHeadsUpAnimatingAway() || isCyclingOut) {
