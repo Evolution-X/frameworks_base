@@ -18,10 +18,15 @@ package com.android.systemui.charging
 
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.PointF
+import android.os.BatteryManager
 import android.graphics.Typeface
 import android.os.SystemProperties
 import android.view.Gravity
@@ -34,6 +39,8 @@ import com.android.internal.annotations.VisibleForTesting
 import com.android.internal.logging.UiEvent
 import com.android.internal.logging.UiEventLogger
 import com.android.settingslib.Utils
+import com.android.systemui.charging.styles.ChargingStyleView
+import com.android.systemui.charging.styles.ChargingStyles
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.flags.FeatureFlags
 import com.android.systemui.flags.Flags
@@ -93,6 +100,7 @@ constructor(
                     WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
             setTrustedOverlay()
         }
+    private var drawnView: ChargingStyleView? = null
     private var lastTriggerTime: Long? = null
     private var debounceLevel = 0
 
@@ -178,6 +186,11 @@ constructor(
     }
 
     fun startRipple() {
+        val style = ChargingStyles.selected(context)
+        if (style != ChargingStyles.DEFAULT && ChargingStyles.drawn(context, style) != null) {
+            startDrawn(style)
+            return
+        }
         if (context.resources.getBoolean(R.bool.config_useCustomChargingAnim)) {
             startCustomRipple()
         } else {
@@ -244,6 +257,63 @@ constructor(
         windowManager.addView(container, windowLayoutParams)
         uiEventLogger.log(WiredChargingRippleEvent.CHARGING_RIPPLE_PLAYED)
     }
+
+    private fun startDrawn(style: Int) {
+        if (drawnView != null) return
+        val view = ChargingStyles.drawn(context, style) ?: return
+        val sticky = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val level = sticky?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        view.level = if (level in 0..100) level else batteryLevel
+        describe(view, sticky)
+        // The charger often reads low at plug-in, so follow it while the animation plays.
+        val updates =
+            object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    if (drawnView === view) describe(view, intent)
+                }
+            }
+        context.registerReceiver(
+            updates,
+            IntentFilter(Intent.ACTION_BATTERY_CHANGED),
+            Context.RECEIVER_NOT_EXPORTED,
+        )
+        val port = portPosition()
+        view.portX = port.x
+        view.portY = port.y
+        drawnView = view
+        windowLayoutParams.packageName = context.opPackageName
+        view.addOnAttachStateChangeListener(
+            object : View.OnAttachStateChangeListener {
+                override fun onViewDetachedFromWindow(v: View) {}
+
+                override fun onViewAttachedToWindow(v: View) {
+                    view.removeOnAttachStateChangeListener(this)
+                    view.play {
+                        if (drawnView === view) drawnView = null
+                        try {
+                            context.unregisterReceiver(updates)
+                        } catch (_: IllegalArgumentException) {}
+                        removeWindowViewIfAttached(view)
+                    }
+                }
+            }
+        )
+        windowManager.addView(view, windowLayoutParams)
+        uiEventLogger.log(WiredChargingRippleEvent.CHARGING_RIPPLE_PLAYED)
+    }
+
+    private fun describe(view: ChargingStyleView, battery: Intent?) {
+        view.speed = ChargingStyles.speed(battery)
+        view.label = ChargingStyles.label(context, view.speed, ChargingStyles.watts(battery))
+    }
+
+    private fun portPosition(): PointF =
+        when (context.display?.rotation) {
+            Surface.ROTATION_90 -> PointF(normalizedPortPosY, 1 - normalizedPortPosX)
+            Surface.ROTATION_180 -> PointF(1 - normalizedPortPosX, 1 - normalizedPortPosY)
+            Surface.ROTATION_270 -> PointF(1 - normalizedPortPosY, normalizedPortPosX)
+            else -> PointF(normalizedPortPosX, normalizedPortPosY)
+        }
 
     private fun startCustomRipple() {
         val mode = context.resources.getInteger(R.integer.config_chargingAnimMode)
