@@ -27,6 +27,8 @@ public final class LiquidGlass {
             + "uniform float dispersion;\n"
             + "uniform float saturation;\n"
             + "uniform float rim;\n"
+            + "uniform float innerShadow;\n"
+            + "uniform float innerShadowWidth;\n"
             + "layout(color) uniform half4 tint;\n"
             + "\n"
             + "float sdf(float2 p, float2 b, float r) {\n"
@@ -69,11 +71,24 @@ public final class LiquidGlass {
             + "  float edge = 1.0 - smoothstep(0.0, 1.5, -d);\n"
             + "  float light = abs(dot(n, float2(0.7071, -0.7071)));\n"
             + "  color.rgb += half3(edge * (0.35 + 0.65 * light) * rim);\n"
+            + "  float inset = 1.0 - smoothstep(0.0, max(innerShadowWidth, 0.001), -d);\n"
+            + "  color.rgb *= 1.0 - innerShadow * inset * inset;\n"
             + "  float alpha = 1.0 - smoothstep(-0.75, 0.75, d);\n"
             + "  return half4(clamp(color.rgb, 0.0, 1.0), 1.0) * alpha;\n"
             + "}\n";
 
     private final RuntimeShader mShader = new RuntimeShader(SHADER);
+
+    {
+        mShader.setFloatUniform("innerShadow", 0f);
+        mShader.setFloatUniform("innerShadowWidth", 1f);
+    }
+
+    public LiquidGlass setInnerShadow(float width, float strength) {
+        mShader.setFloatUniform("innerShadowWidth", Math.max(width, 0.001f));
+        mShader.setFloatUniform("innerShadow", strength);
+        return this;
+    }
     private float mBlurRadius;
 
     public static final @ColorInt int TINT_LIGHT = 0x66FAFAFA;
@@ -100,13 +115,17 @@ public final class LiquidGlass {
         return this;
     }
 
-    public void applyTo(View view) {
+    public RenderEffect build() {
         RenderEffect lens = RenderEffect.createRuntimeShaderEffect(mShader, "content");
         if (mBlurRadius > 0f) {
             lens = RenderEffect.createChainEffect(lens,
                     RenderEffect.createBlurEffect(mBlurRadius, mBlurRadius, Shader.TileMode.CLAMP));
         }
-        view.setBackdropRenderEffect(lens);
+        return lens;
+    }
+
+    public void applyTo(View view) {
+        view.setBackdropRenderEffect(build());
     }
 
     public static void removeFrom(View view) {

@@ -10,6 +10,7 @@ import android.os.Process;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
@@ -47,6 +48,7 @@ public final class LiquidTabBars {
     private final List<LiquidTabBar> mBars = new ArrayList<>();
     private final WeakHashMap<View, Boolean> mPadded = new WeakHashMap<>();
     private long mLastScan;
+    private boolean mScanPending;
 
     private LiquidTabBars(Context context, boolean floatOverContent) {
         mFloat = floatOverContent;
@@ -83,8 +85,17 @@ public final class LiquidTabBars {
                 mBars.remove(i);
             }
         }
+        if (attached || !(root instanceof ViewGroup)) return;
         long now = SystemClock.uptimeMillis();
-        if (attached || now - mLastScan < SCAN_INTERVAL_MS || !(root instanceof ViewGroup)) {
+        long wait = SCAN_INTERVAL_MS - (now - mLastScan);
+        if (wait > 0) {
+            if (!mScanPending) {
+                mScanPending = true;
+                root.postDelayed(() -> {
+                    mScanPending = false;
+                    if (root.isAttachedToWindow()) onLayout(root);
+                }, wait);
+            }
             return;
         }
         mLastScan = now;
@@ -97,6 +108,26 @@ public final class LiquidTabBars {
             Log.w(TAG, "Could not restyle " + found.getClass().getName(), e);
         }
     }
+
+    public void onTouch(MotionEvent ev) {
+        for (int i = 0; i < mBars.size(); i++) {
+            LiquidTabBar bar = mBars.get(i);
+            View view = bar.mBar;
+            if (!view.isAttachedToWindow() || !view.isShown()) continue;
+            view.getLocationInWindow(mLocation);
+            MotionEvent local = MotionEvent.obtain(ev);
+            local.offsetLocation(-mLocation[0], -mLocation[1]);
+            float sx = view.getScaleX();
+            float sy = view.getScaleY();
+            if (sx != 1f || sy != 1f) {
+                local.setLocation(local.getX() / sx, local.getY() / sy);
+            }
+            bar.onObserveTouch(local);
+            local.recycle();
+        }
+    }
+
+    private final int[] mLocation = new int[2];
 
     private ViewGroup find(ViewGroup group, int rootWidth, int rootHeight) {
         for (int i = 0; i < group.getChildCount(); i++) {
