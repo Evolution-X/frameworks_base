@@ -41,6 +41,7 @@ import com.android.app.tracing.coroutines.launchInTraced
 import com.android.app.tracing.coroutines.launchTraced
 import com.android.internal.R as internalR
 import com.android.internal.graphics.drawable.BackgroundBlurDrawable
+import com.android.systemui.gradient.ArgbGradient
 import com.android.systemui.gradient.GradientSettings
 import com.android.systemui.res.R
 import com.android.systemui.volume.dialog.dagger.scope.VolumeDialogScope
@@ -162,17 +163,18 @@ constructor(
             dialogViewModel.addTouchableBounds(ringerBackgroundView)
         }
 
-        var gradientEnabled =
-            GradientSettings.isEnabled(view.context, Settings.System.VOLUME_SLIDER_GRADIENT)
-        var gradientColors = GradientSettings.argbColors(view.context)
+        var gradient: ArgbGradient? =
+            GradientSettings.argbGradient(view.context, Settings.System.VOLUME_SLIDER_GRADIENT)
         val gradientObserver =
             GradientSettings.registerObserver(
                 view.context,
                 Settings.System.VOLUME_SLIDER_GRADIENT,
             ) {
-                gradientEnabled =
-                    GradientSettings.isEnabled(view.context, Settings.System.VOLUME_SLIDER_GRADIENT)
-                gradientColors = GradientSettings.argbColors(view.context)
+                gradient =
+                    GradientSettings.argbGradient(
+                        view.context,
+                        Settings.System.VOLUME_SLIDER_GRADIENT,
+                    )
             }
         coroutineContext.job.invokeOnCompletion {
             GradientSettings.unregisterObserver(view.context, gradientObserver)
@@ -237,8 +239,7 @@ constructor(
                                     uiModel,
                                     selectedButtonUiModel,
                                     unselectedButtonUiModel,
-                                    gradientEnabled,
-                                    gradientColors,
+                                    gradient,
                                 )
                                 ringerDrawerTransitionListener.setProgressChangeEnabled(true)
                                 drawerContainer.closeDrawer(
@@ -257,8 +258,7 @@ constructor(
                                         uiModel,
                                         selectedButtonUiModel,
                                         unselectedButtonUiModel,
-                                        gradientEnabled,
-                                        gradientColors,
+                                        gradient,
                                         onProgressChanged = { progress, isReverse ->
                                             // Let's make button progress when switching matches
                                             // motionLayout transition progress. When full
@@ -299,8 +299,7 @@ constructor(
                                     uiModel,
                                     selectedButtonUiModel,
                                     unselectedButtonUiModel,
-                                    gradientEnabled,
-                                    gradientColors,
+                                    gradient,
                                 )
                                 // Open drawer
                                 if (
@@ -393,8 +392,7 @@ constructor(
         uiModel: RingerViewModel,
         selectedButtonUiModel: RingerButtonUiModel,
         unselectedButtonUiModel: RingerButtonUiModel,
-        gradientEnabled: Boolean,
-        gradientColors: Pair<Int, Int>,
+        gradient: ArgbGradient?,
         onProgressChanged: (Float, Boolean) -> Unit = { _, _ -> },
         onAnimationEnd: Runnable? = null,
     ) {
@@ -454,8 +452,7 @@ constructor(
                         bindButtons(
                             viewModel,
                             uiModel,
-                            gradientEnabled,
-                            gradientColors,
+                            gradient,
                             onAnimationEnd = null,
                             isAnimated = true,
                         )
@@ -467,23 +464,21 @@ constructor(
                     bindButtons(
                         viewModel,
                         uiModel,
-                        gradientEnabled,
-                        gradientColors,
+                        gradient,
                         onAnimationEnd,
                         isAnimated = false,
                     )
                 }
             }
         } else {
-            bindButtons(viewModel, uiModel, gradientEnabled, gradientColors, onAnimationEnd)
+            bindButtons(viewModel, uiModel, gradient, onAnimationEnd)
         }
     }
 
     private fun MotionLayout.bindButtons(
         viewModel: VolumeDialogRingerDrawerViewModel,
         uiModel: RingerViewModel,
-        gradientEnabled: Boolean,
-        gradientColors: Pair<Int, Int>,
+        gradient: ArgbGradient?,
         onAnimationEnd: Runnable? = null,
         isAnimated: Boolean = false,
     ) {
@@ -496,8 +491,7 @@ constructor(
                     if (isOpen) ringerButton else uiModel.selectedButton,
                     viewModel,
                     isOpen,
-                    gradientEnabled,
-                    gradientColors,
+                    gradient,
                     isSelected = true,
                     isAnimated = isAnimated,
                 )
@@ -506,8 +500,7 @@ constructor(
                     ringerButton,
                     viewModel,
                     isOpen,
-                    gradientEnabled,
-                    gradientColors,
+                    gradient,
                     isAnimated = isAnimated,
                 )
             }
@@ -519,8 +512,7 @@ constructor(
         buttonViewModel: RingerButtonViewModel,
         viewModel: VolumeDialogRingerDrawerViewModel,
         isOpen: Boolean,
-        gradientEnabled: Boolean,
-        gradientColors: Pair<Int, Int>,
+        gradient: ArgbGradient?,
         isSelected: Boolean = false,
         isAnimated: Boolean = false,
     ) {
@@ -542,9 +534,7 @@ constructor(
             imageTintList =
                 ColorStateList.valueOf(context.getColor(internalR.color.materialColorOnPrimary))
             background = background.mutate()
-            if (gradientEnabled) {
-                applyGradientSelectionBackground(this, gradientColors)
-            }
+            gradient?.let { applyGradientSelectionBackground(this, it) }
         } else if (!isAnimated) {
             setBackgroundResource(R.drawable.volume_ringer_item_bg)
             imageTintList =
@@ -637,14 +627,8 @@ constructor(
         }
     }
 
-    private fun applyGradientSelectionBackground(
-        button: ImageButton,
-        gradientColors: Pair<Int, Int>,
-    ) {
-        val (startColor, endColor) = gradientColors
-        val shape = button.backgroundShape()
-        shape.orientation = GradientDrawable.Orientation.TOP_BOTTOM
-        shape.colors = intArrayOf(startColor, endColor)
+    private fun applyGradientSelectionBackground(button: ImageButton, gradient: ArgbGradient) {
+        gradient.applyTo(button.backgroundShape(), button.isLayoutRtl)
         button.background.invalidateSelf()
     }
 
