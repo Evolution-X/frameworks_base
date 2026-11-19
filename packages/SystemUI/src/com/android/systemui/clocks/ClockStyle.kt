@@ -12,6 +12,7 @@ import android.animation.PropertyValuesHolder
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.Color.colorToHSV
@@ -258,6 +259,11 @@ class ClockStyle @JvmOverloads constructor(
         removePendingLayoutListener()
         runCatching { context.unregisterReceiver(screenReceiver) }
         callbacksRegistered = false
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        updateClockView()
     }
 
     override fun onTuningChanged(key: String?, newValue: String?) {
