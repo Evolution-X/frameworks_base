@@ -23,7 +23,13 @@ import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserFactory;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.StringReader;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.PrivateKey;
@@ -600,6 +606,352 @@ public class KeyBoxManager {
             .replaceAll("-----END [^-]+-----", "")
             .replaceAll("\\s", "");
         return Base64.getDecoder().decode(base64);
+    }
+
+    /** Largest capture the settings importer will extract a keybox from. */
+    private static final int MAX_CAPTURE_BYTES = 256 * 1024;
+    private static final byte[] XML_MARKER = ascii("<AndroidAttestation");
+    private static final byte[] XML_END = ascii("</AndroidAttestation>");
+    private static final byte[] COMMENT_OPEN = ascii("<!--");
+    private static final byte[] COMMENT_CLOSE = ascii("-->");
+    private static final byte[] PEM_BEGIN = ascii("-----BEGIN ");
+
+    /**
+     * Reads one keybox out of a file the settings importer picked.
+     * A single {@code AndroidAttestation} document is returned as that document.
+     * Otherwise PEM private keys and certificates embedded in the capture are
+     * assembled into one keybox. The caller still runs {@link #validate}.
+     *
+     * @throws IllegalArgumentException when the capture holds no usable keybox
+     */
+    public static String extract(byte[] capture) {
+        if (capture == null || capture.length == 0) {
+            throw new IllegalArgumentException("Keybox is empty");
+        }
+        if (capture.length > MAX_CAPTURE_BYTES) {
+            throw new IllegalArgumentException("Capture is larger than 256 KiB");
+        }
+        try {
+            final int start = findAttestationStart(capture, 0);
+            if (start >= 0) {
+                return extractXml(capture, start);
+            }
+            final List<PemBlock> blocks = pemBlocks(capture);
+            if (blocks.isEmpty()) {
+                throw new IllegalArgumentException("No keybox found in the capture");
+            }
+            return extractPem(blocks);
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            final String message = e.getMessage();
+            throw new IllegalArgumentException(
+                    message == null || message.isEmpty() ? "Keybox verification failed" : message);
+        }
+    }
+
+    private static String extractXml(byte[] capture, int start) {
+        final int endTag = indexOf(capture, XML_END, start);
+        if (endTag < 0) {
+            throw new IllegalArgumentException("Incomplete keybox XML");
+        }
+        final int end = endTag + XML_END.length;
+        if (findAttestationStart(capture, end) >= 0) {
+            throw new IllegalArgumentException("Expected one keybox XML document");
+        }
+        return decodeUtf8(capture, start, end);
+    }
+
+    private static String extractPem(List<PemBlock> blocks) throws Exception {
+        final List<PemBlock> keys = new ArrayList<>();
+        final List<X509Certificate> certificates = new ArrayList<>();
+        final CertificateFactory factory = CertificateFactory.getInstance("X.509");
+        for (PemBlock block : blocks) {
+            if ("CERTIFICATE".equals(block.label)) {
+                final Certificate certificate = factory.generateCertificate(
+                        new ByteArrayInputStream(block.der));
+                if (!(certificate instanceof X509Certificate)) {
+                    throw new IllegalArgumentException("Cannot decode certificate");
+                }
+                final X509Certificate parsed = (X509Certificate) certificate;
+                if (!certificates.contains(parsed)) certificates.add(parsed);
+            } else {
+                keys.add(block);
+            }
+        }
+        if (keys.isEmpty() || keys.size() > 2 || certificates.isEmpty()
+                || certificates.size() > 16) {
+            throw new IllegalArgumentException(
+                    "PEM bundle needs 1 or 2 keys and 1 to 16 certificates");
+        }
+        final KeyBoxManager parser = new KeyBoxManager();
+        final List<String> algorithms = new ArrayList<>();
+        final List<String> privateKeys = new ArrayList<>();
+        final List<List<X509Certificate>> chains = new ArrayList<>();
+        final List<X509Certificate> used = new ArrayList<>();
+        for (PemBlock key : keys) {
+            final String algorithm = algorithmOf(key);
+            final String xmlAlgorithm = "EC".equals(algorithm) ? "ecdsa" : "rsa";
+            if (algorithms.contains(xmlAlgorithm)) {
+                throw new IllegalArgumentException("Duplicate key algorithm in one keybox");
+            }
+            final PrivateKey privateKey = parser.parsePrivateKey(key.pem(), algorithm);
+            final List<X509Certificate> chain = chainForKey(privateKey, algorithm, certificates);
+            for (X509Certificate certificate : chain) {
+                if (!used.contains(certificate)) used.add(certificate);
+            }
+            algorithms.add(xmlAlgorithm);
+            privateKeys.add(key.pem());
+            chains.add(chain);
+        }
+        if (used.size() != certificates.size()) {
+            throw new IllegalArgumentException("PEM bundle contains unrelated certificates");
+        }
+        return renderKeybox(algorithms, privateKeys, chains);
+    }
+
+    private static String algorithmOf(PemBlock key) throws Exception {
+        if ("EC PRIVATE KEY".equals(key.label)) return "EC";
+        if ("RSA PRIVATE KEY".equals(key.label)) return "RSA";
+        final String oid = PrivateKeyInfo.getInstance(key.der)
+                .getPrivateKeyAlgorithm().getAlgorithm().getId();
+        if ("1.2.840.113549.1.1.1".equals(oid)) return "RSA";
+        if ("1.2.840.10045.2.1".equals(oid)) return "EC";
+        throw new IllegalArgumentException("Unsupported private key algorithm");
+    }
+
+    /**
+     * One leaf-to-root path for this key. Other certificates in the pool may belong
+     * to the other key. An unused certificate is rejected by the caller.
+     */
+    private static List<X509Certificate> chainForKey(PrivateKey privateKey, String algorithm,
+            List<X509Certificate> certificates) throws Exception {
+        X509Certificate leaf = null;
+        for (X509Certificate candidate : certificates) {
+            if (!algorithmMatches(algorithm, candidate.getPublicKey())) continue;
+            try {
+                verifyPrivateKey(privateKey, candidate.getPublicKey(), algorithm);
+            } catch (Exception ignored) {
+                continue;
+            }
+            if (leaf != null) {
+                throw new IllegalArgumentException(
+                        "More than one certificate matches the private key");
+            }
+            leaf = candidate;
+        }
+        if (leaf == null) {
+            throw new IllegalArgumentException("No certificate matches the private key");
+        }
+        final List<X509Certificate> chain = new ArrayList<>();
+        X509Certificate current = leaf;
+        while (true) {
+            chain.add(current);
+            if (chain.size() > 8) {
+                throw new IllegalArgumentException(
+                        "Private key must match one leaf with one signed path");
+            }
+            if (current.getIssuerX500Principal().equals(current.getSubjectX500Principal())) {
+                try {
+                    current.verify(current.getPublicKey());
+                    break;
+                } catch (Exception ignored) {
+                    // Self-issued but not self-signed: keep walking.
+                }
+            }
+            X509Certificate next = null;
+            int matches = 0;
+            for (X509Certificate candidate : certificates) {
+                if (chain.contains(candidate)) continue;
+                if (!candidate.getSubjectX500Principal()
+                        .equals(current.getIssuerX500Principal())) {
+                    continue;
+                }
+                try {
+                    current.verify(candidate.getPublicKey());
+                } catch (Exception ignored) {
+                    continue;
+                }
+                matches++;
+                next = candidate;
+            }
+            if (matches == 0) break;
+            if (matches != 1) {
+                throw new IllegalArgumentException(
+                        "Private key must match one leaf with one signed path");
+            }
+            current = next;
+        }
+        return chain;
+    }
+
+    private static boolean algorithmMatches(String algorithm, PublicKey publicKey) {
+        final String got = publicKey.getAlgorithm();
+        if (algorithm.equalsIgnoreCase(got)) return true;
+        return "EC".equals(algorithm) && "ECDSA".equalsIgnoreCase(got);
+    }
+
+    private static String renderKeybox(List<String> algorithms, List<String> privateKeys,
+            List<List<X509Certificate>> chains) throws CertificateEncodingException {
+        final StringBuilder xml = new StringBuilder();
+        xml.append("<?xml version=\"1.0\"?>\n<AndroidAttestation>\n");
+        xml.append("  <NumberOfKeyboxes>1</NumberOfKeyboxes>\n");
+        xml.append("  <Keybox DeviceID=\"offline\">\n");
+        for (int i = 0; i < algorithms.size(); i++) {
+            xml.append("    <Key algorithm=\"").append(algorithms.get(i)).append("\">\n");
+            xml.append("      <PrivateKey format=\"pem\">\n");
+            xml.append(privateKeys.get(i).trim()).append('\n');
+            xml.append("      </PrivateKey>\n");
+            final List<X509Certificate> chain = chains.get(i);
+            xml.append("      <CertificateChain>\n        <NumberOfCertificates>");
+            xml.append(chain.size()).append("</NumberOfCertificates>\n");
+            for (X509Certificate certificate : chain) {
+                xml.append("        <Certificate format=\"pem\">\n");
+                xml.append(wrapPem("CERTIFICATE", certificate.getEncoded())).append('\n');
+                xml.append("        </Certificate>\n");
+            }
+            xml.append("      </CertificateChain>\n    </Key>\n");
+        }
+        xml.append("  </Keybox>\n</AndroidAttestation>\n");
+        return xml.toString();
+    }
+
+    private static final class PemBlock {
+        final String label;
+        final byte[] der;
+
+        PemBlock(String label, byte[] der) {
+            this.label = label;
+            this.der = der;
+        }
+
+        String pem() {
+            return wrapPem(label, der);
+        }
+    }
+
+    private static List<PemBlock> pemBlocks(byte[] bytes) {
+        final List<PemBlock> blocks = new ArrayList<>();
+        int offset = 0;
+        while (true) {
+            final int start = indexOf(bytes, PEM_BEGIN, offset);
+            if (start < 0) break;
+            final int labelStart = start + PEM_BEGIN.length;
+            final int labelEnd = indexOf(bytes, ascii("-----"), labelStart);
+            if (labelEnd < 0) {
+                throw new IllegalArgumentException("Incomplete PEM header");
+            }
+            final String label = ascii(bytes, labelStart, labelEnd);
+            if (!"CERTIFICATE".equals(label) && !"PRIVATE KEY".equals(label)
+                    && !"EC PRIVATE KEY".equals(label) && !"RSA PRIVATE KEY".equals(label)) {
+                throw new IllegalArgumentException("Unsupported PEM block type");
+            }
+            final int bodyStart = labelEnd + 5;
+            final byte[] endMarker = ascii("-----END " + label + "-----");
+            final int end = indexOf(bytes, endMarker, bodyStart);
+            if (end < 0) {
+                throw new IllegalArgumentException("Incomplete PEM block");
+            }
+            blocks.add(new PemBlock(label, decodePemBody(bytes, bodyStart, end)));
+            if (blocks.size() > 128) {
+                throw new IllegalArgumentException("Too many PEM blocks");
+            }
+            offset = end + endMarker.length;
+        }
+        return blocks;
+    }
+
+    private static byte[] decodePemBody(byte[] bytes, int start, int end) {
+        final ByteArrayOutputStream clean = new ByteArrayOutputStream();
+        for (int i = start; i < end; i++) {
+            final byte value = bytes[i];
+            if (value == ' ' || value == '\t' || value == '\n' || value == '\r') continue;
+            clean.write(value);
+        }
+        try {
+            return Base64.getDecoder().decode(clean.toByteArray());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid PEM base64");
+        }
+    }
+
+    private static String wrapPem(String label, byte[] der) {
+        final String encoded = Base64.getMimeEncoder(64, new byte[] {'\n'}).encodeToString(der);
+        return "-----BEGIN " + label + "-----\n" + encoded + "\n-----END " + label + "-----";
+    }
+
+    private static int findAttestationStart(byte[] bytes, int from) {
+        int offset = from;
+        while (offset >= 0 && offset < bytes.length) {
+            final int next = indexOf(bytes, ascii("<"), offset);
+            if (next < 0) return -1;
+            if (startsWith(bytes, next, COMMENT_OPEN)) {
+                final int close = indexOf(bytes, COMMENT_CLOSE, next + COMMENT_OPEN.length);
+                if (close < 0) return -1;
+                offset = close + COMMENT_CLOSE.length;
+                continue;
+            }
+            if (startsWith(bytes, next, XML_MARKER)) {
+                final int after = next + XML_MARKER.length;
+                if (after < bytes.length) {
+                    final byte mark = bytes[after];
+                    if (mark == '>' || mark == '/' || mark == ' ' || mark == '\t'
+                            || mark == '\r' || mark == '\n') {
+                        return next;
+                    }
+                }
+            }
+            offset = next + 1;
+        }
+        return -1;
+    }
+
+    private static String decodeUtf8(byte[] bytes, int start, int end) {
+        final CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT);
+        try {
+            return decoder.decode(ByteBuffer.wrap(bytes, start, end - start)).toString();
+        } catch (CharacterCodingException e) {
+            throw new IllegalArgumentException("Keybox XML is not UTF-8");
+        }
+    }
+
+    private static byte[] ascii(String value) {
+        return value.getBytes(StandardCharsets.US_ASCII);
+    }
+
+    private static String ascii(byte[] bytes, int start, int end) {
+        for (int i = start; i < end; i++) {
+            if (bytes[i] < 0x20 || bytes[i] > 0x7e) {
+                throw new IllegalArgumentException("Invalid PEM label");
+            }
+        }
+        return new String(bytes, start, end - start, StandardCharsets.US_ASCII);
+    }
+
+    private static boolean startsWith(byte[] bytes, int offset, byte[] prefix) {
+        if (offset < 0 || offset + prefix.length > bytes.length) return false;
+        for (int i = 0; i < prefix.length; i++) {
+            if (bytes[offset + i] != prefix[i]) return false;
+        }
+        return true;
+    }
+
+    private static int indexOf(byte[] bytes, byte[] needle, int from) {
+        if (needle.length == 0 || from < 0) return -1;
+        final int last = bytes.length - needle.length;
+        for (int i = from; i <= last; i++) {
+            boolean match = true;
+            for (int j = 0; j < needle.length; j++) {
+                if (bytes[i + j] != needle[j]) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match) return i;
+        }
+        return -1;
     }
 
     public static String sanitizeXml(String content) {
