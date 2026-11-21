@@ -156,6 +156,7 @@ public class AxSpoofManager implements IAxSpoofManager {
     // the config getters below return null, the refresh never starts and GMS is
     // left alone. Set once by enableSpoofing() and persisted in ACTIVATED_KEY.
     private volatile boolean mActivated;
+    private volatile boolean mTrickyStoreOn = true;
     private TaskStackListener mTaskListener;
     private final Runnable mRefreshAfterClear = this::refreshNow;
     private final Runnable mTensorSpoofExpiry = this::enforceTensorSpoofExpiry;
@@ -202,6 +203,7 @@ public class AxSpoofManager implements IAxSpoofManager {
                     return;
                 }
                 if (TRICKYSTORE_ENABLED_KEY.equals(last)) {
+                    mTrickyStoreOn = readTrickyStoreOn();
                     mDuckRkp.onSettingsChanged(true);
                     return;
                 }
@@ -222,6 +224,7 @@ public class AxSpoofManager implements IAxSpoofManager {
         }
         mResolver.registerContentObserver(Settings.System.getUriFor(TRICKYSTORE_ENABLED_KEY),
                 false, mObserver, UserHandle.USER_SYSTEM);
+        mTrickyStoreOn = readTrickyStoreOn();
         mResolver.registerContentObserver(Settings.Secure.getUriFor(TENSOR_SPOOF_KEY),
                 false, mObserver, UserHandle.USER_ALL);
         mResolver.registerContentObserver(Settings.Secure.getUriFor(TENSOR_SPOOF_EXPIRES_KEY),
@@ -1055,15 +1058,20 @@ public class AxSpoofManager implements IAxSpoofManager {
         return getCached(Settings.Secure.SPOOF_GAMEPROPS_CONFIG);
     }
 
+    private boolean readTrickyStoreOn() {
+        return Settings.System.getIntForUser(
+                mResolver, TRICKYSTORE_ENABLED_KEY, 1, UserHandle.USER_SYSTEM) != 0;
+    }
+
     @Override
     public String getTrickyStoreTarget() {
-        if (!mActivated) return null;
+        if (!mActivated || !mTrickyStoreOn) return null;
         return getCached(Settings.Secure.SPOOF_TRICKYSTORE_TARGET);
     }
 
     @Override
     public String getTrickyStoreKeyBox() {
-        if (!mActivated) return null;
+        if (!mActivated || !mTrickyStoreOn) return null;
         if (!canReadTrickyStoreKeybox()) return null;
         DuckRkpManager duck = mDuckRkp;
         if (duck == null) return getCached(Settings.Secure.SPOOF_TRICKYSTORE_KEYBOX);
@@ -1149,7 +1157,7 @@ public class AxSpoofManager implements IAxSpoofManager {
 
     @Override
     public String getTrickyStorePatch() {
-        if (!mActivated) return null;
+        if (!mActivated || !mTrickyStoreOn) return null;
         return getCached(Settings.Secure.SPOOF_TRICKYSTORE_PATCH);
     }
 }
