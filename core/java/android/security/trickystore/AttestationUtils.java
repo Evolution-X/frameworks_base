@@ -266,14 +266,18 @@ public final class AttestationUtils {
                 writePersisted(HBK_FILE, hash);
                 Log.i(TAG, "initBootHash: TEE extraction successful");
             } else {
+                Log.i(TAG, "initBootHash: TEE extraction failed, attempting keybox");
                 hash = deriveBootHashFromKeybox();
-                if (hash == null) {
-                    Log.e(TAG, "initBootHash: Failed to extract boot hash from TEE");
-                    return;
+                if (hash != null) {
+                    sBootHashFallback = true;
+                    Log.w(TAG, "initBootHash: TEE extraction failed, using keybox-derived boot hash");
+                } else {
+                    Log.w(TAG, "initBootHash: Keybox derivation failed, using random bytes");
+                    hash = generateRandomBytes(32);
+                    sBootHashFallback = false;
+                    writePersisted(HBK_FILE, hash);
                 }
-                sBootHashFallback = true;
                 sBootHash = hash;
-                Log.w(TAG, "initBootHash: TEE extraction failed, using keybox-derived boot hash");
             }
         }
         Log.i(TAG, "initBootHash: hash extracted/generated, setting prop");
