@@ -26,6 +26,7 @@ import com.android.systemui.qs.tiles.AutoBrightnessTile
 import com.android.systemui.qs.tiles.BlurTile
 import com.android.systemui.qs.tiles.CPUInfoTile
 import com.android.systemui.qs.tiles.CaffeineTile
+import com.android.systemui.qs.tiles.ChargingControlTile
 import com.android.systemui.qs.tiles.CompassTile
 import com.android.systemui.qs.tiles.DataSwitchTile
 import com.android.systemui.qs.tiles.FPSInfoTile
@@ -97,6 +98,12 @@ interface LineageModule {
     @IntoMap
     @StringKey(CaffeineTile.TILE_SPEC)
     fun bindCaffeineTile(caffeineTile: CaffeineTile): QSTileImpl<*>
+
+    /** Inject ChargingControlTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(ChargingControlTile.TILE_SPEC)
+    fun bindChargingControlTile(chargingControlTile: ChargingControlTile): QSTileImpl<*>
 
     /** Inject CompassTile into tileMap in QSModule */
     @Binds
@@ -247,6 +254,7 @@ interface LineageModule {
         const val AOD_TILE_SPEC = "aod"
         const val AUTO_BRIGHTNESS_TILE_SPEC = "autobrightness"
         const val CAFFEINE_TILE_SPEC = "caffeine"
+        const val CHARGING_CONTROL_TILE_SPEC = "charging_control"
         const val COMPASS_TILE_SPEC = "compass"
         const val CPU_INFO_TILE_SPEC = "cpuinfo"
         const val DATA_SWITCH_TILE_SPEC = "dataswitch"
@@ -325,6 +333,23 @@ interface LineageModule {
                     ),
                 instanceId = uiEventLogger.getNewInstanceId(),
                 category = TileCategory.DISPLAY,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(CHARGING_CONTROL_TILE_SPEC)
+        fun provideChargingControlTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(CHARGING_CONTROL_TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.ic_qs_charging_control,
+                        labelRes = R.string.quick_settings_charging_control_label
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.UTILITIES,
+                // Keep the tile visible so unsupported devices see STATE_UNAVAILABLE.
+                autoRemoveOnUnavailable = false,
             )
 
         @Provides
