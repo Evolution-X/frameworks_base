@@ -870,7 +870,6 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     // Serializes (un)registration of pointer event listeners with WindowManager. Must never be
     // taken while holding mLock, see updatePointerEventListeners().
     private final Object mPointerListenerLock = new Object();
-    private boolean mThreeFingersSwipeRegistered;
 
     private class PolicyHandler extends Handler {
 
@@ -3743,11 +3742,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         }
         synchronized (mPointerListenerLock) {
             if (mThreeFingersSwipe != null) {
-                final boolean threeFingersEnabled = mThreeFingersSwipeHasAction;
-                if (threeFingersEnabled != mThreeFingersSwipeRegistered) {
-                    mThreeFingersSwipe.setEnabled(threeFingersEnabled);
-                    mThreeFingersSwipeRegistered = threeFingersEnabled;
-                }
+                mThreeFingersSwipe.setEnabled(mThreeFingersSwipeHasAction);
             }
         }
     }
@@ -6503,6 +6498,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
         setPendingWakingUpGroup(Display.INVALID_DISPLAY_GROUP);
         mKeyguardDelegate.onFinishedWakingUp();
+        if (mThreeFingersSwipe != null && mThreeFingersSwipeHasAction) {
+            mThreeFingersSwipe.refresh();
+        }
         if (mDisplayFoldController != null) {
             mDisplayFoldController.finishedWakingUp();
         }
