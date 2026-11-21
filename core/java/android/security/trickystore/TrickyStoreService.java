@@ -815,7 +815,11 @@ public class TrickyStoreService {
                     alias, KeyProperties.PURPOSE_SIGN)
                     .setAlgorithmParameterSpec(new ECGenParameterSpec("secp256r1"))
                     .setDigests(KeyProperties.DIGEST_SHA256)
-                    .setAttestationChallenge(new byte[16]);
+                    .setAttestationChallenge(new byte[16])
+                    // A targeted request attests device ids. A challenge-only key
+                    // can succeed on this KeyMint and cache a healthy TEE, after
+                    // which the real request dies with CANNOT_ATTEST_IDS.
+                    .setDevicePropertiesAttestationIncluded(true);
             kpg.initialize(builder.build());
             kpg.generateKeyPair();
             Log.i(TAG, "Attested key generation probe successful");
@@ -860,6 +864,21 @@ public class TrickyStoreService {
             if (mode == Mode.SKIP) continue;
             if (mode == Mode.GENERATE) return hasKeyboxes();
             if (mode == Mode.AUTO && hasKeyboxes() && isTeeBroken()) return true;
+        }
+        return false;
+    }
+
+    /**
+     * True for any non-skip target. Unlike {@link #needHack} and
+     * {@link #needGenerate}, this does not consult the TEE probe.
+     */
+    public boolean isAttestationTarget(int callingUid, String[] packages) {
+        if (packages == null) return false;
+        maybeRefreshTargets();
+        for (String pkg : packages) {
+            if (XPOSED_PACKAGES.contains(pkg)) continue;
+            Mode mode = mPackageModes.get(pkg);
+            if (mode != null && mode != Mode.SKIP) return true;
         }
         return false;
     }
@@ -958,5 +977,19 @@ public class TrickyStoreService {
     public boolean isTeeBroken() {
         ensureTeeStatus();
         return Boolean.TRUE.equals(mTeeBroken);
+    }
+
+    /**
+     * KeyMint could not produce an attestation certificate. That is either
+     * ATTESTATION_KEYS_NOT_PROVISIONED or CANNOT_ATTEST_IDS for the spoofed
+     * device ids. A healthy probe result is cached for the life of this
+     * process, which would leave AUTO targets on leaf hack with nothing to
+     * rewrite. Remember that so the following calls generate a chain instead.
+     */
+    public void noteAttestationKeysMissing() {
+        mTeeBroken = Boolean.TRUE;
+        mTeeCheckedAtMs = System.currentTimeMillis();
+        AttestationUtils.setTeeBroken(true);
+        Log.w(TAG, "KeyMint cannot attest; using certificate generation");
     }
 }
