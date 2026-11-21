@@ -18,6 +18,7 @@ package android.security.trickystore;
 
 import android.app.ActivityManager;
 import android.app.IActivityManager;
+import android.os.Process;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.security.keystore.KeyGenParameterSpec;
@@ -104,6 +105,9 @@ public class TrickyStoreService {
     private static final long CACHE_TRUST_WINDOW_MS = 7L * 24 * 60 * 60 * 1000L;
     private static final java.io.File REVOCATION_CACHE_FILE =
         new java.io.File("/data/system/trickystore/revocation_cache.json");
+    private static final java.io.File REVOCATION_CHECKED_FILE =
+        new java.io.File("/data/system/trickystore/revocation_checked_at");
+    private final Object mRevocationLock = new Object();
     private volatile PatchConfig mPatchConfig =
             new PatchConfig(null, Collections.emptyMap());
     // Attesting through a hooked process breaks STRONG — always skipped
@@ -635,13 +639,30 @@ public class TrickyStoreService {
         }
     }
 
+    public void checkRevocationIfDue() {
+        if (!ENABLE_REVOCATION_CHECK || Process.myUid() != Process.SYSTEM_UID) return;
+        FetchResult fetched = fetchFromAms(am -> am.getSpoofTrickyStoreKeyBox());
+        String xml = fetched.success && fetched.value != null ? decodeKeybox(fetched.value) : null;
+        if (xml != null) checkKeyboxRevocation(xml);
+    }
+
     private void checkKeyboxRevocation(String xml) {
-        long now = System.currentTimeMillis();
-        if (now - mLastRevocationCheckMs < REVOCATION_CHECK_COOLDOWN_MS) {
-            Log.d(TAG, "Skipping revocation check — ran within 24h");
+        if (Process.myUid() != Process.SYSTEM_UID) {
+            if (REVOCATION_CACHE_FILE.exists()) checkCachedRevocation(extractCertSerials(xml));
             return;
         }
+        long now = System.currentTimeMillis();
+        synchronized (mRevocationLock) {
+            if (mLastRevocationCheckMs == 0L) mLastRevocationCheckMs = readRevocationCheckedAt();
+            long since = now - mLastRevocationCheckMs;
+            if (since >= 0 && since < REVOCATION_CHECK_COOLDOWN_MS) {
+                Log.d(TAG, "Skipping revocation check — ran within 24h");
+                return;
+            }
+            mLastRevocationCheckMs = now;
+        }
         new Thread(() -> {
+            writeRevocationCheckedAt(now);
             try {
                 List<String> serials = extractCertSerials(xml);
                 if (serials.isEmpty()) return;
@@ -670,7 +691,6 @@ public class TrickyStoreService {
                         writeCachedRevokedSerial(serial);
                     }
                 }
-                mLastRevocationCheckMs = now;
             } catch (Exception e) {
                 Log.w(TAG, "Keybox revocation check failed, trying offline cache", e);
                 try {
@@ -680,6 +700,27 @@ public class TrickyStoreService {
                 }
             }
         }, "TrickyStore-RevocationCheck").start();
+    }
+
+    private static long readRevocationCheckedAt() {
+        try {
+            return Long.parseLong(new String(
+                    java.nio.file.Files.readAllBytes(REVOCATION_CHECKED_FILE.toPath()),
+                    StandardCharsets.UTF_8).trim());
+        } catch (Exception e) {
+            return 0L;
+        }
+    }
+
+    private static void writeRevocationCheckedAt(long time) {
+        try {
+            REVOCATION_CHECKED_FILE.getParentFile().mkdirs();
+            java.nio.file.Files.write(REVOCATION_CHECKED_FILE.toPath(),
+                    Long.toString(time).getBytes(StandardCharsets.UTF_8));
+            android.system.Os.chmod(REVOCATION_CHECKED_FILE.getAbsolutePath(), 0600);
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to write revocation check time", e);
+        }
     }
 
     /**
