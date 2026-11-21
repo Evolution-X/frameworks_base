@@ -118,6 +118,7 @@ import com.android.systemui.gradient.rememberGradient
 import com.android.systemui.haptics.msdl.qs.TileHapticsViewModel
 import com.android.systemui.lifecycle.rememberViewModel
 import com.android.systemui.qs.flags.QsDetailedView
+import com.android.systemui.qs.panels.shared.model.QsPanelStyle
 import com.android.systemui.qs.panels.ui.compose.BounceableInfo
 import com.android.systemui.qs.panels.ui.compose.Tooltip
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.ActiveIconCornerRadius
@@ -150,11 +151,6 @@ import platform.test.motion.compose.values.motionTestValues
 
 private val TileViewModel.traceName
     get() = spec.toString().takeLast(Trace.MAX_SECTION_NAME_LEN)
-
-/** Values of [Settings.System.QS_PANEL_STYLE]; 0 is the default card style. */
-private const val QS_PANEL_STYLE_CLASSIC = 1
-private const val QS_PANEL_STYLE_COLOROS = 2
-private const val QS_PANEL_STYLE_NOTHING = 3
 
 /** Nothing-style Quick Settings (monochrome pills, circles and 2x2 quad tiles on a 4 column grid). */
 internal val LocalNothingQsStyle = compositionLocalOf { false }
@@ -989,29 +985,42 @@ fun rememberQSTileGradient(): Brush? {
     return remember(gradient, isRtl) { gradient?.brush(mirrored = isRtl) }
 }
 
+/**
+ * The QS panel style, as the QS fragment provides it from its QsPanelStyleRepository. Null where
+ * nothing provides it, then [rememberQsPanelStyle] follows the setting by itself.
+ */
+internal val LocalQsPanelStyle = compositionLocalOf<QsPanelStyle?> { null }
+
 @Composable
-fun rememberQSPanelStyle(): Boolean {
+private fun rememberQsPanelStyle(): QsPanelStyle =
+    LocalQsPanelStyle.current ?: rememberObservedQsPanelStyle()
+
+/** Follows [Settings.System.QS_PANEL_STYLE] with an observer of its own. */
+@Composable
+private fun rememberObservedQsPanelStyle(): QsPanelStyle {
     val context = LocalContext.current
     val contentResolver = context.contentResolver
 
-    fun readPanelStyleEnabled(): Boolean {
+    fun readPanelStyle(): QsPanelStyle {
         return try {
-            Settings.System.getIntForUser(
-                contentResolver, Settings.System.QS_PANEL_STYLE, 0,
-                UserHandle.USER_CURRENT
-            ) == QS_PANEL_STYLE_CLASSIC
+            QsPanelStyle.of(
+                Settings.System.getIntForUser(
+                    contentResolver, Settings.System.QS_PANEL_STYLE, 0,
+                    UserHandle.USER_CURRENT
+                )
+            )
         } catch (_: Throwable) {
-            false
+            QsPanelStyle.DEFAULT
         }
     }
 
-    var classicStyleEnabled by remember { mutableStateOf(readPanelStyleEnabled()) }
+    var panelStyle by remember { mutableStateOf(readPanelStyle()) }
 
     DisposableEffect(contentResolver) {
         val observer = object : ContentObserver(null) {
             override fun onChange(selfChange: Boolean) {
                 context.mainExecutor.execute {
-                    classicStyleEnabled = readPanelStyleEnabled()
+                    panelStyle = readPanelStyle()
                 }
             }
         }
@@ -1026,48 +1035,11 @@ fun rememberQSPanelStyle(): Boolean {
         }
     }
 
-    return classicStyleEnabled
+    return panelStyle
 }
 
 @Composable
-fun rememberQSNothingStyle(): Boolean {
-    val context = LocalContext.current
-    val contentResolver = context.contentResolver
-
-    fun readNothingStyleEnabled(): Boolean {
-        return try {
-            Settings.System.getIntForUser(
-                contentResolver, Settings.System.QS_PANEL_STYLE, 0,
-                UserHandle.USER_CURRENT
-            ) == QS_PANEL_STYLE_NOTHING
-        } catch (_: Throwable) {
-            false
-        }
-    }
-
-    var nothingStyleEnabled by remember { mutableStateOf(readNothingStyleEnabled()) }
-
-    DisposableEffect(contentResolver) {
-        val observer = object : ContentObserver(null) {
-            override fun onChange(selfChange: Boolean) {
-                context.mainExecutor.execute {
-                    nothingStyleEnabled = readNothingStyleEnabled()
-                }
-            }
-        }
-
-        contentResolver.registerContentObserver(
-            Settings.System.getUriFor(Settings.System.QS_PANEL_STYLE),
-            false, observer, UserHandle.USER_ALL
-        )
-
-        onDispose {
-            contentResolver.unregisterContentObserver(observer)
-        }
-    }
-
-    return nothingStyleEnabled
-}
+fun rememberQSPanelStyle(): Boolean = rememberQsPanelStyle() == QsPanelStyle.CLASSIC
 
 /** Sliders the Nothing style can place in its grid. They are layout entries, not tiles. */
 enum class NothingSliderKind(val spec: String) {
@@ -1224,45 +1196,6 @@ fun putSecureStringIfChanged(resolver: android.content.ContentResolver, key: Str
     Settings.Secure.putStringForUser(resolver, key, value, UserHandle.USER_CURRENT)
 }
 
-@Composable
-fun rememberQSColorOSStyle(): Boolean {
-    val context = LocalContext.current
-    val contentResolver = context.contentResolver
-
-    fun readColorOSStyleEnabled(): Boolean {
-        return try {
-            Settings.System.getIntForUser(
-                contentResolver, Settings.System.QS_PANEL_STYLE, 0,
-                UserHandle.USER_CURRENT
-            ) == QS_PANEL_STYLE_COLOROS
-        } catch (_: Throwable) {
-            false
-        }
-    }
-
-    var colorOSStyleEnabled by remember { mutableStateOf(readColorOSStyleEnabled()) }
-
-    DisposableEffect(contentResolver) {
-        val observer = object : ContentObserver(null) {
-            override fun onChange(selfChange: Boolean) {
-                context.mainExecutor.execute {
-                    colorOSStyleEnabled = readColorOSStyleEnabled()
-                }
-            }
-        }
-
-        contentResolver.registerContentObserver(
-            Settings.System.getUriFor(Settings.System.QS_PANEL_STYLE),
-            false, observer, UserHandle.USER_ALL
-        )
-
-        onDispose {
-            contentResolver.unregisterContentObserver(observer)
-        }
-    }
-
-    return colorOSStyleEnabled
-}
 
 /** Largest cell of the Nothing style grid on this screen, or unspecified for no limit. */
 @Composable
@@ -1366,47 +1299,6 @@ fun rememberQSTileLabelHide(): Boolean {
     }
 
     return labelHideEnabled
-}
-
-/** Whether the media card of the ColorOS panel style fills with the album art. */
-@Composable
-fun rememberQSColorOSMediaArtFill(): Boolean {
-    val context = LocalContext.current
-    val contentResolver = context.contentResolver
-
-    fun readArtFillEnabled(): Boolean {
-        return try {
-            Settings.System.getIntForUser(
-                contentResolver, Settings.System.QS_COLOROS_MEDIA_ART_FILL, 0,
-                UserHandle.USER_CURRENT
-            ) != 0
-        } catch (_: Throwable) {
-            false
-        }
-    }
-
-    var artFillEnabled by remember { mutableStateOf(readArtFillEnabled()) }
-
-    DisposableEffect(contentResolver) {
-        val observer = object : ContentObserver(null) {
-            override fun onChange(selfChange: Boolean) {
-                context.mainExecutor.execute {
-                    artFillEnabled = readArtFillEnabled()
-                }
-            }
-        }
-
-        contentResolver.registerContentObserver(
-            Settings.System.getUriFor(Settings.System.QS_COLOROS_MEDIA_ART_FILL),
-            false, observer, UserHandle.USER_ALL
-        )
-
-        onDispose {
-            contentResolver.unregisterContentObserver(observer)
-        }
-    }
-
-    return artFillEnabled
 }
 
 @Composable

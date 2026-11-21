@@ -158,7 +158,9 @@ import com.android.systemui.qs.composefragment.ui.quickQuickSettingsToQuickSetti
 import com.android.systemui.qs.composefragment.ui.toEditMode
 import com.android.systemui.qs.composefragment.viewmodel.QSFragmentComposeViewModel
 import com.android.systemui.qs.footer.ui.compose.FooterActions
+import com.android.systemui.qs.panels.data.repository.QsPanelStyleRepository
 import com.android.systemui.qs.panels.shared.model.QSFragmentComposeClippingTableLog
+import com.android.systemui.qs.panels.shared.model.QsPanelStyle
 import com.android.systemui.qs.panels.ui.compose.EditMode
 import com.android.systemui.qs.panels.ui.compose.QuickQuickSettings
 import com.android.systemui.qs.panels.ui.compose.TileGrid
@@ -168,12 +170,9 @@ import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSQsStyl
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsOsColors
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingSliderContent
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalQsPanelStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.NothingSliderKind
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingLayout
-import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSColorOSMediaArtFill
-import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSColorOSStyle
-import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSNothingOsColors
-import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSNothingStyle
 import com.android.systemui.qs.shared.ui.QuickSettings.Elements
 import com.android.systemui.qs.ui.composable.QuickSettingsShade
 import com.android.systemui.qs.ui.composable.QuickSettingsShade.systemGestureExclusionInShade
@@ -218,6 +217,7 @@ constructor(
     private val activityStarter: ActivityStarter,
     private val mediaOutputDialogManager: MediaOutputDialogManager,
     private val shadeAnimationInteractor: ShadeAnimationInteractor,
+    private val qsPanelStyleRepository: QsPanelStyleRepository,
 ) : LifecycleFragment(), QS, Dumpable {
 
     private val scrollListener = MutableStateFlow<QS.ScrollListener?>(null)
@@ -299,11 +299,17 @@ constructor(
                     repeatOnLifecycle(Lifecycle.State.CREATED) {
                         initOnBackPressedDispatcherOwner(this@repeatWhenAttached.lifecycle)
                         setContent {
-                            val colorOSStyle = rememberQSColorOSStyle()
+                            // One state for the whole panel: a style switch reaches every tile,
+                            // the grid and the transitions at once, with no restart.
+                            val panelStyle by
+                                qsPanelStyleRepository.style.collectAsStateWithLifecycle()
+                            val colorOSStyle = panelStyle == QsPanelStyle.COLOROS
                             SideEffect { colorOSQsStyle = colorOSStyle }
-                            val nothingStyle = rememberQSNothingStyle()
-                            val nothingOsColors = rememberQSNothingOsColors()
+                            val nothingStyle = panelStyle == QsPanelStyle.NOTHING
+                            val nothingOsColors by
+                                qsPanelStyleRepository.nothingOsColors.collectAsStateWithLifecycle()
                             CompositionLocalProvider(
+                                LocalQsPanelStyle provides panelStyle,
                                 LocalColorOSQsStyle provides colorOSStyle,
                                 LocalNothingQsStyle provides nothingStyle,
                                 LocalNothingQsOsColors provides (nothingStyle && nothingOsColors),
@@ -1114,7 +1120,9 @@ constructor(
                                         },
                                         media = { mediaModifier ->
                                             colorOSMediaSessions.current?.let { data ->
-                                                val colorOSArtFill = rememberQSColorOSMediaArtFill()
+                                                val colorOSArtFill by
+                                                    qsPanelStyleRepository.colorOSMediaArtFill
+                                                        .collectAsStateWithLifecycle()
                                                 ColorOSMediaCard(
                                                     data = data,
                                                     artFill = colorOSArtFill,
