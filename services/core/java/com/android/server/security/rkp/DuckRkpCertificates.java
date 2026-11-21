@@ -10,7 +10,9 @@ import java.io.ByteArrayOutputStream;
 import java.security.KeyPair;
 import java.security.MessageDigest;
 import java.security.cert.CertPathValidator;
+import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateFactory;
+import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.PKIXParameters;
 import java.security.cert.TrustAnchor;
 import java.security.cert.X509Certificate;
@@ -81,6 +83,23 @@ final class DuckRkpCertificates {
         }
         xml.append("</CertificateChain></Key></Keybox></AndroidAttestation>\n");
         return new Result(xml.toString(), expiresAt);
+    }
+
+    /**
+     * Names the reason a certificate response was rejected. Every branch is still a failure and
+     * the caller aborts exactly as before; it only stops collapsing four distinct causes into
+     * one code. Expiry is checked first, then the two rejections that a firmware-side problem
+     * cannot produce.
+     */
+    static String classify(Exception e) {
+        if (e instanceof CertificateExpiredException
+                || e instanceof CertificateNotYetValidException) {
+            return "cert_expired";
+        }
+        String message = String.valueOf(e.getMessage());
+        if ("Untrusted attestation root".equals(message)) return "untrusted_root";
+        if ("No certificate matches the key".equals(message)) return "no_key_match";
+        return "chain_invalid";
     }
 
     private static List<X509Certificate> parse(byte[] encoded) throws Exception {

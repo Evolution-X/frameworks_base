@@ -172,7 +172,7 @@ final class DuckRkpV1 {
         try {
             return DuckRkpCertificates.verify(key, response);
         } catch (Exception e) {
-            throw new Failure("certificate_invalid");
+            throw new Failure(DuckRkpCertificates.classify(e));
         }
     }
 

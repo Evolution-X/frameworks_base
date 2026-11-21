@@ -161,8 +161,8 @@ public final class DuckRkpManager {
         Bundle state = new Bundle();
         boolean imported = hasImportedKeybox();
         boolean enabled = isEnabled();
-        state.putBoolean("available", mLoaded && isQualcomm()
-                && (ServiceManager.isDeclared(DuckRkpV1.SERVICE) || DuckRkpNative.available()));
+        state.putBoolean("available", mLoaded && isQualcomm() && backendDeclared());
+        state.putString("status", capability());
         state.putBoolean("enabled", enabled);
         state.putBoolean("busy", mBusy);
         state.putBoolean("imported", imported);
@@ -182,6 +182,26 @@ public final class DuckRkpManager {
                 ? "timeout" : mFailure);
         state.putInt("detail", mDetail);
         return state;
+    }
+
+    /**
+     * Why device RKP can or cannot run here. {@code available} stays the single boolean that
+     * existing callers read; this names the reason behind it, so a declared-but-unusable
+     * backend is not reported as unsupported hardware and a missing service is not reported
+     * as an unusable backend.
+     */
+    private String capability() {
+        if (!mLoaded) return "initializing";
+        if (!isQualcomm()) return "not_supported";
+        if (!backendDeclared()) return "service_missing";
+        if ("native_unavailable".equals(mFailure) || "hal_unavailable".equals(mFailure)) {
+            return "backend_unavailable";
+        }
+        return "ready";
+    }
+
+    private static boolean backendDeclared() {
+        return ServiceManager.isDeclared(DuckRkpV1.SERVICE) || DuckRkpNative.available();
     }
 
     public synchronized void setEnabled(boolean enabled) {
@@ -402,9 +422,7 @@ public final class DuckRkpManager {
         mWaitingForNetwork = false;
         try {
             if (!mLoaded || mBusy || mAutomaticPaused || !isEnabled() || !masterEnabled()
-                    || hasImportedKeybox() || !isQualcomm()
-                    || !(ServiceManager.isDeclared(DuckRkpV1.SERVICE)
-                            || DuckRkpNative.available())) return;
+                    || hasImportedKeybox() || !isQualcomm() || !backendDeclared()) return;
             long now = System.currentTimeMillis();
             long cooldown = Math.max(0,
                     COOLDOWN_MS - (SystemClock.elapsedRealtime() - mLastAttempt));
@@ -462,7 +480,10 @@ public final class DuckRkpManager {
     }
 
     static long retryDelay(int failures) {
-        return Math.min(MAX_RETRY_MS, RETRY_MS * (1L << Math.min(4, Math.max(0, failures - 1))));
+        long base = Math.min(MAX_RETRY_MS,
+                RETRY_MS * (1L << Math.min(4, Math.max(0, failures - 1))));
+        // Spread devices that failed together by +/-10% so they do not retry together either.
+        return base + (long) ((Math.random() * 2 - 1) * (base / 10));
     }
 
     static boolean isRetryable(String error, int detail) {
