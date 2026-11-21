@@ -710,6 +710,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     private volatile Action mThreeFingersSwipeAction;
     // Read from the sensor thread in ShakeGestureService callback.
     private volatile Action mShakeGestureAction;
+    private volatile Action mQuickTapAction = QUICK_TAP_DEFAULT_ACTION;
 
     // support for activating the lock screen while the screen is on
     private HashSet<Integer> mAllowLockscreenWhenOnDisplays = new HashSet<>();
@@ -1098,6 +1099,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(LineageSettings.System.getUriFor(
                     LineageSettings.System.KEY_THREE_FINGERS_SWIPE_ACTION), false, this,
+                    UserHandle.USER_ALL);
+            resolver.registerContentObserver(LineageSettings.System.getUriFor(
+                    LineageSettings.System.KEY_QUICK_TAP_ACTION), false, this,
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(LineageSettings.System.getUriFor(
                     LineageSettings.System.CAMERA_WAKE_SCREEN), false, this,
@@ -2388,9 +2392,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             case PLAY_PAUSE_MUSIC:
             case CYCLE_RINGER_MODE:
             case SILENCE_CALL:
+            case SLEEP:
                 return true;
             case LAUNCH_CAMERA:
-            case SLEEP:
             case SCREENSHOT:
             case PARTIAL_SCREENSHOT:
             case POWER_MENU:
@@ -2435,7 +2439,12 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 launchCameraAction();
                 break;
             case SLEEP:
-                mPowerManager.goToSleep(SystemClock.uptimeMillis());
+                if (mPowerManager.isInteractive()) {
+                    mPowerManager.goToSleep(SystemClock.uptimeMillis());
+                } else {
+                    mPowerManager.wakeUp(SystemClock.uptimeMillis(),
+                            PowerManager.WAKE_REASON_GESTURE, "android.policy:KEY_ACTION");
+                }
                 break;
             case LAST_APP:
                 ActionUtils.switchToLastApp(mContext, mCurrentUserId);
@@ -2507,6 +2516,36 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         } catch (Exception e) {
             Slog.w(TAG, "Failed to start contextual search", e);
         }
+    }
+
+    private final BroadcastReceiver mQuickTapReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (lineageos.content.Intent.ACTION_QUICK_TAP.equals(intent.getAction())) {
+                performQuickTapAction();
+            }
+        }
+    };
+
+    private void performQuickTapAction() {
+        final Action action = mQuickTapAction;
+        if (action == Action.NOTHING) {
+            return;
+        }
+        if (canQuickTapRunWithScreenOff(action)) {
+            if (!isScreenOn() && doesQuickTapWakeForAction(action)) {
+                mPowerManager.wakeUp(SystemClock.uptimeMillis(),
+                        PowerManager.WAKE_REASON_GESTURE, "android.policy:QUICK_TAP");
+            }
+        } else if (!isScreenOn() || !canPerformKeyAction(action)) {
+            return;
+        }
+
+        final long now = SystemClock.uptimeMillis();
+        final KeyEvent event = new KeyEvent(now, now, KeyEvent.ACTION_DOWN,
+                KeyEvent.KEYCODE_SYSRQ, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
+                KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_UNKNOWN);
+        performKeyAction(action, event, LineageSettings.System.KEY_QUICK_TAP_ACTION);
     }
 
     private void launchAppForKeyAction(String actionSetting) {
@@ -3632,6 +3671,10 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         mShakeGestureAction = Action.fromSettings(resolver,
                 LineageSettings.System.KEY_SHAKE_GESTURE_ACTION,
                 Action.NOTHING);
+
+        mQuickTapAction = Action.fromSettings(resolver,
+                LineageSettings.System.KEY_QUICK_TAP_ACTION,
+                QUICK_TAP_DEFAULT_ACTION);
 
         mShortPressOnWindowBehavior = SHORT_PRESS_WINDOW_NOTHING;
         if (mPackageManager.hasSystemFeature(FEATURE_PICTURE_IN_PICTURE)) {
@@ -7158,6 +7201,10 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 });
             }
         });
+
+        mContext.registerReceiverAsUser(mQuickTapReceiver, UserHandle.ALL,
+                new IntentFilter(lineageos.content.Intent.ACTION_QUICK_TAP), null, mHandler,
+                Context.RECEIVER_EXPORTED);
 
         readCameraLensCoverState();
         updateUiMode();
