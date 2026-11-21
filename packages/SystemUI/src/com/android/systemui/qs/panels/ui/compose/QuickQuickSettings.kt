@@ -40,7 +40,9 @@ import com.android.systemui.qs.panels.shared.model.SizedTile
 import com.android.systemui.qs.panels.shared.model.SizedTileImpl
 import com.android.systemui.qs.panels.shared.model.splitInRowsSequence
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSQsStyle
+import com.android.systemui.qs.panels.shared.model.LocalQsStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalRemixQsStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalQSBluetoothDevices
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalQSQuadTiles
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.Tile
@@ -68,7 +70,11 @@ fun ContentScope.QuickQuickSettings(
         return
     }
 
-    val columns = viewModel.columns
+    // The Remix styles change the number of columns, and some make every tile one column.
+    val remixStyle = LocalRemixQsStyle.current
+    val remixLook = LocalQsStyle.current
+    val uniformRemix = remixStyle && remixLook.uniformTiles
+    val columns = if (remixStyle) remixLook.columns(viewModel.columns) else viewModel.columns
     val sizedTiles = viewModel.tileViewModels
     val tiles = sizedTiles.fastMap { it.tile }
     val squishiness by viewModel.squishinessViewModel.squishiness.collectAsStateWithLifecycle()
@@ -79,9 +85,11 @@ fun ContentScope.QuickQuickSettings(
     // ColorOS style: a row the next, too wide, tile did not fit into hands its free columns to its
     // last icon tile, so QQS does not show a lone circle next to an empty gap.
     val rowTiles =
-        remember(sizedTiles, columns, colorOSStyle, classicStyle) {
+        remember(sizedTiles, columns, colorOSStyle, classicStyle, uniformRemix) {
             if (colorOSStyle && !classicStyle) {
                 sizedTiles.widenLastIconTiles(columns, viewModel.largeTilesSpan)
+            } else if (uniformRemix) {
+                sizedTiles.fastMap { SizedTileImpl(it.tile, 1) }
             } else {
                 sizedTiles
             }

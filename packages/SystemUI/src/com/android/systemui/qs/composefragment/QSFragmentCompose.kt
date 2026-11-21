@@ -160,7 +160,11 @@ import com.android.systemui.qs.composefragment.viewmodel.QSFragmentComposeViewMo
 import com.android.systemui.qs.footer.ui.compose.FooterActions
 import com.android.systemui.qs.panels.data.repository.QsPanelStyleRepository
 import com.android.systemui.qs.panels.shared.model.QSFragmentComposeClippingTableLog
+import com.android.systemui.qs.panels.shared.model.LocalQsGlass
+import com.android.systemui.qs.panels.shared.model.LocalQsStyle
+import com.android.systemui.qs.panels.shared.model.QsGlass
 import com.android.systemui.qs.panels.shared.model.QsPanelStyle
+import com.android.systemui.qs.panels.shared.model.QsStyle
 import com.android.systemui.qs.panels.ui.compose.EditMode
 import com.android.systemui.qs.panels.ui.compose.QuickQuickSettings
 import com.android.systemui.qs.panels.ui.compose.TileGrid
@@ -171,6 +175,8 @@ import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsOsCo
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingSliderContent
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalQsPanelStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalRemixQsStyle
+import com.android.systemui.qs.shared.style.liquidGlassOn
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.NothingSliderKind
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingLayout
 import com.android.systemui.qs.shared.ui.QuickSettings.Elements
@@ -306,12 +312,21 @@ constructor(
                             val colorOSStyle = panelStyle == QsPanelStyle.COLOROS
                             SideEffect { colorOSQsStyle = colorOSStyle }
                             val nothingStyle = panelStyle == QsPanelStyle.NOTHING
+                            val remixStyle = panelStyle == QsPanelStyle.REMIX
+                            val remixLook by
+                                qsPanelStyleRepository.remixStyle.collectAsStateWithLifecycle()
                             val nothingOsColors by
                                 qsPanelStyleRepository.nothingOsColors.collectAsStateWithLifecycle()
                             CompositionLocalProvider(
                                 LocalQsPanelStyle provides panelStyle,
                                 LocalColorOSQsStyle provides colorOSStyle,
                                 LocalNothingQsStyle provides nothingStyle,
+                                LocalRemixQsStyle provides remixStyle,
+                                LocalQsStyle provides
+                                    (if (remixStyle) remixLook else QsStyle.STOCK),
+                                LocalQsGlass provides
+                                    (if (remixStyle && liquidGlassOn) QsGlass.LIQUID
+                                    else QsGlass.SOLID),
                                 LocalNothingQsOsColors provides (nothingStyle && nothingOsColors),
                             ) {
                                 val slidersInGrid =
