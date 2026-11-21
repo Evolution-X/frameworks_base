@@ -514,6 +514,10 @@ public class AxSpoofManager implements IAxSpoofManager {
         } catch (Exception e) {
             Log.e(TAG, "Keybox refresh failed", e);
         }
+        if (mResolver != null && Settings.System.getIntForUser(
+                mResolver, TRICKYSTORE_ENABLED_KEY, 1, UserHandle.USER_SYSTEM) != 0) {
+            TrickyStoreService.getInstance().checkRevocationIfDue();
+        }
         try {
             refreshPixelFingerprintIfStale();
         } catch (Exception e) {
