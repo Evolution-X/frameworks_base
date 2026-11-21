@@ -194,9 +194,10 @@ public final class PixelPropsUtils {
                 sPixelPropsSpoofEnabled = Settings.Secure.getInt(
                         cr, Settings.Secure.PI_PP_SPOOF, 1) == 1;
                 final String rawTargets = Settings.Secure.getString(cr, PI_PP_TARGETS_KEY);
-                sPpTargets = (rawTargets == null || rawTargets.isEmpty())
+                sPpTargets = (rawTargets == null)
                         ? new ArraySet<>(PixelDeviceRepository.DEFAULT_PP_TARGETS)
-                        : new ArraySet<>(Arrays.asList(rawTargets.split(",")));
+                        : rawTargets.isEmpty() ? new ArraySet<>()
+                                : new ArraySet<>(Arrays.asList(rawTargets.split(",")));
                 sPpModel = Settings.Secure.getString(cr, PI_PP_MODEL_KEY);
             } catch (Throwable t) {
                 // Settings provider not ready yet; cache stays at safe defaults
@@ -274,8 +275,9 @@ public final class PixelPropsUtils {
             try {
                 final android.content.ContentResolver cr = context.getContentResolver();
                 final String raw = Settings.Secure.getString(cr, PI_PP_TARGETS_KEY);
-                if (raw != null && !raw.isEmpty()) {
-                    sPpTargets = new ArraySet<>(Arrays.asList(raw.split(",")));
+                if (raw != null) {
+                    sPpTargets = raw.isEmpty() ? new ArraySet<>()
+                            : new ArraySet<>(Arrays.asList(raw.split(",")));
                 }
                 final String model = Settings.Secure.getString(cr, PI_PP_MODEL_KEY);
                 if (model != null && !model.isEmpty()) sPpModel = model;
