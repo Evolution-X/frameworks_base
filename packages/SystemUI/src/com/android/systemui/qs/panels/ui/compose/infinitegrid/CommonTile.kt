@@ -38,7 +38,10 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.clickable
@@ -436,8 +439,18 @@ fun LargeTileContent(
     lottieSpec: String? = null,
     active: Boolean = false,
     labelMaxLines: Int = 1,
+    // Remix QS styles: the clip and size of the icon target, the icon's size and label styles.
+    iconClip: Shape = iconShape,
+    alwaysBacked: Boolean = false,
+    toggleInteractionSource: MutableInteractionSource? = null,
+    toggleSize: Dp = CommonTileDefaults.ToggleTargetSize,
+    iconSize: Dp = CommonTileDefaults.LargeTileIconSize,
+    labelStyle: TextStyle? = null,
+    secondaryLabelStyle: TextStyle? = null,
+    showChevron: Boolean = false,
 ) {
     val isDualTarget = toggleClick != null
+    val indication = LocalIndication.current
     val colorOSStyle = LocalColorOSQsStyle.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -469,9 +482,11 @@ fun LargeTileContent(
             else Modifier
         Box(
             modifier =
-                Modifier.size(CommonTileDefaults.ToggleTargetSize).thenIf(isDualTarget) {
+                Modifier.size(toggleSize).thenIf(alwaysBacked && !isDualTarget) {
+                    Modifier.clip(iconClip).drawBehind { drawRect(animatedBackgroundColor) }
+                }.thenIf(isDualTarget) {
                     Modifier.borderOnFocus(color = focusBorderColor, iconShape.topEnd)
-                        .clip(iconShape)
+                        .clip(iconClip)
                         .then(glassBlurModifier)
                         .drawBehind {
                             if (onGlass) {
@@ -501,6 +516,8 @@ fun LargeTileContent(
                         // apply the squish effect after the bg is drawn
                         .verticalSquish(squishiness)
                         .combinedClickable(
+                            interactionSource = toggleInteractionSource,
+                            indication = if (toggleInteractionSource != null) indication else null,
                             onClick = toggleClick!!,
                             onLongClick = onLongClick,
                             onLongClickLabel = longPressLabel,
@@ -526,14 +543,14 @@ fun LargeTileContent(
                     active = active,
                     offColor = MaterialTheme.colorScheme.onSurface,
                     onColor = colors.icon,
-                    size = CommonTileDefaults.LargeTileIconSize,
+                    size = iconSize,
                     modifier = Modifier.align(Alignment.Center),
                 )
             if (!animated) {
                 SmallTileContent(
                     iconProvider = iconProvider,
                     color = colors.icon,
-                    size = { CommonTileDefaults.LargeTileIconSize },
+                    size = { iconSize },
                     modifier = Modifier.align(Alignment.Center),
                 )
             }
@@ -547,8 +564,19 @@ fun LargeTileContent(
             accessibilityUiState = accessibilityUiState,
             isVisible = isVisible,
             labelMaxLines = labelMaxLines,
+            labelStyle = labelStyle,
+            secondaryLabelStyle = secondaryLabelStyle,
             modifier = Modifier.weight(1f).bounceScale(TransformOrigin(0f, .5f), textScale),
         )
+
+        if (showChevron) {
+            Image(
+                painter = painterResource(R.drawable.ic_chevron_right),
+                contentDescription = null,
+                colorFilter = ColorFilter.tint(colors.label.copy(alpha = .6f)),
+                modifier = Modifier.size(CommonTileDefaults.ChevronSize),
+            )
+        }
 
         if (sideDrawable != null) {
             Image(
@@ -570,6 +598,8 @@ fun LargeTileLabels(
     isVisible: () -> Boolean = { true },
     accessibilityUiState: AccessibilityUiState? = null,
     labelMaxLines: Int = 1,
+    labelStyle: TextStyle? = null,
+    secondaryLabelStyle: TextStyle? = null,
 ) {
     val animatedLabelColor by animateColorAsState(colors.label, label = "QSTileLabelColor")
     val animatedSecondaryLabelColor by
@@ -577,10 +607,13 @@ fun LargeTileLabels(
     Column(verticalArrangement = Arrangement.Center, modifier = modifier.fillMaxHeight()) {
         TileLabel(
             text = label,
-            style = MaterialTheme.typography.titleSmallEmphasized.copy(
-                fontWeight =
-                    if (LocalColorOSQsStyle.current) FontWeight.Medium else FontWeight.SemiBold,
-            ),
+            style =
+                labelStyle
+                    ?: MaterialTheme.typography.titleSmallEmphasized.copy(
+                        fontWeight =
+                            if (LocalColorOSQsStyle.current) FontWeight.Medium
+                            else FontWeight.SemiBold,
+                    ),
             color = { animatedLabelColor },
             isVisible = isVisible,
             maxLines = labelMaxLines,
@@ -589,9 +622,11 @@ fun LargeTileLabels(
             TileLabel(
                 secondaryLabel ?: "",
                 color = { animatedSecondaryLabelColor },
-                style = MaterialTheme.typography.labelMedium.copy(
-                    fontWeight = FontWeight.Normal,
-                ),
+                style =
+                    secondaryLabelStyle
+                        ?: MaterialTheme.typography.labelMedium.copy(
+                            fontWeight = FontWeight.Normal,
+                        ),
                 isVisible = isVisible,
                 modifier =
                     Modifier.thenIf(

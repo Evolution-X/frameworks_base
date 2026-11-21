@@ -46,6 +46,7 @@ import com.android.systemui.grid.ui.compose.VerticalSpannedGrid
 import com.android.systemui.grid.ui.compose.calculate2DPlacements
 import com.android.systemui.haptics.msdl.qs.TileHapticsViewModel
 import com.android.systemui.lifecycle.rememberViewModel
+import com.android.systemui.qs.panels.shared.model.LocalQsStyle
 import com.android.systemui.qs.panels.shared.model.SizedTileImpl
 import com.android.systemui.qs.panels.ui.compose.BounceableInfo
 import com.android.systemui.qs.panels.ui.compose.EditTileListState
@@ -143,8 +144,13 @@ constructor(
         // The ColorOS panel is built on four columns, like its pills, media card and sliders, and
         // the pager cuts its pages for four. Wide screens ask for 6 columns, which squashed the
         // round tiles into narrow ovals.
+        // The Remix styles change the number of columns, and some make every tile one column.
+        val remixStyle = LocalRemixQsStyle.current
+        val remixLook = LocalQsStyle.current
+        val uniformRemix = remixStyle && remixLook.uniformTiles
         val columns =
             if (colorOSStyle) ColorOSGridColumns
+            else if (remixStyle) remixLook.columns(viewModel.columnsWithMediaViewModel.columns)
             else viewModel.columnsWithMediaViewModel.columns
         val largeTilesSpan = viewModel.columnsWithMediaViewModel.largeSpan
         val largeTiles by viewModel.iconTilesViewModel.largeTilesState
@@ -165,12 +171,12 @@ constructor(
 
         // Tiles or largeTiles may be updated while this is composed, so listen to any changes
         val sizedTiles =
-            remember(tiles, largeTiles, largeTilesSpan, colorOSStyle) {
+            remember(tiles, largeTiles, largeTilesSpan, colorOSStyle, uniformRemix, columns) {
                 // ColorOS style: the fixed wide tiles (Wi-Fi, mobile data, Bluetooth) are drawn
                 // separately by the ColorOS layout, so every tile in this grid is a round icon
                 // tile.
                 tiles.map {
-                    val wide = !colorOSStyle && largeTiles.contains(it.spec)
+                    val wide = !colorOSStyle && !uniformRemix && largeTiles.contains(it.spec)
                     SizedTileImpl(it, if (wide) largeTilesSpan.coerceAtMost(columns) else 1)
                 }
             }
@@ -203,6 +209,7 @@ constructor(
                     iconOnly =
                         colorOSStyle ||
                             classicStyle ||
+                            uniformRemix ||
                             iconTilesViewModel.isIconTile(it.tile.spec),
                     squishiness = { squishiness },
                     tileHapticsViewModelFactory = tileHapticsViewModelFactory,
@@ -219,6 +226,7 @@ constructor(
                             bouncesContainer = { index ->
                                 colorOSStyle ||
                                     !(classicStyle ||
+                                        uniformRemix ||
                                         iconTilesViewModel.isIconTile(sizedTiles[index].tile.spec))
                             },
                         ),

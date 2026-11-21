@@ -11,6 +11,7 @@ import android.provider.Settings
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.qs.panels.shared.model.QsPanelStyle
+import com.android.systemui.qs.panels.shared.model.QsStyle
 import com.android.systemui.shared.settings.data.repository.SystemSettingsRepository
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -47,6 +48,18 @@ constructor(
                 QsPanelStyle.of(readInt(Settings.System.QS_PANEL_STYLE, 0)),
             )
 
+    /** The look of the Remix panel style, a [QsStyle]. */
+    val remixStyle: StateFlow<QsStyle> =
+        systemSettings
+            .intSetting(QsStyle.SETTING, QsStyle.STOCK.value)
+            .map { QsStyle.of(it) }
+            .distinctUntilChanged()
+            .stateIn(
+                scope,
+                SharingStarted.Eagerly,
+                QsStyle.of(readIntByName(QsStyle.SETTING, QsStyle.STOCK.value)),
+            )
+
     /** Whether the Nothing style takes the Nothing OS 5.0 palette, which is any but 0. */
     val nothingOsColors: StateFlow<Boolean> =
         systemSettings
@@ -70,6 +83,8 @@ constructor(
                 SharingStarted.Eagerly,
                 readInt(Settings.System.QS_COLOROS_MEDIA_ART_FILL, 0) != 0,
             )
+
+    private fun readIntByName(name: String, default: Int): Int = readInt(name, default)
 
     private fun readInt(name: String, default: Int): Int =
         try {
