@@ -869,9 +869,29 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
                         descriptor, iSecurityLevel, securityLevel, flags,
                         requesterUid, packages);
             } else {
-                metadata = iSecurityLevel.generateKey(descriptor,
-                        mAttestKeyDescriptor,
-                        constructKeyGenerationArguments(), flags, additionalEntropy);
+                try {
+                    metadata = iSecurityLevel.generateKey(descriptor,
+                            mAttestKeyDescriptor,
+                            constructKeyGenerationArguments(), flags, additionalEntropy);
+                } catch (KeyStoreException e) {
+                    // Leaf hack needs a TEE certificate. This device either has no
+                    // attestation key, or KeyMint rejects the spoofed device ids
+                    // (CANNOT_ATTEST_IDS) before it looks for one. A healthy TEE
+                    // probe is also cached for the life of the process, so the
+                    // request would keep failing. Generate the chain instead.
+                    int error = e.getErrorCode();
+                    if ((error != KeymasterDefs.KM_ERROR_ATTESTATION_KEYS_NOT_PROVISIONED
+                            && error != KeymasterDefs.KM_ERROR_CANNOT_ATTEST_IDS)
+                            || !eligible || !canSoftwareAttest(packages)) {
+                        throw e;
+                    }
+                    Log.w(TAG, "KeyMint cannot attest (" + error
+                            + "); generating a certificate for " + mEntryAlias);
+                    TrickyStoreService.getInstance().noteAttestationKeysMissing();
+                    metadata = buildSoftwareAttestedKey(
+                            descriptor, iSecurityLevel, securityLevel, flags,
+                            requesterUid, packages);
+                }
             }
 
             AndroidKeyStorePublicKey publicKey =
@@ -907,6 +927,29 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
                     }
                 }
             }
+        }
+    }
+
+    private boolean canSoftwareAttest(String[] packages) {
+        try {
+            if (packages == null) {
+                packages = ActivityThread.getPackageManager()
+                        .getPackagesForUid(Process.myUid());
+            }
+            if (packages == null) return false;
+            TrickyStoreService service = TrickyStoreService.getInstance();
+            if (!service.hasKeyboxes()) {
+                service.refreshKeyBox();
+            }
+            if (!service.hasKeyboxes()) return false;
+            // needHack/needGenerate follow the TEE probe. That probe can come
+            // back healthy while KeyMint still rejects the device ids, and the
+            // storage key would then be thrown away. A targeted package with a
+            // keybox can take a generated chain either way.
+            return service.isAttestationTarget(Process.myUid(), packages);
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to check software attestation fallback", e);
+            return false;
         }
     }
 
