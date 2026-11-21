@@ -266,6 +266,7 @@ import com.android.server.SystemServiceManager;
 import com.android.server.UiThread;
 import com.android.server.input.InputManagerInternal;
 import com.android.server.inputmethod.InputMethodManagerInternal;
+import com.android.server.pm.LauncherAppsService.LauncherAppsServiceInternal;
 import com.android.server.pm.UserManagerInternal;
 import com.android.server.policy.keyguard.KeyguardServiceDelegate;
 import com.android.server.policy.pocket.PocketLock;
@@ -1820,7 +1821,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_KEYBOARD);
 
             performLongPressHapticFeedback(mBackLongPressAction, "Back - Long Press");
-            performKeyAction(mBackLongPressAction, event);
+            performKeyAction(mBackLongPressAction, event,
+                    LineageSettings.System.KEY_BACK_LONG_PRESS_ACTION);
         }
     }
 
@@ -1834,7 +1836,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     KeyEvent.KEYCODE_APP_SWITCH, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
                     KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_KEYBOARD);
 
-            performKeyAction(mAppSwitchPressAction, event);
+            performKeyAction(mAppSwitchPressAction, event,
+                    LineageSettings.System.KEY_APP_SWITCH_ACTION);
         }
     }
 
@@ -1850,7 +1853,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_KEYBOARD);
 
             performLongPressHapticFeedback(mAppSwitchLongPressAction, "Recents - Long Press");
-            performKeyAction(mAppSwitchLongPressAction, event);
+            performKeyAction(mAppSwitchLongPressAction, event,
+                    LineageSettings.System.KEY_APP_SWITCH_LONG_PRESS_ACTION);
         }
     }
 
@@ -1865,6 +1869,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_KEYBOARD);
 
             performKeyAction(mAssistPressAction, event,
+                    LineageSettings.System.KEY_ASSIST_ACTION,
                     AssistUtils.INVOCATION_TYPE_ASSIST_BUTTON);
         }
     }
@@ -1882,6 +1887,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
             performLongPressHapticFeedback(mAssistLongPressAction, "Assist - Long Press");
             performKeyAction(mAssistLongPressAction, event,
+                    LineageSettings.System.KEY_ASSIST_LONG_PRESS_ACTION,
                     AssistUtils.INVOCATION_TYPE_ASSIST_BUTTON);
         }
     }
@@ -2390,18 +2396,20 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             case POWER_MENU:
                 return isScreenOn();
             case CONTEXTUAL_SEARCH:
+            case LAUNCH_APP:
                 return isScreenOn() && !keyguardOn();
             default:
                 return !keyguardOn();
         }
     }
 
-    private void performKeyAction(Action action, KeyEvent event) {
+    private void performKeyAction(Action action, KeyEvent event, String actionSetting) {
         // By default, pass INVOCATION_TYPE_UNKNOWN to launch assistant.
-        performKeyAction(action, event, AssistUtils.INVOCATION_TYPE_UNKNOWN);
+        performKeyAction(action, event, actionSetting, AssistUtils.INVOCATION_TYPE_UNKNOWN);
     }
 
-    private void performKeyAction(Action action, KeyEvent event, int assistInvocationType) {
+    private void performKeyAction(Action action, KeyEvent event, String actionSetting,
+            int assistInvocationType) {
         switch (action) {
             case NOTHING:
                 break;
@@ -2479,6 +2487,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             case SILENCE_CALL:
                 silenceIncomingCall();
                 break;
+            case LAUNCH_APP:
+                launchAppForKeyAction(actionSetting);
+                break;
             default:
                 break;
         }
@@ -2495,6 +2506,61 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             csm.startContextualSearch(ContextualSearchManager.ENTRYPOINT_SYSTEM_ACTION);
         } catch (Exception e) {
             Slog.w(TAG, "Failed to start contextual search", e);
+        }
+    }
+
+    private void launchAppForKeyAction(String actionSetting) {
+        if (actionSetting == null) {
+            return;
+        }
+        final ContentResolver resolver = mContext.getContentResolver();
+        final String app = LineageSettings.System.getStringForUser(resolver,
+                getLaunchAppSetting(actionSetting), mCurrentUserId);
+        final ComponentName component =
+                TextUtils.isEmpty(app) ? null : ComponentName.unflattenFromString(app);
+        if (component == null) {
+            Slog.w(TAG, "No app to open set for " + actionSetting);
+            return;
+        }
+        final String shortcutId = LineageSettings.System.getStringForUser(resolver,
+                getLaunchShortcutSetting(actionSetting), mCurrentUserId);
+
+        final ActivityOptions options = ActivityOptions.makeBasic();
+        options.setDisallowEnterPictureInPictureWhileLaunching(true);
+        options.setRotationAnimationHint(WindowManager.LayoutParams.ROTATION_ANIMATION_JUMPCUT);
+        options.setPendingIntentBackgroundActivityStartMode(
+                ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS);
+
+        final long token = Binder.clearCallingIdentity();
+        try {
+            if (!TextUtils.isEmpty(shortcutId)) {
+                final LauncherAppsServiceInternal launcherApps =
+                        LocalServices.getService(LauncherAppsServiceInternal.class);
+                try {
+                    if (launcherApps != null && launcherApps.startShortcut(Process.myUid(),
+                            Process.myPid(), mContext.getOpPackageName(),
+                            component.getPackageName(), null /* featureId */, shortcutId,
+                            null /* sourceBounds */, options.toBundle(), mCurrentUserId)) {
+                        return;
+                    }
+                } catch (Exception e) {
+                    Slog.w(TAG, "Failed to start shortcut " + shortcutId, e);
+                }
+                Slog.w(TAG, "Shortcut " + shortcutId + " of " + component.getPackageName()
+                        + " is not available, opening the app instead");
+            }
+
+            final Intent intent = new Intent(Intent.ACTION_MAIN)
+                    .addCategory(Intent.CATEGORY_LAUNCHER)
+                    .setComponent(component)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                            | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+            mContext.startActivityAsUser(intent, options.toBundle(),
+                    UserHandle.of(mCurrentUserId));
+        } catch (Exception e) {
+            Slog.w(TAG, "Failed to open " + component.flattenToShortString(), e);
+        } finally {
+            Binder.restoreCallingIdentity(token);
         }
     }
 
@@ -2638,7 +2704,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 if (mPendingHomeKeyEvent != null) {
                     mPendingHomeKeyEvent = null;
                     mHandler.removeCallbacks(mHomeDoubleTapTimeoutRunnable);
-                    performKeyAction(mHomeDoubleTapAction, event);
+                    performKeyAction(mHomeDoubleTapAction, event,
+                            LineageSettings.System.KEY_HOME_DOUBLE_TAP_ACTION);
                     mHomeConsumed = true;
                 } else if (mDisplayId == DEFAULT_DISPLAY
                         && (mHomeLongPressAction == Action.APP_SWITCH
@@ -2655,6 +2722,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     // If long press home will launch assistant,
                     // it should pass this right invocation type.
                     performKeyAction(mHomeLongPressAction, event,
+                            LineageSettings.System.KEY_HOME_LONG_PRESS_ACTION,
                             AssistUtils.INVOCATION_TYPE_HOME_BUTTON_LONG_PRESS);
                     mHomeConsumed = true;
                 }
@@ -4167,7 +4235,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                             }
                             performLongPressHapticFeedback(mMenuLongPressAction,
                                     "Menu - Long Press");
-                            performKeyAction(mMenuLongPressAction, event);
+                            performKeyAction(mMenuLongPressAction, event,
+                                    LineageSettings.System.KEY_MENU_LONG_PRESS_ACTION);
                             mMenuPressed = false;
                             return true;
                         }
@@ -4180,7 +4249,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     }
                     mMenuPressed = false;
                     if (!canceled) {
-                        performKeyAction(mMenuPressAction, event);
+                        performKeyAction(mMenuPressAction, event,
+                                LineageSettings.System.KEY_MENU_ACTION);
                     }
                 }
 
@@ -5398,7 +5468,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
                 if (mLongSwipeDown && isLongSwipe && !down) {
                     // Trigger long swipe action
-                    performKeyAction(mEdgeLongSwipeAction, event);
+                    performKeyAction(mEdgeLongSwipeAction, event,
+                            LineageSettings.System.KEY_EDGE_LONG_SWIPE_ACTION);
                     // Reset long swipe state
                     mLongSwipeDown = false;
                     // Don't pass back press to app
@@ -7044,7 +7115,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         if (mVrManagerInternal != null) {
             mVrManagerInternal.addPersistentVrModeStateListener(mPersistentVrModeListener);
         }
-        
+
         mShakeGestures = ShakeGestureService.getInstance(mContext, new ShakeGestureService.ShakeGesturesCallbacks() {
             @Override
             public void onShake() {
@@ -7054,7 +7125,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 KeyEvent event = new KeyEvent(now, now, KeyEvent.ACTION_DOWN,
                         KeyEvent.KEYCODE_SYSRQ, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
                         KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_TOUCHSCREEN);
-                performKeyAction(mShakeGestureAction, event);
+                performKeyAction(mShakeGestureAction, event,
+                        LineageSettings.System.KEY_SHAKE_GESTURE_ACTION);
                 performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, "Shake Gesture");
             }
         });
@@ -7079,7 +7151,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     KeyEvent event = new KeyEvent(now, now, KeyEvent.ACTION_DOWN,
                             KeyEvent.KEYCODE_SYSRQ, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
                             KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_TOUCHSCREEN);
-                    performKeyAction(action, event);
+                    performKeyAction(action, event,
+                            LineageSettings.System.KEY_THREE_FINGERS_SWIPE_ACTION);
                     performHapticFeedback(HapticFeedbackConstants.LONG_PRESS,
                             "Three Fingers Swipe");
                 });
