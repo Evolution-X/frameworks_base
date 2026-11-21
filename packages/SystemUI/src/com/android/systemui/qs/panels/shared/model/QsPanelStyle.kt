@@ -13,7 +13,10 @@ enum class QsPanelStyle(val value: Int) {
     DEFAULT(0),
     CLASSIC(1),
     COLOROS(2),
-    NOTHING(3);
+    NOTHING(3),
+
+    /** The tile looks ported from ResurrectedRemix, picked with [QsStyle]. */
+    REMIX(4);
 
     companion object {
         fun of(value: Int): QsPanelStyle = entries.firstOrNull { it.value == value } ?: DEFAULT

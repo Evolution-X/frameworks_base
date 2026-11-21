@@ -198,6 +198,18 @@ public class TileServiceManager {
         }
     }
 
+    /**
+     * A tap on a tile that lost its bind slot only queues the click. Slots used to be handed out
+     * again only when some other tile changed, so the tap waited, often until the panel closed.
+     * A pending click outranks every other tile, so hand the slots out again now and bind this
+     * one right away.
+     */
+    public void onClickQueued() {
+        if (!mBound && mStateManager.hasPendingClick()) {
+            mServices.recalculateBindAllowance();
+        }
+    }
+
     public boolean hasPendingBind() {
         return mPendingBind;
     }

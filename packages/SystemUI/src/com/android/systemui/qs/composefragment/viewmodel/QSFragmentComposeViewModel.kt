@@ -58,11 +58,17 @@ import com.android.systemui.qs.QSEvent
 import com.android.systemui.qs.composefragment.dagger.QSFragmentComposeLog
 import com.android.systemui.qs.composefragment.dagger.QSFragmentComposeModule
 import com.android.systemui.qs.footer.ui.viewmodel.FooterActionsViewModel
+import com.android.systemui.qs.panels.data.repository.QsPanelStyleRepository
 import com.android.systemui.qs.panels.domain.interactor.TileSquishinessInteractor
+import com.android.systemui.qs.panels.shared.model.QsMediaPlace
+import com.android.systemui.qs.panels.shared.model.QsMediaTileSize
+import com.android.systemui.qs.panels.shared.model.QsPanelStyle
+import com.android.systemui.qs.panels.shared.model.QsVolumeSize
 import com.android.systemui.qs.panels.ui.viewmodel.InFirstPageViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.MediaInRowInLandscapeViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.QuickQuickSettingsViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.toolbar.EditModeButtonViewModel
+import com.android.systemui.qs.pipeline.domain.interactor.CurrentTilesInteractor
 import com.android.systemui.qs.ui.viewmodel.QuickSettingsContainerViewModel
 import com.android.systemui.res.R
 import com.android.systemui.scene.shared.model.Overlays
@@ -89,6 +95,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
@@ -121,6 +128,8 @@ constructor(
     val mediaViewModelFactory: MediaViewModel.Factory,
     shadeStatusBarComponentsInteractor: ShadeStatusBarComponentsInteractor,
     val editModeButtonViewModelFactory: EditModeButtonViewModel.Factory,
+    qsPanelStyleRepository: QsPanelStyleRepository,
+    currentTilesInteractor: CurrentTilesInteractor,
 ) : Dumpable, ExclusiveActivatable() {
 
     val containerViewModel = containerViewModelFactory.create(supportsBrightnessMirroring = true)
@@ -303,7 +312,44 @@ constructor(
         get() = containerViewModel.brightnessSliderViewModel.showMirror
 
     val isBrightnessSliderVisible: Boolean
-        get() = containerViewModel.isBrightnessSliderVisible
+        get() = containerViewModel.isBrightnessSliderVisible && !brightnessInGrid
+
+    /**
+     * Whether the Brightness tile is in the Remix panel, where it slides brightness in the grid.
+     * The brightness bar above or under the tiles hides then.
+     */
+    private val brightnessTileInQs: Flow<Boolean> =
+        combine(qsPanelStyleRepository.style, currentTilesInteractor.currentTiles) { style, tiles ->
+                style == QsPanelStyle.REMIX &&
+                    tiles.any { it.spec.spec == QsVolumeSize.BRIGHTNESS_SPEC }
+            }
+            .distinctUntilChanged()
+
+    val brightnessInGrid by
+        hydrator.hydratedStateOf(
+            traceName = "brightnessInGrid",
+            initialValue = false,
+            source = brightnessTileInQs,
+        )
+
+    /**
+     * Whether the Media tile is in the Remix panel, where the grid draws it as a player. The QS
+     * card is hidden then, as the tile is the player. The QQS keeps its card, as the grid draws
+     * the tile there as a plain tile. A look that puts the player above or below the tiles keeps
+     * the card and leaves the tile out of the grid.
+     */
+    private val mediaTileInQs: Flow<Boolean> =
+        combine(
+                qsPanelStyleRepository.style,
+                currentTilesInteractor.currentTiles,
+                qsPanelStyleRepository.tweaks,
+                qsPanelStyleRepository.remixStyle,
+            ) { style, tiles, tweaks, look ->
+                style == QsPanelStyle.REMIX &&
+                    tweaks.mediaPlaceIn(look) == QsMediaPlace.GRID &&
+                    tiles.any { it.spec.spec == QsMediaTileSize.TILE_SPEC }
+            }
+            .distinctUntilChanged()
 
     // The initial values in these two are not meaningful. The flow will emit on start the correct
     // values. This is because we need to lazily fetch them after initMediaHosts.
@@ -328,7 +374,12 @@ constructor(
             initialValue = usingMedia,
             source =
                 if (usingMedia) {
-                    mediaHostVisible(qsMediaHost, qsMediaUiBehavior, mediaCarouselInteractor)
+                    combine(
+                        mediaHostVisible(qsMediaHost, qsMediaUiBehavior, mediaCarouselInteractor),
+                        mediaTileInQs,
+                    ) { visible, tile ->
+                        visible && !tile
+                    }
                 } else {
                     flowOf(false)
                 },

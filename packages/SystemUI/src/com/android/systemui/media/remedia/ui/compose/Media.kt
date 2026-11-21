@@ -60,8 +60,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -99,6 +101,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
@@ -113,6 +116,10 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerInputChange
@@ -137,6 +144,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
+import androidx.compose.ui.util.lerp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastCoerceIn
 import androidx.compose.ui.util.fastForEach
@@ -185,9 +193,12 @@ import com.android.systemui.qs.shared.style.LiquidGlassSurface
 import com.android.systemui.qs.shared.style.glassRim
 import com.android.systemui.qs.shared.style.liquidGlassOn
 import com.android.systemui.res.R
+import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
+import kotlin.math.sin
 import kotlinx.coroutines.launch
 
 /**
@@ -222,15 +233,17 @@ fun Media(
 
     viewModel.mediaUiEventLogger.logCarouselLocation(location)
 
-    CardCarousel(
-        viewModel = viewModel,
-        presentationStyle = presentationStyle,
-        behavior = behavior,
-        onDismissed = onDismissed,
-        modifier = modifier,
-        mediaSquishiness = mediaSquishiness,
-        expansion = expansion,
-    )
+    CompositionLocalProvider(LocalMediaInQqs provides (location == Media.Location.SHADE)) {
+        CardCarousel(
+            viewModel = viewModel,
+            presentationStyle = presentationStyle,
+            behavior = behavior,
+            onDismissed = onDismissed,
+            modifier = modifier,
+            mediaSquishiness = mediaSquishiness,
+            expansion = expansion,
+        )
+    }
 }
 
 /**
@@ -314,7 +327,8 @@ private fun CardCarouselContent(
         remember(behavior.isCarouselScrollFalseTouch) { mutableStateOf(false) }
     val isSwipingEnabled = behavior.isCarouselScrollingEnabled && !isFalseTouchDetected
 
-    val roundedCornerShape = remember { RoundedCornerShape(32.dp) }
+    val cardRadius = mediaCardLook()?.radius ?: 32.dp
+    val roundedCornerShape = remember(cardRadius) { RoundedCornerShape(cardRadius) }
 
     Box(
         modifier =
@@ -437,15 +451,25 @@ private fun Card(
         stlState.setTargetScene(targetScene = cardStyle.toScene(), animationScope = this)
     }
 
+    val look = mediaCardLook()
+    val shape = if (look != null) qsMediaShape() else null
     Box(modifier) {
-        if (carouselStyle != MediaPresentationStyle.Compact) {
+        if (look != null && cardStyle != MediaPresentationStyle.Thumbnail) {
+            // Split draws its own two segments.
+            if (shape != QsMediaShape.Split) {
+                StyledCardBackground(
+                    look = look,
+                    modifier = Modifier.matchParentSize().sysuiResTag(MediaRes.BACKGROUND),
+                )
+            }
+        } else if (carouselStyle != MediaPresentationStyle.Compact) {
             CardBackground(
                 image = viewModel.background,
                 colorScheme = colorScheme,
                 modifier =
                     Modifier.matchParentSize()
                         .sysuiResTag(MediaRes.BACKGROUND)
-                        .clip(RoundedCornerShape(32.dp)),
+                        .clip(RoundedCornerShape(look?.radius ?: 32.dp)),
             )
         }
 
@@ -465,6 +489,8 @@ private fun Card(
                             colorScheme = colorScheme,
                             threeRows = true,
                             fillHeight = false,
+                            shape = shape,
+                            expansion = expansion,
                         )
                     }
 
@@ -476,6 +502,8 @@ private fun Card(
                             colorScheme = colorScheme,
                             threeRows = true,
                             fillHeight = true,
+                            shape = shape,
+                            expansion = expansion,
                         )
                     }
 
@@ -487,6 +515,8 @@ private fun Card(
                             colorScheme = colorScheme,
                             threeRows = false,
                             fillHeight = false,
+                            shape = shape,
+                            expansion = expansion,
                         )
                     }
 
@@ -498,6 +528,7 @@ private fun Card(
                         // Thumbnail is album art only, no foreground elements
                         var thumbnailModifier =
                             Modifier.clickable(onClick = { viewModel.onClick(it) }).height {
+                                if (shape != null) return@height shape.height.roundToPx()
                                 when (carouselStyle) {
                                     MediaPresentationStyle.Default -> Media.DEFAULT_HEIGHT
                                     // Large is only used for communal, which isn't scrollable
@@ -583,8 +614,11 @@ private fun ContentScope.CardForeground(
     threeRows: Boolean,
     fillHeight: Boolean,
     modifier: Modifier = Modifier,
+    shape: QsMediaShape? = null,
+    expansion: () -> Float = { 0f },
 ) {
     val viewModel = mediaViewModel.cards[cardIndex]
+    val look = mediaCardLook()
     // Can't use a Crossfade composable because of the custom layout logic below. Animate the alpha
     // of the guts (and, indirectly, of the content) from here.
     val gutsAlphaAnimatable = remember { Animatable(0f) }
@@ -596,19 +630,31 @@ private fun ContentScope.CardForeground(
     // card and the guts are set to be the same size of the content.
     Layout(
         content = {
-            CardForegroundContent(
-                expandable = expandable,
-                mediaViewModel = mediaViewModel,
-                cardIndex = cardIndex,
-                threeRows = threeRows,
-                fillHeight = fillHeight,
-                colorScheme = colorScheme,
-                modifier =
-                    Modifier.layoutId(Media.LayoutId.CardForeground).graphicsLayer {
-                        compositingStrategy = CompositingStrategy.ModulateAlpha
-                        alpha = 1f - gutsAlphaAnimatable.value
-                    },
-            )
+            val contentModifier =
+                Modifier.layoutId(Media.LayoutId.CardForeground).graphicsLayer {
+                    compositingStrategy = CompositingStrategy.ModulateAlpha
+                    alpha = 1f - gutsAlphaAnimatable.value
+                }
+            if (look != null && shape != null) {
+                StyledCardForegroundContent(
+                    expandable = expandable,
+                    viewModel = viewModel,
+                    look = look,
+                    shape = shape,
+                    expansion = expansion,
+                    modifier = contentModifier,
+                )
+            } else {
+                CardForegroundContent(
+                    expandable = expandable,
+                    mediaViewModel = mediaViewModel,
+                    cardIndex = cardIndex,
+                    threeRows = threeRows,
+                    fillHeight = fillHeight,
+                    colorScheme = colorScheme,
+                    modifier = contentModifier,
+                )
+            }
 
             CardGuts(
                 viewModel = viewModel.guts,
@@ -654,6 +700,17 @@ private fun ContentScope.CardForegroundContent(
     modifier: Modifier = Modifier,
 ) {
     val viewModel = mediaViewModel.cards[cardIndex]
+    val look = mediaCardLook()
+    val accent = look?.accent ?: colorScheme.primary
+    val onAccent = look?.onAccent ?: colorScheme.onPrimary
+    val textColor = look?.text ?: Color.White
+    val playButton = look?.playButton ?: colorScheme.primary
+    val playBorder = look?.playBorder
+    // A bigger play button on the lock screen.
+    val onLockscreen = LocalMediaOnLockscreen.current
+    val playSize = if (onLockscreen) DpSize(width = 88.dp, height = 60.dp) else DpSize(72.dp, 48.dp)
+    val playIconSize = if (onLockscreen) 30.dp else 24.dp
+    val playingRadius = if (onLockscreen) 20.dp else 16.dp
     Column(
         modifier =
             modifier
@@ -669,7 +726,7 @@ private fun ContentScope.CardForegroundContent(
             Element(key = Media.Elements.AppIcon, modifier = modifier) {
                 Icon(
                     icon = viewModel.icon,
-                    tint = colorScheme.primary,
+                    tint = accent,
                     modifier =
                         Modifier.align(Alignment.TopStart)
                             .padding(top = 16.dp, start = 16.dp)
@@ -715,8 +772,8 @@ private fun ContentScope.CardForegroundContent(
                                 style =
                                     DeviceChipStyle(
                                         fillColor = Color.Transparent,
-                                        contentColor = colorScheme.primary,
-                                        borderColor = colorScheme.primary,
+                                        contentColor = accent,
+                                        borderColor = accent,
                                     ),
                                 modifier =
                                     Modifier.fractionalMaxWidth(
@@ -734,13 +791,13 @@ private fun ContentScope.CardForegroundContent(
                             if (viewModel.outputSwitcherChip.text.isNullOrBlank()) {
                                 DeviceChipStyle(
                                     fillColor = Color.Transparent,
-                                    contentColor = colorScheme.primary,
-                                    borderColor = colorScheme.primary,
+                                    contentColor = accent,
+                                    borderColor = accent,
                                 )
                             } else {
                                 DeviceChipStyle(
-                                    fillColor = colorScheme.primary,
-                                    contentColor = colorScheme.onPrimary,
+                                    fillColor = accent,
+                                    contentColor = onAccent,
                                 )
                             },
                         modifier =
@@ -777,11 +834,19 @@ private fun ContentScope.CardForegroundContent(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp).heightIn(min = 48.dp),
             ) {
+                if (look != null) {
+                    ArtThumbnail(
+                        image = viewModel.background,
+                        shape = look.artShape,
+                        size = 48.dp,
+                        modifier = Modifier.padding(end = 12.dp),
+                    )
+                }
                 Metadata(
                     title = viewModel.title,
                     subtitle = viewModel.subtitle,
                     isExplicit = viewModel.isExplicit,
-                    color = Color.White,
+                    color = textColor,
                     modifier = Modifier.weight(1f).padding(end = 8.dp).animateContentSize(),
                 )
 
@@ -789,9 +854,14 @@ private fun ContentScope.CardForegroundContent(
                     AnimatedVisibility(visible = viewModel.playPauseAction != null) {
                         PlayPauseAction(
                             viewModel = viewModel.playPauseAction,
-                            buttonColor = colorScheme.primary,
-                            iconColor = colorScheme.onPrimary,
-                            buttonCornerRadius = { isPlaying -> if (isPlaying) 16.dp else 48.dp },
+                            buttonColor = playButton,
+                            iconColor = look?.playIcon ?: colorScheme.onPrimary,
+                            buttonCornerRadius = { isPlaying ->
+                                if (isPlaying) playingRadius else 48.dp
+                            },
+                            borderColor = playBorder,
+                            buttonSize = playSize,
+                            iconSize = playIconSize,
                         )
                     }
                 } else {
@@ -833,11 +903,19 @@ private fun ContentScope.CardForegroundContent(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
             ) {
+                if (look != null) {
+                    ArtThumbnail(
+                        image = viewModel.background,
+                        shape = look.artShape,
+                        size = 48.dp,
+                        modifier = Modifier.padding(end = 12.dp),
+                    )
+                }
                 Metadata(
                     title = viewModel.title,
                     subtitle = viewModel.subtitle,
                     isExplicit = viewModel.isExplicit,
-                    color = Color.White,
+                    color = textColor,
                     modifier = Modifier.weight(1f).padding(end = 8.dp).animateContentSize(),
                 )
 
@@ -874,9 +952,14 @@ private fun ContentScope.CardForegroundContent(
                     AnimatedVisibility(visible = viewModel.playPauseAction != null) {
                         PlayPauseAction(
                             viewModel = viewModel.playPauseAction,
-                            buttonColor = colorScheme.primary,
-                            iconColor = colorScheme.onPrimary,
-                            buttonCornerRadius = { isPlaying -> if (isPlaying) 16.dp else 48.dp },
+                            buttonColor = playButton,
+                            iconColor = look?.playIcon ?: colorScheme.onPrimary,
+                            buttonCornerRadius = { isPlaying ->
+                                if (isPlaying) playingRadius else 48.dp
+                            },
+                            borderColor = playBorder,
+                            buttonSize = playSize,
+                            iconSize = playIconSize,
                         )
                     }
                 } else {
@@ -884,6 +967,355 @@ private fun ContentScope.CardForegroundContent(
                 }
             }
         }
+    }
+}
+
+private const val CARD_ART = 52f
+private const val TALL_ART = 56f
+private const val CARD_PLAY = 44f
+private const val TALL_PLAY = 42f
+
+/** A QS style card from the canvas, laid out by [shape]. */
+@Composable
+private fun ContentScope.StyledCardForegroundContent(
+    expandable: Expandable,
+    viewModel: MediaCardViewModel,
+    look: MediaCardLook,
+    shape: QsMediaShape,
+    expansion: () -> Float,
+    modifier: Modifier = Modifier,
+) {
+    val baseModifier =
+        modifier
+            .combinedClickable(
+                onClick = { viewModel.onClick(expandable) },
+                onLongClick = viewModel.onLongClick,
+            )
+            .semantics { contentDescription = viewModel.contentDescription }
+    val cardModifier = baseModifier.height(shape.height)
+
+    @Composable
+    fun Play(size: Dp, width: Dp = size) {
+        AnimatedVisibility(visible = viewModel.playPauseAction != null) {
+            PlayPauseAction(
+                viewModel = viewModel.playPauseAction,
+                buttonColor = look.playButton,
+                iconColor = look.playIcon,
+                buttonCornerRadius = { size * look.playCorner },
+                borderColor = look.playBorder,
+                buttonSize = DpSize(width, size),
+                iconSize = 24.dp,
+            )
+        }
+    }
+
+    @Composable
+    fun Next() {
+        val next = viewModel.navigation.right
+        if (next !is MediaSecondaryActionViewModel.None) {
+            SecondaryAction(
+                viewModel = next,
+                resId = MediaRes.NEXT_BTN,
+                element = Media.Elements.NextButton,
+                iconColor = look.text,
+            )
+        }
+    }
+
+    @Composable
+    fun Labels(modifier: Modifier) {
+        Metadata(
+            title = viewModel.title,
+            subtitle = viewModel.subtitle,
+            isExplicit = viewModel.isExplicit,
+            color = look.text,
+            modifier = modifier,
+        )
+    }
+
+    // Circles shows the short card in QQS and the tall one in QS, and STL draws the QQS card
+    // while the shade expands. Move the same pieces from one layout to the other with the
+    // expansion, so the card doesn't jump at either end.
+    @Composable
+    fun CardToTall() {
+        val fraction = { expansion().coerceIn(0f, 1f) }
+        Layout(
+            content = {
+                ArtThumbnail(
+                    image = viewModel.background,
+                    shape = look.artShape,
+                    size = 52.dp,
+                    modifier =
+                        Modifier.graphicsLayer {
+                            val scale = lerp(1f, TALL_ART / CARD_ART, fraction())
+                            scaleX = scale
+                            scaleY = scale
+                            transformOrigin = TransformOrigin(0f, 0f)
+                        },
+                )
+                Labels(Modifier)
+                Box { Next() }
+                Box(
+                    Modifier.graphicsLayer {
+                        val scale = lerp(1f, TALL_PLAY / CARD_PLAY, fraction())
+                        scaleX = scale
+                        scaleY = scale
+                        transformOrigin = TransformOrigin(1f, 1f)
+                    }
+                ) {
+                    Play(CARD_PLAY.dp)
+                }
+                ProgressLine(
+                    navigation = viewModel.navigation,
+                    look = look,
+                    modifier = Modifier.graphicsLayer { alpha = 1f - fraction() },
+                )
+            },
+            modifier =
+                baseModifier
+                    .height {
+                        lerp(QsMediaShape.Card.height, QsMediaShape.Tall.height, fraction())
+                            .roundToPx()
+                    }
+                    .padding(14.dp),
+        ) { measurables, constraints ->
+            val e = fraction()
+            val width = constraints.maxWidth
+            val height = constraints.maxHeight
+            val loose = constraints.copy(minWidth = 0, minHeight = 0)
+            val art = measurables[0].measure(loose)
+            val next = measurables[2].measure(loose)
+            val play = measurables[3].measure(loose)
+            val playWidth = lerp(play.width, (play.width * TALL_PLAY / CARD_PLAY).toInt(), e)
+            val controls = next.width + playWidth
+            val labelsWidth =
+                lerp(
+                        width - art.width - 12.dp.roundToPx() - controls,
+                        width - controls,
+                        e,
+                    )
+                    .minus(4.dp.roundToPx())
+                    .coerceAtLeast(0)
+            val labels =
+                measurables[1].measure(loose.copy(minWidth = labelsWidth, maxWidth = labelsWidth))
+            val progress = measurables[4].measure(loose.copy(minWidth = width, maxWidth = width))
+            val row = maxOf(art.height, labels.height, next.height, play.height)
+            layout(width, height) {
+                // Card: one row centered at the top. Tall: art on top, the rest on the bottom.
+                fun y(child: Int) = lerp((row - child) / 2, height - child, e)
+                art.place(0, 0)
+                labels.place(lerp(art.width + 12.dp.roundToPx(), 0, e), y(labels.height))
+                next.place(width - controls, y(next.height))
+                play.place(width - play.width, y(play.height))
+                progress.place(0, height - progress.height)
+            }
+        }
+    }
+
+    when (shape) {
+        QsMediaShape.Card ->
+            if (qsMediaCardGrowsToTall()) {
+                CardToTall()
+            } else Column(
+                verticalArrangement = Arrangement.SpaceBetween,
+                modifier = cardModifier.padding(14.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ArtThumbnail(
+                        image = viewModel.background,
+                        shape = look.artShape,
+                        size = 52.dp,
+                        modifier = Modifier.padding(end = 12.dp),
+                    )
+                    Labels(Modifier.weight(1f).padding(end = 4.dp))
+                    Next()
+                    Play(44.dp)
+                }
+                ProgressLine(navigation = viewModel.navigation, look = look)
+            }
+        QsMediaShape.Pill ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = cardModifier.padding(horizontal = 8.dp),
+            ) {
+                ArtThumbnail(
+                    image = viewModel.background,
+                    shape = CircleShape,
+                    size = 44.dp,
+                    modifier = Modifier.padding(end = 10.dp),
+                )
+                Labels(Modifier.weight(1f).padding(end = 4.dp))
+                Next()
+                Play(44.dp)
+            }
+        QsMediaShape.Tall ->
+            Column(
+                verticalArrangement = Arrangement.SpaceBetween,
+                modifier = cardModifier.padding(14.dp),
+            ) {
+                ArtThumbnail(
+                    image = viewModel.background,
+                    shape = RoundedCornerShape(16.dp),
+                    size = 56.dp,
+                )
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Labels(Modifier.weight(1f).padding(end = 4.dp))
+                    Next()
+                    Play(42.dp)
+                }
+            }
+        QsMediaShape.Big ->
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = cardModifier.padding(12.dp),
+            ) {
+                ArtThumbnail(
+                    image = viewModel.background,
+                    shape = look.artShape,
+                    size = shape.height - 24.dp,
+                )
+                Column(modifier = Modifier.weight(1f).fillMaxHeight().padding(top = 4.dp)) {
+                    Labels(Modifier.fillMaxWidth())
+                    Spacer(Modifier.weight(1f))
+                    ProgressLine(navigation = viewModel.navigation, look = look)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.End,
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    ) {
+                        Next()
+                        Play(44.dp, width = 64.dp)
+                    }
+                }
+            }
+        QsMediaShape.Split ->
+            Row(horizontalArrangement = Arrangement.spacedBy(3.dp), modifier = cardModifier) {
+                ArtThumbnail(
+                    image = viewModel.background,
+                    shape = look.artShape,
+                    size = shape.height,
+                )
+                Column(
+                    verticalArrangement = Arrangement.SpaceBetween,
+                    modifier =
+                        Modifier.weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(6.dp, look.radius, look.radius, 6.dp))
+                            .background(look.background)
+                            .padding(14.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Labels(Modifier.weight(1f).padding(end = 4.dp))
+                        Next()
+                        Play(44.dp)
+                    }
+                    ProgressLine(navigation = viewModel.navigation, look = look)
+                }
+            }
+    }
+}
+
+/** Thin playback progress line under the styled card. */
+@Composable
+private fun ProgressLine(
+    navigation: MediaNavigationViewModel,
+    look: MediaCardLook,
+    modifier: Modifier = Modifier,
+) {
+    val progress =
+        ((navigation as? MediaNavigationViewModel.Showing)?.progress ?: 0f).coerceIn(0f, 1f)
+    val track = look.text.copy(alpha = .16f)
+    when (look.progress) {
+        MediaProgress.None -> {}
+        MediaProgress.Line,
+        MediaProgress.Glow ->
+            // Not clipped, so Neon's glow spills past the line.
+            Box(modifier.fillMaxWidth().height(4.dp).background(track, RoundedCornerShape(2.dp))) {
+                Box(
+                    Modifier.fillMaxHeight()
+                        .fillMaxWidth(progress)
+                        .then(
+                            if (look.progress == MediaProgress.Glow) {
+                                Modifier.progressGlow(look.accent)
+                            } else {
+                                Modifier
+                            }
+                        )
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(look.accent)
+                )
+            }
+        MediaProgress.Segments -> {
+            val filled = (progress * PROGRESS_SEGMENTS).roundToInt()
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                modifier = modifier.fillMaxWidth().height(6.dp),
+            ) {
+                repeat(PROGRESS_SEGMENTS) { i ->
+                    Box(
+                        Modifier.weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(1.dp))
+                            .background(if (i < filled) look.accent else track)
+                    )
+                }
+            }
+        }
+        MediaProgress.Wave ->
+            Canvas(modifier.fillMaxWidth().height(10.dp)) {
+                val mid = size.height / 2
+                val end = size.width * progress
+                val stroke = 3.dp.toPx()
+                val amplitude = 2.5.dp.toPx()
+                val wavelength = 16.dp.toPx()
+                val wave = Path()
+                var x = 0f
+                while (x <= end) {
+                    val y = mid + amplitude * sin(2 * PI * x / wavelength).toFloat()
+                    if (x == 0f) wave.moveTo(x, y) else wave.lineTo(x, y)
+                    x += 2f
+                }
+                if (end > 0f) {
+                    drawPath(wave, look.accent, style = Stroke(stroke, cap = StrokeCap.Round))
+                }
+                val gap = 6.dp.toPx()
+                if (end + gap < size.width) {
+                    drawLine(track, Offset(end + gap, mid), Offset(size.width, mid), stroke,
+                        StrokeCap.Round)
+                }
+            }
+        MediaProgress.Channel ->
+            Box(
+                modifier
+                    .fillMaxWidth()
+                    .height(10.dp)
+                    .clip(RoundedCornerShape(5.dp))
+                    .background(Color(0xFF110D0C))
+                    .padding(2.dp)
+            ) {
+                Box(
+                    Modifier.fillMaxHeight()
+                        .fillMaxWidth(progress)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(look.accent)
+                )
+            }
+    }
+}
+
+private const val PROGRESS_SEGMENTS = 24
+
+/** Neon: a soft glow under the played part of the line. */
+private fun Modifier.progressGlow(color: Color): Modifier = drawBehind {
+    drawIntoCanvas { canvas ->
+        val paint =
+            android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                this.color = color.copy(alpha = .7f).toArgb()
+                maskFilter =
+                    android.graphics.BlurMaskFilter(4.dp.toPx(), android.graphics.BlurMaskFilter.Blur.NORMAL)
+            }
+        canvas.nativeCanvas.drawRoundRect(0f, 0f, size.width, size.height, size.height / 2,
+            size.height / 2, paint)
     }
 }
 
@@ -1054,11 +1486,12 @@ private fun ContentScope.Navigation(
                 }
 
                 val interactionSource = remember { MutableInteractionSource() }
+                val look = mediaCardLook()
                 val colors =
                     colors(
-                        activeTrackColor = Color.White,
-                        inactiveTrackColor = Color.White.copy(alpha = 0.3f),
-                        thumbColor = Color.White,
+                        activeTrackColor = look?.accent ?: Color.White,
+                        inactiveTrackColor = (look?.text ?: Color.White).copy(alpha = 0.3f),
+                        thumbColor = look?.accent ?: Color.White,
                     )
                 if (isSeekBarVisible) {
                     // To allow the seek bar slider to fade in and out, it's tagged as an element.
@@ -1613,10 +2046,12 @@ private fun ContentScope.PlayPauseAction(
     iconColor: Color,
     buttonCornerRadius: (isPlaying: Boolean) -> Dp,
     modifier: Modifier = Modifier,
+    borderColor: Color? = null,
+    buttonSize: DpSize = DpSize(width = 72.dp, height = 48.dp),
+    iconSize: Dp = 24.dp,
 ) {
     if (viewModel == null) return
 
-    val buttonSize = DpSize(width = 72.dp, height = 48.dp)
     val cornerRadius: Dp by
         animateDpAsState(
             targetValue = buttonCornerRadius(viewModel.state != MediaSessionState.Paused),
@@ -1647,7 +2082,15 @@ private fun ContentScope.PlayPauseAction(
             enabled = viewModel.onClick != null,
             colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
             shape = RoundedCornerShape(cornerRadius),
-            modifier = Modifier.size(buttonSize).scale(scaleAnimatable.value),
+            contentPadding = PaddingValues(0.dp),
+            modifier =
+                Modifier.size(buttonSize).scale(scaleAnimatable.value).let {
+                    if (borderColor != null) {
+                        it.border(1.5.dp, borderColor, RoundedCornerShape(cornerRadius))
+                    } else {
+                        it
+                    }
+                },
         ) {
             when (viewModel.state) {
                 is MediaSessionState.Playing,
@@ -1670,12 +2113,12 @@ private fun ContentScope.PlayPauseAction(
                             painter = painter,
                             contentDescription = viewModel.icon?.contentDescription?.load(),
                             tint = iconColor,
-                            modifier = Modifier.size(24.dp).sysuiResTag(MediaRes.PLAY_PAUSE_BTN),
+                            modifier = Modifier.size(iconSize).sysuiResTag(MediaRes.PLAY_PAUSE_BTN),
                         )
                     }
                 }
                 is MediaSessionState.Buffering -> {
-                    CircularProgressIndicator(color = iconColor, modifier = Modifier.size(24.dp))
+                    CircularProgressIndicator(color = iconColor, modifier = Modifier.size(iconSize))
                 }
             }
         }

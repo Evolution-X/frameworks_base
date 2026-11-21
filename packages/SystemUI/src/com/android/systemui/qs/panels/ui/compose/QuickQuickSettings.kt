@@ -17,6 +17,8 @@
 package com.android.systemui.qs.panels.ui.compose
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -25,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastMap
@@ -35,15 +38,26 @@ import com.android.systemui.grid.ui.compose.GridSpan
 import com.android.systemui.grid.ui.compose.TwoDimensionalSpannedGrid
 import com.android.systemui.grid.ui.compose.VerticalSpannedGrid
 import com.android.systemui.grid.ui.compose.calculate2DPlacements
+import com.android.systemui.media.remedia.ui.compose.QsMediaTile
 import com.android.systemui.qs.composefragment.ui.GridAnchor
+import com.android.systemui.qs.panels.shared.model.QsMediaTileSize
 import com.android.systemui.qs.panels.shared.model.SizedTile
 import com.android.systemui.qs.panels.shared.model.SizedTileImpl
+import com.android.systemui.qs.panels.shared.model.isBeside
+import com.android.systemui.qs.panels.shared.model.remixColumns
 import com.android.systemui.qs.panels.shared.model.splitInRowsSequence
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSQsStyle
+import com.android.systemui.qs.panels.shared.model.LocalQsStyle
+import com.android.systemui.qs.panels.shared.model.LocalQsTweaks
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalQsCollapsed
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalRemixQsStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalQSBluetoothDevices
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalQSQuadTiles
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.Tile
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.TilePlacementGrid
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.tileLook
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.tileShapeStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSPanelStyle
 import com.android.systemui.qs.shared.style.LocalGlassBlurAlpha
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingQSMaxCellSize
@@ -65,6 +79,10 @@ fun ContentScope.QuickQuickSettings(
 ) {
     if (LocalNothingQsStyle.current) {
         NothingQuickQuickSettings(viewModel, modifier, listening)
+        return
+    }
+    if (LocalRemixQsStyle.current) {
+        RemixQuickQuickSettings(viewModel, modifier, listening)
         return
     }
 
@@ -114,7 +132,10 @@ fun ContentScope.QuickQuickSettings(
             val outerGlass = LocalGlassBlurAlpha.current
             val glass = remember(outerGlass, key) { { outerGlass() * (key.currentAlpha() ?: 1f) } }
             Element(key, Modifier) {
-                CompositionLocalProvider(LocalGlassBlurAlpha provides glass) {
+                CompositionLocalProvider(
+                    LocalGlassBlurAlpha provides glass,
+                    LocalQsCollapsed provides true,
+                ) {
                     Tile(
                         tile = it.tile,
                         iconOnly = classicStyle || it.isIcon,
@@ -139,6 +160,115 @@ fun ContentScope.QuickQuickSettings(
                         isVisible = listening,
                         hideLabel = colorOSStyle,
                     )
+                }
+            }
+        }
+    }
+
+    TileListener(tiles, listening)
+}
+
+/**
+ * Remix style QQS: the first rows of the first QS page, in the same cells as the expanded panel, so
+ * a tile that spans rows, like the player, stays where it is while the panel expands.
+ */
+@Composable
+private fun ContentScope.RemixQuickQuickSettings(
+    viewModel: QuickQuickSettingsViewModel,
+    modifier: Modifier,
+    listening: () -> Boolean,
+) {
+    val tweaks = LocalQsTweaks.current
+    val theme = LocalQsStyle.current
+    val columns = tweaks.remixColumns(theme, viewModel.columns)
+    val placedTiles by
+        remember(viewModel, tweaks, theme, columns) {
+            derivedStateOf { viewModel.placedTiles(tweaks, theme, columns) }
+        }
+    val tiles = placedTiles.fastMap { it.tile }
+    val placements = remember(placedTiles) { placedTiles.fastMap { it.place } }
+    val squishiness by viewModel.squishinessViewModel.squishiness.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val classicStyle = rememberQSPanelStyle()
+    val tileHeight = tileLook(tileShapeStyle()).height
+    // Share the QS spacing so tiles don't shift when the panel expands.
+    val columnSpacing = tweaks.spacing?.dp ?: qsTileColumnSpacing(columns)
+    val rowSpacing = tweaks.spacing?.dp ?: qsTileRowSpacing(columns, classicStyle)
+    val rowGap = with(LocalDensity.current) { rowSpacing.roundToPx() }
+    val mediaTileSize = tweaks.mediaSize ?: QsMediaTileSize.SQUARE
+
+    Box(modifier = modifier) {
+        GridAnchor()
+
+        val bounceables =
+            remember(placedTiles) { List(placedTiles.size) { BounceableTileViewModel() } }
+        TilePlacementGrid(
+            placements = placements,
+            columns = columns,
+            columnSpacing = columnSpacing,
+            rowSpacing = rowSpacing,
+            keys = { placedTiles[it].tile.spec },
+            modifier = Modifier.sysuiResTag("qqs_tile_layout"),
+        ) { index ->
+            val placed = placedTiles[index]
+            val place = placed.place
+            val height = tileHeight * place.rows + rowSpacing * (place.rows - 1)
+            // Tile glass is a window blur region and ignores the element's fade, so a QQS tile
+            // faded out over the expanded QS grid would still blur through it.
+            val key = placed.tile.spec.toElementKey()
+            val outerGlass = LocalGlassBlurAlpha.current
+            val glass = remember(outerGlass, key) { { outerGlass() * (key.currentAlpha() ?: 1f) } }
+            Element(key, Modifier) {
+                CompositionLocalProvider(
+                    LocalGlassBlurAlpha provides glass,
+                    LocalQsCollapsed provides true,
+                ) {
+                    if (placed.tile.spec.spec == QsMediaTileSize.TILE_SPEC) {
+                        QsMediaTile(
+                            viewModelFactory = viewModel.mediaViewModelFactory,
+                            size =
+                                when {
+                                    !placed.cut -> mediaTileSize
+                                    place.rows > 1 && place.columns >= columns ->
+                                        QsMediaTileSize.FULL
+                                    place.rows > 1 -> QsMediaTileSize.SQUARE
+                                    place.columns > 1 -> QsMediaTileSize.WIDE
+                                    else -> QsMediaTileSize.SMALL
+                                },
+                            modifier = Modifier.fillMaxWidth().height(height),
+                            squishGaps = { rowGap * (place.rows - 1) },
+                            squishiness = { squishiness },
+                        )
+                    } else {
+                        Tile(
+                            tile = placed.tile,
+                            iconOnly = place.columns == 1,
+                            squishiness = { squishiness },
+                            coroutineScope = scope,
+                            bounceableInfo =
+                                bounceables.bounceableInfo(
+                                    SizedTileImpl(placed.tile, place.columns),
+                                    index = index,
+                                    column = place.column,
+                                    columns = columns,
+                                    isFirstInRow = !placements.isBeside(index, index - 1),
+                                    isLastInRow = !placements.isBeside(index, index + 1),
+                                    // Icon tiles bounce their content instead of their
+                                    // container, and the player does not bounce.
+                                    bouncesContainer = { other ->
+                                        placements[other].columns > 1 &&
+                                            tiles[other].spec.spec != QsMediaTileSize.TILE_SPEC
+                                    },
+                                ),
+                            tileHapticsViewModelFactory = viewModel.tileHapticsViewModelFactory,
+                            // There should be no QuickQuickSettings when the details view is
+                            // enabled.
+                            detailsViewModel = null,
+                            isVisible = listening,
+                            rows = place.rows,
+                            height = height,
+                        )
+                    }
                 }
             }
         }

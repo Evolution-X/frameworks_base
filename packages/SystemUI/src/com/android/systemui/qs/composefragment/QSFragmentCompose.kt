@@ -160,19 +160,32 @@ import com.android.systemui.qs.composefragment.viewmodel.QSFragmentComposeViewMo
 import com.android.systemui.qs.footer.ui.compose.FooterActions
 import com.android.systemui.qs.panels.data.repository.QsPanelStyleRepository
 import com.android.systemui.qs.panels.shared.model.QSFragmentComposeClippingTableLog
+import com.android.systemui.qs.panels.shared.model.LocalQsGlass
+import com.android.systemui.qs.panels.shared.model.LocalQsMediaStyle
+import com.android.systemui.qs.panels.shared.model.LocalQsStyle
+import com.android.systemui.qs.panels.shared.model.LocalQsTweaks
+import com.android.systemui.qs.panels.shared.model.QsGlass
+import com.android.systemui.qs.panels.shared.model.QsMediaPlace
 import com.android.systemui.qs.panels.shared.model.QsPanelStyle
+import com.android.systemui.qs.panels.shared.model.QsStyle
+import com.android.systemui.qs.panels.shared.model.QsTweaks
 import com.android.systemui.qs.panels.ui.compose.EditMode
 import com.android.systemui.qs.panels.ui.compose.QuickQuickSettings
 import com.android.systemui.qs.panels.ui.compose.TileGrid
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSBackdrop
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.InfiniteGridLayout
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSQsStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalQsBrightness
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsOsColors
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingSliderContent
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalQsPanelStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalRemixQsStyle
+import com.android.systemui.qs.shared.style.liquidGlassOn
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.NothingSliderKind
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingLayout
+import com.android.systemui.qs.panels.ui.compose.QsStyleSliderFrame
+import com.android.systemui.qs.panels.ui.compose.qsSliderStyle
 import com.android.systemui.qs.shared.ui.QuickSettings.Elements
 import com.android.systemui.qs.ui.composable.QuickSettingsShade
 import com.android.systemui.qs.ui.composable.QuickSettingsShade.systemGestureExclusionInShade
@@ -306,12 +319,29 @@ constructor(
                             val colorOSStyle = panelStyle == QsPanelStyle.COLOROS
                             SideEffect { colorOSQsStyle = colorOSStyle }
                             val nothingStyle = panelStyle == QsPanelStyle.NOTHING
+                            val remixStyle = panelStyle == QsPanelStyle.REMIX
+                            val remixLook by
+                                qsPanelStyleRepository.remixStyle.collectAsStateWithLifecycle()
+                            val remixTweaks by
+                                qsPanelStyleRepository.tweaks.collectAsStateWithLifecycle()
                             val nothingOsColors by
                                 qsPanelStyleRepository.nothingOsColors.collectAsStateWithLifecycle()
                             CompositionLocalProvider(
                                 LocalQsPanelStyle provides panelStyle,
                                 LocalColorOSQsStyle provides colorOSStyle,
                                 LocalNothingQsStyle provides nothingStyle,
+                                LocalRemixQsStyle provides remixStyle,
+                                LocalQsStyle provides
+                                    (if (remixStyle) remixLook else QsStyle.STOCK),
+                                LocalQsGlass provides
+                                    (if (remixStyle && liquidGlassOn) QsGlass.LIQUID
+                                    else QsGlass.SOLID),
+                                LocalQsTweaks provides
+                                    (if (remixStyle) remixTweaks else QsTweaks()),
+                                LocalQsMediaStyle provides
+                                    (if (remixStyle) remixTweaks.mediaFrom else null),
+                                LocalQsBrightness provides
+                                    viewModel.containerViewModel.brightnessSliderViewModel,
                                 LocalNothingQsOsColors provides (nothingStyle && nothingOsColors),
                             ) {
                                 val slidersInGrid =
@@ -899,7 +929,7 @@ constructor(
                                 .padding(horizontal = qsHorizontalMargin())
                     ) {
                         QuickQuickSettingsLayout(
-                            brightness = BrightnessSlider,
+                            brightness = if (viewModel.brightnessInGrid) { {} } else BrightnessSlider,
                             tiles = Tiles,
                             media = Media,
                             mediaInRow = viewModel.qqsMediaInRow,
@@ -1252,6 +1282,10 @@ constructor(
                                         tiles = TileGrid,
                                         media = Media,
                                         mediaInRow = viewModel.qsMediaInRow,
+                                        mediaAbove =
+                                            LocalQsTweaks.current.mediaPlaceIn(
+                                                LocalQsStyle.current
+                                            ) == QsMediaPlace.ABOVE,
                                     )
                                 }
                             }
@@ -1298,18 +1332,20 @@ constructor(
             )
         ) {
             AlwaysDarkMode {
-                BrightnessSliderContainer(
-                    viewModel =
-                        viewModel.containerViewModel.brightnessSliderViewModel,
-                    containerColors =
-                        ContainerColors(
-                            Color.Transparent,
-                            ContainerColors.defaultContainerColor,
-                        ),
-                    modifier = Modifier.fillMaxWidth(),
-                    dimensions = dimensions,
-                    part = part,
-                )
+                QsStyleSliderFrame(qsSliderStyle()) {
+                    BrightnessSliderContainer(
+                        viewModel =
+                            viewModel.containerViewModel.brightnessSliderViewModel,
+                        containerColors =
+                            ContainerColors(
+                                Color.Transparent,
+                                ContainerColors.defaultContainerColor,
+                            ),
+                        modifier = Modifier.fillMaxWidth(),
+                        dimensions = dimensions,
+                        part = part,
+                    )
+                }
             }
         }
     }
@@ -1831,6 +1867,7 @@ fun QuickSettingsLayout(
     tiles: @Composable () -> Unit,
     media: @Composable () -> Unit,
     mediaInRow: Boolean,
+    mediaAbove: Boolean = false,
 ) {
     val brightnessSettings = rememberQsBrightnessSettings()
     val sliderAtTop = brightnessSettings.sliderAtTop
@@ -1853,11 +1890,16 @@ fun QuickSettingsLayout(
                 Box(modifier = Modifier.weight(1f)) { media() }
             }
         } else {
+            if (mediaAbove) {
+                media()
+            }
             tiles()
             if (showSlider != 0 && !sliderAtTop) {
                 brightness()
             }
-            media()
+            if (!mediaAbove) {
+                media()
+            }
         }
     }
 }

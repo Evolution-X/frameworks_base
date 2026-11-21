@@ -134,6 +134,12 @@ import com.android.systemui.brightness.ui.viewmodel.BrightnessSliderViewModel
 import com.android.systemui.brightness.ui.viewmodel.Drag
 import com.android.systemui.common.shared.colors.SystemUISliderColors
 import com.android.systemui.common.shared.model.Icon
+import com.android.systemui.qs.panels.shared.model.LocalQsGlass
+import com.android.systemui.qs.panels.shared.model.LocalQsGlassTune
+import com.android.systemui.qs.panels.ui.compose.glassy
+import com.android.systemui.qs.panels.ui.compose.qsSliderStyle
+import com.android.systemui.qs.panels.ui.compose.qsStyleSliderColors
+import com.android.systemui.qs.panels.ui.compose.qsStyleSliderDimensions
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalColorOSQsStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.NothingQsColors
@@ -218,8 +224,12 @@ fun BrightnessSlider(
     // Liquid Glass: a glass track, with the thumb, fill and icons keeping the Monet colors of the
     // defaults. The gradient style keeps its own colors.
     val useGlass = glass && gradientColors == null
+    // The Remix looks color the slider themselves, and take the glass from the QS glass.
+    val remixColors = qsStyleSliderColors(qsSliderStyle())
     val baseColors =
-        if (!useGlass) {
+        if (remixColors != null && gradientColors == null) {
+            remixColors.glassy(LocalQsGlass.current, LocalQsGlassTune.current)
+        } else if (!useGlass) {
             SystemUISliderColors.Defaults
         } else {
             SystemUISliderColors.Defaults.copy(inactiveTrackColor = LiquidGlassControl)
@@ -569,8 +579,12 @@ private fun VolumeSlider(
     // Liquid Glass: a glass track, with the thumb, fill and icons keeping the Monet colors of the
     // defaults. The gradient style keeps its own colors.
     val useGlass = glass && gradientColors == null
+    // The Remix looks color the slider themselves, and take the glass from the QS glass.
+    val remixColors = qsStyleSliderColors(qsSliderStyle())
     val baseColors =
-        if (!useGlass) {
+        if (remixColors != null && gradientColors == null) {
+            remixColors.glassy(LocalQsGlass.current, LocalQsGlassTune.current)
+        } else if (!useGlass) {
             SystemUISliderColors.Defaults
         } else {
             SystemUISliderColors.Defaults.copy(inactiveTrackColor = LiquidGlassControl)
@@ -1387,6 +1401,8 @@ fun BrightnessSliderContainer(
     dimensions: BrightnessSliderDimensions = BrightnessSliderDimensions.Default,
     part: SliderPart = SliderPart.Both,
 ) {
+    // The Remix looks size the slider; the other styles keep the dimensions they were given.
+    val styled = qsStyleSliderDimensions(qsSliderStyle(), dimensions)
     val volumeSliderMode = rememberVolumeSliderMode()
     // A single part ignores the volume slider mode, the caller decides where each one goes.
     val wantsBrightness =
@@ -1425,7 +1441,7 @@ fun BrightnessSliderContainer(
     val shapeMode = rememberSliderShapeMode()
     val trackCornerDp: Dp = trackCornerFor(shapeMode)
     val backgroundRoundedCorner: Dp =
-        backgroundCornerFor(shapeMode, dimensions.backgroundRoundedCorner)
+        backgroundCornerFor(shapeMode, styled.backgroundRoundedCorner)
 
     DisposableEffectWithLifecycle(Unit) {
         enabled = true
@@ -1449,7 +1465,7 @@ fun BrightnessSliderContainer(
         )
 
     val backgroundFrameSize =
-        DpSize(dimensions.backgroundFrameWidth, dimensions.backgroundFrameHeight)
+        DpSize(styled.backgroundFrameWidth, styled.backgroundFrameHeight)
 
     val isRestricted = restriction is PolicyRestriction.Restricted
     val isNothingStyle = LocalNothingQsStyle.current
@@ -1516,7 +1532,7 @@ fun BrightnessSliderContainer(
                     com.android.internal.R.string.brightness_unable_adjust_msg,
                 )
             },
-            dimensions = dimensions,
+            dimensions = styled,
             glass = glassSliders,
         )
     }
@@ -1537,19 +1553,19 @@ fun BrightnessSliderContainer(
                         containerColors.idleColor,
                     )
                     .fillMaxWidth(),
-            dimensions = dimensions,
+            dimensions = styled,
             glass = glassSliders,
         )
     }
 
     // Leave room for both background frames plus a small visual gap between the two sliders.
-    val horizontalGap = dimensions.backgroundFrameWidth * 2 + 4.dp
-    val verticalGap = dimensions.backgroundFrameHeight * 2 + 4.dp
+    val horizontalGap = styled.backgroundFrameWidth * 2 + 4.dp
+    val verticalGap = styled.backgroundFrameHeight * 2 + 4.dp
 
     Box(
         modifier =
             modifier
-                .padding(vertical = { dimensions.verticalPadding.roundToPx() })
+                .padding(vertical = { styled.verticalPadding.roundToPx() })
                 .fillMaxWidth()
                 .sysuiResTag("brightness_slider")
     ) {

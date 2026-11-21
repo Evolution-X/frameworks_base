@@ -37,6 +37,10 @@ import com.android.systemui.qs.tiles.PreferredNetworkTile
 import com.android.systemui.qs.tiles.ProfilesTile
 import com.android.systemui.qs.tiles.ReadingModeTile
 import com.android.systemui.qs.tiles.RefreshRateTile
+import com.android.systemui.qs.tiles.RemixBrightnessTile
+import com.android.systemui.qs.tiles.RemixMediaTile
+import com.android.systemui.qs.tiles.RemixSoundTile
+import com.android.systemui.qs.tiles.RemixVolumeTile
 import com.android.systemui.qs.tiles.ScreenshotTile
 import com.android.systemui.qs.tiles.SoundTile
 import com.android.systemui.qs.tiles.SyncTile
@@ -141,6 +145,30 @@ interface LineageModule {
     @IntoMap
     @StringKey(PreferredNetworkTile.TILE_SPEC)
     fun bindPreferredNetworkTile(preferredNetworkTile: PreferredNetworkTile): QSTileImpl<*>
+
+    /** Inject RemixMediaTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(RemixMediaTile.TILE_SPEC)
+    fun bindRemixMediaTile(remixMediaTile: RemixMediaTile): QSTileImpl<*>
+
+    /** Inject RemixVolumeTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(RemixVolumeTile.TILE_SPEC)
+    fun bindRemixVolumeTile(remixVolumeTile: RemixVolumeTile): QSTileImpl<*>
+
+    /** Inject RemixBrightnessTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(RemixBrightnessTile.TILE_SPEC)
+    fun bindRemixBrightnessTile(remixBrightnessTile: RemixBrightnessTile): QSTileImpl<*>
+
+    /** Inject RemixSoundTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(RemixSoundTile.TILE_SPEC)
+    fun bindRemixSoundTile(remixSoundTile: RemixSoundTile): QSTileImpl<*>
 
     /** Inject ProfilesTile into tileMap in QSModule */
     @Binds
@@ -522,6 +550,66 @@ interface LineageModule {
                     ),
                 instanceId = uiEventLogger.getNewInstanceId(),
                 category = TileCategory.CONNECTIVITY,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(RemixMediaTile.TILE_SPEC)
+        fun provideRemixMediaTile(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(RemixMediaTile.TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.ic_now_playing_note,
+                        labelRes = R.string.qs_media_tile_label
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.UTILITIES,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(RemixVolumeTile.TILE_SPEC)
+        fun provideRemixVolumeTile(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(RemixVolumeTile.TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.ic_volume_media,
+                        labelRes = R.string.qs_volume_tile_label
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.UTILITIES,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(RemixBrightnessTile.TILE_SPEC)
+        fun provideRemixBrightnessTile(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(RemixBrightnessTile.TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.ic_brightness_full,
+                        labelRes = R.string.qs_brightness_tile_label
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.DISPLAY,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(RemixSoundTile.TILE_SPEC)
+        fun provideRemixSoundTile(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(RemixSoundTile.TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.ic_volume_ringer,
+                        labelRes = R.string.qs_sound_tile_label
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.UTILITIES,
             )
 
         @Provides

@@ -80,12 +80,12 @@
 
     <!-- The default tiles to display in QuickSettings-->
     <string name="quick_settings_tiles_default" translatable="false">
-        internet,bt,dnd,cast,flashlight,airplane,rotation,wallet,alarm,controls,screenrecord,battery
+        remixmedia,rrbrightness,rrvolume,rrsound,internet,bt,dnd,cast,flashlight,airplane,rotation,wallet,alarm,controls,screenrecord,battery
     </string>
 
     <!-- The default tiles to display in QuickSettings after the internet tile split-->
     <string name="quick_settings_tiles_default_split" translatable="false">
-        wifi,bt,cell,cast,dnd,wallet,airplane,rotation,flashlight,battery,alarm,controls,screenrecord
+        remixmedia,rrbrightness,rrvolume,rrsound,wifi,bt,cell,cast,dnd,wallet,airplane,rotation,flashlight,battery,alarm,controls,screenrecord
     </string>
 
     <!-- The default large tiles in Quick Settings after the internet tile split -->
@@ -107,7 +107,7 @@
 
     <!-- Tiles native to System UI. Order should match "quick_settings_tiles_default" -->
     <string name="quick_settings_tiles_stock" translatable="false">
-        internet,wifi,bt,flashlight,dnd,modes_dnd,alarm,airplane,nfc,controls,wallet,rotation,battery,cast,screenrecord,mictoggle,cameratoggle,location,hotspot,inversion,saver,dark,work,night,reverse,reduce_brightness,qr_code_scanner,onehanded,color_correction,font_scaling,record_issue,hearing_devices,notes,desktopeffects,cell,ambient_display,aod,caffeine,heads_up,powershare,profiles,reading_mode,sync,usb_tether,vpn,sound,dataswitch,volume_panel,locale,preferred_network,refresh_rate,compass,screenshot,dns,cpuinfo,fpsinfo,autobrightness,vpn_tethering,smart_pixels,onthego,weather,blur
+        internet,wifi,bt,flashlight,dnd,modes_dnd,alarm,airplane,nfc,controls,wallet,rotation,battery,cast,screenrecord,mictoggle,cameratoggle,location,hotspot,inversion,saver,dark,work,night,reverse,reduce_brightness,qr_code_scanner,onehanded,color_correction,font_scaling,record_issue,hearing_devices,notes,desktopeffects,cell,ambient_display,aod,caffeine,heads_up,powershare,profiles,reading_mode,sync,usb_tether,vpn,sound,dataswitch,volume_panel,locale,preferred_network,refresh_rate,compass,screenshot,dns,cpuinfo,fpsinfo,autobrightness,vpn_tethering,smart_pixels,onthego,weather,blur,remixmedia,rrvolume,rrbrightness,rrsound
     </string>
 
     <!-- The tiles to display in QuickSettings -->

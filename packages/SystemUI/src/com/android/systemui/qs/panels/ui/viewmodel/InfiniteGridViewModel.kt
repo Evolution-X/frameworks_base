@@ -20,7 +20,12 @@ import androidx.compose.runtime.getValue
 import com.android.systemui.lifecycle.ExclusiveActivatable
 import com.android.systemui.lifecycle.Hydrator
 import com.android.systemui.media.controls.ui.controller.MediaHierarchyManager.Companion.LOCATION_QS
+import com.android.systemui.qs.panels.shared.model.QsStyle
+import com.android.systemui.qs.panels.shared.model.QsTweaks
 import com.android.systemui.qs.panels.shared.model.SizedTileImpl
+import com.android.systemui.qs.panels.shared.model.cellsOf
+import com.android.systemui.qs.panels.shared.model.paginateTiles
+import com.android.systemui.qs.panels.shared.model.remixColumns
 import com.android.systemui.qs.panels.ui.dialog.QSResetDialogDelegate
 import com.android.systemui.qs.panels.ui.viewmodel.PaginatableViewModel.Companion.splitInRows
 import com.android.systemui.qs.pipeline.shared.TileSpec
@@ -68,6 +73,27 @@ constructor(
             )
             .chunked(rows)
             .map { it.flatten().map { it.tile } }
+    }
+
+    /**
+     * The pages of the Remix grid. A tile can take several rows and columns, so the pages are cut
+     * by cells and not by rows of tiles.
+     */
+    fun splitIntoRemixPages(
+        tiles: List<TileViewModel>,
+        rows: Int,
+        theme: QsStyle,
+        tweaks: QsTweaks,
+    ): List<List<TileViewModel>> {
+        val columns = tweaks.remixColumns(theme, columnsWithMediaViewModel.columns)
+        val largeTilesSpan = columnsWithMediaViewModel.largeSpan
+        val largeTiles = iconTilesViewModel.largeTilesState.value
+        val cells =
+            tiles.map {
+                val large = largeTiles.contains(it.spec)
+                tweaks.cellsOf(it.spec.spec, theme, large, largeTilesSpan, columns)
+            }
+        return paginateTiles(cells, columns, rows).map { page -> page.map { tiles[it] } }
     }
 
     private fun widthOf(spec: TileSpec): Int {

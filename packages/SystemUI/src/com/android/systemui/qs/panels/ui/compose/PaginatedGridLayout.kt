@@ -59,6 +59,11 @@ import com.android.systemui.grid.ui.compose.calculate2DPlacements
 import com.android.systemui.lifecycle.rememberViewModel
 import com.android.systemui.qs.footer.ui.compose.rememberSystemSettingEnabled
 import com.android.systemui.qs.panels.dagger.PaginatedBaseLayoutType
+import com.android.systemui.qs.panels.shared.model.LocalQsStyle
+import com.android.systemui.qs.panels.shared.model.LocalQsTweaks
+import com.android.systemui.qs.panels.shared.model.QsMediaPlace
+import com.android.systemui.qs.panels.shared.model.QsMediaTileSize
+import com.android.systemui.qs.panels.shared.model.remixRowsPerPage
 import com.android.systemui.qs.panels.ui.compose.Dimensions.FooterHeight
 import com.android.systemui.qs.panels.ui.compose.Dimensions.InterPageSpacing
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSGridColumns
@@ -70,6 +75,7 @@ import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingPagePl
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingPageSliders
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingQsStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalNothingSliderContent
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalRemixQsStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.NothingLayout
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.NothingSliderItem
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.forNothingColumns
@@ -79,6 +85,7 @@ import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingQSC
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingQSMaxContentWidth
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberNothingLayout
 import com.android.systemui.qs.panels.ui.compose.toolbar.EditModeButton
+import com.android.systemui.qs.panels.ui.viewmodel.InfiniteGridViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.PaginatedGridViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.TileViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.toolbar.EditModeButtonViewModel
@@ -126,6 +133,11 @@ constructor(
             } else {
                 emptyList()
             }
+        // The Remix looks have player and slider tiles that span rows, so their pages are cut by
+        // cells.
+        val remixStyle = LocalRemixQsStyle.current
+        val remixTweaks = LocalQsTweaks.current
+        val remixTheme = LocalQsStyle.current
         val largeTiles by viewModel.largeTiles.collectAsStateWithLifecycle()
         val pagesWithPlacements =
             remember(
@@ -133,6 +145,9 @@ constructor(
                 rows,
                 colorOSStyle,
                 nothingStyle,
+                remixStyle,
+                remixTweaks,
+                remixTheme,
                 largeTiles,
                 quadTiles,
                 savedTileLayout,
@@ -200,6 +215,20 @@ constructor(
                         .ifEmpty { listOf(emptyList()) }
                 } else if (colorOSStyle) {
                     tiles.chunked(rows * ColorOSGridColumns)
+                } else if (remixStyle && delegateGridViewModel is InfiniteGridViewModel) {
+                    // A player above or below the tiles is the card, so its tile is left out.
+                    val remixTiles =
+                        if (remixTweaks.mediaPlaceIn(remixTheme) == QsMediaPlace.GRID) {
+                            tiles
+                        } else {
+                            tiles.filter { it.spec.spec != QsMediaTileSize.TILE_SPEC }
+                        }
+                    delegateGridViewModel.splitIntoRemixPages(
+                        remixTiles,
+                        remixTweaks.remixRowsPerPage(rows),
+                        remixTheme,
+                        remixTweaks,
+                    )
                 } else {
                     delegateGridViewModel.splitIntoPages(tiles, rows)
                 }

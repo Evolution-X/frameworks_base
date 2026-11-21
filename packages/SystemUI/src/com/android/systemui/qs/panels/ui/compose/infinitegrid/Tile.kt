@@ -149,7 +149,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import platform.test.motion.compose.values.MotionTestValueKey
 import platform.test.motion.compose.values.motionTestValues
 
-private val TileViewModel.traceName
+internal val TileViewModel.traceName
     get() = spec.toString().takeLast(Trace.MAX_SECTION_NAME_LEN)
 
 /** Nothing-style Quick Settings (monochrome pills, circles and 2x2 quad tiles on a 4 column grid). */
@@ -239,7 +239,29 @@ fun ContentScope.Tile(
     detailsViewModel: DetailsViewModel?,
     enableRevealEffect: Boolean = false,
     hideLabel: Boolean = false,
+    rows: Int = 1,
+    height: Dp? = null,
 ) {
+    // The Remix panel style draws its own tiles.
+    if (LocalRemixQsStyle.current) {
+        RemixTile(
+            tile = tile,
+            iconOnly = iconOnly,
+            squishiness = squishiness,
+            coroutineScope = coroutineScope,
+            bounceableInfo = bounceableInfo,
+            tileHapticsViewModelFactory = tileHapticsViewModelFactory,
+            modifier = modifier,
+            isVisible = isVisible,
+            requestToggleTextFeedback = requestToggleTextFeedback,
+            detailsViewModel = detailsViewModel,
+            enableRevealEffect = enableRevealEffect,
+            hideLabel = hideLabel,
+            rows = rows,
+            height = height,
+        )
+        return
+    }
     trace(tile.traceName) {
         val currentBounceableInfo by rememberUpdatedState(bounceableInfo)
         val resources = resources()
@@ -753,12 +775,16 @@ fun TileContainer(
     modifier: Modifier = Modifier,
     gradient: Brush? = null,
     fillCell: Boolean = false,
+    height: Dp? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
     Box(
         modifier =
             modifier
-                .then(if (fillCell) Modifier.fillMaxSize() else Modifier.height(TileHeight).fillMaxWidth())
+                .then(
+                    if (fillCell) Modifier.fillMaxSize()
+                    else Modifier.height(height ?: TileHeight).fillMaxWidth()
+                )
                 .thenIf(gradient != null && (!isDualTarget || iconOnly)) {
                     Modifier.drawBehind { drawRect(brush = gradient!!) }
                 }
@@ -847,7 +873,7 @@ fun LargeStaticTile(
     }
 }
 
-private fun Context.getTileIcon(icon: IconProvider): Icon {
+internal fun Context.getTileIcon(icon: IconProvider): Icon {
     return icon.icon?.let {
         if (it is QSTileImpl.ResourceIcon) {
             Icon.Resource(it.resId, null)
@@ -1627,7 +1653,7 @@ private object TileDefaults {
  */
 @Composable
 @ReadOnlyComposable
-private fun resources(): Resources {
+internal fun resources(): Resources {
     LocalConfiguration.current
     return LocalResources.current
 }
