@@ -66,8 +66,11 @@ import com.android.systemui.qs.panels.shared.model.QsMediaBar
 import com.android.systemui.qs.panels.shared.model.QsMediaButtons
 import com.android.systemui.qs.panels.shared.model.QsMediaPlace
 import com.android.systemui.qs.panels.shared.model.QsMediaTileSize
+import com.android.systemui.qs.panels.shared.model.QsOffFill
+import com.android.systemui.qs.panels.shared.model.QsOnFill
 import com.android.systemui.qs.panels.shared.model.QsStyle
 import com.android.systemui.qs.panels.shared.model.QsTileFont
+import com.android.systemui.qs.panels.shared.model.QsTileDepth
 import com.android.systemui.qs.panels.shared.model.QsTileLabel
 import com.android.systemui.qs.panels.shared.model.QsTileSizing
 import com.android.systemui.qs.panels.shared.model.QsTileTweak
@@ -88,6 +91,8 @@ internal enum class CustomizerTab(@StringRes val label: Int) {
     Theme(R.string.qs_custom_tab_theme),
     Layout(R.string.qs_custom_tab_layout),
     Tiles(R.string.qs_custom_tab_tiles),
+    Color(R.string.qs_custom_tab_color),
+    Mix(R.string.qs_custom_tab_mix),
     Add(R.string.qs_custom_tab_add),
 }
 
@@ -204,6 +209,8 @@ internal fun QsCustomizerDock(
                         CustomizerTab.Theme -> ThemeTab(repository)
                         CustomizerTab.Layout -> LayoutTab(columns, settingsRows, edit)
                         CustomizerTab.Tiles -> TilesTab(edit)
+                        CustomizerTab.Color -> ColorTab(edit)
+                        CustomizerTab.Mix -> MixTab(edit)
                         CustomizerTab.Add -> AddTab(allTiles, onAddTile)
                     }
                 }
@@ -803,6 +810,80 @@ private fun TilesTab(edit: ((QsTweaks) -> QsTweaks) -> Unit) {
         selected = tweaks.font,
     ) { font ->
         edit { it.copy(font = font) }
+    }
+}
+
+@Composable
+private fun ColorTab(edit: ((QsTweaks) -> QsTweaks) -> Unit) {
+    val tweaks = LocalQsTweaks.current
+    SwatchRow(stringResource(R.string.qs_custom_accent), tweaks.accent) { color ->
+        edit { it.copy(accent = color) }
+    }
+    ChipRow(
+        title = stringResource(R.string.qs_custom_on_fill),
+        options =
+            listOf(
+                null to stringResource(R.string.qs_custom_theme),
+                QsOnFill.SOLID to stringResource(R.string.qs_custom_fill_solid),
+                QsOnFill.GRADIENT to stringResource(R.string.qs_custom_fill_gradient),
+                QsOnFill.TINT to stringResource(R.string.qs_custom_fill_tint),
+                QsOnFill.OUTLINE to stringResource(R.string.qs_custom_fill_outline),
+                QsOnFill.ICON to stringResource(R.string.qs_custom_fill_icon),
+            ),
+        selected = tweaks.onFill,
+    ) { fill ->
+        edit { it.copy(onFill = fill) }
+    }
+    ChipRow(
+        title = stringResource(R.string.qs_custom_off_fill),
+        options =
+            listOf(
+                null to stringResource(R.string.qs_custom_theme),
+                QsOffFill.SURFACE to stringResource(R.string.qs_custom_fill_surface),
+                QsOffFill.CLEAR to stringResource(R.string.qs_custom_fill_clear),
+                QsOffFill.DARK to stringResource(R.string.qs_custom_fill_dark),
+                QsOffFill.OUTLINE to stringResource(R.string.qs_custom_fill_outline),
+            ),
+        selected = tweaks.offFill,
+    ) { fill ->
+        edit { it.copy(offFill = fill) }
+    }
+    SliderRow(
+        title = stringResource(R.string.qs_custom_glow),
+        value = tweaks.glow ?: 0,
+        range = 0..100,
+        step = 5,
+    ) { value ->
+        edit { it.copy(glow = value) }
+    }
+    ChipRow(
+        title = stringResource(R.string.qs_custom_depth),
+        options =
+            listOf(
+                null to stringResource(R.string.qs_custom_theme),
+                QsTileDepth.FLAT to stringResource(R.string.qs_custom_depth_flat),
+                QsTileDepth.RAISED to stringResource(R.string.qs_custom_depth_raised),
+            ),
+        selected = tweaks.depth,
+    ) { depth ->
+        edit { it.copy(depth = depth) }
+    }
+}
+
+@Composable
+private fun MixTab(edit: ((QsTweaks) -> QsTweaks) -> Unit) {
+    val tweaks = LocalQsTweaks.current
+    ThemeChips(stringResource(R.string.qs_custom_mix_shape), tweaks.shapeFrom) { style ->
+        edit { it.copy(shapeFrom = style) }
+    }
+    ThemeChips(stringResource(R.string.qs_custom_mix_paint), tweaks.paintFrom) { style ->
+        edit { it.copy(paintFrom = style) }
+    }
+    ThemeChips(stringResource(R.string.qs_custom_mix_slider), tweaks.sliderFrom) { style ->
+        edit { it.copy(sliderFrom = style) }
+    }
+    ThemeChips(stringResource(R.string.qs_custom_mix_media), tweaks.mediaFrom) { style ->
+        edit { it.copy(mediaFrom = style) }
     }
 }
 

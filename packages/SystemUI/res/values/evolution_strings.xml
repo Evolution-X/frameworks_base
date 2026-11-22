@@ -535,4 +535,25 @@
     <string name="qs_custom_slider_solid">Solid</string>
     <string name="qs_custom_slider_knob">Knob</string>
     <string name="qs_custom_slider_liquid">Liquid</string>
+    <string name="qs_custom_accent">Accent</string>
+    <string name="qs_custom_depth">Depth</string>
+    <string name="qs_custom_depth_flat">Flat</string>
+    <string name="qs_custom_depth_raised">Raised</string>
+    <string name="qs_custom_fill_clear">Clear</string>
+    <string name="qs_custom_fill_dark">Dark</string>
+    <string name="qs_custom_fill_gradient">Gradient</string>
+    <string name="qs_custom_fill_icon">Icon only</string>
+    <string name="qs_custom_fill_outline">Outline</string>
+    <string name="qs_custom_fill_solid">Solid</string>
+    <string name="qs_custom_fill_surface">Surface</string>
+    <string name="qs_custom_fill_tint">Tint</string>
+    <string name="qs_custom_glow">Glow when on</string>
+    <string name="qs_custom_mix_media">Media player</string>
+    <string name="qs_custom_mix_paint">Tile colors</string>
+    <string name="qs_custom_mix_shape">Tile shape</string>
+    <string name="qs_custom_mix_slider">Slider</string>
+    <string name="qs_custom_off_fill">Off tiles</string>
+    <string name="qs_custom_on_fill">On tiles</string>
+    <string name="qs_custom_tab_color">Color</string>
+    <string name="qs_custom_tab_mix">Mix</string>
 </resources>
