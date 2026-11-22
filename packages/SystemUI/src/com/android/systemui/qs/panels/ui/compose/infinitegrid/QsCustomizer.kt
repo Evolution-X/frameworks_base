@@ -61,6 +61,10 @@ import com.android.systemui.qs.panels.data.repository.QsPanelStyleRepository
 import com.android.systemui.qs.panels.shared.model.LocalQsStyle
 import com.android.systemui.qs.panels.shared.model.LocalQsTweaks
 import com.android.systemui.qs.panels.shared.model.QsIconBacking
+import com.android.systemui.qs.panels.shared.model.QsMediaArt
+import com.android.systemui.qs.panels.shared.model.QsMediaBar
+import com.android.systemui.qs.panels.shared.model.QsMediaButtons
+import com.android.systemui.qs.panels.shared.model.QsMediaPlace
 import com.android.systemui.qs.panels.shared.model.QsMediaTileSize
 import com.android.systemui.qs.panels.shared.model.QsStyle
 import com.android.systemui.qs.panels.shared.model.QsTileFont
@@ -68,7 +72,11 @@ import com.android.systemui.qs.panels.shared.model.QsTileLabel
 import com.android.systemui.qs.panels.shared.model.QsTileSizing
 import com.android.systemui.qs.panels.shared.model.QsTileTweak
 import com.android.systemui.qs.panels.shared.model.QsTweaks
+import com.android.systemui.qs.panels.shared.model.QsVolumeLook
+import com.android.systemui.qs.panels.shared.model.QsVolumeShow
 import com.android.systemui.qs.panels.shared.model.QsVolumeSize
+import com.android.systemui.qs.panels.shared.model.QsVolumeSound
+import com.android.systemui.qs.panels.shared.model.QsVolumeTap
 import com.android.systemui.qs.panels.ui.compose.qsTileColumnSpacing
 import com.android.systemui.qs.panels.ui.viewmodel.EditTileViewModel
 import com.android.systemui.qs.pipeline.shared.TileSpec
@@ -265,7 +273,8 @@ private fun TrayChip(tile: EditTileViewModel, onClick: () -> Unit) {
 
 /**
  * The options of the picked tile, under its name with the ways out: remove it, or let it go. The
- * player and the slider tiles have sheets of their own, so they only get the way out.
+ * player and the volume tile have sheets of their own. The brightness and sound tiles only get
+ * the way out, until the Slider tab.
  */
 @Composable
 private fun TileOptions(
@@ -301,7 +310,10 @@ private fun TileOptions(
                     .padding(horizontal = 8.dp, vertical = 8.dp),
         )
     }
-    if (tile.tileSpec.spec in SheetOfTheirOwn) return
+    val spec = tile.tileSpec.spec
+    // The brightness and sound tiles are left without a sheet until the Slider tab.
+    val hasSheet = spec == QsMediaTileSize.TILE_SPEC || spec == QsVolumeSize.TILE_SPEC
+    if (spec in SheetOfTheirOwn && !hasSheet) return
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier =
@@ -310,7 +322,11 @@ private fun TileOptions(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 6.dp),
     ) {
-        TileSheet(tile.tileSpec.spec, columns, edit)
+        when (spec) {
+            QsMediaTileSize.TILE_SPEC -> MediaSheet(edit)
+            QsVolumeSize.TILE_SPEC -> VolumeSheet(edit)
+            else -> TileSheet(spec, columns, edit)
+        }
     }
 }
 
@@ -382,6 +398,175 @@ private val Swatches: List<Pair<Long, Int>> =
         0xFFF28BA8 to R.string.qs_custom_color_rose,
         0xFFFFB870 to R.string.qs_custom_color_amber,
         0xFFE8E8E8 to R.string.qs_custom_color_white,
+    )
+
+@Composable
+private fun MediaSheet(edit: ((QsTweaks) -> QsTweaks) -> Unit) {
+    val tweaks = LocalQsTweaks.current
+    val theme = LocalQsStyle.current
+    ChipRow(
+        title = stringResource(R.string.qs_custom_size),
+        options =
+            listOf(
+                QsMediaTileSize.SMALL to stringResource(R.string.qs_custom_media_small),
+                QsMediaTileSize.WIDE to stringResource(R.string.qs_custom_media_wide),
+                QsMediaTileSize.SQUARE to stringResource(R.string.qs_custom_media_square),
+                QsMediaTileSize.TALL to stringResource(R.string.qs_custom_media_tall),
+                QsMediaTileSize.FULL to stringResource(R.string.qs_custom_media_full),
+            ),
+        selected = tweaks.mediaSize ?: QsMediaTileSize.SQUARE,
+    ) { size ->
+        edit { it.copy(mediaSize = size.takeIf { s -> s != QsMediaTileSize.SQUARE }) }
+    }
+    ChipRow(
+        title = stringResource(R.string.qs_custom_media_place),
+        options =
+            listOf(
+                QsMediaPlace.GRID to stringResource(R.string.qs_custom_media_place_grid),
+                QsMediaPlace.ABOVE to stringResource(R.string.qs_custom_media_place_above),
+                QsMediaPlace.BELOW to stringResource(R.string.qs_custom_media_place_below),
+            ),
+        selected = tweaks.mediaPlaceIn(theme),
+    ) { place ->
+        edit { it.copy(mediaPlace = place) }
+    }
+    ThemeChips(stringResource(R.string.qs_custom_media_look), tweaks.mediaFrom) { style ->
+        edit { it.copy(mediaFrom = style) }
+    }
+    ChipRow(
+        title = stringResource(R.string.qs_custom_media_art),
+        options =
+            listOf(
+                null to stringResource(R.string.qs_custom_theme),
+                QsMediaArt.ROUNDED to stringResource(R.string.qs_custom_rounded),
+                QsMediaArt.CIRCLE to stringResource(R.string.qs_custom_circle),
+                QsMediaArt.BLOB to stringResource(R.string.qs_custom_blob),
+                QsMediaArt.COVER to stringResource(R.string.qs_custom_media_cover),
+                QsMediaArt.NONE to stringResource(R.string.qs_custom_none),
+            ),
+        selected = tweaks.mediaArt,
+    ) { art ->
+        edit { it.copy(mediaArt = art) }
+    }
+    ChipRow(
+        title = stringResource(R.string.qs_custom_media_progress),
+        options =
+            listOf(
+                null to stringResource(R.string.qs_custom_theme),
+                QsMediaBar.LINE to stringResource(R.string.qs_custom_media_line),
+                QsMediaBar.GLOW to stringResource(R.string.qs_custom_media_glow),
+                QsMediaBar.BLOCKS to stringResource(R.string.qs_custom_media_blocks),
+                QsMediaBar.WAVE to stringResource(R.string.qs_custom_media_wave),
+                QsMediaBar.NONE to stringResource(R.string.qs_custom_none),
+            ),
+        selected = tweaks.mediaBar,
+    ) { bar ->
+        edit { it.copy(mediaBar = bar) }
+    }
+    ChipRow(
+        title = stringResource(R.string.qs_custom_media_buttons),
+        options =
+            listOf(
+                QsMediaButtons.TRIO to stringResource(R.string.qs_custom_media_trio),
+                QsMediaButtons.PLAY to stringResource(R.string.qs_custom_media_play),
+            ),
+        selected = tweaks.mediaButtons ?: QsMediaButtons.TRIO,
+    ) { buttons ->
+        edit { it.copy(mediaButtons = buttons.takeIf { b -> b != QsMediaButtons.TRIO }) }
+    }
+}
+
+@Composable
+private fun VolumeSheet(edit: ((QsTweaks) -> QsTweaks) -> Unit) {
+    val tweaks = LocalQsTweaks.current
+    val look = tweaks.volumeLook
+    ThemeChips(
+        stringResource(R.string.qs_custom_look),
+        tweaks.tiles[QsVolumeSize.TILE_SPEC]?.look,
+        none = stringResource(R.string.qs_custom_same_as_panel),
+    ) { theme ->
+        edit { it.withTile(QsVolumeSize.TILE_SPEC) { t -> t.copy(look = theme) } }
+    }
+    ChipRow(
+        title = stringResource(R.string.qs_custom_size),
+        options =
+            listOf(
+                QsVolumeSize.SMALL to stringResource(R.string.qs_custom_media_small),
+                QsVolumeSize.HALF to stringResource(R.string.qs_custom_volume_half),
+                QsVolumeSize.WIDE to stringResource(R.string.qs_custom_media_wide),
+                QsVolumeSize.TALL to stringResource(R.string.qs_custom_media_tall),
+                QsVolumeSize.SQUARE to stringResource(R.string.qs_custom_media_square),
+            ),
+        selected = tweaks.volumeSize ?: QsVolumeSize.TALL,
+    ) { size ->
+        edit { it.copy(volumeSize = size, sliderLayout = null) }
+    }
+    ChipRow(
+        title = stringResource(R.string.qs_custom_media_look),
+        options = sliderLooks() + (QsVolumeLook.STACK to stringResource(R.string.qs_custom_volume_stack)),
+        selected = look,
+    ) { picked ->
+        edit { it.copy(volumeLook = picked) }
+    }
+    if (look != QsVolumeLook.STACK) {
+        ChipRow(
+            title = stringResource(R.string.qs_custom_volume_sound),
+            options =
+                listOf(
+                    QsVolumeSound.MEDIA to stringResource(R.string.qs_media_tile_label),
+                    QsVolumeSound.RING to stringResource(R.string.qs_custom_volume_ring),
+                    QsVolumeSound.ALARM to stringResource(R.string.qs_custom_volume_alarm),
+                    QsVolumeSound.CALL to stringResource(R.string.qs_custom_volume_call),
+                ),
+            selected = tweaks.volumeSound ?: QsVolumeSound.MEDIA,
+        ) { sound ->
+            edit { it.copy(volumeSound = sound.takeIf { s -> s != QsVolumeSound.MEDIA }) }
+        }
+    }
+    ChipRow(
+        title = stringResource(R.string.qs_custom_show),
+        options =
+            listOf(
+                QsVolumeShow.ALL to stringResource(R.string.qs_custom_volume_show_all),
+                QsVolumeShow.PERCENT to stringResource(R.string.qs_custom_volume_show_percent),
+                QsVolumeShow.ICON to stringResource(R.string.qs_custom_volume_show_icon),
+            ),
+        selected = tweaks.volumeShow ?: QsVolumeShow.ALL,
+    ) { show ->
+        edit { it.copy(volumeShow = show.takeIf { s -> s != QsVolumeShow.ALL }) }
+    }
+    ChipRow(
+        title = stringResource(R.string.qs_custom_volume_tap),
+        options =
+            listOf(
+                QsVolumeTap.MUTE to stringResource(R.string.qs_custom_volume_mute),
+                QsVolumeTap.PANEL to stringResource(R.string.qs_custom_volume_panel),
+            ),
+        selected = tweaks.volumeTap ?: QsVolumeTap.MUTE,
+    ) { tap ->
+        edit { it.copy(volumeTap = tap.takeIf { t -> t != QsVolumeTap.MUTE }) }
+    }
+    ChipRow(
+        title = stringResource(R.string.qs_custom_volume_ticks),
+        options =
+            listOf(
+                true to stringResource(R.string.qs_custom_volume_on),
+                false to stringResource(R.string.qs_custom_off),
+            ),
+        selected = tweaks.volumeTicks != false,
+    ) { ticks ->
+        edit { it.copy(volumeTicks = false.takeIf { !ticks }) }
+    }
+}
+
+@Composable
+private fun sliderLooks(): List<Pair<QsVolumeLook?, String>> =
+    listOf(
+        null to stringResource(R.string.qs_custom_slider_follow),
+        QsVolumeLook.FILL to stringResource(R.string.qs_custom_slider_solid),
+        QsVolumeLook.SLIDER to stringResource(R.string.qs_custom_slider_knob),
+        QsVolumeLook.BLOCKS to stringResource(R.string.qs_custom_media_blocks),
+        QsVolumeLook.LIQUID to stringResource(R.string.qs_custom_slider_liquid),
     )
 
 @Composable
