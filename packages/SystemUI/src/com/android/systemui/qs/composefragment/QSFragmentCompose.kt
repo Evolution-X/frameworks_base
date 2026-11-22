@@ -171,6 +171,7 @@ import com.android.systemui.qs.panels.shared.model.QsSliderPlace
 import com.android.systemui.qs.panels.shared.model.QsStyle
 import com.android.systemui.qs.panels.shared.model.QsTweaks
 import com.android.systemui.qs.panels.ui.compose.EditMode
+import com.android.systemui.qs.panels.ui.compose.QsCirclesMediaRow
 import com.android.systemui.qs.panels.ui.compose.QuickQuickSettings
 import com.android.systemui.qs.panels.ui.compose.TileGrid
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.ColorOSBackdrop
@@ -1267,6 +1268,16 @@ constructor(
                                             )
                                         }
                                     }
+                                // A Remix look can put tall brightness and volume sliders next to
+                                // the media card. Only the Remix style does.
+                                val circlesRow =
+                                    LocalRemixQsStyle.current &&
+                                        LocalQsTweaks.current.slidersByMediaIn(
+                                            LocalQsStyle.current
+                                        ) &&
+                                        viewModel.qsMediaVisible &&
+                                        !viewModel.qsMediaInRow
+                                val brightnessShown = rememberQsBrightnessSettings().showSlider != 0
                                 CompositionLocalProvider(
                                     LocalNothingSliderContent provides nothingSliderContent
                                 ) {
@@ -1274,14 +1285,33 @@ constructor(
                                         brightness =
                                             if (
                                                 viewModel.isBrightnessSliderVisible &&
-                                                    !nothingSlidersInGrid
+                                                    !nothingSlidersInGrid &&
+                                                    !circlesRow
                                             ) {
                                                 BrightnessSlider
                                             } else {
                                                 {}
                                             },
                                         tiles = TileGrid,
-                                        media = Media,
+                                        media =
+                                            if (circlesRow) {
+                                                {
+                                                    QsCirclesMediaRow(
+                                                        media = Media,
+                                                        brightness =
+                                                            viewModel.containerViewModel
+                                                                .brightnessSliderViewModel
+                                                                .takeIf {
+                                                                    viewModel
+                                                                        .isBrightnessSliderVisible &&
+                                                                        brightnessShown
+                                                                },
+                                                        volume = audioVolumeInteractor,
+                                                    )
+                                                }
+                                            } else {
+                                                Media
+                                            },
                                         mediaInRow = viewModel.qsMediaInRow,
                                         mediaAbove =
                                             LocalQsTweaks.current.mediaPlaceIn(
