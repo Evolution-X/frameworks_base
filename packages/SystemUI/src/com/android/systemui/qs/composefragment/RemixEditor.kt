@@ -130,6 +130,8 @@ internal fun RemixEditor(editViewModel: EditModeViewModel, modifier: Modifier = 
             repository = editViewModel.styleRepository,
             columns = columns,
             settingsRows = settingsRows,
+            allTiles = allTiles,
+            onAddTile = { editViewModel.addTile(it) },
             open = dockOpen,
             onOpenChange = { dockOpen = it },
         )

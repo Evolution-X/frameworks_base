@@ -435,6 +435,8 @@
     <string name="qs_custom_tab_theme">Theme</string>
     <string name="qs_custom_tab_layout">Layout</string>
     <string name="qs_custom_tab_tiles">Tiles</string>
+    <string name="qs_custom_tab_add">Add</string>
+    <string name="qs_custom_all_added">Every tile is on the panel</string>
     <string name="qs_custom_start_from">Start from</string>
     <string name="qs_custom_reset">Reset this theme</string>
     <string name="qs_custom_theme_stock">Stock</string>

@@ -32,6 +32,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -45,6 +46,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.android.systemui.common.ui.compose.load
 import com.android.systemui.qs.panels.data.repository.QsPanelStyleRepository
 import com.android.systemui.qs.panels.shared.model.LocalQsStyle
 import com.android.systemui.qs.panels.shared.model.LocalQsTweaks
@@ -55,6 +57,9 @@ import com.android.systemui.qs.panels.shared.model.QsTileLabel
 import com.android.systemui.qs.panels.shared.model.QsTileSizing
 import com.android.systemui.qs.panels.shared.model.QsTweaks
 import com.android.systemui.qs.panels.ui.compose.qsTileColumnSpacing
+import com.android.systemui.qs.panels.ui.viewmodel.EditTileViewModel
+import com.android.systemui.qs.pipeline.shared.TileSpec
+import com.android.systemui.qs.shared.model.groupAndSort
 import com.android.systemui.res.R
 import kotlin.math.roundToInt
 
@@ -62,6 +67,7 @@ internal enum class CustomizerTab(@StringRes val label: Int) {
     Theme(R.string.qs_custom_tab_theme),
     Layout(R.string.qs_custom_tab_layout),
     Tiles(R.string.qs_custom_tab_tiles),
+    Add(R.string.qs_custom_tab_add),
 }
 
 @get:StringRes
@@ -90,12 +96,16 @@ private val QsStyle.label: Int
  *
  * @param columns the columns the panel is laid out in, so the slider starts where the panel is.
  * @param settingsRows the rows a page has in Settings, which a look follows until it sets its own.
+ * @param allTiles every tile that can be on the panel, the Add tab offers those that are not.
+ * @param onAddTile adds a tile at the end of the panel.
  */
 @Composable
 internal fun QsCustomizerDock(
     repository: QsPanelStyleRepository,
     columns: Int,
     settingsRows: Int,
+    allTiles: List<EditTileViewModel>,
+    onAddTile: (TileSpec) -> Unit,
     open: Boolean,
     onOpenChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
@@ -160,9 +170,69 @@ internal fun QsCustomizerDock(
                     CustomizerTab.Theme -> ThemeTab(repository)
                     CustomizerTab.Layout -> LayoutTab(columns, settingsRows, edit)
                     CustomizerTab.Tiles -> TilesTab(edit)
+                    CustomizerTab.Add -> AddTab(allTiles, onAddTile)
                 }
             }
         }
+    }
+}
+
+/** The tiles not on the panel, by category; a tap adds one at the end. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AddTab(allTiles: List<EditTileViewModel>, onAddTile: (TileSpec) -> Unit) {
+    val available = allTiles.filter { !it.isCurrent }
+    if (available.isEmpty()) {
+        Text(
+            text = stringResource(R.string.qs_custom_all_added),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+    val grouped = remember(available) { groupAndSort(available) }
+    grouped.forEach { (category, tiles) ->
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            RowTitle(category.label.load() ?: "")
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                tiles.forEach { tile ->
+                    key(tile.tileSpec) { TrayChip(tile) { onAddTile(tile.tileSpec) } }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrayChip(tile: EditTileViewModel, onClick: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val label =
+        stringResource(R.string.accessibility_qs_edit_named_tile_add_action, tile.label.text)
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier =
+            Modifier.height(40.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(scheme.surfaceContainerHighest)
+                .clickable(onClickLabel = label, onClick = onClick)
+                .padding(start = 10.dp, end = 14.dp),
+    ) {
+        SmallTileContent(
+            iconProvider = { tile.icon },
+            color = scheme.onSurface,
+            size = { 20.dp },
+            animateToEnd = true,
+        )
+        Text(
+            text = tile.label.text,
+            style = MaterialTheme.typography.labelLarge,
+            color = scheme.onSurface,
+            maxLines = 1,
+        )
     }
 }
 
