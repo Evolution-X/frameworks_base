@@ -74,6 +74,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -110,6 +111,10 @@ import com.android.systemui.qs.footer.ui.viewmodel.FooterActionsForegroundServic
 import com.android.systemui.qs.footer.ui.viewmodel.FooterActionsSecurityButtonViewModel
 import com.android.systemui.qs.footer.ui.viewmodel.FooterActionsViewModel
 import com.android.systemui.qs.footer.ui.viewmodel.FooterTextButtonViewModel
+import com.android.systemui.qs.panels.shared.model.LocalQsStyle
+import com.android.systemui.qs.panels.shared.model.LocalQsTweaks
+import com.android.systemui.qs.panels.shared.model.QsStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.inkOn
 import com.android.systemui.qs.panels.ui.viewmodel.TextFeedbackViewModel
 import com.android.systemui.qs.shared.ui.QuickSettings
 import com.android.systemui.qs.ui.composable.QuickSettingsTheme
@@ -691,6 +696,9 @@ private fun numberButtonColors(): TextButtonColors {
 @Composable
 @ReadOnlyComposable
 private fun buttonColorsForModel(footerAction: FooterActionsButtonViewModel): ButtonColors {
+    styledButtonColors(footerAction)?.let {
+        return it
+    }
     return if (notificationShadeBlur()) {
         when (footerAction) {
             is FooterActionsButtonViewModel.PowerActionViewModel ->
@@ -705,6 +713,73 @@ private fun buttonColorsForModel(footerAction: FooterActionsButtonViewModel): Bu
             icon = footerAction.iconTintFallback?.let { Color(it) } ?: Color.Unspecified,
             background = colorAttr(footerAction.backgroundColorFallback),
         )
+    }
+}
+
+/** Footer button colors for the QS style, or null for the stock ones. */
+@Composable
+@ReadOnlyComposable
+private fun styledButtonColors(footerAction: FooterActionsButtonViewModel): ButtonColors? {
+    val power = footerAction is FooterActionsButtonViewModel.PowerActionViewModel
+    val user = footerAction is FooterActionsButtonViewModel.UserSwitcherViewModel
+    val tone = LocalQsTweaks.current.accent?.let { Color(it) }
+    val ink = tone?.inkOn()
+    val theme = MaterialTheme.colorScheme
+    val scheme = if (tone == null) theme else theme.copy(primary = tone)
+    val style = LocalQsTweaks.current.footerFrom ?: LocalQsStyle.current
+    return when (style) {
+        QsStyle.REMIX ->
+            if (power) {
+                ButtonColors(ink ?: Color.White, tone ?: colorResource(android.R.color.system_accent1_600))
+            } else {
+                ButtonColors(if (user) Color.Unspecified else Color(0xFFE9EAEC), Color(0xFF24262A))
+            }
+        QsStyle.GLASS ->
+            if (power) {
+                ButtonColors(scheme.primary, scheme.primary.copy(alpha = .2f))
+            } else {
+                ButtonColors(
+                    if (user) Color.Unspecified else scheme.onSurface,
+                    Color.White.copy(alpha = .06f),
+                )
+            }
+        QsStyle.CLASSIC ->
+            if (power) {
+                ButtonColors(scheme.primary, Color.Transparent)
+            } else {
+                ButtonColors(if (user) Color.Unspecified else scheme.onSurface, Color.Transparent)
+            }
+        QsStyle.NEON,
+        QsStyle.BLUEPRINT,
+        QsStyle.SOFT -> {
+            val vivid = tone ?: colorResource(android.R.color.system_primary_dark)
+            val base =
+                when (style) {
+                    QsStyle.NEON -> Color.White.copy(alpha = .04f)
+                    QsStyle.SOFT -> Color(0xFF1C1716)
+                    else -> Color.Transparent
+                }
+            if (power) {
+                ButtonColors(vivid, if (base == Color.Transparent) base else vivid.copy(alpha = .12f))
+            } else {
+                ButtonColors(if (user) Color.Unspecified else scheme.onSurface, base)
+            }
+        }
+        QsStyle.BENTO,
+        QsStyle.SHAPES,
+        QsStyle.DUO ->
+            if (power) {
+                ButtonColors(
+                    ink ?: colorResource(android.R.color.system_on_primary_dark),
+                    tone ?: colorResource(android.R.color.system_primary_dark),
+                )
+            } else {
+                ButtonColors(
+                    if (user) Color.Unspecified else scheme.onSurface,
+                    Color.White.copy(alpha = .09f),
+                )
+            }
+        else -> null
     }
 }
 
