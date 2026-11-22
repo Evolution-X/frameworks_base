@@ -10,13 +10,18 @@ import androidx.compose.animation.core.AnimationVector2D
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -30,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,16 +48,20 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.findRootCoordinates
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -59,6 +69,7 @@ import androidx.compose.ui.unit.round
 import com.android.compose.modifiers.thenIf
 import com.android.systemui.qs.pipeline.shared.TileSpec
 import com.android.systemui.res.R
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
 /** What the customizer does with the tiles of the preview. */
@@ -74,6 +85,9 @@ interface QsPreviewHost {
     fun onDragTo(pointer: Offset)
 
     fun onDragEnd(cancelled: Boolean)
+
+    /** The corner of [spec] was dragged to [columns] by [rows] cells. */
+    fun onResize(spec: TileSpec, columns: Int, rows: Int)
 }
 
 /**
@@ -113,10 +127,13 @@ class QsPreviewTiles {
     /** Root bounds of the area the tiles scroll in: only tiles inside it are targets. */
     var pager = Rect.Zero
 
+    /** Root bounds of the resize handle of the picked tile, which is not a tile to pick. */
+    var handle = Rect.Zero
+
     fun onTap(spec: TileSpec) = host.onTap(spec)
 
     fun tileAt(point: Offset): TileSpec? =
-        if (!pager.contains(point)) {
+        if (handle.contains(point) || !pager.contains(point)) {
             null
         } else {
             bounds.entries.firstOrNull { it.value.contains(point) }?.key
@@ -126,25 +143,33 @@ class QsPreviewTiles {
 val LocalQsPreviewTiles = compositionLocalOf<QsPreviewTiles?> { null }
 
 /**
- * One tile of the preview: a tap picks it and a hold lifts it to move. It is drawn from where
- * [QsPreviewTiles.dragCorner] is while it is lifted.
+ * One tile of the preview: a tap picks it, a hold lifts it to move, and the corner of the picked
+ * tile resizes it. It is drawn from where [QsPreviewTiles.dragCorner] is while it is lifted.
+ * [cellWidth] and [rowHeight] are one grid cell with its gap, in this layout's pixels.
  */
 @Composable
 fun QsPreviewTile(
     preview: QsPreviewTiles,
     spec: TileSpec,
+    columns: Int,
+    rows: Int,
+    maxColumns: Int,
+    cellWidth: Float,
+    rowHeight: Float,
     radius: Dp,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     val selected = preview.selected == spec
     val dragging = preview.dragging == spec
+    var tile by remember { mutableStateOf<LayoutCoordinates?>(null) }
     DisposableEffect(preview, spec) { onDispose { preview.bounds.remove(spec) } }
     val ring = MaterialTheme.colorScheme.onSurface
     val shape = RoundedCornerShape(radius)
     Box(
         modifier
             .onGloballyPositioned {
+                tile = it
                 preview.bounds[spec] =
                     it.findRootCoordinates().localBoundingBoxOf(it, clipBounds = false)
             }
@@ -176,7 +201,100 @@ fun QsPreviewTile(
                 detectTapGestures(onTap = { preview.host.onTap(spec) })
             }
         )
+        if (selected && !dragging) {
+            ResizeHandle(
+                preview = preview,
+                spec = spec,
+                columns = columns,
+                rows = rows,
+                maxColumns = maxColumns,
+                cellWidth = cellWidth,
+                rowHeight = rowHeight,
+                tile = { tile },
+                modifier = Modifier.align(Alignment.BottomEnd),
+            )
+        }
     }
+}
+
+/** The dot in the tile's corner. Dragging it snaps the tile to whole cells. */
+@Composable
+private fun ResizeHandle(
+    preview: QsPreviewTiles,
+    spec: TileSpec,
+    columns: Int,
+    rows: Int,
+    maxColumns: Int,
+    cellWidth: Float,
+    rowHeight: Float,
+    tile: () -> LayoutCoordinates?,
+    modifier: Modifier = Modifier,
+) {
+    val current by rememberUpdatedState(columns to rows)
+    val cell by rememberUpdatedState(cellWidth to rowHeight)
+    val fill = MaterialTheme.colorScheme.primary
+    val ink = MaterialTheme.colorScheme.onPrimary
+    val label = stringResource(R.string.qs_custom_resize)
+    var handle by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    DisposableEffect(preview) { onDispose { preview.handle = Rect.Zero } }
+    Box(
+        modifier
+            .padding(4.dp)
+            .size(HandleSize)
+            .clip(CircleShape)
+            .background(fill)
+            .semantics { contentDescription = label }
+            .onGloballyPositioned {
+                handle = it
+                preview.handle = it.boundsInRoot()
+            }
+            .pointerInput(preview, spec, maxColumns) {
+                // Measured from where the tile was when the drag began, so the tile moving or
+                // growing under the finger doesn't feed back into the size.
+                var origin = Offset.Zero
+                var scale = 1f
+                var reach = Offset.Zero
+                detectDragGestures(
+                    onDragStart = { start ->
+                        val t = tile()
+                        val h = handle
+                        if (t != null && h != null) {
+                            val bounds = t.boundsInRoot()
+                            origin = bounds.topLeft
+                            scale = if (t.size.width > 0) bounds.width / t.size.width else 1f
+                            val finger = (h.localToRoot(start) - origin) / scale
+                            reach = Offset(t.size.width - finger.x, t.size.height - finger.y)
+                        }
+                    },
+                    onDrag = { change, _ ->
+                        change.consume()
+                        val h = handle ?: return@detectDragGestures
+                        val (cellW, rowH) = cell
+                        if (cellW > 0f && rowH > 0f) {
+                            val finger = (h.localToRoot(change.position) - origin) / scale + reach
+                            val wanted =
+                                (finger.x / cellW).roundToInt().coerceIn(1, maxColumns) to
+                                    (finger.y / rowH).roundToInt().coerceIn(1, MaxRows)
+                            if (wanted != current) {
+                                preview.host.onResize(spec, wanted.first, wanted.second)
+                            }
+                        }
+                    },
+                )
+            }
+            .drawBehind {
+                val inset = 9.dp.toPx()
+                val tip = 5.dp.toPx()
+                val width = 2.dp.toPx()
+                val low = Offset(inset, size.height - inset)
+                val high = Offset(size.width - inset, inset)
+                drawLine(ink, low, high, width, StrokeCap.Round)
+                drawLine(ink, high, Offset(high.x - tip, high.y), width, StrokeCap.Round)
+                drawLine(ink, high, Offset(high.x, high.y + tip), width, StrokeCap.Round)
+                drawLine(ink, low, Offset(low.x + tip, low.y), width, StrokeCap.Round)
+                drawLine(ink, low, Offset(low.x, low.y - tip), width, StrokeCap.Round)
+            }
+    )
 }
 
 fun Modifier.qsPreviewDrag(preview: QsPreviewTiles, area: () -> LayoutCoordinates?): Modifier =
@@ -283,3 +401,7 @@ fun Modifier.animatePlacement(): Modifier = composed {
 
 private const val LiftScale = 1.04f
 private val LiftElevation = 12.dp
+
+private const val MaxRows = 4
+
+private val HandleSize = 28.dp

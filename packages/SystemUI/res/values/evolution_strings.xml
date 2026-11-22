@@ -437,6 +437,7 @@
     <string name="qs_custom_tab_tiles">Tiles</string>
     <string name="qs_custom_tab_add">Add</string>
     <string name="qs_custom_all_added">Every tile is on the panel</string>
+    <string name="qs_custom_resize">Resize</string>
     <string name="qs_custom_add_tile">Add a tile</string>
     <string name="qs_custom_remove">Remove</string>
     <string name="qs_custom_drop_remove">Drop here to remove</string>

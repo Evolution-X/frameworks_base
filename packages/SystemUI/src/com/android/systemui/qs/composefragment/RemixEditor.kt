@@ -44,6 +44,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
@@ -67,6 +68,7 @@ import com.android.systemui.qs.panels.shared.model.packTiles
 import com.android.systemui.qs.panels.shared.model.paginateTiles
 import com.android.systemui.qs.panels.shared.model.remixColumns
 import com.android.systemui.qs.panels.shared.model.remixRowsPerPage
+import com.android.systemui.qs.panels.shared.model.resized
 import com.android.systemui.qs.panels.ui.compose.QsPlusTile
 import com.android.systemui.qs.panels.ui.compose.QsPreviewHost
 import com.android.systemui.qs.panels.ui.compose.QsPreviewTile
@@ -103,7 +105,7 @@ import kotlinx.coroutines.launch
  * `RemixTileGrid` is a ContentScope extension and edit mode is not one, so the tiles are drawn from
  * their [EditTileViewModel] and not from live tiles. A tap picks a tile and the dock shows its
  * options, a hold lifts it to move it (dropping it on the bar at the top removes it) and the plus
- * tile opens the Add tab. Tiles cannot be resized by dragging here yet.
+ * tile opens the Add tab. The corner of the picked tile resizes it.
  */
 @Composable
 internal fun RemixEditor(editViewModel: EditModeViewModel, modifier: Modifier = Modifier) {
@@ -151,6 +153,8 @@ internal fun RemixEditor(editViewModel: EditModeViewModel, modifier: Modifier = 
     val edge = with(density) { EdgeScrollZone.toPx() }
     val step = with(density) { EdgeScrollStep.toPx() }
     val currentSpecs by rememberUpdatedState(current.map { it.tileSpec })
+    val gridColumns by rememberUpdatedState(columns)
+    val currentTheme by rememberUpdatedState(theme)
     val visibleSpecs by rememberUpdatedState(tiles.map { it.tileSpec })
     val removable by
         rememberUpdatedState(tiles.filter { it.isRemovable }.map { it.tileSpec }.toSet())
@@ -210,6 +214,13 @@ internal fun RemixEditor(editViewModel: EditModeViewModel, modifier: Modifier = 
                             editViewModel.setTiles(mergeOrder(currentSpecs, visibleSpecs, order))
                     }
                     if (remove && tapped == moving) tapped = null
+                }
+
+                override fun onResize(spec: TileSpec, columns: Int, rows: Int) {
+                    editViewModel.styleRepository.editTweaks {
+                        it.resized(spec.spec, currentTheme, columns, rows, gridColumns)
+                    }
+                    settle()
                 }
             }
         onDispose { settleJob?.cancel() }
@@ -410,6 +421,12 @@ private fun PreviewPage(
     val classicStyle = rememberQSPanelStyle()
     val columnSpacing = tweaks.spacing?.dp ?: qsTileColumnSpacing(columns)
     val rowSpacing = tweaks.spacing?.dp ?: qsTileRowSpacing(columns, classicStyle)
+    // One grid cell with its gap, in pixels, for the resize handle to snap to.
+    val density = LocalDensity.current
+    var gridWidth by remember { mutableStateOf(0f) }
+    val gap = with(density) { columnSpacing.toPx() }
+    val cellWidth = if (gridWidth > 0f) (gridWidth - gap * (columns - 1)) / columns + gap else 0f
+    val rowHeight = with(density) { (look.height + rowSpacing).toPx() }
     fun tileAt(index: Int) = tiles.getOrNull(page[index])
     // The page with the lifted tile is drawn over the others, so it is not hidden under them.
     val moving = preview.dragging
@@ -420,7 +437,10 @@ private fun PreviewPage(
         columnSpacing = columnSpacing,
         rowSpacing = rowSpacing,
         keys = { tileAt(it)?.tileSpec ?: PlusKey },
-        modifier = Modifier.fillMaxWidth().zIndex(if (lifted) 1f else 0f),
+        modifier =
+            Modifier.fillMaxWidth()
+                .onSizeChanged { gridWidth = it.width.toFloat() }
+                .zIndex(if (lifted) 1f else 0f),
         itemModifier = { index ->
             Modifier.zIndex(if (tileAt(index)?.tileSpec == preview.dragging) 1f else 0f)
                 .thenIf(preview.settling) { Modifier.animatePlacement() }
@@ -439,6 +459,11 @@ private fun PreviewPage(
             QsPreviewTile(
                 preview = preview,
                 spec = tile.tileSpec,
+                columns = place.columns,
+                rows = place.rows,
+                maxColumns = columns,
+                cellWidth = cellWidth,
+                rowHeight = rowHeight,
                 radius = look.inactiveRadius,
                 modifier = Modifier.fillMaxWidth().height(height),
             ) {
