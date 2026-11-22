@@ -98,6 +98,7 @@ private val QsStyle.label: Int
  * @param settingsRows the rows a page has in Settings, which a look follows until it sets its own.
  * @param allTiles every tile that can be on the panel, the Add tab offers those that are not.
  * @param onAddTile adds a tile at the end of the panel.
+ * @param tab the open tab, which the editor owns so the plus tile can open the Add tab.
  */
 @Composable
 internal fun QsCustomizerDock(
@@ -106,11 +107,12 @@ internal fun QsCustomizerDock(
     settingsRows: Int,
     allTiles: List<EditTileViewModel>,
     onAddTile: (TileSpec) -> Unit,
+    tab: CustomizerTab,
+    onTabChange: (CustomizerTab) -> Unit,
     open: Boolean,
     onOpenChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var tab by remember { mutableStateOf(CustomizerTab.Theme) }
     val edit: ((QsTweaks) -> QsTweaks) -> Unit = repository::editTweaks
 
     Column(
@@ -154,7 +156,7 @@ internal fun QsCustomizerDock(
                         selected = entry == tab,
                         modifier = Modifier.weight(1f),
                     ) {
-                        tab = entry
+                        onTabChange(entry)
                     }
                 }
             }

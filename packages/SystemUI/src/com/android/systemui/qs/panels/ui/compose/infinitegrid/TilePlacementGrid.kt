@@ -33,6 +33,7 @@ internal fun TilePlacementGrid(
     rowSpacing: Dp,
     keys: (index: Int) -> Any,
     modifier: Modifier = Modifier,
+    itemModifier: (index: Int) -> Modifier = { Modifier },
     content: @Composable (index: Int) -> Unit,
 ) {
     Layout(
@@ -40,7 +41,9 @@ internal fun TilePlacementGrid(
             placements.indices.forEach { index ->
                 key(keys(index)) {
                     val info = CollectionItemInfo(index, 1, 0, 1)
-                    Box(Modifier.semantics { collectionItemInfo = info }) { content(index) }
+                    Box(itemModifier(index).semantics { collectionItemInfo = info }) {
+                        content(index)
+                    }
                 }
             }
         },
