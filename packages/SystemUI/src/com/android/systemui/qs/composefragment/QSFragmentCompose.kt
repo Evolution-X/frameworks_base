@@ -167,6 +167,7 @@ import com.android.systemui.qs.panels.shared.model.LocalQsTweaks
 import com.android.systemui.qs.panels.shared.model.QsGlass
 import com.android.systemui.qs.panels.shared.model.QsMediaPlace
 import com.android.systemui.qs.panels.shared.model.QsPanelStyle
+import com.android.systemui.qs.panels.shared.model.QsSliderPlace
 import com.android.systemui.qs.panels.shared.model.QsStyle
 import com.android.systemui.qs.panels.shared.model.QsTweaks
 import com.android.systemui.qs.panels.ui.compose.EditMode
@@ -2008,7 +2009,15 @@ private fun rememberQsBrightnessSettings(): QsBrightnessSettings {
         }
     }
 
-    return state
+    return when (val place = LocalQsTweaks.current.sliderPlace) {
+        null -> state
+        QsSliderPlace.OFF -> state.copy(showSlider = 0)
+        else ->
+            state.copy(
+                sliderAtTop = place == QsSliderPlace.TOP,
+                showSlider = state.showSlider.coerceAtLeast(1),
+            )
+    }
 }
 
 private data class QsBrightnessSettings(
