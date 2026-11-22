@@ -17,14 +17,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -55,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.compose.modifiers.thenIf
+import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.lifecycle.rememberViewModel
 import com.android.systemui.qs.panels.shared.model.LocalQsStyle
 import com.android.systemui.qs.panels.shared.model.LocalQsTweaks
@@ -75,6 +74,7 @@ import com.android.systemui.qs.panels.ui.compose.QsPreviewTiles
 import com.android.systemui.qs.panels.ui.compose.animatePlacement
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CustomizerTab
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.QsCustomizerDock
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.QsTileIcons
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.RemixTileDefaults
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.SmallTileContent
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.TilePlacementGrid
@@ -101,9 +101,9 @@ import kotlinx.coroutines.launch
  * SystemUI, and the stock editor is left as it is.
  *
  * `RemixTileGrid` is a ContentScope extension and edit mode is not one, so the tiles are drawn from
- * their [EditTileViewModel] and not from live tiles. A tap picks a tile, a hold lifts it to move it
- * (dropping it on the bar at the top removes it) and the plus tile opens the Add tab. Tiles cannot
- * be resized here yet.
+ * their [EditTileViewModel] and not from live tiles. A tap picks a tile and the dock shows its
+ * options, a hold lifts it to move it (dropping it on the bar at the top removes it) and the plus
+ * tile opens the Add tab. Tiles cannot be resized by dragging here yet.
  */
 @Composable
 internal fun RemixEditor(editViewModel: EditModeViewModel, modifier: Modifier = Modifier) {
@@ -313,16 +313,6 @@ internal fun RemixEditor(editViewModel: EditModeViewModel, modifier: Modifier = 
                 )
             }
         }
-        if (selected != null) {
-            SelectedBar(
-                tile = selected,
-                onRemove = {
-                    tapped = null
-                    editViewModel.removeTile(selected.tileSpec)
-                },
-                onClose = { tapped = null },
-            )
-        }
         QsCustomizerDock(
             repository = editViewModel.styleRepository,
             columns = columns,
@@ -334,6 +324,12 @@ internal fun RemixEditor(editViewModel: EditModeViewModel, modifier: Modifier = 
             },
             tab = tab,
             onTabChange = { tab = it },
+            tile = selected,
+            onRemoveTile = {
+                tapped = null
+                editViewModel.removeTile(it.tileSpec)
+            },
+            onCloseTile = { tapped = null },
             open = dockOpen,
             onOpenChange = { dockOpen = it },
         )
@@ -459,7 +455,9 @@ private fun PreviewTile(tile: EditTileViewModel, wide: Boolean, height: Dp) {
         RemixTileDefaults.inactiveTileColors()
             .withFills(tweaks, STATE_INACTIVE, null, false, false)
             .withBacking(tweaks.iconBacking, false, null)
-    val showLabel = wide && tweaks.label != QsTileLabel.NONE
+    val own = tweaks.tiles[tile.tileSpec.spec]
+    val showLabel = wide && tweaks.label != QsTileLabel.NONE && own?.hideLabel != true
+    val ownIcon = own?.icon?.let { QsTileIcons[it] }?.let { Icon.Resource(it, null) }
     Box(
         contentAlignment = Alignment.CenterStart,
         modifier =
@@ -476,7 +474,7 @@ private fun PreviewTile(tile: EditTileViewModel, wide: Boolean, height: Dp) {
                 else Modifier.align(Alignment.Center),
         ) {
             SmallTileContent(
-                iconProvider = { tile.icon },
+                iconProvider = { ownIcon ?: tile.icon },
                 color = colors.icon,
                 size = { look.smallIconSize },
             )
@@ -514,35 +512,6 @@ private fun RemoveStrip(armed: Boolean, onBottom: (Float) -> Unit, modifier: Mod
             style = MaterialTheme.typography.labelLarge,
             color = if (armed) scheme.onErrorContainer else scheme.onSurfaceVariant,
         )
-    }
-}
-
-/** The picked tile, with the ways out: remove it, or let it go. */
-@Composable
-private fun SelectedBar(tile: EditTileViewModel, onRemove: () -> Unit, onClose: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        modifier =
-            Modifier.fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 6.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .heightIn(min = 48.dp)
-                .padding(start = 16.dp, end = 6.dp),
-    ) {
-        Text(
-            text = tile.label.text,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-        if (tile.isRemovable) {
-            TextButton(onClick = onRemove) { Text(stringResource(R.string.qs_custom_remove)) }
-        }
-        TextButton(onClick = onClose) { Text(stringResource(R.string.qs_custom_done)) }
     }
 }
 

@@ -22,10 +22,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -39,23 +43,32 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.android.systemui.common.ui.compose.load
 import com.android.systemui.qs.panels.data.repository.QsPanelStyleRepository
 import com.android.systemui.qs.panels.shared.model.LocalQsStyle
 import com.android.systemui.qs.panels.shared.model.LocalQsTweaks
 import com.android.systemui.qs.panels.shared.model.QsIconBacking
+import com.android.systemui.qs.panels.shared.model.QsMediaTileSize
 import com.android.systemui.qs.panels.shared.model.QsStyle
 import com.android.systemui.qs.panels.shared.model.QsTileFont
 import com.android.systemui.qs.panels.shared.model.QsTileLabel
 import com.android.systemui.qs.panels.shared.model.QsTileSizing
+import com.android.systemui.qs.panels.shared.model.QsTileTweak
 import com.android.systemui.qs.panels.shared.model.QsTweaks
+import com.android.systemui.qs.panels.shared.model.QsVolumeSize
 import com.android.systemui.qs.panels.ui.compose.qsTileColumnSpacing
 import com.android.systemui.qs.panels.ui.viewmodel.EditTileViewModel
 import com.android.systemui.qs.pipeline.shared.TileSpec
@@ -99,6 +112,8 @@ private val QsStyle.label: Int
  * @param allTiles every tile that can be on the panel, the Add tab offers those that are not.
  * @param onAddTile adds a tile at the end of the panel.
  * @param tab the open tab, which the editor owns so the plus tile can open the Add tab.
+ * @param tile the picked tile. Its options replace the tabs until [onCloseTile].
+ * @param onRemoveTile removes the picked tile, when it can be removed.
  */
 @Composable
 internal fun QsCustomizerDock(
@@ -109,6 +124,9 @@ internal fun QsCustomizerDock(
     onAddTile: (TileSpec) -> Unit,
     tab: CustomizerTab,
     onTabChange: (CustomizerTab) -> Unit,
+    tile: EditTileViewModel?,
+    onRemoveTile: (EditTileViewModel) -> Unit,
+    onCloseTile: () -> Unit,
     open: Boolean,
     onOpenChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
@@ -125,54 +143,61 @@ internal fun QsCustomizerDock(
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .padding(horizontal = 14.dp, vertical = 8.dp),
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier =
-                Modifier.fillMaxWidth().heightIn(min = 40.dp).clickable { onOpenChange(!open) },
-        ) {
-            Text(
-                text =
-                    stringResource(
-                        if (open) R.string.qs_custom_title_open else R.string.qs_custom_title
-                    ),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                text = stringResource(if (open) R.string.qs_custom_done else R.string.qs_custom_open),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(horizontal = 6.dp),
-            )
-        }
+        if (tile != null) {
+            TileOptions(tile, columns, edit, onRemoveTile, onCloseTile)
+        } else {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier =
+                    Modifier.fillMaxWidth().heightIn(min = 40.dp).clickable { onOpenChange(!open) },
+            ) {
+                Text(
+                    text =
+                        stringResource(
+                            if (open) R.string.qs_custom_title_open else R.string.qs_custom_title
+                        ),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text =
+                        stringResource(
+                            if (open) R.string.qs_custom_done else R.string.qs_custom_open
+                        ),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 6.dp),
+                )
+            }
 
-        if (open) {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                CustomizerTab.entries.forEach { entry ->
-                    TabButton(
-                        text = stringResource(entry.label),
-                        selected = entry == tab,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        onTabChange(entry)
+            if (open) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    CustomizerTab.entries.forEach { entry ->
+                        TabButton(
+                            text = stringResource(entry.label),
+                            selected = entry == tab,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            onTabChange(entry)
+                        }
                     }
                 }
-            }
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier =
-                    Modifier.fillMaxWidth()
-                        .heightIn(max = 300.dp)
-                        .verticalScroll(rememberScrollState())
-                        .padding(bottom = 6.dp),
-            ) {
-                when (tab) {
-                    CustomizerTab.Theme -> ThemeTab(repository)
-                    CustomizerTab.Layout -> LayoutTab(columns, settingsRows, edit)
-                    CustomizerTab.Tiles -> TilesTab(edit)
-                    CustomizerTab.Add -> AddTab(allTiles, onAddTile)
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier =
+                        Modifier.fillMaxWidth()
+                            .heightIn(max = 300.dp)
+                            .verticalScroll(rememberScrollState())
+                            .padding(bottom = 6.dp),
+                ) {
+                    when (tab) {
+                        CustomizerTab.Theme -> ThemeTab(repository)
+                        CustomizerTab.Layout -> LayoutTab(columns, settingsRows, edit)
+                        CustomizerTab.Tiles -> TilesTab(edit)
+                        CustomizerTab.Add -> AddTab(allTiles, onAddTile)
+                    }
                 }
             }
         }
@@ -235,6 +260,226 @@ private fun TrayChip(tile: EditTileViewModel, onClick: () -> Unit) {
             color = scheme.onSurface,
             maxLines = 1,
         )
+    }
+}
+
+/**
+ * The options of the picked tile, under its name with the ways out: remove it, or let it go. The
+ * player and the slider tiles have sheets of their own, so they only get the way out.
+ */
+@Composable
+private fun TileOptions(
+    tile: EditTileViewModel,
+    columns: Int,
+    edit: ((QsTweaks) -> QsTweaks) -> Unit,
+    onRemoveTile: (EditTileViewModel) -> Unit,
+    onCloseTile: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp),
+    ) {
+        Text(
+            text = tile.label.text,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (tile.isRemovable) {
+            ActionChip(stringResource(R.string.qs_custom_remove)) { onRemoveTile(tile) }
+            Box(Modifier.width(6.dp))
+        }
+        Text(
+            text = stringResource(R.string.qs_custom_done),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier =
+                Modifier.clip(RoundedCornerShape(12.dp))
+                    .clickable(onClick = onCloseTile)
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+        )
+    }
+    if (tile.tileSpec.spec in SheetOfTheirOwn) return
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier =
+            Modifier.fillMaxWidth()
+                .heightIn(max = 240.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 6.dp),
+    ) {
+        TileSheet(tile.tileSpec.spec, columns, edit)
+    }
+}
+
+/**
+ * The tweaks of one tile. A tile with none is drawn as the panel draws it, and a tweak that is put
+ * back to what it was leaves nothing in the saved look.
+ */
+@Composable
+private fun TileSheet(spec: String, columns: Int, edit: ((QsTweaks) -> QsTweaks) -> Unit) {
+    val tile = LocalQsTweaks.current.tiles[spec]
+    fun change(change: (QsTileTweak) -> QsTileTweak) {
+        edit { it.withTile(spec, change) }
+    }
+    ThemeChips(
+        stringResource(R.string.qs_custom_look),
+        tile?.look,
+        none = stringResource(R.string.qs_custom_same_as_panel),
+    ) { look ->
+        change { it.copy(look = look) }
+    }
+    ChipRow(
+        title = stringResource(R.string.qs_custom_tile_width),
+        options =
+            listOf<Pair<Int?, String>>(null to stringResource(R.string.qs_custom_auto)) +
+                (1..columns).map { it to it.toString() },
+        selected = tile?.columns,
+    ) { width ->
+        change { it.copy(columns = width) }
+    }
+    ChipRow(
+        title = stringResource(R.string.qs_custom_tile_height),
+        options = (1..4).map { it to it.toString() },
+        selected = tile?.rows ?: 1,
+    ) { height ->
+        change { it.copy(rows = height.takeIf { rows -> rows > 1 }) }
+    }
+    SwatchRow(stringResource(R.string.qs_custom_tile_color), tile?.color) { color ->
+        change { it.copy(color = color) }
+    }
+    IconRow(tile?.icon) { icon -> change { it.copy(icon = icon) } }
+    ChipRow(
+        title = stringResource(R.string.qs_custom_label),
+        options =
+            listOf(
+                false to stringResource(R.string.qs_custom_show),
+                true to stringResource(R.string.qs_custom_hide),
+            ),
+        selected = tile?.hideLabel == true,
+    ) { hide ->
+        change { it.copy(hideLabel = hide) }
+    }
+}
+
+/** The tiles whose size and look are the sliders' and the player's, not the grid's. */
+private val SheetOfTheirOwn =
+    setOf(
+        QsMediaTileSize.TILE_SPEC,
+        QsVolumeSize.TILE_SPEC,
+        QsVolumeSize.BRIGHTNESS_SPEC,
+        QsVolumeSize.SOUND_SPEC,
+    )
+
+private val Swatches: List<Pair<Long, Int>> =
+    listOf(
+        0xFF7CACF8 to R.string.qs_custom_color_blue,
+        0xFF5FD3BC to R.string.qs_custom_color_teal,
+        0xFF8BD48B to R.string.qs_custom_color_green,
+        0xFFB69CFF to R.string.qs_custom_color_violet,
+        0xFFF28BA8 to R.string.qs_custom_color_rose,
+        0xFFFFB870 to R.string.qs_custom_color_amber,
+        0xFFE8E8E8 to R.string.qs_custom_color_white,
+    )
+
+@Composable
+private fun ThemeChips(
+    title: String,
+    selected: QsStyle?,
+    none: String = stringResource(R.string.qs_custom_theme),
+    onPick: (QsStyle?) -> Unit,
+) {
+    ChipRow(
+        title = title,
+        options =
+            listOf<Pair<QsStyle?, String>>(null to none) +
+                QsStyle.entries.map { it to stringResource(it.label) },
+        selected = selected,
+        onPick = onPick,
+    )
+}
+
+@Composable
+private fun SwatchRow(title: String, selected: Int?, onPick: (Int?) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val themeColor = colorResource(android.R.color.system_primary_dark)
+    val themeLabel = stringResource(R.string.qs_custom_theme)
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        RowTitle(title)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+        ) {
+            Swatch(themeColor, themeLabel, selected == null, scheme.onSurface) { onPick(null) }
+            Swatches.forEach { (color, label) ->
+                val argb = Color(color).toArgb()
+                Swatch(Color(color), stringResource(label), selected == argb, scheme.onSurface) {
+                    onPick(argb)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Swatch(
+    color: Color,
+    label: String,
+    selected: Boolean,
+    ring: Color,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier =
+            Modifier.size(40.dp)
+                .clip(CircleShape)
+                .background(color)
+                .then(if (selected) Modifier.border(2.dp, ring, CircleShape) else Modifier)
+                .clickable(onClick = onClick)
+                .semantics {
+                    contentDescription = label
+                    role = Role.RadioButton
+                    this.selected = selected
+                }
+    )
+}
+
+@Composable
+private fun IconRow(selected: String?, onPick: (String?) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        RowTitle(stringResource(R.string.qs_custom_tile_icon))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+        ) {
+            OptionChip(stringResource(R.string.qs_custom_default), selected == null) {
+                onPick(null)
+            }
+            QsTileIcons.forEach { (name, icon) ->
+                val active = name == selected
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier =
+                        Modifier.size(40.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(
+                                if (active) scheme.primary else scheme.surfaceContainerHighest
+                            )
+                            .clickable { onPick(name) },
+                ) {
+                    Icon(
+                        painter = painterResource(icon),
+                        contentDescription = name,
+                        tint = if (active) scheme.onPrimary else scheme.onSurface,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+            }
+        }
     }
 }
 
