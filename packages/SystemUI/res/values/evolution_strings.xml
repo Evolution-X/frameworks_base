@@ -556,5 +556,19 @@
     <string name="qs_custom_on_fill">On tiles</string>
     <string name="qs_custom_tab_color">Color</string>
     <string name="qs_custom_tab_mix">Mix</string>
+    <string name="qs_custom_tab_sliders">Sliders</string>
+    <string name="qs_custom_sliders_layout">Layout</string>
+    <string name="qs_custom_sliders_pair">A · Side pair</string>
+    <string name="qs_custom_sliders_split">B · Split row</string>
+    <string name="qs_custom_sliders_rails">C · Rails</string>
+    <string name="qs_custom_sliders_corner">D · Corner</string>
+    <string name="qs_custom_sliders_percent">Percent</string>
+    <string name="qs_custom_sliders_always">Always</string>
+    <string name="qs_custom_sliders_dragging">While dragging</string>
+    <string name="qs_custom_sliders_sound">Sound mode switch</string>
+    <string name="qs_custom_sliders_bar">Brightness bar</string>
+    <string name="qs_custom_slider_place">Where</string>
+    <string name="qs_custom_slider_top">Top</string>
+    <string name="qs_custom_slider_under">Under tiles</string>
     <string name="qs_custom_mix_footer">Footer buttons</string>
 </resources>

@@ -5,6 +5,8 @@
 
 package com.android.systemui.qs.panels.ui.compose.infinitegrid
 
+import android.content.ContentResolver
+import android.os.UserHandle
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -45,6 +47,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -68,6 +71,9 @@ import com.android.systemui.qs.panels.shared.model.QsMediaPlace
 import com.android.systemui.qs.panels.shared.model.QsMediaTileSize
 import com.android.systemui.qs.panels.shared.model.QsOffFill
 import com.android.systemui.qs.panels.shared.model.QsOnFill
+import com.android.systemui.qs.panels.shared.model.QsSliderLayout
+import com.android.systemui.qs.panels.shared.model.QsSliderPercent
+import com.android.systemui.qs.panels.shared.model.QsSliderPlace
 import com.android.systemui.qs.panels.shared.model.QsStyle
 import com.android.systemui.qs.panels.shared.model.QsTileFont
 import com.android.systemui.qs.panels.shared.model.QsTileDepth
@@ -85,6 +91,7 @@ import com.android.systemui.qs.panels.ui.viewmodel.EditTileViewModel
 import com.android.systemui.qs.pipeline.shared.TileSpec
 import com.android.systemui.qs.shared.model.groupAndSort
 import com.android.systemui.res.R
+import lineageos.providers.LineageSettings
 import kotlin.math.roundToInt
 
 internal enum class CustomizerTab(@StringRes val label: Int) {
@@ -93,6 +100,7 @@ internal enum class CustomizerTab(@StringRes val label: Int) {
     Tiles(R.string.qs_custom_tab_tiles),
     Color(R.string.qs_custom_tab_color),
     Mix(R.string.qs_custom_tab_mix),
+    Slider(R.string.qs_custom_tab_sliders),
     Add(R.string.qs_custom_tab_add),
 }
 
@@ -127,6 +135,8 @@ private val QsStyle.label: Int
  * @param tab the open tab, which the editor owns so the plus tile can open the Add tab.
  * @param tile the picked tile. Its options replace the tabs until [onCloseTile].
  * @param onRemoveTile removes the picked tile, when it can be removed.
+ * @param currentTiles every tile on the panel, in order, which the Sliders tab places.
+ * @param onSetTiles sets the tiles of the panel in the order given.
  */
 @Composable
 internal fun QsCustomizerDock(
@@ -140,6 +150,8 @@ internal fun QsCustomizerDock(
     tile: EditTileViewModel?,
     onRemoveTile: (EditTileViewModel) -> Unit,
     onCloseTile: () -> Unit,
+    currentTiles: List<TileSpec>,
+    onSetTiles: (List<TileSpec>) -> Unit,
     open: Boolean,
     onOpenChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
@@ -157,7 +169,7 @@ internal fun QsCustomizerDock(
                 .padding(horizontal = 14.dp, vertical = 8.dp),
     ) {
         if (tile != null) {
-            TileOptions(tile, columns, edit, onRemoveTile, onCloseTile)
+            TileOptions(tile, columns, edit, currentTiles, onSetTiles, onRemoveTile, onCloseTile)
         } else {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -211,6 +223,7 @@ internal fun QsCustomizerDock(
                         CustomizerTab.Tiles -> TilesTab(edit)
                         CustomizerTab.Color -> ColorTab(edit)
                         CustomizerTab.Mix -> MixTab(edit)
+                        CustomizerTab.Slider -> SlidersTab(edit, currentTiles, onSetTiles)
                         CustomizerTab.Add -> AddTab(allTiles, onAddTile)
                     }
                 }
@@ -280,14 +293,16 @@ private fun TrayChip(tile: EditTileViewModel, onClick: () -> Unit) {
 
 /**
  * The options of the picked tile, under its name with the ways out: remove it, or let it go. The
- * player and the volume tile have sheets of their own. The brightness and sound tiles only get
- * the way out, until the Slider tab.
+ * player and the volume tile have sheets of their own, and the brightness and sound tiles open the
+ * Sliders tab.
  */
 @Composable
 private fun TileOptions(
     tile: EditTileViewModel,
     columns: Int,
     edit: ((QsTweaks) -> QsTweaks) -> Unit,
+    currentTiles: List<TileSpec>,
+    onSetTiles: (List<TileSpec>) -> Unit,
     onRemoveTile: (EditTileViewModel) -> Unit,
     onCloseTile: () -> Unit,
 ) {
@@ -318,9 +333,6 @@ private fun TileOptions(
         )
     }
     val spec = tile.tileSpec.spec
-    // The brightness and sound tiles are left without a sheet until the Slider tab.
-    val hasSheet = spec == QsMediaTileSize.TILE_SPEC || spec == QsVolumeSize.TILE_SPEC
-    if (spec in SheetOfTheirOwn && !hasSheet) return
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier =
@@ -332,6 +344,8 @@ private fun TileOptions(
         when (spec) {
             QsMediaTileSize.TILE_SPEC -> MediaSheet(edit)
             QsVolumeSize.TILE_SPEC -> VolumeSheet(edit)
+            QsVolumeSize.BRIGHTNESS_SPEC,
+            QsVolumeSize.SOUND_SPEC -> SlidersTab(edit, currentTiles, onSetTiles)
             else -> TileSheet(spec, columns, edit)
         }
     }
@@ -386,15 +400,6 @@ private fun TileSheet(spec: String, columns: Int, edit: ((QsTweaks) -> QsTweaks)
         change { it.copy(hideLabel = hide) }
     }
 }
-
-/** The tiles whose size and look are the sliders' and the player's, not the grid's. */
-private val SheetOfTheirOwn =
-    setOf(
-        QsMediaTileSize.TILE_SPEC,
-        QsVolumeSize.TILE_SPEC,
-        QsVolumeSize.BRIGHTNESS_SPEC,
-        QsVolumeSize.SOUND_SPEC,
-    )
 
 private val Swatches: List<Pair<Long, Int>> =
     listOf(
@@ -563,6 +568,186 @@ private fun VolumeSheet(edit: ((QsTweaks) -> QsTweaks) -> Unit) {
         selected = tweaks.volumeTicks != false,
     ) { ticks ->
         edit { it.copy(volumeTicks = false.takeIf { !ticks }) }
+    }
+}
+
+private val MediaSpec = TileSpec.create(QsMediaTileSize.TILE_SPEC)
+private val BrightnessSpec = TileSpec.create(QsVolumeSize.BRIGHTNESS_SPEC)
+private val VolumeSpec = TileSpec.create(QsVolumeSize.TILE_SPEC)
+private val SoundSpec = TileSpec.create(QsVolumeSize.SOUND_SPEC)
+
+/** Where the brightness bar sits when it is not a tile. */
+private enum class SliderPlace(@StringRes val label: Int) {
+    Top(R.string.qs_custom_slider_top),
+    Under(R.string.qs_custom_slider_under),
+    Off(R.string.qs_custom_off),
+}
+
+private fun List<TileSpec>.withSound(on: Boolean): List<TileSpec> {
+    val rest = filter { it != SoundSpec }
+    if (!on) return rest
+    val at = rest.indexOfLast { it == VolumeSpec || it == BrightnessSpec }
+    return if (at < 0) rest + SoundSpec else rest.take(at + 1) + SoundSpec + rest.drop(at + 1)
+}
+
+/**
+ * Puts the player and the slider tiles in the order of [layout], at the front of the panel, and
+ * gives them the sizes it needs. The other tiles keep their order after them.
+ */
+private fun applySliderLayout(
+    layout: QsSliderLayout,
+    current: List<TileSpec>,
+    onSetTiles: (List<TileSpec>) -> Unit,
+    edit: ((QsTweaks) -> QsTweaks) -> Unit,
+) {
+    val sound = SoundSpec in current
+    val media = MediaSpec.takeIf { it in current }
+    val sliders = listOfNotNull(BrightnessSpec, VolumeSpec, SoundSpec.takeIf { sound })
+    val front =
+        when (layout) {
+            QsSliderLayout.PAIR,
+            QsSliderLayout.CORNER -> listOfNotNull(media) + sliders
+            QsSliderLayout.SPLIT,
+            QsSliderLayout.RAILS -> sliders + listOfNotNull(media)
+        }
+    onSetTiles(front + current.filter { it !in front && it != SoundSpec })
+    edit {
+        it.copy(
+            sliderLayout = layout,
+            brightnessSize =
+                when (layout) {
+                    QsSliderLayout.PAIR -> QsVolumeSize.TALL
+                    QsSliderLayout.SPLIT -> QsVolumeSize.HALF
+                    QsSliderLayout.RAILS -> QsVolumeSize.WIDE
+                    QsSliderLayout.CORNER -> QsVolumeSize.SMALL
+                },
+            volumeSize =
+                when (layout) {
+                    QsSliderLayout.PAIR -> QsVolumeSize.TALL
+                    QsSliderLayout.SPLIT -> QsVolumeSize.HALF
+                    QsSliderLayout.RAILS -> if (sound) QsVolumeSize.HALF else QsVolumeSize.WIDE
+                    QsSliderLayout.CORNER -> QsVolumeSize.SMALL
+                },
+            soundSize = QsVolumeSize.HALF,
+            volumeLook = it.volumeLook.takeIf { look -> look != QsVolumeLook.STACK },
+            mediaSize =
+                if (layout == QsSliderLayout.PAIR || layout == QsSliderLayout.CORNER) {
+                    QsMediaTileSize.SQUARE
+                } else {
+                    it.mediaSize
+                },
+            mediaPlace = QsMediaPlace.GRID,
+            slidersByMedia = false,
+        )
+    }
+}
+
+/**
+ * The Sliders tab: a layout (A to D) that places the player and the Brightness, Volume and Sound
+ * mode tiles and sizes them, one look and percent setting for both sliders, and the sound mode
+ * switch. Without a Brightness tile the brightness bar's place is set here too.
+ */
+@Composable
+private fun SlidersTab(
+    edit: ((QsTweaks) -> QsTweaks) -> Unit,
+    current: List<TileSpec>,
+    onSetTiles: (List<TileSpec>) -> Unit,
+) {
+    val tweaks = LocalQsTweaks.current
+    val sound = SoundSpec in current
+    ChipRow(
+        title = stringResource(R.string.qs_custom_sliders_layout),
+        options =
+            listOf(
+                QsSliderLayout.PAIR to stringResource(R.string.qs_custom_sliders_pair),
+                QsSliderLayout.SPLIT to stringResource(R.string.qs_custom_sliders_split),
+                QsSliderLayout.RAILS to stringResource(R.string.qs_custom_sliders_rails),
+                QsSliderLayout.CORNER to stringResource(R.string.qs_custom_sliders_corner),
+            ),
+        selected = tweaks.sliderLayout ?: QsSliderLayout.PAIR,
+    ) { layout ->
+        applySliderLayout(layout, current, onSetTiles, edit)
+    }
+    ChipRow(
+        title = stringResource(R.string.qs_custom_media_look),
+        options = sliderLooks(),
+        selected = tweaks.brightnessLook,
+    ) { look ->
+        edit { it.copy(brightnessLook = look, volumeLook = look) }
+    }
+    ChipRow(
+        title = stringResource(R.string.qs_custom_sliders_percent),
+        options =
+            listOf(
+                QsSliderPercent.ALWAYS to stringResource(R.string.qs_custom_sliders_always),
+                QsSliderPercent.DRAG to stringResource(R.string.qs_custom_sliders_dragging),
+                QsSliderPercent.OFF to stringResource(R.string.qs_custom_off),
+            ),
+        selected = tweaks.sliderPercent ?: QsSliderPercent.ALWAYS,
+    ) { percent ->
+        edit { it.copy(sliderPercent = percent.takeIf { p -> p != QsSliderPercent.ALWAYS }) }
+    }
+    ChipRow(
+        title = stringResource(R.string.qs_custom_sliders_sound),
+        options =
+            listOf(
+                true to stringResource(R.string.qs_custom_volume_on),
+                false to stringResource(R.string.qs_custom_off),
+            ),
+        selected = sound,
+    ) { on ->
+        if (on != sound) onSetTiles(current.withSound(on))
+    }
+    if (BrightnessSpec !in current) {
+        RowTitle(stringResource(R.string.qs_custom_sliders_bar))
+        SliderTab(edit)
+    }
+}
+
+/** Where the brightness bar goes: over the tiles, under them, or nowhere. */
+@Composable
+private fun SliderTab(edit: ((QsTweaks) -> QsTweaks) -> Unit) {
+    val tweaks = LocalQsTweaks.current
+    val resolver = LocalContext.current.contentResolver
+    val place = remember(tweaks.sliderPlace) { readSliderPlace(resolver, tweaks.sliderPlace) }
+    ChipRow(
+        title = stringResource(R.string.qs_custom_slider_place),
+        options = SliderPlace.entries.map { it to stringResource(it.label) },
+        selected = place,
+    ) { picked ->
+        edit {
+            it.copy(
+                sliderPlace =
+                    when (picked) {
+                        SliderPlace.Top -> QsSliderPlace.TOP
+                        SliderPlace.Under -> QsSliderPlace.UNDER
+                        SliderPlace.Off -> QsSliderPlace.OFF
+                    }
+            )
+        }
+    }
+}
+
+/** The place the panel draws the bar at: the look's own, else the one in Settings. */
+private fun readSliderPlace(resolver: ContentResolver, place: QsSliderPlace?): SliderPlace {
+    val show =
+        LineageSettings.Secure.getIntForUser(
+            resolver,
+            LineageSettings.Secure.QS_SHOW_BRIGHTNESS_SLIDER,
+            1,
+            UserHandle.USER_CURRENT,
+        )
+    val position =
+        LineageSettings.Secure.getIntForUser(
+            resolver,
+            LineageSettings.Secure.QS_BRIGHTNESS_SLIDER_POSITION,
+            0,
+            UserHandle.USER_CURRENT,
+        )
+    return when {
+        place == QsSliderPlace.OFF || (place == null && show == 0) -> SliderPlace.Off
+        place == QsSliderPlace.TOP || (place == null && position == 0) -> SliderPlace.Top
+        else -> SliderPlace.Under
     }
 }
 

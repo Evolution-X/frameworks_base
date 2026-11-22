@@ -330,6 +330,8 @@ internal fun RemixEditor(editViewModel: EditModeViewModel, modifier: Modifier = 
                 editViewModel.removeTile(it.tileSpec)
             },
             onCloseTile = { tapped = null },
+            currentTiles = currentSpecs,
+            onSetTiles = editViewModel::setTiles,
             open = dockOpen,
             onOpenChange = { dockOpen = it },
         )
