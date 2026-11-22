@@ -26,8 +26,10 @@ import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.dagger.qualifiers.Background
 import com.android.systemui.qs.QSEditEvent
+import com.android.systemui.qs.panels.data.repository.QsPanelStyleRepository
 import com.android.systemui.qs.panels.domain.interactor.EditTilesListInteractor
 import com.android.systemui.qs.panels.domain.interactor.GridLayoutTypeInteractor
+import com.android.systemui.qs.panels.domain.interactor.QSPaginatedRowsInteractor
 import com.android.systemui.qs.panels.domain.interactor.TilesAvailabilityInteractor
 import com.android.systemui.qs.panels.shared.model.GridLayoutType
 import com.android.systemui.qs.panels.ui.compose.GridLayout
@@ -72,6 +74,11 @@ constructor(
     @Background private val bgDispatcher: CoroutineDispatcher,
     gridLayoutTypeInteractor: GridLayoutTypeInteractor,
     gridLayoutMap: Map<GridLayoutType, @JvmSuppressWildcards GridLayout>,
+    // The Remix editor lays its preview out like the Remix panel and changes the Remix look.
+    val styleRepository: QsPanelStyleRepository,
+    val columnsViewModelFactory: QSColumnsViewModel.Factory,
+    val iconTilesViewModel: IconTilesViewModel,
+    val paginatedRowsInteractor: QSPaginatedRowsInteractor,
 ) {
     private val _isEditing = MutableStateFlow(false)
 
