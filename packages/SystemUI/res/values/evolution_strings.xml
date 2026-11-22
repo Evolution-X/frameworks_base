@@ -570,5 +570,6 @@
     <string name="qs_custom_slider_place">Where</string>
     <string name="qs_custom_slider_top">Top</string>
     <string name="qs_custom_slider_under">Under tiles</string>
+    <string name="qs_custom_slider_by_player">By the player</string>
     <string name="qs_custom_mix_footer">Footer buttons</string>
 </resources>

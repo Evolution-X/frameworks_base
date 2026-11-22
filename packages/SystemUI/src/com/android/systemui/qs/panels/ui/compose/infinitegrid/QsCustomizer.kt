@@ -576,10 +576,11 @@ private val BrightnessSpec = TileSpec.create(QsVolumeSize.BRIGHTNESS_SPEC)
 private val VolumeSpec = TileSpec.create(QsVolumeSize.TILE_SPEC)
 private val SoundSpec = TileSpec.create(QsVolumeSize.SOUND_SPEC)
 
-/** Where the brightness bar sits when it is not a tile. */
+/** Where the brightness bar sits when it is not a tile, or the sliders sit by the player. */
 private enum class SliderPlace(@StringRes val label: Int) {
     Top(R.string.qs_custom_slider_top),
     Under(R.string.qs_custom_slider_under),
+    ByPlayer(R.string.qs_custom_slider_by_player),
     Off(R.string.qs_custom_off),
 }
 
@@ -704,32 +705,52 @@ private fun SlidersTab(
     }
 }
 
-/** Where the brightness bar goes: over the tiles, under them, or nowhere. */
+/** Where the brightness bar goes: over the tiles, under them, by the player, or nowhere. */
 @Composable
 private fun SliderTab(edit: ((QsTweaks) -> QsTweaks) -> Unit) {
     val tweaks = LocalQsTweaks.current
+    val theme = LocalQsStyle.current
     val resolver = LocalContext.current.contentResolver
-    val place = remember(tweaks.sliderPlace) { readSliderPlace(resolver, tweaks.sliderPlace) }
+    val place =
+        remember(tweaks.sliderPlace, tweaks.slidersByMedia, theme) {
+            readSliderPlace(resolver, tweaks.sliderPlace, tweaks.slidersByMediaIn(theme))
+        }
     ChipRow(
         title = stringResource(R.string.qs_custom_slider_place),
         options = SliderPlace.entries.map { it to stringResource(it.label) },
         selected = place,
     ) { picked ->
         edit {
+            val byPlayer = picked == SliderPlace.ByPlayer
             it.copy(
                 sliderPlace =
                     when (picked) {
                         SliderPlace.Top -> QsSliderPlace.TOP
                         SliderPlace.Under -> QsSliderPlace.UNDER
                         SliderPlace.Off -> QsSliderPlace.OFF
-                    }
+                        SliderPlace.ByPlayer ->
+                            it.sliderPlace.takeIf { current -> current != QsSliderPlace.OFF }
+                                ?: QsSliderPlace.TOP
+                    },
+                slidersByMedia = byPlayer,
+                // The sliders sit next to the full card, which only shows outside the grid.
+                mediaPlace =
+                    if (byPlayer && it.mediaPlaceIn(theme) == QsMediaPlace.GRID) {
+                        QsMediaPlace.BELOW
+                    } else {
+                        it.mediaPlace
+                    },
             )
         }
     }
 }
 
 /** The place the panel draws the bar at: the look's own, else the one in Settings. */
-private fun readSliderPlace(resolver: ContentResolver, place: QsSliderPlace?): SliderPlace {
+private fun readSliderPlace(
+    resolver: ContentResolver,
+    place: QsSliderPlace?,
+    byPlayer: Boolean,
+): SliderPlace {
     val show =
         LineageSettings.Secure.getIntForUser(
             resolver,
@@ -746,6 +767,7 @@ private fun readSliderPlace(resolver: ContentResolver, place: QsSliderPlace?): S
         )
     return when {
         place == QsSliderPlace.OFF || (place == null && show == 0) -> SliderPlace.Off
+        byPlayer -> SliderPlace.ByPlayer
         place == QsSliderPlace.TOP || (place == null && position == 0) -> SliderPlace.Top
         else -> SliderPlace.Under
     }
