@@ -556,4 +556,5 @@
     <string name="qs_custom_on_fill">On tiles</string>
     <string name="qs_custom_tab_color">Color</string>
     <string name="qs_custom_tab_mix">Mix</string>
+    <string name="qs_custom_mix_footer">Footer buttons</string>
 </resources>

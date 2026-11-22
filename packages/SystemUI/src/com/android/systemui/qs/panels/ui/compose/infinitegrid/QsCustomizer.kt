@@ -885,6 +885,9 @@ private fun MixTab(edit: ((QsTweaks) -> QsTweaks) -> Unit) {
     ThemeChips(stringResource(R.string.qs_custom_mix_media), tweaks.mediaFrom) { style ->
         edit { it.copy(mediaFrom = style) }
     }
+    ThemeChips(stringResource(R.string.qs_custom_mix_footer), tweaks.footerFrom) { style ->
+        edit { it.copy(footerFrom = style) }
+    }
 }
 
 @Composable
