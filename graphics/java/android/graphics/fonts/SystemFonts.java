@@ -25,7 +25,6 @@ import android.annotation.Nullable;
 import android.graphics.FontListParser;
 import android.graphics.Typeface;
 import android.os.LocaleList;
-import android.os.SystemProperties;
 import android.ravenwood.annotation.RavenwoodReplace;
 import android.text.FontConfig;
 import android.util.ArrayMap;
@@ -64,19 +63,6 @@ public final class SystemFonts {
     /** @hide */
     public static final String SYSTEM_FONT_DIR = getSystemFontDir();
     private static final String OEM_XML = "/product/etc/fonts_customization.xml";
-    private static final String OEM_EMOJI_XML_IOS = "/product/etc/fonts_customization_emoji_ios.xml";
-    private static final String OEM_EMOJI_XML_SAMSUNG =
-            "/product/etc/fonts_customization_emoji_samsung.xml";
-    private static final String OEM_EMOJI_XML_SWIFTUI =
-        "/product/etc/fonts_customization_emoji_swiftui.xml";
-    private static final String OEM_EMOJI_XML_FACEBOOK =
-        "/product/etc/fonts_customization_emoji_facebook.xml";
-    private static final String PROP_EMOJI_STYLE = "persist.sys.ax_emoji_style";
-    private static final String EMOJI_STYLE_ANDROID = "android";
-    private static final String EMOJI_STYLE_IOS = "ios";
-    private static final String EMOJI_STYLE_SAMSUNG = "samsung";
-    private static final String EMOJI_STYLE_SWIFTUI = "swiftui";
-    private static final String EMOJI_STYLE_FACEBOOK = "facebook";
     /** @hide */
     public static final String OEM_FONT_DIR = "/product/fonts/";
 
@@ -367,7 +353,7 @@ public final class SystemFonts {
             int configVersion
     ) {
         return getSystemFontConfigInternal(FONTS_XML, SYSTEM_FONT_DIR, OEM_XML,
-                getEmojiCustomizationXml(), OEM_FONT_DIR, updatableFontMap,
+                null, OEM_FONT_DIR, updatableFontMap,
                 lastModifiedDate, configVersion);
     }
 
@@ -384,7 +370,7 @@ public final class SystemFonts {
             int configVersion
     ) {
         return getSystemFontConfigInternal(fontsXml, SYSTEM_FONT_DIR, OEM_XML,
-                getEmojiCustomizationXml(), OEM_FONT_DIR, updatableFontMap,
+                null, OEM_FONT_DIR, updatableFontMap,
                 lastModifiedDate, configVersion);
     }
 
@@ -394,7 +380,7 @@ public final class SystemFonts {
      */
     public static @NonNull FontConfig getSystemPreinstalledFontConfig() {
         return getSystemFontConfigInternal(FONTS_XML, SYSTEM_FONT_DIR, OEM_XML,
-                getEmojiCustomizationXml(), OEM_FONT_DIR, null, 0, 0);
+                null, OEM_FONT_DIR, null, 0, 0);
     }
 
     /**
@@ -402,7 +388,7 @@ public final class SystemFonts {
      */
     public static @NonNull FontConfig getSystemPreinstalledFontConfigFromLegacyXml() {
         return getSystemFontConfigInternal(LEGACY_FONTS_XML, SYSTEM_FONT_DIR, OEM_XML,
-                getEmojiCustomizationXml(), OEM_FONT_DIR, null, 0, 0);
+                null, OEM_FONT_DIR, null, 0, 0);
     }
 
     /* package */ static @NonNull FontConfig getSystemFontConfigInternal(
@@ -435,24 +421,6 @@ public final class SystemFonts {
             return new FontConfig(Collections.emptyList(), Collections.emptyList(),
                     Collections.emptyList(), Collections.emptyList(), 0, 0);
         }
-    }
-
-    private static @Nullable String getEmojiCustomizationXml() {
-        final String style = SystemProperties.get(PROP_EMOJI_STYLE, EMOJI_STYLE_ANDROID);
-        if (EMOJI_STYLE_SAMSUNG.equals(style)) {
-            return OEM_EMOJI_XML_SAMSUNG;
-        }
-        if (EMOJI_STYLE_IOS.equals(style)) {
-            return OEM_EMOJI_XML_IOS;
-        }
-        if (EMOJI_STYLE_SWIFTUI.equals(style)) {
-            return OEM_EMOJI_XML_SWIFTUI;
-        }
-        if (EMOJI_STYLE_FACEBOOK.equals(style)) {
-            return OEM_EMOJI_XML_FACEBOOK;
-        }
-        // "android" and any unknown value keep the stock emoji font.
-        return null;
     }
 
     /**
