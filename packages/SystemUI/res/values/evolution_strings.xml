@@ -437,6 +437,14 @@
     <string name="qs_custom_tab_tiles">Tiles</string>
     <string name="qs_custom_tab_add">Add</string>
     <string name="qs_custom_all_added">Every tile is on the panel</string>
+    <string name="qs_custom_my_theme_name">My theme %1$d</string>
+    <string name="qs_custom_my_themes">My themes (hold to delete)</string>
+    <string name="qs_custom_save">Save as my theme</string>
+    <string name="qs_custom_copy_code">Copy code</string>
+    <string name="qs_custom_paste_code">Paste code</string>
+    <string name="qs_custom_code_copied">Theme code copied</string>
+    <string name="qs_custom_code_applied">Theme applied</string>
+    <string name="qs_custom_code_bad">No theme code to paste</string>
     <string name="qs_custom_resize">Resize</string>
     <string name="qs_custom_add_tile">Add a tile</string>
     <string name="qs_custom_remove">Remove</string>

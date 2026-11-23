@@ -5,12 +5,16 @@
 
 package com.android.systemui.qs.panels.ui.compose.infinitegrid
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.ContentResolver
 import android.os.UserHandle
 import androidx.annotation.StringRes
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -59,6 +63,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.systemui.common.ui.compose.load
 import com.android.systemui.qs.panels.data.repository.QsPanelStyleRepository
 import com.android.systemui.qs.panels.shared.model.LocalQsStyle
@@ -81,6 +86,7 @@ import com.android.systemui.qs.panels.shared.model.QsTileLabel
 import com.android.systemui.qs.panels.shared.model.QsTileSizing
 import com.android.systemui.qs.panels.shared.model.QsTileTweak
 import com.android.systemui.qs.panels.shared.model.QsTweaks
+import com.android.systemui.qs.panels.shared.model.QsTweaksCodec
 import com.android.systemui.qs.panels.shared.model.QsVolumeLook
 import com.android.systemui.qs.panels.shared.model.QsVolumeShow
 import com.android.systemui.qs.panels.shared.model.QsVolumeSize
@@ -886,6 +892,11 @@ private fun IconRow(selected: String?, onPick: (String?) -> Unit) {
 private fun ThemeTab(repository: QsPanelStyleRepository) {
     val tweaks = LocalQsTweaks.current
     val theme = LocalQsStyle.current
+    val context = LocalContext.current
+    val myThemes by repository.myThemes.collectAsStateWithLifecycle()
+    var note by remember { mutableStateOf<Int?>(null) }
+    val clipboard = remember(context) { context.getSystemService(ClipboardManager::class.java) }
+    val myThemeName = stringResource(R.string.qs_custom_my_theme_name, myThemes.size + 1)
     ChipRow(
         title = stringResource(R.string.qs_custom_start_from),
         options = QsStyle.entries.map { it to stringResource(it.label) },
@@ -901,6 +912,55 @@ private fun ThemeTab(repository: QsPanelStyleRepository) {
             enabled = tweaks != QsTweaks(),
             onClick = repository::resetTweaks,
         )
+        ActionChip(stringResource(R.string.qs_custom_save)) {
+            repository.saveMyTheme(myThemeName)
+        }
+        ActionChip(stringResource(R.string.qs_custom_copy_code)) {
+            val code = QsTweaksCodec.toCode(repository.currentAsMyTheme(myThemeName))
+            clipboard?.setPrimaryClip(ClipData.newPlainText(myThemeName, code))
+            note = R.string.qs_custom_code_copied
+        }
+        ActionChip(stringResource(R.string.qs_custom_paste_code)) {
+            val pasted =
+                clipboard
+                    ?.primaryClip
+                    ?.takeIf { it.itemCount > 0 }
+                    ?.getItemAt(0)
+                    ?.coerceToText(context)
+                    ?.toString()
+            val pastedTheme = QsTweaksCodec.fromCode(pasted)
+            if (pastedTheme != null) repository.applyMyTheme(pastedTheme)
+            note =
+                if (pastedTheme != null) {
+                    R.string.qs_custom_code_applied
+                } else {
+                    R.string.qs_custom_code_bad
+                }
+        }
+    }
+    note?.let {
+        Text(
+            text = stringResource(it),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    if (myThemes.isNotEmpty()) {
+        RowTitle(stringResource(R.string.qs_custom_my_themes))
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            myThemes.forEach { myTheme ->
+                OptionChip(
+                    text = myTheme.name,
+                    selected = false,
+                    onLongClick = { repository.deleteMyTheme(myTheme) },
+                ) {
+                    repository.applyMyTheme(myTheme)
+                }
+            }
+        }
     }
 }
 
@@ -1139,8 +1199,14 @@ private fun <T> ChipRow(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun OptionChip(text: String, selected: Boolean, onClick: () -> Unit) {
+private fun OptionChip(
+    text: String,
+    selected: Boolean,
+    onLongClick: (() -> Unit)? = null,
+    onClick: () -> Unit,
+) {
     val scheme = MaterialTheme.colorScheme
     Box(
         contentAlignment = Alignment.Center,
@@ -1148,7 +1214,7 @@ private fun OptionChip(text: String, selected: Boolean, onClick: () -> Unit) {
             Modifier.height(40.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(if (selected) scheme.primary else scheme.surfaceContainerHighest)
-                .clickable(onClick = onClick)
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
                 .semantics {
                     role = Role.RadioButton
                     this.selected = selected
