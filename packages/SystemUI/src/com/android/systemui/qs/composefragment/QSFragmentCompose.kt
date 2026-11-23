@@ -141,6 +141,8 @@ import com.android.systemui.media.controls.domain.pipeline.MediaDataManager
 import com.android.systemui.media.controls.ui.view.MediaHost
 import com.android.systemui.media.dialog.MediaOutputDialogManager
 import com.android.systemui.media.remedia.shared.flag.MediaControlsInComposeFlag
+import com.android.systemui.media.remedia.ui.compose.LegacyMediaSource
+import com.android.systemui.media.remedia.ui.compose.LocalLegacyMediaSource
 import com.android.systemui.media.remedia.ui.compose.Media
 import com.android.systemui.media.remedia.ui.compose.MediaPresentationStyle
 import com.android.systemui.media.remedia.ui.compose.MediaUiBehavior
@@ -268,6 +270,13 @@ constructor(
     /** Media sessions for the ColorOS-style QS media card. */
     private val colorOSMediaSessions = ColorOSMediaSessions()
 
+    /** The session the Remix Media tile draws while the media controls are not in compose. */
+    private val legacyMediaSource =
+        LegacyMediaSource(
+            current = { colorOSMediaSessions.current },
+            open = { intent -> activityStarter.postStartActivityDismissingKeyguard(intent) },
+        )
+
     /**
      * The portrait ColorOS layout shrinks to fit, so QS never scrolls and a swipe up always
      * collapses it. When it cannot fit, and in landscape where the panel is too short, it scrolls
@@ -342,6 +351,7 @@ constructor(
                                     (if (remixStyle) remixTweaks else QsTweaks()),
                                 LocalQsMediaStyle provides
                                     (if (remixStyle) remixTweaks.mediaFrom else null),
+                                LocalLegacyMediaSource provides legacyMediaSource,
                                 LocalQsBrightness provides
                                     viewModel.containerViewModel.brightnessSliderViewModel,
                                 LocalNothingQsOsColors provides (nothingStyle && nothingOsColors),

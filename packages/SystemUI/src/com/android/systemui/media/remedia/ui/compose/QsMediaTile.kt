@@ -5,6 +5,7 @@
 
 package com.android.systemui.media.remedia.ui.compose
 
+import android.app.PendingIntent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,6 +29,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,12 +50,16 @@ import androidx.compose.ui.unit.dp
 import com.android.compose.animation.Expandable
 import com.android.compose.animation.rememberExpandableController
 import com.android.compose.theme.LocalAndroidColorScheme
+import com.android.systemui.animation.Expandable as AnimationExpandable
+import com.android.systemui.common.shared.model.Icon as IconModel
 import com.android.systemui.common.ui.compose.Icon
 import com.android.systemui.lifecycle.rememberViewModel
+import com.android.systemui.media.controls.shared.model.MediaAction
+import com.android.systemui.media.controls.shared.model.MediaData
+import com.android.systemui.media.remedia.shared.flag.MediaControlsInComposeFlag
 import com.android.systemui.media.remedia.ui.viewmodel.MediaCardViewModel
 import com.android.systemui.media.remedia.ui.viewmodel.MediaCarouselVisibility
 import com.android.systemui.media.remedia.ui.viewmodel.MediaNavigationViewModel
-import com.android.systemui.media.remedia.ui.viewmodel.MediaPlayPauseActionViewModel
 import com.android.systemui.media.remedia.ui.viewmodel.MediaSecondaryActionViewModel
 import com.android.systemui.media.remedia.ui.viewmodel.MediaViewModel
 import com.android.systemui.qs.panels.shared.model.LocalQsMediaStyle
@@ -65,8 +73,34 @@ import com.android.systemui.res.R
 import kotlin.math.PI
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private const val SEGMENTS = 14
+
+/**
+ * Where the Media tile gets its session while the media controls are not in compose. The compose
+ * media pipeline does not run then, so the tile reads the legacy one, like the ColorOS card does.
+ */
+class LegacyMediaSource(val current: () -> MediaData?, val open: (PendingIntent) -> Unit)
+
+val LocalLegacyMediaSource = staticCompositionLocalOf<LegacyMediaSource?> { null }
+
+/** What the tile draws for one media session, whichever media pipeline it comes from. */
+private data class TileSession(
+    val title: String,
+    val subtitle: String,
+    val art: IconModel?,
+    val playPause: TileAction?,
+    val previous: TileAction?,
+    val next: TileAction?,
+    /** Null when the session has no progress to show, as with the legacy media pipeline. */
+    val progress: Float?,
+    val contentDescription: String,
+    val onClick: ((AnimationExpandable) -> Unit)?,
+)
+
+private data class TileAction(val icon: IconModel?, val onClick: (() -> Unit)?)
 
 @Composable
 fun QsMediaTile(
@@ -77,15 +111,22 @@ fun QsMediaTile(
     squishiness: () -> Float = { 1f },
 ) {
     val context = LocalContext.current
-    val viewModel: MediaViewModel =
-        rememberViewModel("QsMediaTile.viewModel") {
-            viewModelFactory.create(
-                context = context,
-                carouselVisibility = MediaCarouselVisibility.WhenNotEmpty,
-            )
+    // The compose media pipeline only runs while the media controls are in compose. Without that
+    // the session comes from the legacy pipeline.
+    val card: TileSession? =
+        if (MediaControlsInComposeFlag.isEnabled) {
+            val viewModel: MediaViewModel =
+                rememberViewModel("QsMediaTile.viewModel") {
+                    viewModelFactory.create(
+                        context = context,
+                        carouselVisibility = MediaCarouselVisibility.WhenNotEmpty,
+                    )
+                }
+            val cards = viewModel.cards
+            (cards.getOrNull(viewModel.currentIndex) ?: cards.firstOrNull())?.toTileSession()
+        } else {
+            rememberLegacyTileSession()
         }
-    val cards = viewModel.cards
-    val card = cards.getOrNull(viewModel.currentIndex) ?: cards.firstOrNull()
     val idle = stringResource(R.string.qs_media_tile_idle)
     CompositionLocalProvider(LocalQsStyle provides (LocalQsMediaStyle.current ?: LocalQsStyle.current)) {
         val tweaks = LocalQsTweaks.current
@@ -106,7 +147,7 @@ fun QsMediaTile(
                     .semantics { contentDescription = card?.contentDescription ?: idle }
         ) {
             if (cover) {
-                CoverBackground(card?.background, Modifier.matchParentSize())
+                CoverBackground(card?.art, Modifier.matchParentSize())
             } else {
                 StyledCardBackground(look, Modifier.matchParentSize())
             }
@@ -154,7 +195,7 @@ private fun stockLook(): MediaCardLook {
 
 @Composable
 private fun SquareContent(
-    card: MediaCardViewModel?,
+    card: TileSession?,
     look: MediaCardLook,
     idle: String,
     parts: TileParts,
@@ -167,7 +208,7 @@ private fun SquareContent(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            if (parts.art) ArtThumbnail(card?.background, look.artShape, 48.dp)
+            if (parts.art) ArtThumbnail(card?.art, look.artShape, 48.dp)
             Titles(card, look, idle, Modifier.weight(1f))
         }
         Progress(card, look)
@@ -177,7 +218,7 @@ private fun SquareContent(
 
 @Composable
 private fun TallContent(
-    card: MediaCardViewModel?,
+    card: TileSession?,
     look: MediaCardLook,
     idle: String,
     parts: TileParts,
@@ -191,7 +232,7 @@ private fun TallContent(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 contentAlignment = Alignment.Center,
             ) {
-                ArtThumbnail(card?.background, look.artShape, minOf(maxWidth, maxHeight))
+                ArtThumbnail(card?.art, look.artShape, minOf(maxWidth, maxHeight))
             }
             Titles(card, look, idle, Modifier.fillMaxWidth())
         } else {
@@ -204,7 +245,7 @@ private fun TallContent(
 
 @Composable
 private fun FullContent(
-    card: MediaCardViewModel?,
+    card: TileSession?,
     look: MediaCardLook,
     idle: String,
     parts: TileParts,
@@ -215,7 +256,7 @@ private fun FullContent(
     ) {
         if (parts.art) {
             BoxWithConstraints(Modifier.fillMaxHeight().aspectRatio(1f)) {
-                ArtThumbnail(card?.background, look.artShape, maxHeight)
+                ArtThumbnail(card?.art, look.artShape, maxHeight)
             }
         }
         Column(
@@ -230,22 +271,22 @@ private fun FullContent(
 }
 
 @Composable
-private fun Controls(card: MediaCardViewModel?, look: MediaCardLook, parts: TileParts) {
+private fun Controls(card: TileSession?, look: MediaCardLook, parts: TileParts) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement =
             if (parts.skipButtons) Arrangement.SpaceBetween else Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (parts.skipButtons) Secondary(card?.navigation?.left, look, 36.dp)
-        PlayPause(card?.playPauseAction, look, 44.dp)
-        if (parts.skipButtons) Secondary(card?.navigation?.right, look, 36.dp)
+        if (parts.skipButtons) Secondary(card?.previous, look, 36.dp)
+        PlayPause(card?.playPause, look, 44.dp)
+        if (parts.skipButtons) Secondary(card?.next, look, 36.dp)
     }
 }
 
 @Composable
 private fun WideContent(
-    card: MediaCardViewModel?,
+    card: TileSession?,
     look: MediaCardLook,
     idle: String,
     parts: TileParts,
@@ -259,27 +300,27 @@ private fun WideContent(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (parts.art) ArtThumbnail(card?.background, look.artShape, art)
+            if (parts.art) ArtThumbnail(card?.art, look.artShape, art)
             Titles(card, look, idle, Modifier.weight(1f))
-            if (skip) Secondary(card?.navigation?.left, look, 34.dp)
-            PlayPause(card?.playPauseAction, look, play)
-            if (skip) Secondary(card?.navigation?.right, look, 34.dp)
+            if (skip) Secondary(card?.previous, look, 34.dp)
+            PlayPause(card?.playPause, look, play)
+            if (skip) Secondary(card?.next, look, 34.dp)
         }
     }
 }
 
 @Composable
-private fun SmallContent(card: MediaCardViewModel?, look: MediaCardLook) {
+private fun SmallContent(card: TileSession?, look: MediaCardLook) {
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         val art = (minOf(maxWidth, maxHeight) - 12.dp).coerceIn(24.dp, 56.dp)
-        val action = card?.playPauseAction
+        val action = card?.playPause
         val onClick = action?.onClick
         Box(
             modifier =
                 Modifier.size(art).let { if (onClick != null) it.clickable(onClick = onClick) else it },
             contentAlignment = Alignment.Center,
         ) {
-            ArtThumbnail(card?.background, look.artShape, art)
+            ArtThumbnail(card?.art, look.artShape, art)
             Box(
                 modifier = Modifier.size(28.dp).clip(CircleShape).background(Color.Black.copy(alpha = .45f)),
                 contentAlignment = Alignment.Center,
@@ -297,7 +338,7 @@ private fun SmallContent(card: MediaCardViewModel?, look: MediaCardLook) {
 
 @Composable
 private fun Titles(
-    card: MediaCardViewModel?,
+    card: TileSession?,
     look: MediaCardLook,
     idle: String,
     modifier: Modifier = Modifier,
@@ -324,9 +365,11 @@ private fun Titles(
 }
 
 @Composable
-private fun Progress(card: MediaCardViewModel?, look: MediaCardLook) {
-    val progress =
-        ((card?.navigation as? MediaNavigationViewModel.Showing)?.progress ?: 0f).coerceIn(0f, 1f)
+private fun Progress(card: TileSession?, look: MediaCardLook) {
+    // A session without progress, as from the legacy pipeline, draws no bar. The idle tile keeps an
+    // empty one.
+    if (card != null && card.progress == null) return
+    val progress = (card?.progress ?: 0f).coerceIn(0f, 1f)
     val track = look.text.copy(alpha = .16f)
     when (look.progress) {
         MediaProgress.None -> {}
@@ -378,7 +421,7 @@ private fun Progress(card: MediaCardViewModel?, look: MediaCardLook) {
 }
 
 @Composable
-private fun PlayPause(action: MediaPlayPauseActionViewModel?, look: MediaCardLook, size: Dp) {
+private fun PlayPause(action: TileAction?, look: MediaCardLook, size: Dp) {
     val shape = RoundedCornerShape(percent = (look.playCorner * 100).roundToInt().coerceIn(0, 50))
     val border = look.playBorder
     val onClick = action?.onClick
@@ -401,9 +444,8 @@ private fun PlayPause(action: MediaPlayPauseActionViewModel?, look: MediaCardLoo
 }
 
 @Composable
-private fun Secondary(action: MediaSecondaryActionViewModel?, look: MediaCardLook, size: Dp) {
-    val button = action as? MediaSecondaryActionViewModel.Action
-    val onClick = button?.onClick
+private fun Secondary(action: TileAction?, look: MediaCardLook, size: Dp) {
+    val onClick = action?.onClick
     Box(
         modifier =
             Modifier.size(size).clip(CircleShape).let {
@@ -411,8 +453,9 @@ private fun Secondary(action: MediaSecondaryActionViewModel?, look: MediaCardLoo
             },
         contentAlignment = Alignment.Center,
     ) {
-        if (button != null) {
-            Icon(icon = button.icon, modifier = Modifier.size(size * .55f), tint = look.text)
+        val icon = action?.icon
+        if (icon != null) {
+            Icon(icon = icon, modifier = Modifier.size(size * .55f), tint = look.text)
         }
     }
 }
@@ -430,3 +473,64 @@ private fun PlayGlyph(color: Color, modifier: Modifier) {
         drawPath(path, color)
     }
 }
+
+private fun MediaCardViewModel.toTileSession(): TileSession =
+    TileSession(
+        title = title,
+        subtitle = subtitle,
+        art = background,
+        playPause = playPauseAction?.let { TileAction(it.icon, it.onClick) },
+        previous = (navigation.left as? MediaSecondaryActionViewModel.Action)?.toTileAction(),
+        next = (navigation.right as? MediaSecondaryActionViewModel.Action)?.toTileAction(),
+        progress = (navigation as? MediaNavigationViewModel.Showing)?.progress ?: 0f,
+        contentDescription = contentDescription,
+        onClick = onClick,
+    )
+
+private fun MediaSecondaryActionViewModel.Action.toTileAction(): TileAction =
+    TileAction(icon, onClick)
+
+/** The session of the legacy media pipeline, which has no progress to show. */
+@Composable
+private fun rememberLegacyTileSession(): TileSession? {
+    val source = LocalLegacyMediaSource.current
+    val data = source?.current?.invoke()
+    val context = LocalContext.current
+    val art by
+        produceState<IconModel?>(initialValue = null, data?.artwork) {
+            value =
+                data?.artwork?.let { artwork ->
+                    withContext(Dispatchers.IO) {
+                        runCatching {
+                                artwork.loadDrawable(context)?.let { IconModel.Loaded(it, null) }
+                            }
+                            .getOrNull()
+                    }
+                }
+        }
+    if (source == null || data == null) return null
+    val buttons = data.semanticActions
+    val clickIntent = data.clickIntent
+    return TileSession(
+        title = data.song?.toString()?.takeIf { it.isNotEmpty() } ?: data.app?.toString().orEmpty(),
+        subtitle = data.artist?.toString().orEmpty(),
+        art = art,
+        playPause = buttons?.playOrPause.toTileAction(),
+        previous = buttons?.prevOrCustom.toTileAction(),
+        next = buttons?.nextOrCustom.toTileAction(),
+        progress = null,
+        contentDescription = listOfNotNull(data.song, data.artist, data.app).joinToString(", "),
+        onClick = clickIntent?.let { intent -> { _: AnimationExpandable -> source.open(intent) } },
+    )
+}
+
+private fun MediaAction?.toTileAction(): TileAction? =
+    this?.let { media ->
+        TileAction(
+            icon =
+                media.icon?.let { icon ->
+                    IconModel.Loaded(icon.constantState?.newDrawable()?.mutate() ?: icon, null)
+                },
+            onClick = media.action?.let { runnable -> { runnable.run() } },
+        )
+    }
