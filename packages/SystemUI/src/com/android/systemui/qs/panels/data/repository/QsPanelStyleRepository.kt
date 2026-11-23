@@ -11,6 +11,7 @@ import android.provider.Settings
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.dagger.qualifiers.Background
+import com.android.systemui.qs.panels.shared.model.QsMyTheme
 import com.android.systemui.qs.panels.shared.model.QsPanelStyle
 import com.android.systemui.qs.panels.shared.model.QsStyle
 import com.android.systemui.qs.panels.shared.model.QsTweaks
@@ -87,6 +88,17 @@ constructor(
                 tweakStore.value[remixStyle.value.value] ?: QsTweaks(),
             )
 
+    /** The looks the person saved, each a Remix look with its changes. */
+    val myThemes: StateFlow<List<QsMyTheme>> =
+        systemSettings
+            .stringSetting(QsTweaksCodec.MY_THEMES_SETTING)
+            .map { QsTweaksCodec.parseMyThemes(it) }
+            .stateIn(
+                scope,
+                SharingStarted.Eagerly,
+                QsTweaksCodec.parseMyThemes(readString(QsTweaksCodec.MY_THEMES_SETTING)),
+            )
+
     init {
         scope.launch {
             systemSettings.stringSetting(QsTweaksCodec.SETTING).collect { saved ->
@@ -115,6 +127,49 @@ constructor(
 
     /** Takes every change of the selected Remix look away. */
     fun resetTweaks() = editTweaks { QsTweaks() }
+
+    /** The selected Remix look with its changes, as a theme called [name]. */
+    fun currentAsMyTheme(name: String): QsMyTheme =
+        QsMyTheme(name, remixStyle.value, tweaks.value)
+
+    fun saveMyTheme(name: String) {
+        writeMyThemes(myThemes.value + currentAsMyTheme(name))
+    }
+
+    fun deleteMyTheme(theme: QsMyTheme) {
+        writeMyThemes(myThemes.value - theme)
+    }
+
+    /** Switches to the look of [myTheme] and gives it those changes. */
+    fun applyMyTheme(myTheme: QsMyTheme) {
+        tweakStore.update { store ->
+            if (myTheme.tweaks == QsTweaks()) {
+                store - myTheme.style.value
+            } else {
+                store + (myTheme.style.value to myTheme.tweaks)
+            }
+        }
+        saveTweaks()
+        setRemixStyle(myTheme.style)
+    }
+
+    private fun writeMyThemes(themes: List<QsMyTheme>) {
+        val json = QsTweaksCodec.writeMyThemes(themes)
+        scope.launch {
+            withContext(bgDispatcher) {
+                try {
+                    Settings.System.putStringForUser(
+                        context.contentResolver,
+                        QsTweaksCodec.MY_THEMES_SETTING,
+                        json,
+                        UserHandle.USER_CURRENT,
+                    )
+                } catch (_: Throwable) {
+                    // The list stays as it was.
+                }
+            }
+        }
+    }
 
     private fun saveTweaks() {
         saveTweaksJob?.cancel()
