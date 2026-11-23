@@ -59,6 +59,7 @@ import com.android.systemui.qs.composefragment.dagger.QSFragmentComposeLog
 import com.android.systemui.qs.composefragment.dagger.QSFragmentComposeModule
 import com.android.systemui.qs.footer.ui.viewmodel.FooterActionsViewModel
 import com.android.systemui.qs.panels.data.repository.QsPanelStyleRepository
+import com.android.systemui.qs.panels.domain.interactor.RemixDefaultTilesInteractor
 import com.android.systemui.qs.panels.domain.interactor.TileSquishinessInteractor
 import com.android.systemui.qs.panels.shared.model.QsMediaPlace
 import com.android.systemui.qs.panels.shared.model.QsMediaTileSize
@@ -130,6 +131,7 @@ constructor(
     val editModeButtonViewModelFactory: EditModeButtonViewModel.Factory,
     qsPanelStyleRepository: QsPanelStyleRepository,
     currentTilesInteractor: CurrentTilesInteractor,
+    private val remixDefaultTilesInteractor: RemixDefaultTilesInteractor,
 ) : Dumpable, ExclusiveActivatable() {
 
     val containerViewModel = containerViewModelFactory.create(supportsBrightnessMirroring = true)
@@ -555,6 +557,7 @@ constructor(
 
     override suspend fun onActivated() {
         initMediaHosts() // init regardless of using media (same as current QS).
+        remixDefaultTilesInteractor.start()
         coroutineScope {
             launch { hydrateSquishinessInteractor() }
             if (usingMedia && !MediaControlsInComposeFlag.isEnabled) {
