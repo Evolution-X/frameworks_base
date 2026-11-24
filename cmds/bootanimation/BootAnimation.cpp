@@ -101,6 +101,8 @@ static constexpr const char* OEM_USERSPACE_REBOOT_ANIMATION_FILE = "/oem/media/u
 static constexpr const char* SYSTEM_USERSPACE_REBOOT_ANIMATION_FILE = "/system/media/userspace-reboot.zip";
 
 static const char BOOTANIM_DATA_DIR_PATH[] = "/data/misc/bootanim";
+// Styles downloaded from Settings, as bootanimation_<name>.zip.
+static const char BOOTANIM_DOWNLOAD_DIR_PATH[] = "/data/misc/bootanim/styles";
 static const char BOOTANIM_TIME_DIR_NAME[] = "time";
 static const char BOOTANIM_TIME_DIR_PATH[] = "/data/misc/bootanim/time";
 static const char CLOCK_FONT_ASSET[] = "images/clock_font.png";
@@ -695,7 +697,8 @@ bool BootAnimation::preloadAnimation() {
 }
 
 // Resolves the requested boot animation. persist.sys.bootanim.name wins
-// ("custom" or a [a-z0-9_]+ key mapping to bootanimation_<key>.zip); the
+// ("custom" or a [a-z0-9_]+ key mapping to bootanimation_<key>.zip, looked up in
+// /product/media first and then in the styles Settings has downloaded); the
 // legacy index in persist.sys.bootanimation_style is only used when no
 // name has been set yet.
 static std::string resolveBootAnimationPath() {
@@ -707,8 +710,13 @@ static std::string resolveBootAnimationPath() {
         if (name != "default" &&
             name.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789_") ==
                     std::string::npos) {
-            const std::string path = "/product/media/bootanimation_" + name + ".zip";
+            const std::string file = "bootanimation_" + name + ".zip";
+            const std::string path = "/product/media/" + file;
             if (access(path.c_str(), R_OK) == 0) return path;
+            // Not built in, so it can only be a downloaded style. Like "custom" it lives on
+            // /data, which findBootAnimationFileInternal() waits for, and the default
+            // animation is the fallback when the file is gone.
+            return std::string(BOOTANIM_DOWNLOAD_DIR_PATH) + "/" + file;
         }
         return BOOT_ANIMATION_FILES[0];
     }
