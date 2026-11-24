@@ -62,11 +62,21 @@ constructor(
 ) : KeyguardSection() {
 
     private val chipViewId = R.id.ax_dynamic_bar_keyguard_chip
+    private val tapCatcherId = R.id.ax_dynamic_bar_keyguard_tap_catcher
     private var bindHandle: DisposableHandle? = null
     private var expansionHandle: DisposableHandle? = null
     private var enforceAction: Runnable? = null
 
     override fun addViews(constraintLayout: ConstraintLayout) {
+        val tapCatcher = View(context).apply {
+            id = tapCatcherId
+            visibility = View.GONE
+            isSoundEffectsEnabled = false
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            setOnClickListener { viewModel.keyguardExpansion.collapse() }
+        }
+        constraintLayout.addView(tapCatcher)
+
         // The chip morph draws past the view, towards the collapsed chip below it.
         val composeView = AxComposeView(context).apply {
             id = chipViewId
@@ -145,6 +155,8 @@ constructor(
         WallpaperDepthUtils.get()?.setDynamicBarExpanded(expanded)
         rebindPreDrawAction(constraintLayout, expanded)
         TransitionManager.endTransitions(constraintLayout)
+        constraintLayout.findViewById<View>(tapCatcherId)?.visibility =
+            if (expanded) View.VISIBLE else View.GONE
         if (expanded) {
             setHiddenViewsVisibility(constraintLayout, View.INVISIBLE)
             applyExpandedLp(composeView)
@@ -189,6 +201,13 @@ constructor(
         val extraBottomPx = extraBottomMarginPx(context)
         val wrap = ViewGroup.LayoutParams.WRAP_CONTENT
         constraintSet.apply {
+            constrainWidth(tapCatcherId, ConstraintSet.MATCH_CONSTRAINT)
+            constrainHeight(tapCatcherId, ConstraintSet.MATCH_CONSTRAINT)
+            connect(tapCatcherId, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP)
+            connect(tapCatcherId, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM)
+            connect(tapCatcherId, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
+            connect(tapCatcherId, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
+            setVisibility(tapCatcherId, if (expanded) View.VISIBLE else View.GONE)
             when {
                 expanded -> {
                     constrainWidth(chipViewId, ConstraintSet.MATCH_CONSTRAINT)
@@ -274,5 +293,6 @@ constructor(
         bindHandle = null
         indicationController.setSuppressIndication(false)
         constraintLayout.removeView(chipViewId)
+        constraintLayout.removeView(tapCatcherId)
     }
 }
