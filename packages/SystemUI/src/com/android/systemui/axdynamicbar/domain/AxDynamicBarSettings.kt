@@ -25,12 +25,13 @@ class AxDynamicBarSettings @Inject constructor(
     private val globalSettings: GlobalSettings,
 ) {
     companion object {
-        const val KEY_ENABLED = "ax_dynamic_bar_enabled"
-        const val KEY_EVENTS = "ax_dynamic_bar_events"
-        const val KEY_KEYGUARD_ENABLED = "ax_dynamic_bar_keyguard_enabled"
+        const val KEY_ENABLED = Settings.Secure.AX_DYNAMIC_BAR_ENABLED
+        const val KEY_EVENTS = Settings.Secure.AX_DYNAMIC_BAR_EVENTS
+        const val KEY_KEYGUARD_ENABLED = Settings.Secure.AX_DYNAMIC_BAR_KEYGUARD_ENABLED
         const val KEY_KEYGUARD_MUSIC_PILL_ENABLED = "ax_dynamic_bar_keyguard_music_pill"
-        const val KEY_KEYGUARD_BATTERY_CHIP_MODE = "ax_dynamic_bar_keyguard_battery_chip_mode"
-        const val KEY_COMPACT_NOTIFICATIONS = "ax_dynamic_bar_compact_notifications"
+        const val KEY_KEYGUARD_BATTERY_CHIP_MODE =
+            Settings.Secure.AX_DYNAMIC_BAR_KEYGUARD_BATTERY_CHIP_MODE
+        const val KEY_COMPACT_NOTIFICATIONS = Settings.Secure.AX_DYNAMIC_BAR_COMPACT_NOTIFICATIONS
         const val KEY_CHIP_STYLE = "ax_dynamic_bar_chip_style"
     }
 
