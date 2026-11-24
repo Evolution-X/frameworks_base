@@ -34,6 +34,7 @@ class AxDynamicBarSettings @Inject constructor(
         const val KEY_COMPACT_NOTIFICATIONS = Settings.Secure.AX_DYNAMIC_BAR_COMPACT_NOTIFICATIONS
         const val KEY_CHIP_STYLE = "ax_dynamic_bar_chip_style"
         const val KEY_HAPTICS = Settings.Secure.AX_DYNAMIC_BAR_HAPTICS
+        const val KEY_CHIP_MORPH = Settings.Secure.AX_DYNAMIC_BAR_CHIP_MORPH
     }
 
     private val contentResolver = context.contentResolver
@@ -61,6 +62,9 @@ class AxDynamicBarSettings @Inject constructor(
 
     private val _hapticsEnabled = MutableStateFlow(true)
     val hapticsEnabled: StateFlow<Boolean> = _hapticsEnabled.asStateFlow()
+
+    private val _chipMorphEnabled = MutableStateFlow(true)
+    val chipMorphEnabled: StateFlow<Boolean> = _chipMorphEnabled.asStateFlow()
 
     private val _disabledEventTypes = MutableStateFlow<Set<String>>(emptySet())
     val disabledEventTypes: StateFlow<Set<String>> = _disabledEventTypes.asStateFlow()
@@ -142,6 +146,12 @@ class AxDynamicBarSettings @Inject constructor(
             settingsObserver,
             UserHandle.USER_ALL,
         )
+        secureSettings.registerContentObserverForUserSync(
+            KEY_CHIP_MORPH,
+            false,
+            settingsObserver,
+            UserHandle.USER_ALL,
+        )
     }
 
     fun destroy() {
@@ -170,6 +180,8 @@ class AxDynamicBarSettings @Inject constructor(
             secureSettings.getIntForUser(KEY_COMPACT_NOTIFICATIONS, 1, UserHandle.USER_CURRENT) == 1
         _hapticsEnabled.value =
             secureSettings.getIntForUser(KEY_HAPTICS, 1, UserHandle.USER_CURRENT) == 1
+        _chipMorphEnabled.value =
+            secureSettings.getIntForUser(KEY_CHIP_MORPH, 1, UserHandle.USER_CURRENT) == 1
 
         val json = secureSettings.getStringForUser(KEY_EVENTS, UserHandle.USER_CURRENT) ?: ""
         _disabledEventTypes.value =
