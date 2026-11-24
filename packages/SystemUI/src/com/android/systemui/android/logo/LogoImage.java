@@ -18,20 +18,22 @@
 
 package com.android.systemui.android.logo;
 
+import android.annotation.NonNull;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.ColorStateList;
+import android.content.res.Configuration;
 import android.database.ContentObserver;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
-import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.Settings;
@@ -47,6 +49,7 @@ import com.android.systemui.Dependency;
 import com.android.systemui.plugins.DarkIconDispatcher;
 import com.android.systemui.plugins.DarkIconDispatcher.DarkReceiver;
 import com.android.systemui.res.R;
+import com.android.systemui.settings.UserTracker;
 
 import java.util.ArrayList;
 
@@ -56,6 +59,44 @@ public abstract class LogoImage extends ImageView implements DarkReceiver {
 
     public static final int LOGO_STYLE_CUSTOM = 34;
 
+    // Indexed by the STATUS_BAR_LOGO_STYLE setting; out of range falls back to index 0.
+    private static final int[] LOGO_RES_IDS = {
+            R.drawable.ic_evolution_logo,
+            R.drawable.ic_android_logo,
+            R.drawable.ic_adidas,
+            R.drawable.ic_alien,
+            R.drawable.ic_apple_logo,
+            R.drawable.ic_avengers,
+            R.drawable.ic_batman,
+            R.drawable.ic_batman_tdk,
+            R.drawable.ic_beats,
+            R.drawable.ic_biohazard,
+            R.drawable.ic_blackberry,
+            R.drawable.ic_cannabis,
+            R.drawable.ic_emoticon_cool,
+            R.drawable.ic_emoticon_devil,
+            R.drawable.ic_fire,
+            R.drawable.ic_heart,
+            R.drawable.ic_nike,
+            R.drawable.ic_pac_man,
+            R.drawable.ic_puma,
+            R.drawable.ic_rog,
+            R.drawable.ic_spiderman,
+            R.drawable.ic_superman,
+            R.drawable.ic_windows,
+            R.drawable.ic_xbox,
+            R.drawable.ic_ghost,
+            R.drawable.ic_ninja,
+            R.drawable.ic_robot,
+            R.drawable.ic_ironman,
+            R.drawable.ic_captain_america,
+            R.drawable.ic_flash,
+            R.drawable.ic_tux_logo,
+            R.drawable.ic_ubuntu_logo,
+            R.drawable.ic_mint_logo,
+            R.drawable.ic_amogus,
+    };
+
     private Context mContext;
 
     private boolean mAttached;
@@ -63,6 +104,7 @@ public abstract class LogoImage extends ImageView implements DarkReceiver {
     private boolean mShowLogo;
     public int mLogoPosition;
     private int mLogoStyle;
+    private int mLoadedStyle = -1;
     private int mTintColor = Color.WHITE;
     // Whether the status bar (disable flags, keyguard, etc.) currently allows the logo.
     private boolean mAllowedBySystem = true;
@@ -74,7 +116,35 @@ public abstract class LogoImage extends ImageView implements DarkReceiver {
     private boolean mCustomImageLoaded = false;
     private Drawable mCustomImageDrawable = null;
 
-    private ContentObserver mSettingsObserver;
+    private final ContentObserver mSettingsObserver =
+            new ContentObserver(new Handler(Looper.getMainLooper())) {
+                @Override
+                public void onChange(boolean selfChange) {
+                    super.onChange(selfChange);
+                    if (mUserUnlocked) {
+                        updateSettings();
+                    } else {
+                        Log.d(TAG, "Settings changed but user is locked, deferring");
+                    }
+                }
+            };
+
+    private final UserTracker.Callback mUserChangedCallback =
+            new UserTracker.Callback() {
+                @Override
+                public void onUserChanged(int newUser, @NonNull Context userContext) {
+                    mUserUnlocked = isUserUnlocked();
+                    mLoadedStyle = -1;
+                    mCustomImageLoaded = false;
+                    if (mUserUnlocked) {
+                        updateSettings();
+                    } else {
+                        setImageDrawable(null);
+                        setVisibility(View.GONE);
+                        registerUserUnlockedReceiver();
+                    }
+                }
+            };
 
     private boolean mUserUnlocked = false;
     private BroadcastReceiver mUserUnlockedReceiver;
@@ -121,18 +191,6 @@ public abstract class LogoImage extends ImageView implements DarkReceiver {
 
         mUserUnlocked = isUserUnlocked();
 
-        mSettingsObserver = new ContentObserver(new Handler()) {
-            @Override
-            public void onChange(boolean selfChange) {
-                super.onChange(selfChange);
-                if (mUserUnlocked) {
-                    updateSettings();
-                } else {
-                    Log.d(TAG, "Settings changed but user is locked, deferring");
-                }
-            }
-        };
-
         final ContentResolver resolver = mContext.getContentResolver();
         resolver.registerContentObserver(
                 Settings.System.getUriFor(Settings.System.STATUS_BAR_LOGO),
@@ -153,6 +211,8 @@ public abstract class LogoImage extends ImageView implements DarkReceiver {
                 Settings.System.getUriFor(Settings.System.STATUS_BAR_LOGO_CUSTOM_IMAGE_URI),
                 false, mSettingsObserver, UserHandle.USER_ALL);
 
+        Dependency.get(UserTracker.class).addCallback(
+                mUserChangedCallback, mContext.getMainExecutor());
         Dependency.get(DarkIconDispatcher.class).addDarkReceiver(this);
 
         if (mUserUnlocked) {
@@ -172,6 +232,7 @@ public abstract class LogoImage extends ImageView implements DarkReceiver {
         mAttached = false;
 
         mContext.getContentResolver().unregisterContentObserver(mSettingsObserver);
+        Dependency.get(UserTracker.class).removeCallback(mUserChangedCallback);
         Dependency.get(DarkIconDispatcher.class).removeDarkReceiver(this);
 
         unregisterUserUnlockedReceiver();
@@ -219,10 +280,24 @@ public abstract class LogoImage extends ImageView implements DarkReceiver {
     }
 
     @Override
-    public void onDarkChanged(ArrayList<Rect> areas, float darkIntensity, int tint) {
-        mTintColor = DarkIconDispatcher.getTint(areas, this, tint);
-        if (isLogoEnabled()) {
+    protected void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        mLoadedStyle = -1;
+        if (mUserUnlocked && isLogoEnabled()) {
             updateLogo();
+        }
+    }
+
+    @Override
+    public void onDarkChanged(ArrayList<Rect> areas, float darkIntensity, int tint) {
+        final int color = DarkIconDispatcher.getTint(areas, this, tint);
+        if (color == mTintColor) {
+            return;
+        }
+        mTintColor = color;
+        // Only the dark-following mode and a bundled drawable depend on this tint.
+        if (mLogoColor == 0 && mLogoStyle != LOGO_STYLE_CUSTOM && isLogoEnabled()) {
+            applyTint();
         }
     }
 
@@ -231,127 +306,29 @@ public abstract class LogoImage extends ImageView implements DarkReceiver {
             updateCustomLogo();
             return;
         }
-        Drawable drawable = null;
-        switch (mLogoStyle) {
-            case 0:
-            default:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_evolution_logo);
-                break;
-            case 1:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_android_logo);
-                break;
-            case 2:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_adidas);
-                break;
-            case 3:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_alien);
-                break;
-            case 4:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_apple_logo);
-                break;
-            case 5:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_avengers);
-                break;
-            case 6:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_batman);
-                break;
-            case 7:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_batman_tdk);
-                break;
-            case 8:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_beats);
-                break;
-            case 9:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_biohazard);
-                break;
-            case 10:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_blackberry);
-                break;
-            case 11:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_cannabis);
-                break;
-            case 12:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_emoticon_cool);
-                break;
-            case 13:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_emoticon_devil);
-                break;
-            case 14:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_fire);
-                break;
-            case 15:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_heart);
-                break;
-            case 16:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_nike);
-                break;
-            case 17:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_pac_man);
-                break;
-            case 18:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_puma);
-                break;
-            case 19:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_rog);
-                break;
-            case 20:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_spiderman);
-                break;
-            case 21:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_superman);
-                break;
-            case 22:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_windows);
-                break;
-            case 23:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_xbox);
-                break;
-            case 24:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_ghost);
-                break;
-            case 25:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_ninja);
-                break;
-            case 26:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_robot);
-                break;
-            case 27:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_ironman);
-                break;
-            case 28:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_captain_america);
-                break;
-            case 29:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_flash);
-                break;
-            case 30:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_tux_logo);
-                break;
-            case 31:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_ubuntu_logo);
-                break;
-            case 32:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_mint_logo);
-                break;
-            case 33:
-                drawable = mContext.getResources().getDrawable(R.drawable.ic_amogus);
-                break;
+        final int style = (mLogoStyle >= 0 && mLogoStyle < LOGO_RES_IDS.length) ? mLogoStyle : 0;
+        if (style != mLoadedStyle) {
+            setImageDrawable(mContext.getDrawable(LOGO_RES_IDS[style]));
+            mLoadedStyle = style;
         }
+        applyTint();
+    }
 
-        if (drawable == null) return;
-
+    // Tints through the view rather than the drawable, so nothing leaks into the shared
+    // constant state and a dark intensity change needs no new drawable.
+    private void applyTint() {
+        clearColorFilter();
         if (mLogoColor == 0) {
-            drawable.setTint(mTintColor);
+            setImageTintList(ColorStateList.valueOf(mTintColor));
         } else if (mLogoColor == 1) {
-            ColorStateList colorAccent = Utils.getColorAccent(mContext);
-            setImageTintList(colorAccent);
+            setImageTintList(Utils.getColorAccent(mContext));
         } else {
-            setColorFilter(mLogoColorCustom, PorterDuff.Mode.SRC_IN);
+            setImageTintList(ColorStateList.valueOf(mLogoColorCustom));
         }
-        setImageDrawable(drawable);
     }
 
     private void updateCustomLogo() {
+        mLoadedStyle = -1;
         if (mCustomImagePath != null && !mCustomImagePath.equals(mCurrentCustomImagePath)) {
             mCurrentCustomImagePath = mCustomImagePath;
             mCustomImageLoaded = false;
@@ -450,6 +427,7 @@ public abstract class LogoImage extends ImageView implements DarkReceiver {
         } catch (Exception e) {
             Log.e(TAG, "Error reading logo settings from CE storage", e);
             setImageDrawable(null);
+            mLoadedStyle = -1;
             setVisibility(View.GONE);
             return;
         }
@@ -457,6 +435,7 @@ public abstract class LogoImage extends ImageView implements DarkReceiver {
         if (!isLogoEnabled()) {
             animate().cancel();
             setImageDrawable(null);
+            mLoadedStyle = -1;
             setVisibility(View.GONE);
             return;
         }
