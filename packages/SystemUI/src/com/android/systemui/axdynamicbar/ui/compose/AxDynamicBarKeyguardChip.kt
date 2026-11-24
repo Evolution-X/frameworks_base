@@ -92,6 +92,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -399,6 +400,7 @@ private fun KeyguardChipBody(
     blurAlpha: Float,
 ) {
     val context = LocalContext.current
+    val view = LocalView.current
     val motionScheme = MaterialTheme.motionScheme
     var toggleCount by remember { mutableIntStateOf(0) }
     val isMedia = event is IslandEvent.Media
@@ -435,6 +437,9 @@ private fun KeyguardChipBody(
                     } else Modifier
                 )
                 .clickable {
+                    if (event !is IslandEvent.KeyguardIndication && event !is IslandEvent.AppSwitch) {
+                        viewModel.performTapHaptic(view)
+                    }
                     when (event) {
                         is IslandEvent.Notification ->
                             viewModel.launchNotificationFromKeyguard(event)
