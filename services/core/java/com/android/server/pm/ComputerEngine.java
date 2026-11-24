@@ -1713,6 +1713,15 @@ public class ComputerEngine implements Computer {
         return result;
     }
 
+    private boolean isPlatformSignedPackage(AndroidPackage p) {
+        if ("android".equals(p.getPackageName())) {
+            return true;
+        }
+        final PackageStateInternal platformPs = mSettings.getPackage("android");
+        return platformPs != null && compareSignatures(platformPs.getSigningDetails(),
+                p.getSigningDetails()) == PackageManager.SIGNATURE_MATCH;
+    }
+
     public final PackageInfo generatePackageInfo(PackageStateInternal ps,
             @PackageManager.PackageInfoFlagsBits long flags, int userId) {
         if (!mUserManager.exists(userId)) return null;
@@ -1782,21 +1791,22 @@ public class ComputerEngine implements Computer {
                 MicrogUtils.applyFakeSignature(packageInfo, fakeSignature, flags);
             }
 
-            if ("android".equals(p.getPackageName())) {
+            if (ps.isSystem()) {
                 try {
-                    PlayIntegritySpoofService pifService = PlayIntegritySpoofService.getInstance();
-                    if (pifService.isSpoofSignatureEnabled()) {
-                        String[] callingPackages = getPackagesForUid(callingUid);
-                        boolean isGms = false;
-                        if (callingPackages != null) {
-                            for (String pkg : callingPackages) {
-                                if ("com.google.android.gms".equals(pkg)) {
-                                    isGms = true;
-                                    break;
-                                }
+                    String[] callingPackages = getPackagesForUid(callingUid);
+                    boolean isGms = false;
+                    if (callingPackages != null) {
+                        for (String pkg : callingPackages) {
+                            if ("com.google.android.gms".equals(pkg)) {
+                                isGms = true;
+                                break;
                             }
                         }
-                        if (isGms) {
+                    }
+                    if (isGms) {
+                        PlayIntegritySpoofService pifService = PlayIntegritySpoofService.getInstance();
+                        if (pifService.isSpoofSignatureEnabled()
+                                && isPlatformSignedPackage(p)) {
                             Signature pifSignature = new Signature(pifService.getRomSignatureBytes());
                             packageInfo.signatures = new Signature[]{pifSignature};
                             packageInfo.signingInfo = new SigningInfo(
@@ -1807,9 +1817,10 @@ public class ComputerEngine implements Computer {
                                             null
                                     )
                             );
-                            Slog.d(TAG, "PIF: Spoofed ROM signature for 'android' package to GMS");
+                            Slog.d(TAG, "PIF: Spoofed ROM signature for '"
+                                    + p.getPackageName() + "' package to GMS");
+                            }
                         }
-                    }
                 } catch (Exception e) {
                     Slog.e(TAG, "PIF: Failed to spoof ROM signature", e);
                 }
