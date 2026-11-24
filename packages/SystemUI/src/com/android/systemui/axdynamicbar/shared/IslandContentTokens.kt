@@ -15,6 +15,7 @@ import com.android.axion.blur.AxBlurSurfaceDefaults
 import com.android.axion.blur.axBlurBackground
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -417,11 +418,13 @@ internal fun CircleButton(
     onClick: () -> Unit,
     content: @Composable () -> Unit,
 ) {
+    val interaction = remember { MutableInteractionSource() }
     Surface(
         onClick = onClick,
-        modifier = Modifier.size(size),
+        modifier = Modifier.pressScale(interaction).size(size),
         shape = CircleShape,
         color = color,
+        interactionSource = interaction,
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.size(size)) { content() }
     }
@@ -480,11 +483,15 @@ internal fun ActionChip(
 ) {
     val height = if (compact) SizeActionIcon else SizeActionHeight
     val horizontal = if (compact) SpaceLg else SpacePanel
+    val interaction = remember { MutableInteractionSource() }
     Surface(
         onClick = onClick,
         shape = ShapeChip,
         color = bg,
-        modifier = modifier.border(1.2.dp, color.copy(alpha = 0.12f), ShapeChip),
+        modifier = modifier
+            .pressScale(interaction)
+            .border(1.2.dp, color.copy(alpha = 0.12f), ShapeChip),
+        interactionSource = interaction,
     ) {
         Row(
             modifier = Modifier.height(height).padding(horizontal = horizontal),
@@ -516,7 +523,14 @@ internal fun ActionIconButton(
     size: Dp = SizeActionIcon,
     onClick: () -> Unit,
 ) {
-    Surface(onClick = onClick, shape = CircleShape, color = bg, modifier = modifier.size(size)) {
+    val interaction = remember { MutableInteractionSource() }
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = bg,
+        modifier = modifier.pressScale(interaction).size(size),
+        interactionSource = interaction,
+    ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.size(size)) {
             Icon(icon, contentDescription, tint = tint, modifier = Modifier.size(SizeIconSm))
         }
@@ -627,11 +641,15 @@ internal fun ExpressivePillButton(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
+    val interaction = remember { MutableInteractionSource() }
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(percent = 50),
         color = backgroundColor,
-        modifier = modifier.border(1.2.dp, contentColor.copy(alpha = 0.12f), RoundedCornerShape(percent = 50)),
+        modifier = modifier
+            .pressScale(interaction)
+            .border(1.2.dp, contentColor.copy(alpha = 0.12f), RoundedCornerShape(percent = 50)),
+        interactionSource = interaction,
     ) {
         Row(
             modifier = Modifier.height(SizeActionHeight).padding(horizontal = SpacePanel),
