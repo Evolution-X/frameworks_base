@@ -553,7 +553,20 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
                     viewModel.isNotificationIconContainerVisible.collect { vis ->
                         notificationIconsArea.adjustVisibility(vis)
                         batteryBar.adjustVisibility(vis)
-                        leftLogo.adjustVisibility(vis)
+                    }
+                }
+
+                launch {
+                    viewModel.isStatusBarLogoVisible.collect {
+                        val allowed = it.visibility == View.VISIBLE
+                        leftLogo.setAllowedBySystem(allowed)
+                        if (leftLogo.isLogoEnabled()) {
+                            leftLogo.adjustVisibility(it)
+                        } else {
+                            // Logo disabled or placed on the end side: keep the empty view
+                            // out of the layout; LogoImage owns its visibility in that case.
+                            leftLogo.hide(View.GONE, shouldAnimateChange = false)
+                        }
                     }
                 }
 
