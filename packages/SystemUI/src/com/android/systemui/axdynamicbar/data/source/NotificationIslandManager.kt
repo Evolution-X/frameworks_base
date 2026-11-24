@@ -154,6 +154,7 @@ constructor(
     private var stopwatchDismissedKey: String? = null
     private val dismissedPromotedKeys = mutableSetOf<String>()
     private val dismissedSportsKeys = mutableSetOf<String>()
+    private var dismissedNowPlayingTitle: String? = null
     private var alarmNotificationKey: String? = null
 
     val notificationFlow = MutableSharedFlow<IslandEvent.Notification>(
@@ -245,6 +246,7 @@ constructor(
                     _sportsEvents.value.filter { it.key != sbn.key }
 
                 if (_nowPlayingEvent.value?.key == sbn.key) {
+                    dismissedNowPlayingTitle = null
                     _nowPlayingEvent.value = null
                 }
 
@@ -695,6 +697,7 @@ constructor(
         _stopwatchEvent.value = null
         dismissedPromotedKeys.clear()
         dismissedSportsKeys.clear()
+        dismissedNowPlayingTitle = null
         _alarmEvent.value = null
         _callEvents.value = emptyList()
         _notificationEvents.value = emptyList()
@@ -1203,12 +1206,20 @@ constructor(
         _sportsEvents.value = _sportsEvents.value.filter { e -> matching.none { it.key == e.key } }
     }
 
+    /** Hides the current song until a different one is recognized. */
     fun clearNowPlaying() {
+        dismissedNowPlayingTitle = _nowPlayingEvent.value?.sbn?.notification?.extras
+            ?.getCharSequence("android.title")?.toString()
         _nowPlayingEvent.value = null
     }
 
     private fun handleNowPlaying(sbn: StatusBarNotification, extras: Bundle) {
         val title = extras.getCharSequence("android.title")?.toString() ?: return
+        if (title == dismissedNowPlayingTitle) {
+            _nowPlayingEvent.value = null
+            return
+        }
+        dismissedNowPlayingTitle = null
         val byMatch = Regex("""(.+?)\s+by\s+(.+)""", RegexOption.IGNORE_CASE).find(title)
         val dashParts = if (byMatch == null) title.split(" - ", " – ", limit = 2) else null
         val songTitle: String

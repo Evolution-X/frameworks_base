@@ -41,6 +41,7 @@ import com.android.systemui.ambient.dagger.AmbientModule;
 import com.android.systemui.appops.dagger.AppOpsModule;
 import com.android.systemui.assist.AssistModule;
 import com.android.systemui.authentication.AuthenticationModule;
+import com.android.systemui.axdynamicbar.dagger.AxDynamicBarModule;
 import com.android.systemui.biometrics.FingerprintInteractiveToAuthProvider;
 import com.android.systemui.biometrics.FingerprintReEnrollNotification;
 import com.android.systemui.biometrics.UdfpsDisplayModeProvider;
@@ -221,6 +222,7 @@ import javax.inject.Named;
         AppOpsModule.class,
         AssistModule.class,
         AuthenticationModule.class,
+        AxDynamicBarModule.class,
         BiometricsModule.class,
         BiometricsDomainLayerModule.class,
         BouncerInteractorModule.class,
