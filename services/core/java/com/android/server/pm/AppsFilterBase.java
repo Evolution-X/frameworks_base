@@ -485,8 +485,12 @@ public abstract class AppsFilterBase implements AppsFilterSnapshot {
                 return false;
             }
             final Computer computer = (Computer) snapshot;
+            final int hiddenTargetUid = UserHandle.getUid(userId, targetAppId);
+            // Allow access the target granted explicitly, e.g. via URI grants
             if (isHiddenPackage(targetPkgSetting.getPackageName())
-                    && !canAccessHiddenPackages(computer, callingUid, callingSetting)) {
+                    && !canAccessHiddenPackages(computer, callingUid, callingSetting)
+                    && !isImplicitlyQueryable(callingUid, hiddenTargetUid)
+                    && !isRetainedImplicitlyQueryable(callingUid, hiddenTargetUid)) {
                 return true;
             }
             if (targetAppId < Process.FIRST_APPLICATION_UID) {
