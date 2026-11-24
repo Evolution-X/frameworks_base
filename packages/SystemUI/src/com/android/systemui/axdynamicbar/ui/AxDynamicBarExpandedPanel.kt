@@ -61,6 +61,7 @@ import com.android.systemui.axdynamicbar.model.IslandEvent
 import com.android.systemui.axdynamicbar.shared.ExpandedMaxWidth
 import com.android.systemui.axdynamicbar.shared.ChipMorphContainer
 import com.android.systemui.axdynamicbar.shared.LocalBlurAlpha
+import com.android.systemui.axdynamicbar.shared.ProvideIslandHaptics
 import com.android.systemui.axdynamicbar.shared.SpaceLg
 import com.android.systemui.axdynamicbar.ui.compose.ExpandedIslandContent
 import com.android.systemui.axdynamicbar.ui.compose.NotificationAlertCard
@@ -197,7 +198,13 @@ constructor(
             .top > 0
 
         val view = ComposeView(context).apply {
-            setContent { PlatformTheme { OverlayContent(viewModel, statusBarTop, hasCutout) } }
+            setContent {
+                PlatformTheme {
+                    ProvideIslandHaptics(viewModel.hapticsEnabled) {
+                        OverlayContent(viewModel, statusBarTop, hasCutout)
+                    }
+                }
+            }
             setOnTouchListener { _, event ->
                 when (event.actionMasked) {
                     MotionEvent.ACTION_OUTSIDE -> {

@@ -97,9 +97,10 @@ constructor(
     val mediaUseWaveform: StateFlow<Boolean> = interactor.mediaUseWaveform
     val chipStyle: StateFlow<Int> = interactor.settings.chipStyle
     val chipMorphEnabled: StateFlow<Boolean> = interactor.settings.chipMorphEnabled
+    val hapticsEnabled: StateFlow<Boolean> = interactor.settings.hapticsEnabled
 
     fun performTapHaptic(view: View) {
-        if (interactor.settings.hapticsEnabled.value) {
+        if (hapticsEnabled.value) {
             view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
         }
     }

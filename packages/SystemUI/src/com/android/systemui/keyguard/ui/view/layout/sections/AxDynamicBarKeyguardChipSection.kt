@@ -11,6 +11,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.android.compose.theme.PlatformTheme
 import com.android.systemui.axdynamicbar.model.IslandEvent
+import com.android.systemui.axdynamicbar.shared.ProvideIslandHaptics
 import com.android.systemui.axdynamicbar.ui.AxDynamicBarChipViewModel
 import com.android.systemui.axdynamicbar.ui.compose.AxDynamicBarKeyguardChip
 import com.android.systemui.keyguard.domain.interactor.KeyguardClockInteractor
@@ -95,7 +96,9 @@ constructor(
 
         composeView.setContent {
             PlatformTheme {
-                AxDynamicBarKeyguardChip(viewModel = viewModel)
+                ProvideIslandHaptics(viewModel.hapticsEnabled) {
+                    AxDynamicBarKeyguardChip(viewModel = viewModel)
+                }
             }
         }
 
