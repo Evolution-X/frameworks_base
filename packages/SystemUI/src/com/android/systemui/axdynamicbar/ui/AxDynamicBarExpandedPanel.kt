@@ -495,39 +495,53 @@ private fun OverlayContent(viewModel: AxDynamicBarChipViewModel, statusBarHeight
         }
     }
 
-    CompositionLocalProvider(LocalBlurAlpha provides alertBlurAlpha) {
-        AnimatedVisibility(
-            visibleState = notifVisible,
-            enter = fadeIn(motionScheme.defaultEffectsSpec()) + scaleIn(
-                animationSpec = motionScheme.defaultSpatialSpec(),
-                initialScale = 0.4f,
-                transformOrigin = origin,
-            ),
-            exit = fadeOut(motionScheme.fastEffectsSpec()) + scaleOut(
-                animationSpec = motionScheme.fastSpatialSpec(),
-                targetScale = 0.4f,
-                transformOrigin = origin,
-            ),
+    val alertCard: @Composable (Modifier) -> Unit = { cardModifier ->
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = topPad),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = topPad),
-                contentAlignment = Alignment.TopCenter,
+            val alert = lastAlert.value
+            if (alert != null) {
+                NotificationAlertCard(
+                    notification = alert,
+                    interactor = viewModel.interactor,
+                    onDismiss = { viewModel.interactor.dismissNotificationAlert() },
+                    initiallyCompact = compactNotifs,
+                    modifier =
+                        Modifier.widthIn(max = ExpandedMaxWidth)
+                            .fillMaxWidth()
+                            .padding(horizontal = SpaceLg)
+                            .then(cardModifier),
+                )
+            }
+        }
+    }
+
+    if (morphEnabled) {
+        ChipMorphContainer(
+            visible = showNotif,
+            chipBounds = chipBounds,
+            onHidden = { if (notifAlert == null) lastAlert.value = null },
+            content = alertCard,
+        )
+    } else {
+        CompositionLocalProvider(LocalBlurAlpha provides alertBlurAlpha) {
+            AnimatedVisibility(
+                visibleState = notifVisible,
+                enter = fadeIn(motionScheme.defaultEffectsSpec()) + scaleIn(
+                    animationSpec = motionScheme.defaultSpatialSpec(),
+                    initialScale = 0.4f,
+                    transformOrigin = origin,
+                ),
+                exit = fadeOut(motionScheme.fastEffectsSpec()) + scaleOut(
+                    animationSpec = motionScheme.fastSpatialSpec(),
+                    targetScale = 0.4f,
+                    transformOrigin = origin,
+                ),
             ) {
-                val alert = lastAlert.value
-                if (alert != null) {
-                    NotificationAlertCard(
-                        notification = alert,
-                        interactor = viewModel.interactor,
-                        onDismiss = { viewModel.interactor.dismissNotificationAlert() },
-                        initiallyCompact = compactNotifs,
-                        modifier =
-                            Modifier.widthIn(max = ExpandedMaxWidth)
-                                .fillMaxWidth()
-                                .padding(horizontal = SpaceLg),
-                    )
-                }
+                alertCard(Modifier)
             }
         }
     }

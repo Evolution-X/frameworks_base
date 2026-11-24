@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -30,6 +31,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -128,7 +130,8 @@ fun AxDynamicBarChip(
 
     val isExpanded by viewModel.isExpanded.collectAsStateWithLifecycle()
     val morphEnabled by viewModel.chipMorphEnabled.collectAsStateWithLifecycle()
-    val morphScale = rememberChipMorphScale(morphEnabled && isExpanded && !ignoreKeyguard)
+    val hasAlert = state?.notificationAlert != null
+    val morphScale = rememberChipMorphScale(morphEnabled && (isExpanded || hasAlert) && !ignoreKeyguard)
     val morphAlpha by remember { derivedStateOf { pillMorphAlpha(morphScale.value) } }
 
     AnimatedVisibility(
