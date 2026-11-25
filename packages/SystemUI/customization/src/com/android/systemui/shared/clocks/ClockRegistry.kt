@@ -113,6 +113,15 @@ open class ClockRegistry(
 
     private val replacementMap = ConcurrentHashMap<ClockId, ClockId>()
     private val availableClocks = ConcurrentHashMap<ClockId, ClockInfo>()
+
+    // Managers that have been detached can still have a load callback in flight. Once detached,
+    // they must never register clocks again or they will be impossible to clean up.
+    private val detachedManagers = mutableSetOf<PluginLifecycleManager<ClockProviderPlugin>>()
+
+    // Managers rejected because one of their clock IDs conflicts with another plugin. Retrying
+    // them immediately only creates a load/unload loop, so wait for a state change instead.
+    private val failedManagers = mutableSetOf<PluginLifecycleManager<ClockProviderPlugin>>()
+
     private val clockChangeListeners = mutableListOf<ClockChangeListener>()
     private val settingObserver =
         object : ContentObserver(null) {
@@ -126,6 +135,10 @@ open class ClockRegistry(
             }
         }
 
+    private fun isManagerDetached(
+        manager: PluginLifecycleManager<ClockProviderPlugin>
+    ): Boolean = synchronized(availableClocks) { manager in detachedManagers }
+
     private val pluginListener =
         object : PluginListener<ClockProviderPlugin> {
             override val logBuffer: MessageBuffer = logger.buffer
@@ -133,6 +146,14 @@ open class ClockRegistry(
             override fun onPluginAttached(
                 manager: PluginLifecycleManager<ClockProviderPlugin>
             ): Boolean {
+                if (isManagerDetached(manager)) {
+                    logger.w({ "Ignoring attach from detached clock plugin: $str1" }) {
+                        str1 = manager.toString()
+                    }
+                    return false
+                }
+                synchronized(availableClocks) { failedManagers.remove(manager) }
+
                 if (keepAllLoaded) {
                     // Always load new plugins if requested
                     logger.d({ "Loading clock package: $str1" }) { str1 = manager.packageName }
@@ -195,35 +216,118 @@ open class ClockRegistry(
             ) {
                 plugin.initialize(clockBuffers)
 
+                val clocks = plugin.getClocks()
+                val disconnected = mutableListOf<ClockInfo>()
+                val connected = mutableListOf<ClockInfo>()
+                val loaded = mutableListOf<ClockInfo>()
+                val conflictIds = mutableListOf<ClockId>()
+                var conflictManager: PluginLifecycleManager<ClockProviderPlugin>? = null
                 var isClockListChanged = false
                 plugin ?: return
-                for (clock in plugin.getClocks()) {
-                    val id = clock.clockId
-                    val info =
-                        availableClocks.concurrentGetOrPut(id, ClockInfo(clock, plugin, manager)) {
-                            isClockListChanged = true
-                            onConnected(it)
-                        }
+                var isDetached = false
 
-                    if (manager != info.manager) {
-                        logger.e({
-                            "Clock Id conflict on load: " +
-                                "$str1 is double registered by $str2 and $str3. " +
-                                "Using $str2 since it was attached first."
-                        }) {
-                            str1 = id
-                            str2 = info.manager?.toString() ?: info.provider?.toString()
-                            str3 = manager.toString()
+                synchronized(availableClocks) {
+                    if (manager in detachedManagers) {
+                        isDetached = true
+                    } else {
+                        // Validate every clock before registering any of them. A partial
+                        // registration would leave the plugin loaded with only some of its
+                        // clocks, which is what turned an update race into a permanent loop.
+                        for (clock in clocks) {
+                            val info = availableClocks[clock.clockId] ?: continue
+                            val owner = info.manager
+                            if (owner === manager) {
+                                continue
+                            }
+                            if (owner != null && owner.packageName == manager.packageName) {
+                                // A previous instance of this package. It is superseded by
+                                // the instance currently loading; evict it below.
+                                continue
+                            }
+                            // A null owner is the default clock provider. It always wins.
+                            conflictIds.add(clock.clockId)
+                            if (conflictManager == null) {
+                                conflictManager = owner
+                            }
                         }
-                        manager.unloadPlugin()
-                        continue
                     }
 
-                    clock.replacementTarget?.let { replacementMap[id] = it }
-                    info.provider = plugin
-                    onLoaded(info)
+                    if (!isDetached && conflictIds.isEmpty()) {
+                        failedManagers.remove(manager)
+
+                        // Remove any clocks owned by another instance of the same package.
+                        // This also repairs a stale registration left behind by an earlier
+                        // failed load without requiring a SystemUI restart.
+                        val iterator = availableClocks.entries.iterator()
+                        while (iterator.hasNext()) {
+                            val info = iterator.next().value
+                            val owner = info.manager ?: continue
+                            if (owner !== manager && owner.packageName == manager.packageName) {
+                                disconnected.add(info)
+                                iterator.remove()
+                            }
+                        }
+
+                        if (disconnected.isNotEmpty()) {
+                            isClockListChanged = true
+                            // Evicting a stale instance may unblock another manager that
+                            // previously failed to load.
+                            failedManagers.clear()
+                        }
+
+                        for (clock in clocks) {
+                            val id = clock.clockId
+                            val info = availableClocks[id]
+                            if (info == null) {
+                                val newInfo = ClockInfo(clock, plugin, manager)
+                                availableClocks[id] = newInfo
+                                connected.add(newInfo)
+                                loaded.add(newInfo)
+                                isClockListChanged = true
+                            } else {
+                                info.provider = plugin
+                                loaded.add(info)
+                            }
+                            clock.replacementTarget?.let { replacementMap[id] = it }
+                        }
+                    } else if (conflictIds.isNotEmpty()) {
+                        failedManagers.add(manager)
+                    }
                 }
 
+                if (isDetached) {
+                    logger.w({ "Ignoring late load from detached clock plugin: $str1" }) {
+                        str1 = manager.toString()
+                    }
+                    manager.unloadPlugin()
+                    verifyLoadedProviders()
+                    return
+                }
+
+                if (conflictIds.isNotEmpty()) {
+                    logger.e({
+                        "Clock Id conflict on load: " +
+                            "$str1 is double registered by $str2 and $str3. " +
+                            "Rejecting $str3."
+                    }) {
+                        str1 = conflictIds.joinToString()
+                        str2 = conflictManager?.toString() ?: "unknown"
+                        str3 = manager.toString()
+                    }
+                    manager.unloadPlugin()
+                    verifyLoadedProviders()
+                    return
+                }
+
+                if (disconnected.isNotEmpty()) {
+                    logger.i(
+                        "Replacing ${disconnected.size} stale clock(s) for " +
+                            "package ${manager.packageName}"
+                    )
+                }
+                disconnected.forEach(::onDisconnected)
+                connected.forEach(::onConnected)
+                loaded.forEach(::onLoaded)
                 if (isClockListChanged) {
                     triggerOnAvailableClocksChanged()
                 }
@@ -235,42 +339,64 @@ open class ClockRegistry(
                 manager: PluginLifecycleManager<ClockProviderPlugin>,
             ) {
                 plugin ?: return
-                for (clock in plugin.getClocks()) {
-                    val id = clock.clockId
-                    val info = availableClocks[id]
-                    if (info?.manager != manager) {
-                        logger.e({
-                            "Clock Id conflict on unload: " +
-                                "$str1 is double registered by $str2 and $str3. " +
-                                "Using $str2 since it was attached first."
-                        }) {
-                            str1 = id
-                            str2 = info?.manager?.toString() ?: info?.provider?.toString()
-                            str3 = manager.toString()
+                val unloaded = mutableListOf<ClockInfo>()
+                var isDetached = false
+
+                synchronized(availableClocks) {
+                    if (manager in detachedManagers) {
+                        isDetached = true
+                    } else {
+                        // Clear every clock owned by this manager, even if its clock list
+                        // changed. Entries owned by other managers are left alone.
+                        for (info in availableClocks.values) {
+                            if (info.manager === manager) {
+                                info.provider = null
+                                unloaded.add(info)
+                            }
                         }
-                        continue
                     }
-                    info.provider = null
-                    onUnloaded(info)
                 }
 
+                if (isDetached) {
+                    logger.d({ "Ignoring unload from detached clock plugin: $str1" }) {
+                        str1 = manager.toString()
+                    }
+                    return
+                }
+
+                unloaded.forEach(::onUnloaded)
                 verifyLoadedProviders()
             }
 
             override fun onPluginDetached(manager: PluginLifecycleManager<ClockProviderPlugin>) {
                 val removed = mutableListOf<ClockInfo>()
-                availableClocks.entries.removeAll {
-                    if (it.value.manager != manager) {
-                        return@removeAll false
+
+                synchronized(availableClocks) {
+                    // Mark first so that an in-flight load callback cannot register clocks
+                    // after the entries below have been removed.
+                    detachedManagers.add(manager)
+                    failedManagers.remove(manager)
+
+                    val iterator = availableClocks.entries.iterator()
+                    while (iterator.hasNext()) {
+                        val info = iterator.next().value
+                        if (info.manager === manager) {
+                            removed.add(info)
+                            iterator.remove()
+                        }
                     }
 
-                    removed.add(it.value)
-                    return@removeAll true
+                    // Removing a conflicting plugin may unblock managers that previously
+                    // failed to load.
+                    if (removed.isNotEmpty()) {
+                        failedManagers.clear()
+                    }
                 }
 
                 removed.forEach(::onDisconnected)
-                if (removed.size > 0) {
+                if (removed.isNotEmpty()) {
                     triggerOnAvailableClocksChanged()
+                    verifyLoadedProviders()
                 }
             }
         }
@@ -288,6 +414,9 @@ open class ClockRegistry(
             if (field != value) {
                 beginChangeTrace(field?.clockId, value?.clockId)
                 field = value
+                // A clock change is a new opportunity to load a manager that previously hit
+                // a clock id conflict.
+                synchronized(availableClocks) { failedManagers.clear() }
                 verifyLoadedProviders()
                 triggerOnCurrentClockChanged()
             }
@@ -528,38 +657,55 @@ open class ClockRegistry(
 
         scope.launch(bgDispatcher) {
             // TODO(b/267372164): Use better threading approach when converting to flows
+            val toLoad = LinkedHashSet<PluginLifecycleManager<ClockProviderPlugin>>()
+            val toUnload = LinkedHashSet<PluginLifecycleManager<ClockProviderPlugin>>()
+
             synchronized(availableClocks) {
                 isQueued.set(false)
                 if (keepAllLoaded) {
                     logger.i("verifyLoadedProviders: keepAllLoaded=true")
                     // Enforce that all plugins are loaded if requested
                     for ((_, info) in availableClocks) {
-                        info.manager?.loadPlugin()
+                        val manager = info.manager ?: continue
+                        if (manager !in detachedManagers && manager !in failedManagers) {
+                            toLoad.add(manager)
+                        }
                     }
-                    return@launch
-                }
+                } else {
+                    val currentClock = availableClocks[currentClockId]
+                    if (currentClock == null) {
+                        logger.i("verifyLoadedProviders: currentClock=null")
+                        // Current Clock missing, load no plugins and use default
+                        for ((_, info) in availableClocks) {
+                            val manager = info.manager ?: continue
+                            if (manager !in detachedManagers) {
+                                toUnload.add(manager)
+                            }
+                        }
+                    } else {
+                        logger.i("verifyLoadedProviders: load currentClock")
+                        val currentManager = currentClock.manager
+                        if (currentManager != null &&
+                            currentManager !in detachedManagers &&
+                            currentManager !in failedManagers
+                        ) {
+                            toLoad.add(currentManager)
+                        }
 
-                val currentClock = availableClocks[currentClockId]
-                if (currentClock == null) {
-                    logger.i("verifyLoadedProviders: currentClock=null")
-                    // Current Clock missing, load no plugins and use default
-                    for ((_, info) in availableClocks) {
-                        info.manager?.unloadPlugin()
-                    }
-                    return@launch
-                }
-
-                logger.i("verifyLoadedProviders: load currentClock")
-                val currentManager = currentClock.manager
-                currentManager?.loadPlugin()
-
-                for ((_, info) in availableClocks) {
-                    val manager = info.manager
-                    if (manager != null && currentManager != manager) {
-                        manager.unloadPlugin()
+                        for ((_, info) in availableClocks) {
+                            val manager = info.manager ?: continue
+                            if (manager !== currentManager && manager !in detachedManagers) {
+                                toUnload.add(manager)
+                            }
+                        }
                     }
                 }
             }
+
+            // Run lifecycle callbacks outside the lock. Loading a plugin can synchronously
+            // call back into this listener, which may need to take the same lock.
+            toLoad.forEach { it.loadPlugin() }
+            toUnload.forEach { it.unloadPlugin() }
         }
     }
 
