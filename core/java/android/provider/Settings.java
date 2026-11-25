@@ -7354,12 +7354,6 @@ public final class Settings {
         public static final String STATUS_BAR_TRIPLE_TAP_FREEFORM = "status_bar_triple_tap_freeform";
 
         /**
-         * Whether to enable the ripple animation on fingerprint unlock
-         * @hide
-         */
-        public static final String ENABLE_RIPPLE_EFFECT = "enable_ripple_effect";
-
-        /**
          * Whether to vibrate on succesful fingerprint authentication
          * @hide
          */
