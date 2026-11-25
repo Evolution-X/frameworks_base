@@ -96,6 +96,7 @@ public class AxSpoofManager implements IAxSpoofManager {
 
     private static final String PIF_ENABLED_KEY = "spoof_pif_enabled";
     private static final String TRICKYSTORE_ENABLED_KEY = "spoof_trickystore_enabled";
+    private static final String AUTO_TARGET_KEY = "spoof_trickystore_auto_target";
     private static final String LAST_AUTO_FETCH_KEY = "spoof_pif_last_auto_fetch";
     private static final long AUTO_FETCH_COOLDOWN_MS = TimeUnit.DAYS.toMillis(1);
     private static final long REFETCH_WINDOW_DAYS = 15L;
@@ -419,8 +420,9 @@ public class AxSpoofManager implements IAxSpoofManager {
 
     /**
      * Adds a newly-installed package to the TrickyStore target list in AUTO
-     * mode, unless it's already present or is a known Xposed/LSPosed manager
-     * (attesting through a hooked process breaks STRONG). Mirrors AlwaysStrong's
+     * mode, unless auto-targeting is switched off, it's already present or it's
+     * excluded (a known Xposed/LSPosed manager, since attesting through a hooked
+     * process breaks STRONG, or an app that doesn't check). Mirrors AlwaysStrong's
      * inotify-driven auto-target, sourced from a live PACKAGE_ADDED broadcast
      * instead of a native watcher since this already runs in system_server.
      *
@@ -431,10 +433,10 @@ public class AxSpoofManager implements IAxSpoofManager {
      */
     private void onPackageAdded(String pkg) {
         if (!mActivated) return;
-        if (mResolver == null || TrickyStoreService.XPOSED_PACKAGES.contains(pkg)
-                || TrickyStoreService.UNNECESSARY_PACKAGES.contains(pkg)) {
-            return;
-        }
+        if (mResolver == null || TrickyStoreService.isAutoTargetExcluded(pkg)) return;
+        // The user can switch auto-targeting off and manage the list by hand.
+        if (Settings.System.getIntForUser(
+                mResolver, AUTO_TARGET_KEY, 1, UserHandle.USER_SYSTEM) == 0) return;
         // Spoofing being active isn't enough: with TrickyStore switched off its target list
         // is none of our business.
         if (Settings.System.getIntForUser(

@@ -161,6 +161,58 @@ public class TrickyStoreService {
             "com.google.android.apps.youtube.music",
             "org.zwanoo.android.speedtest"
     );
+    // Further packages AxSpoofManager skips when auto-targeting a new install: app stores,
+    // root and system tools and proxy clients, none of which run integrity checks. Compiled
+    // from the exclude lists of Targeter and Tricky Addon Enhanced. Like UNNECESSARY_PACKAGES
+    // this never touches an existing target list or Evolver's picker.
+    public static final java.util.Set<String> AUTO_TARGET_EXCLUDED_PACKAGES = java.util.Set.of(
+            // App stores
+            "com.looker.droidify",
+            "com.aurora.store",
+            // Root and system tools
+            "io.github.muntashirakon.AppManager",
+            "io.github.muntashirakon.AppManager.debug",
+            "com.tsng.hidemyapplist",
+            "org.frknkrc44.hma_oss",
+            "eu.darken.sdmse",
+            "me.gm.cleaner",
+            "com.speedsoftware.rootexplorer",
+            "com.mixplorer",
+            "com.merxury.blocker",
+            "rikka.appops",
+            "com.piriform.ccleaner",
+            "io.github.vvb2060.magisk.lite",
+            "com.resukisu.resukisu",
+            // Proxy clients
+            "com.v2ray.ang",
+            "com.github.shadowsocks",
+            "com.github.metacubex.clash.meta",
+            "com.github.kr328.clash.monet"
+    );
+    // Vendor prefixes covering whole families of such packages (F-Droid and its basic
+    // flavour, LSPosed and LSPatch).
+    private static final String[] AUTO_TARGET_EXCLUDED_PREFIXES = {
+            "org.fdroid.",
+            "org.lsposed.",
+            "io.github.lsposed."
+    };
+
+    /**
+     * True if a newly installed package should not be added to the target list on its own:
+     * Xposed managers, {@link #UNNECESSARY_PACKAGES} and {@link #AUTO_TARGET_EXCLUDED_PACKAGES},
+     * or anything under {@link #AUTO_TARGET_EXCLUDED_PREFIXES}.
+     */
+    public static boolean isAutoTargetExcluded(String pkg) {
+        if (pkg == null) return true;
+        if (XPOSED_PACKAGES.contains(pkg) || UNNECESSARY_PACKAGES.contains(pkg)
+                || AUTO_TARGET_EXCLUDED_PACKAGES.contains(pkg)) {
+            return true;
+        }
+        for (String prefix : AUTO_TARGET_EXCLUDED_PREFIXES) {
+            if (pkg.startsWith(prefix)) return true;
+        }
+        return false;
+    }
     // Default TrickyStore targets, in the same syntax as SPOOF_TRICKYSTORE_TARGET:
     // "pkg" is AUTO, "pkg?" leaf hack, "pkg!" cert generation, "pkg-" skip.
     // AxSpoofManager writes this into a target setting that was never set, so a
