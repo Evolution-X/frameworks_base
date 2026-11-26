@@ -100,6 +100,11 @@ public final class PlayIntegritySpoofService {
     private static volatile boolean sBlockCertificateChain = false;
     private volatile boolean mDebug = false;
 
+    /** Build fields that have a *_FOR_ATTESTATION twin read by KeyMint attestation. */
+    private static final String[] ATTESTATION_ID_KEYS = {
+        "MANUFACTURER", "BRAND", "DEVICE", "PRODUCT", "MODEL"
+    };
+
     private final Map<String, String> mBuildFields = new ConcurrentHashMap<>();
 
     private volatile boolean mConfigLoaded = false;
@@ -184,6 +189,13 @@ public final class PlayIntegritySpoofService {
 
             deriveFieldsFromFingerprint();
             deriveSecurityPatchAndInitialSdk();
+
+            for (String key : ATTESTATION_ID_KEYS) {
+                String value = mBuildFields.get(key);
+                if (value != null && !value.isEmpty()) {
+                    mBuildFields.put(key + "_FOR_ATTESTATION", value);
+                }
+            }
 
             mLoadFailureLogged = false;
             mConfigLoaded = true;
