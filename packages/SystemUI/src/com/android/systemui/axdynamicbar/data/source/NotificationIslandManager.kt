@@ -981,9 +981,13 @@ constructor(
             }
 
         val allActions = sbn.notification?.actions ?: emptyArray()
+        val byIntent = allActions.associateBy { actionIntentString(it) }
+        fun find(names: Set<String>) = names.firstNotNullOfOrNull { byIntent[it] }
+        val toggleActions = DIALER_TOGGLES.mapNotNullTo(HashSet()) { byIntent[it] }
         val actions =
             (callStyleActions(extras) + allActions)
                 .filter { a -> a.remoteInputs.isNullOrEmpty() && a.actionIntent != null }
+                .filter { a -> a !in toggleActions }
                 .take(3)
                 .mapNotNull { a ->
                     a.title?.let { IslandEvent.NotificationAction(label = it, action = a) }
@@ -1044,10 +1048,11 @@ constructor(
     ): IslandEvent.CallControls {
         fun pending(key: String) = extras.getParcelable(key, PendingIntent::class.java)
         val byIntent = actions.associateBy { actionIntentString(it) }
-        val speakerOff = byIntent[DIALER_SPEAKER_OFF]
-        val speakerOn = byIntent[DIALER_SPEAKER_ON]
-        val unmute = byIntent[DIALER_UNMUTE]
-        val mute = byIntent[DIALER_MUTE]
+        fun find(names: Set<String>) = names.firstNotNullOfOrNull { byIntent[it] }
+        val speakerOff = find(DIALER_SPEAKER_OFF)
+        val speakerOn = find(DIALER_SPEAKER_ON)
+        val unmute = find(DIALER_UNMUTE)
+        val mute = find(DIALER_MUTE)
         return IslandEvent.CallControls(
             answer = pending(Notification.EXTRA_ANSWER_INTENT),
             decline = pending(Notification.EXTRA_DECLINE_INTENT),
@@ -1502,7 +1507,13 @@ constructor(
 
 private fun Bundle.getText(key: String): String? = getCharSequence(key)?.toString()
 
-private const val DIALER_SPEAKER_ON = "com.android.incallui.ACTION_TURN_ON_SPEAKER"
-private const val DIALER_SPEAKER_OFF = "com.android.incallui.ACTION_TURN_OFF_SPEAKER"
-private const val DIALER_MUTE = "com.android.incallui.ACTION_MUTE"
-private const val DIALER_UNMUTE = "com.android.incallui.ACTION_UNMUTE"
+// AOSP InCallUI and Google Dialer.
+private const val INCALLUI = "com.android.incallui."
+private const val GOOGLE_DIALER = "com.android.dialer.incall.statusbarnotification.buttonintent"
+private val DIALER_SPEAKER_ON =
+    setOf("${INCALLUI}ACTION_TURN_ON_SPEAKER", "${GOOGLE_DIALER}SPEAKER_ON")
+private val DIALER_SPEAKER_OFF =
+    setOf("${INCALLUI}ACTION_TURN_OFF_SPEAKER", "${GOOGLE_DIALER}SPEAKER_OFF")
+private val DIALER_MUTE = setOf("${INCALLUI}ACTION_MUTE", "${GOOGLE_DIALER}MUTE")
+private val DIALER_UNMUTE = setOf("${INCALLUI}ACTION_UNMUTE", "${GOOGLE_DIALER}UNMUTE")
+private val DIALER_TOGGLES = DIALER_SPEAKER_ON + DIALER_SPEAKER_OFF + DIALER_MUTE + DIALER_UNMUTE

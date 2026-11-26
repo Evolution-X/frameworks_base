@@ -2,6 +2,7 @@
 
 package com.android.systemui.axdynamicbar.ui.compose
 
+import android.app.PendingIntent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -27,7 +28,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -38,12 +43,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -327,6 +334,36 @@ internal fun CallExpanded(event: IslandEvent.Call, interactor: IslandActions) {
             )
         }
 
+        val speaker = event.controls.speaker
+        val mute = event.controls.mute
+        if (!isIncoming && (speaker != null || mute != null)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(SpaceLg),
+            ) {
+                speaker?.let {
+                    CallToggleButton(
+                        on = event.controls.speakerOn == true,
+                        intent = it,
+                        label = stringResource(R.string.dynamic_island_call_speaker),
+                        icon = Icons.Filled.VolumeUp,
+                        tone = tone,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                mute?.let {
+                    CallToggleButton(
+                        on = event.controls.muted == true,
+                        intent = it,
+                        label = stringResource(R.string.dynamic_island_call_mute),
+                        icon = Icons.Filled.MicOff,
+                        tone = tone,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+
         // Action buttons
         if (event.actions.isNotEmpty()) {
             Row(
@@ -347,6 +384,11 @@ internal fun CallExpanded(event: IslandEvent.Call, interactor: IslandActions) {
                     }
                     ExpressivePillButton(
                         label = action.label.toString(),
+                        icon = when {
+                            isDestructive -> Icons.Filled.CallEnd
+                            isAnswer -> Icons.Filled.Call
+                            else -> null
+                        },
                         contentColor = tint,
                         backgroundColor = tint.copy(alpha = AlphaIconBg),
                         modifier = Modifier.weight(1f),
@@ -360,6 +402,33 @@ internal fun CallExpanded(event: IslandEvent.Call, interactor: IslandActions) {
             }
         }
     }
+}
+
+// Lit while on; flips at once and settles on the state the next notification update reports.
+@Composable
+private fun CallToggleButton(
+    on: Boolean,
+    intent: PendingIntent,
+    label: String,
+    icon: ImageVector,
+    tone: IslandTone,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    var lit by remember(on) { mutableStateOf(on) }
+    ExpressivePillButton(
+        label = label,
+        icon = icon,
+        contentColor = if (lit) tone.onTint else OnCardText,
+        backgroundColor = if (lit) tone.tint else ActionBg,
+        modifier = modifier,
+        onClick = {
+            try {
+                intent.sendWithBal(context)
+                lit = !lit
+            } catch (_: Exception) {}
+        },
+    )
 }
 
 @Composable
