@@ -910,6 +910,9 @@ class ClockStyle @JvmOverloads constructor(
                     applyClockScale()
                     if (gradientEnabled) applyClockColors()
                 }
+                if (r - l > 0 && (r - l != oR - ol || b - t != ob - ot)) {
+                    post { applySizeScale(animate = false) }
+                }
             }
         }
         clockLayoutListener = listener
