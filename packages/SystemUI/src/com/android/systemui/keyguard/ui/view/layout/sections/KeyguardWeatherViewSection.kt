@@ -24,6 +24,7 @@ import androidx.constraintlayout.widget.Barrier
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
 import com.android.systemui.customization.clocks.R as custR
+import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.keyguard.shared.model.KeyguardSection
 import com.android.systemui.plugins.keyguard.ui.clocks.ClockViewIds
 import com.android.systemui.res.R
@@ -33,6 +34,7 @@ import com.android.systemui.weather.WeatherImageView
 import com.android.systemui.weather.WeatherTextView
 import javax.inject.Inject
 
+@SysUISingleton
 class KeyguardWeatherViewSection @Inject constructor(
     @ShadeDisplayAware private val context: Context,
 ) : KeyguardSection() {
