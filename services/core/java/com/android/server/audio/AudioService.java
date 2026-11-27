@@ -569,6 +569,8 @@ public class AudioService extends IAudioService.Stub
     private static final int MSG_APPLY_INPUT_GAIN_INDEX = 105;
     private static final int MSG_PERSIST_INPUT_GAIN_INDEX = 106;
 
+    private static final int MSG_MAX_CHANGED = 107;
+
     // end of messages handled under wakelock
 
     // retry delay in case of failure to indicate system ready to AudioFlinger
@@ -12137,6 +12139,10 @@ public class AudioService extends IAudioService.Stub
                     onReinitVolumes((String) msg.obj);
                     break;
 
+                case MSG_MAX_CHANGED:
+                    onMaxChangedMsg();
+                    break;
+
                 case MSG_UPDATE_A11Y_SERVICE_UIDS:
                     onUpdateAccessibilityServiceUids();
                     break;
@@ -12346,17 +12352,20 @@ public class AudioService extends IAudioService.Stub
             }
             // push the new range to audio policy
             vss.updateIndexFactors();
-            // notify listeners (should be volume dialog only)
-            Intent intent = new Intent(AudioManager.ACTION_MAX_CHANGED);
-            sendBroadcastToAll(intent, null);
+            AudioManager.clearVolumeCache(AudioManager.VOLUME_MAX_CACHING_API);
+            AudioManager.clearVolumeCache(AudioManager.VOLUME_CACHING_API);
             // set the volume to the old fraction
             AudioManager am = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
             if (am != null) {
-                final int newVolume = Math.round(fraction * (float) getStreamMaxVolume(stream));
+                final int newVolume = Math.round(
+                        min + fraction * ((float) getStreamMaxVolume(stream) - min));
                 am.setStreamVolume(stream, newVolume, 0);
             }
             // re-init everything, everywhere.
             onAudioServerDied();
+            // notify listeners (should be volume dialog only) once everything is in place
+            sendMsg(mAudioHandler, MSG_MAX_CHANGED, SENDMSG_REPLACE, 0, 0,
+                    "onMaxChangedFromUpdateStreamMax" /*obj: caller, for dumpsys*/, /*delay*/ 0);
         }
 
         private void updateShowAppVolume(ContentResolver cr) {
@@ -12397,6 +12406,11 @@ public class AudioService extends IAudioService.Stub
                 AudioSystem.setAppMute(vol.getPackageName(), false);
             }
         }
+    }
+
+    private void onMaxChangedMsg() {
+        Intent intent = new Intent(AudioManager.ACTION_MAX_CHANGED);
+        sendBroadcastToAll(intent, null);
     }
 
     private void avrcpSupportsAbsoluteVolume(String address, boolean support) {
