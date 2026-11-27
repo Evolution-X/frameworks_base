@@ -53,6 +53,9 @@ interface ScreenStateAnimator {
     /** Turning off: black shutters slide in from both edges (ElectronBeam only). */
     int MODE_SHUTTER = 6;
 
+    /** Turning off: the screen is sucked into the physical power button edge (ElectronBeam only). */
+    int MODE_BLACKHOLE = 7;
+
     boolean prepare(Context context, int mode);
 
     void dismissResources();

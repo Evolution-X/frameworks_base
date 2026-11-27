@@ -22,6 +22,7 @@ package com.android.server.display;
 import static com.android.internal.policy.TransitionAnimation.hasProtectedContent;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.graphics.BLASTBufferQueue;
 import android.graphics.PixelFormat;
 import android.graphics.SurfaceTexture;
@@ -34,6 +35,7 @@ import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
+import android.opengl.Matrix;
 import android.util.Slog;
 import android.view.Display;
 import android.view.DisplayInfo;
@@ -56,8 +58,8 @@ import java.nio.FloatBuffer;
 /**
  * <p>
  * Animates a screen transition from on to off by applying an effect to a screenshot:
- * a CRT-style ("electron beam") collapse, scale-down, iris close, desaturate-then-fade
- * or shutter close.
+ * a CRT-style ("electron beam") collapse, scale-down, iris close, desaturate-then-fade,
+ * shutter close or power-button black hole suction.
  * </p><p>
  * This is the classic KitKat ElectronBeam effect, ported to the same surface and EGL
  * plumbing as {@link ColorFade}: a container layer with a BLAST child for GL rendering,
@@ -105,6 +107,10 @@ final class ElectronBeam implements ScreenStateAnimator {
 
     // MODE_SHUTTER: brightness of the content still visible when the shutters meet.
     private static final float SHUTTER_MIN_BRIGHTNESS = 0.6f;
+
+    // MODE_BLACKHOLE: fallback vertical position of the physical power button from the
+    // natural top edge when SystemUI's device dimen is unavailable.
+    private static final float DEFAULT_POWER_BUTTON_Y_FRACTION = 0.38f;
 
     // Shaders are kept inline so the feature does not need new framework raw resources.
     private static final String TEX_VERTEX_SHADER =
@@ -159,6 +165,84 @@ final class ElectronBeam implements ScreenStateAnimator {
             + "    gl_FragColor = u_color;\n"
             + "}\n";
 
+    private static final String BLACKHOLE_VERTEX_SHADER =
+            "uniform mat4 u_proj;\n"
+            + "uniform vec2 u_res;\n"
+            + "attribute vec2 a_pos;\n"
+            + "varying vec2 v_norm;\n"
+            + "void main() {\n"
+            + "    v_norm = a_pos / u_res;\n"
+            + "    gl_Position = u_proj * vec4(a_pos, 0.0, 1.0);\n"
+            + "}\n";
+
+    private static final String BLACKHOLE_FRAGMENT_SHADER =
+            "#extension GL_OES_EGL_image_external : require\n"
+            + "#ifdef GL_FRAGMENT_PRECISION_HIGH\n"
+            + "precision highp float;\n"
+            + "#else\n"
+            + "precision mediump float;\n"
+            + "#endif\n"
+            + "uniform samplerExternalOES u_texture;\n"
+            + "uniform mat4 u_screen_to_tex;\n"
+            + "uniform vec2 u_res;\n"
+            + "uniform vec2 u_anchor;\n"
+            + "uniform float u_min_dim;\n"
+            + "uniform float u_max_r;\n"
+            + "uniform float u_collapse;\n"
+            + "uniform float u_suction;\n"
+            + "uniform float u_swirl;\n"
+            + "uniform float u_chroma;\n"
+            + "uniform float u_horizon;\n"
+            + "uniform float u_glow;\n"
+            + "uniform float u_feather;\n"
+            + "uniform float u_brightness;\n"
+            + "varying vec2 v_norm;\n"
+            + "vec3 sampleWarped(vec2 qVec) {\n"
+            + "    vec2 srcNorm = (u_anchor + qVec * u_min_dim) / u_res;\n"
+            + "    vec2 edgeDist = min(srcNorm, 1.0 - srcNorm);\n"
+            + "    float minEdge = min(edgeDist.x, edgeDist.y);\n"
+            + "    float mask = (u_feather <= 0.0)\n"
+            + "            ? step(0.0, minEdge)\n"
+            + "            : smoothstep(0.0, u_feather, minEdge);\n"
+            + "    vec2 clamped = clamp(srcNorm, 0.0, 1.0);\n"
+            + "    vec2 uv = (u_screen_to_tex * vec4(clamped, 0.0, 1.0)).xy;\n"
+            + "    return texture2D(u_texture, uv).rgb * mask;\n"
+            + "}\n"
+            + "void main() {\n"
+            + "    if (u_brightness <= 0.0001) {\n"
+            + "        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);\n"
+            + "        return;\n"
+            + "    }\n"
+            + "    vec2 p = (v_norm * u_res - u_anchor) / u_min_dim;\n"
+            + "    float dist = length(p);\n"
+            + "    float rn = dist / u_max_r;\n"
+            + "    float invScale = 1.0 / max(1.0 - u_collapse, 0.0001);\n"
+            + "    float grav = 1.0 + 1.15 * u_suction * exp(-2.2 * rn);\n"
+            + "    vec2 q = p * (invScale * grav);\n"
+            + "    float neck = 1.0 + 0.75 * u_suction * exp(-2.0 * abs(p.x));\n"
+            + "    q.y *= neck;\n"
+            + "    float angle = u_swirl * exp(-1.6 * rn);\n"
+            + "    float ca = cos(angle);\n"
+            + "    float sa = sin(angle);\n"
+            + "    q = vec2(q.x * ca - q.y * sa, q.x * sa + q.y * ca);\n"
+            + "    vec3 c;\n"
+            + "    if (u_chroma > 0.0001) {\n"
+            + "        c.r = sampleWarped(q * (1.0 - u_chroma)).r;\n"
+            + "        c.g = sampleWarped(q).g;\n"
+            + "        c.b = sampleWarped(q * (1.0 + u_chroma)).b;\n"
+            + "    } else {\n"
+            + "        c = sampleWarped(q);\n"
+            + "    }\n"
+            + "    float horizon = (u_horizon <= 0.0) ? 1.0 : smoothstep(0.0, u_horizon, dist);\n"
+            + "    c *= horizon * u_brightness;\n"
+            + "    if (u_glow > 0.0001) {\n"
+            + "        float rimDist = (dist - u_horizon * 1.35) / 0.04;\n"
+            + "        float rim = exp(-rimDist * rimDist) * u_glow;\n"
+            + "        c = min(c + vec3(rim), vec3(1.0));\n"
+            + "    }\n"
+            + "    gl_FragColor = vec4(c, 1.0);\n"
+            + "}\n";
+
     private final int mDisplayId;
 
     // Set to true when the animation context has been fully prepared.
@@ -191,7 +275,12 @@ final class ElectronBeam implements ScreenStateAnimator {
     private final int[] mTexNames = new int[1];
     private boolean mTexNamesGenerated;
     private final float[] mTexMatrix = new float[16];
+    private final float[] mScreenToTexMatrix = new float[16];
     private final float[] mProjMatrix = new float[16];
+
+    // Cached physical power button Y in natural OpenGL surface coordinates (bottom-up).
+    private float mPowerButtonY = -1f;
+    private int mCachedPowerButtonDisplayHeight = -1;
 
     // Textured program.
     private int mTexProgram;
@@ -201,6 +290,13 @@ final class ElectronBeam implements ScreenStateAnimator {
     // Solid colour program.
     private int mSolidProgram;
     private int mSolidPosLoc, mSolidProjLoc, mSolidColorLoc;
+
+    // Power-button black hole program.
+    private int mBlackholeProgram;
+    private int mBhPosLoc, mBhProjLoc, mBhResLoc, mBhScreenToTexLoc, mBhTexUnitLoc;
+    private int mBhAnchorLoc, mBhMinDimLoc, mBhMaxRLoc, mBhCollapseLoc, mBhSuctionLoc;
+    private int mBhSwirlLoc, mBhChromaLoc, mBhHorizonLoc, mBhGlowLoc, mBhFeatherLoc;
+    private int mBhBrightnessLoc;
 
     // Vertex and corresponding texture coordinates.
     // We have 4 2D vertices, so 8 elements.  The vertices form a quad.
@@ -248,6 +344,9 @@ final class ElectronBeam implements ScreenStateAnimator {
         mDisplayHeight = displayInfo.getNaturalHeight();
         mSwapAxes = displayInfo.rotation == Surface.ROTATION_90
                 || displayInfo.rotation == Surface.ROTATION_270;
+        if (mMode == MODE_BLACKHOLE) {
+            resolvePowerButtonY(context);
+        }
 
         final boolean isWideColor = displayInfo.colorMode == Display.COLOR_MODE_DISPLAY_P3;
         // Set mPrepared here so if initialization fails, resources can be cleaned up.
@@ -375,6 +474,35 @@ final class ElectronBeam implements ScreenStateAnimator {
     }
 
     private boolean initGLShaders() {
+        if (mMode == MODE_BLACKHOLE) {
+            mBlackholeProgram = createProgram(BLACKHOLE_VERTEX_SHADER, BLACKHOLE_FRAGMENT_SHADER);
+            GLES20.glReleaseShaderCompiler();
+            if (mBlackholeProgram == 0) {
+                return false;
+            }
+            mBhPosLoc = GLES20.glGetAttribLocation(mBlackholeProgram, "a_pos");
+            mBhProjLoc = GLES20.glGetUniformLocation(mBlackholeProgram, "u_proj");
+            mBhResLoc = GLES20.glGetUniformLocation(mBlackholeProgram, "u_res");
+            mBhScreenToTexLoc = GLES20.glGetUniformLocation(mBlackholeProgram, "u_screen_to_tex");
+            mBhTexUnitLoc = GLES20.glGetUniformLocation(mBlackholeProgram, "u_texture");
+            mBhAnchorLoc = GLES20.glGetUniformLocation(mBlackholeProgram, "u_anchor");
+            mBhMinDimLoc = GLES20.glGetUniformLocation(mBlackholeProgram, "u_min_dim");
+            mBhMaxRLoc = GLES20.glGetUniformLocation(mBlackholeProgram, "u_max_r");
+            mBhCollapseLoc = GLES20.glGetUniformLocation(mBlackholeProgram, "u_collapse");
+            mBhSuctionLoc = GLES20.glGetUniformLocation(mBlackholeProgram, "u_suction");
+            mBhSwirlLoc = GLES20.glGetUniformLocation(mBlackholeProgram, "u_swirl");
+            mBhChromaLoc = GLES20.glGetUniformLocation(mBlackholeProgram, "u_chroma");
+            mBhHorizonLoc = GLES20.glGetUniformLocation(mBlackholeProgram, "u_horizon");
+            mBhGlowLoc = GLES20.glGetUniformLocation(mBlackholeProgram, "u_glow");
+            mBhFeatherLoc = GLES20.glGetUniformLocation(mBlackholeProgram, "u_feather");
+            mBhBrightnessLoc = GLES20.glGetUniformLocation(mBlackholeProgram, "u_brightness");
+
+            GLES20.glUseProgram(mBlackholeProgram);
+            GLES20.glUniform1i(mBhTexUnitLoc, 0);
+            GLES20.glUseProgram(0);
+            return true;
+        }
+
         mTexProgram = createProgram(TEX_VERTEX_SHADER, TEX_FRAGMENT_SHADER);
         mSolidProgram = createProgram(SOLID_VERTEX_SHADER, SOLID_FRAGMENT_SHADER);
         GLES20.glReleaseShaderCompiler();
@@ -412,6 +540,10 @@ final class ElectronBeam implements ScreenStateAnimator {
             GLES20.glDeleteProgram(mSolidProgram);
             mSolidProgram = 0;
         }
+        if (mBlackholeProgram != 0) {
+            GLES20.glDeleteProgram(mBlackholeProgram);
+            mBlackholeProgram = 0;
+        }
         checkGlErrors("glDeleteProgram");
     }
 
@@ -444,6 +576,7 @@ final class ElectronBeam implements ScreenStateAnimator {
         mTexNamesGenerated = false;
         mTexProgram = 0;
         mSolidProgram = 0;
+        mBlackholeProgram = 0;
         mCreatedResources = false;
     }
 
@@ -535,6 +668,9 @@ final class ElectronBeam implements ScreenStateAnimator {
                     break;
                 case MODE_SHUTTER:
                     drawShutter(level);
+                    break;
+                case MODE_BLACKHOLE:
+                    drawBlackhole(level);
                     break;
             }
 
@@ -634,6 +770,105 @@ final class ElectronBeam implements ScreenStateAnimator {
             setQuad(mVertexBuffer, 0, mDisplayHeight - panel, mDisplayWidth, panel);
             drawSolidQuad(0f, 0f, 0f, 1f);
         }
+    }
+
+    /**
+     * Draws a frame where the screen content is warped and sucked into the physical power
+     * button on the side edge of the display like a black hole / vacuum funnel.
+     *
+     * @param level 1.0 is the unmodified screenshot, 0.0 is completely collapsed / black.
+     */
+    private void drawBlackhole(float level) {
+        final float t = 1.0f - Math.max(0.0f, Math.min(1.0f, level));
+        final float collapse = t * (0.65f + 0.35f * t);
+        final float suction = smoothstep(0.0f, 0.75f, t);
+        final float swirl = 0.85f * smoothstep(0.0f, 0.85f, t);
+        final float chroma = 0.025f * (float) Math.sin(t * Math.PI);
+        final float horizon = 0.045f * smoothstep(0.15f, 0.90f, t);
+        final float glow = 0.25f * (float) Math.sin(t * Math.PI)
+                * smoothstep(0.0f, 0.20f, t) * (1.0f - smoothstep(0.75f, 0.96f, t));
+        final float feather = 0.003f * smoothstep(0.0f, 0.05f, t);
+        final float brightness = 1.0f - smoothstep(0.68f, 0.98f, t);
+
+        final float anchorX = mDisplayWidth;
+        final float anchorY = (mPowerButtonY >= 0f)
+                ? mPowerButtonY : mDisplayHeight * (1.0f - DEFAULT_POWER_BUTTON_Y_FRACTION);
+        final float minDim = Math.max(1.0f, Math.min(mDisplayWidth, mDisplayHeight));
+        final float maxDy = Math.max(anchorY, mDisplayHeight - anchorY);
+        final float maxR = Math.max(1.0f, (float) Math.hypot(mDisplayWidth, maxDy) / minDim);
+
+        if (DEBUG) {
+            Slog.d(TAG, "drawBlackhole: level=" + level + ", collapse=" + collapse
+                    + ", suction=" + suction + ", brightness=" + brightness);
+        }
+
+        setQuad(mVertexBuffer, 0, 0, mDisplayWidth, mDisplayHeight);
+
+        GLES20.glUseProgram(mBlackholeProgram);
+        GLES20.glUniformMatrix4fv(mBhProjLoc, 1, false, mProjMatrix, 0);
+        GLES20.glUniform2f(mBhResLoc, mDisplayWidth, mDisplayHeight);
+        GLES20.glUniformMatrix4fv(mBhScreenToTexLoc, 1, false, mScreenToTexMatrix, 0);
+        GLES20.glUniform2f(mBhAnchorLoc, anchorX, anchorY);
+        GLES20.glUniform1f(mBhMinDimLoc, minDim);
+        GLES20.glUniform1f(mBhMaxRLoc, maxR);
+        GLES20.glUniform1f(mBhCollapseLoc, collapse);
+        GLES20.glUniform1f(mBhSuctionLoc, suction);
+        GLES20.glUniform1f(mBhSwirlLoc, swirl);
+        GLES20.glUniform1f(mBhChromaLoc, chroma);
+        GLES20.glUniform1f(mBhHorizonLoc, horizon);
+        GLES20.glUniform1f(mBhGlowLoc, glow);
+        GLES20.glUniform1f(mBhFeatherLoc, feather);
+        GLES20.glUniform1f(mBhBrightnessLoc, brightness);
+
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, mTexNames[0]);
+
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
+        mVertexBuffer.position(0);
+        GLES20.glEnableVertexAttribArray(mBhPosLoc);
+        GLES20.glVertexAttribPointer(mBhPosLoc, 2, GLES20.GL_FLOAT, false, 0, mVertexBuffer);
+
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_FAN, 0, 4);
+
+        GLES20.glDisableVertexAttribArray(mBhPosLoc);
+        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, 0);
+        GLES20.glUseProgram(0);
+    }
+
+    /**
+     * Resolves the physical power button Y coordinate in OpenGL surface coordinates
+     * (natural display pixels, origin at bottom-left). Reads SystemUI's device-overlayable
+     * {@code physical_power_button_center_screen_location_y} dimen when available, falling back
+     * to {@link #DEFAULT_POWER_BUTTON_Y_FRACTION} down from the natural top edge.
+     */
+    private float resolvePowerButtonY(Context context) {
+        if (mCachedPowerButtonDisplayHeight == mDisplayHeight && mPowerButtonY >= 0f) {
+            return mPowerButtonY;
+        }
+        float yFromTop = mDisplayHeight * DEFAULT_POWER_BUTTON_Y_FRACTION;
+        if (mDisplayId == Display.DEFAULT_DISPLAY
+                && context != null && context.getPackageManager() != null) {
+            try {
+                final Resources sysUiRes = context.getPackageManager()
+                        .getResourcesForApplication("com.android.systemui");
+                final int resId = sysUiRes.getIdentifier(
+                        "physical_power_button_center_screen_location_y",
+                        "dimen", "com.android.systemui");
+                if (resId != 0) {
+                    final float dimenPx = sysUiRes.getDimension(resId);
+                    if (dimenPx > mDisplayHeight * 0.05f && dimenPx < mDisplayHeight * 0.95f) {
+                        yFromTop = dimenPx;
+                    }
+                }
+            } catch (Exception e) {
+                if (DEBUG) {
+                    Slog.d(TAG, "Falling back to default power button Y", e);
+                }
+            }
+        }
+        mPowerButtonY = mDisplayHeight - yFromTop;
+        mCachedPowerButtonDisplayHeight = mDisplayHeight;
+        return mPowerButtonY;
     }
 
     /**
@@ -877,6 +1112,22 @@ final class ElectronBeam implements ScreenStateAnimator {
             mTexCoordBuffer.put((indexDelta + 5) % 8, 1f);
             mTexCoordBuffer.put((indexDelta + 6) % 8, 1f);
             mTexCoordBuffer.put((indexDelta + 7) % 8, 0f);
+
+            // Build the combined natural-screen [0..1] -> rotated external-texture UV matrix
+            // used by shaders that compute warped source coordinates in natural display space.
+            final float[] rotMat = new float[16];
+            Matrix.setIdentityM(rotMat, 0);
+            if (rotation == Surface.ROTATION_90) {
+                rotMat[0] = 0f;  rotMat[4] = -1f; rotMat[12] = 1f;
+                rotMat[1] = 1f;  rotMat[5] = 0f;  rotMat[13] = 0f;
+            } else if (rotation == Surface.ROTATION_180) {
+                rotMat[0] = -1f; rotMat[4] = 0f;  rotMat[12] = 1f;
+                rotMat[1] = 0f;  rotMat[5] = -1f; rotMat[13] = 1f;
+            } else if (rotation == Surface.ROTATION_270) {
+                rotMat[0] = 0f;  rotMat[4] = 1f;  rotMat[12] = 0f;
+                rotMat[1] = -1f; rotMat[5] = 0f;  rotMat[13] = 1f;
+            }
+            Matrix.multiplyMM(mScreenToTexMatrix, 0, mTexMatrix, 0, rotMat, 0);
 
             // Set up our viewport.
             GLES20.glViewport(0, 0, mDisplayWidth, mDisplayHeight);
@@ -1209,6 +1460,7 @@ final class ElectronBeam implements ScreenStateAnimator {
         pw.println("  mDisplayWidth=" + mDisplayWidth);
         pw.println("  mDisplayHeight=" + mDisplayHeight);
         pw.println("  mSwapAxes=" + mSwapAxes);
+        pw.println("  mPowerButtonY=" + mPowerButtonY);
         pw.println("  mSurfaceVisible=" + mSurfaceVisible);
         pw.println("  mSurfaceAlpha=" + mSurfaceAlpha);
     }

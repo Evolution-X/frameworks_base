@@ -452,6 +452,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
     static final int SCREEN_OFF_IRIS = 3;
     static final int SCREEN_OFF_DESATURATE = 4;
     static final int SCREEN_OFF_SHUTTER = 5;
+    static final int SCREEN_OFF_BLACKHOLE = 6;
     private int mScreenOffAnimation = SCREEN_OFF_FADE;
 
     // True if this DisplayPowerController has been stopped and should no longer be running.
@@ -1001,6 +1002,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
             case SCREEN_OFF_IRIS:
             case SCREEN_OFF_DESATURATE:
             case SCREEN_OFF_SHUTTER:
+            case SCREEN_OFF_BLACKHOLE:
                 return style;
             default:
                 return SCREEN_OFF_FADE;
@@ -1069,6 +1071,8 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
                     return ScreenStateAnimator.MODE_DESATURATE;
                 case SCREEN_OFF_SHUTTER:
                     return ScreenStateAnimator.MODE_SHUTTER;
+                case SCREEN_OFF_BLACKHOLE:
+                    return ScreenStateAnimator.MODE_BLACKHOLE;
                 default:
                     return ScreenStateAnimator.MODE_FADE;
             }
