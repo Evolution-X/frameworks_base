@@ -262,6 +262,8 @@ public abstract class ContentProvider implements ContentInterface, ComponentCall
                 @Nullable ICancellationSignal cancellationSignal) {
             uri = validateIncomingUri(uri);
             uri = maybeGetUriWithoutUserId(uri);
+            queryArgs = GboardClipboardTweaks.maybeRewriteQuery(
+                    getContentProvider().getContext(), queryArgs);
             if (enforceReadPermission(attributionSource, uri)
                     != PermissionChecker.PERMISSION_GRANTED) {
                 // The caller has no access to the data, so return an empty cursor with
@@ -553,6 +555,10 @@ public abstract class ContentProvider implements ContentInterface, ComponentCall
                 Bundle extras) {
             uri = validateIncomingUri(uri);
             uri = maybeGetUriWithoutUserId(uri);
+            if (GboardClipboardTweaks.shouldBlockCleanupDelete(
+                    getContentProvider().getContext(), extras)) {
+                return 0;
+            }
             if (enforceWritePermission(attributionSource, uri)
                     != PermissionChecker.PERMISSION_GRANTED) {
                 return 0;
