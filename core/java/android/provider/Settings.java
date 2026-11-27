@@ -7199,6 +7199,39 @@ public final class Settings {
         public static final String DEFAULT_MAX_ALARM_VOLUME = "default_max_alarm_volume";
 
         /**
+         * Override max volume for {@link android.media.AudioSystem.STREAM_RING}
+         * see {@link com.android.server.audio.AudioService} for defaults in priority
+         * -1 = disabled
+         * @hide
+         */
+        public static final String MAX_RING_VOLUME = "max_ring_volume";
+
+        /**
+         * Stores the default max volume for {@link android.media.AudioSystem.STREAM_RING}
+         * see {@link com.android.server.audio.AudioService} for defaults in priority
+         * Used as a fallback for the user settings
+         * @hide
+         */
+        public static final String DEFAULT_MAX_RING_VOLUME = "default_max_ring_volume";
+
+        /**
+         * Override max volume for {@link android.media.AudioSystem.STREAM_NOTIFICATION}
+         * see {@link com.android.server.audio.AudioService} for defaults in priority
+         * -1 = disabled
+         * @hide
+         */
+        public static final String MAX_NOTIFICATION_VOLUME = "max_notification_volume";
+
+        /**
+         * Stores the default max volume for {@link android.media.AudioSystem.STREAM_NOTIFICATION}
+         * see {@link com.android.server.audio.AudioService} for defaults in priority
+         * Used as a fallback for the user settings
+         * @hide
+         */
+        public static final String DEFAULT_MAX_NOTIFICATION_VOLUME =
+                "default_max_notification_volume";
+
+        /**
          * Whether the phone vibrates on call connect
          * @hide
          */

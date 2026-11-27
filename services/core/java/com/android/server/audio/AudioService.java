@@ -430,6 +430,8 @@ public class AudioService extends IAudioService.Stub
     private final int mDefaultMaxCallVolume;
     private final int mDefaultMaxMusicVolume;
     private final int mDefaultMaxAlarmVolume;
+    private final int mDefaultMaxRingVolume;
+    private final int mDefaultMaxNotificationVolume;
     private final AppOpsManager mAppOps;
 
     /** do not use directly, use getMediaSessionManager() which handles lazy initialization */
@@ -1706,6 +1708,24 @@ public class AudioService extends IAudioService.Stub
                 mSettings.getSystemIntForUser(mContentResolver,
                 Settings.System.MAX_ALARM_VOLUME,
                 mDefaultMaxAlarmVolume, UserHandle.USER_CURRENT);
+
+        mDefaultMaxRingVolume = MAX_STREAM_VOLUME[AudioSystem.STREAM_RING];
+        mSettings.putSystemIntForUser(mContentResolver,
+                Settings.System.DEFAULT_MAX_RING_VOLUME,
+                mDefaultMaxRingVolume, UserHandle.USER_CURRENT);
+        MAX_STREAM_VOLUME[AudioSystem.STREAM_RING] =
+                mSettings.getSystemIntForUser(mContentResolver,
+                Settings.System.MAX_RING_VOLUME,
+                mDefaultMaxRingVolume, UserHandle.USER_CURRENT);
+
+        mDefaultMaxNotificationVolume = MAX_STREAM_VOLUME[AudioSystem.STREAM_NOTIFICATION];
+        mSettings.putSystemIntForUser(mContentResolver,
+                Settings.System.DEFAULT_MAX_NOTIFICATION_VOLUME,
+                mDefaultMaxNotificationVolume, UserHandle.USER_CURRENT);
+        MAX_STREAM_VOLUME[AudioSystem.STREAM_NOTIFICATION] =
+                mSettings.getSystemIntForUser(mContentResolver,
+                Settings.System.MAX_NOTIFICATION_VOLUME,
+                mDefaultMaxNotificationVolume, UserHandle.USER_CURRENT);
 
         if (alarmMinVolumeZero()) {
             try {
@@ -12225,6 +12245,10 @@ public class AudioService extends IAudioService.Stub
                     Settings.System.MAX_MUSIC_VOLUME), false, this);
             mContentResolver.registerContentObserver(Settings.System.getUriFor(
                     Settings.System.MAX_ALARM_VOLUME), false, this);
+            mContentResolver.registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.MAX_RING_VOLUME), false, this);
+            mContentResolver.registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.MAX_NOTIFICATION_VOLUME), false, this);
 
             mEncodedSurroundMode = mSettings.getGlobalInt(
                     mContentResolver, Settings.Global.ENCODED_SURROUND_OUTPUT,
@@ -12266,6 +12290,18 @@ public class AudioService extends IAudioService.Stub
                             Settings.System.MAX_ALARM_VOLUME,
                             mDefaultMaxAlarmVolume, UserHandle.USER_CURRENT);
                     updateStreamMax(AudioSystem.STREAM_ALARM, value);
+                    return;
+                } else if (Settings.System.MAX_RING_VOLUME.equals(lastPath)) {
+                    final int value = mSettings.getSystemIntForUser(mContentResolver,
+                            Settings.System.MAX_RING_VOLUME,
+                            mDefaultMaxRingVolume, UserHandle.USER_CURRENT);
+                    updateStreamMax(AudioSystem.STREAM_RING, value);
+                    return;
+                } else if (Settings.System.MAX_NOTIFICATION_VOLUME.equals(lastPath)) {
+                    final int value = mSettings.getSystemIntForUser(mContentResolver,
+                            Settings.System.MAX_NOTIFICATION_VOLUME,
+                            mDefaultMaxNotificationVolume, UserHandle.USER_CURRENT);
+                    updateStreamMax(AudioSystem.STREAM_NOTIFICATION, value);
                     return;
                 }
 
