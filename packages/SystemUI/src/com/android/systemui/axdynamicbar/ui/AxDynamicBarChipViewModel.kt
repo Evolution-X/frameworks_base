@@ -99,6 +99,10 @@ constructor(
     val chipMorphEnabled: StateFlow<Boolean> = interactor.settings.chipMorphEnabled
     val hapticsEnabled: StateFlow<Boolean> = interactor.settings.hapticsEnabled
 
+    val cardStyle: StateFlow<Int> = interactor.settings.cardStyle
+
+    val shadeColorStyle: StateFlow<Int> = interactor.settings.shadeColorStyle
+
     fun performTapHaptic(view: View) {
         if (hapticsEnabled.value) {
             view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)

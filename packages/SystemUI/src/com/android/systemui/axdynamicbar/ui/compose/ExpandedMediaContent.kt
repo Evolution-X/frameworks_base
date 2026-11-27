@@ -106,7 +106,7 @@ internal fun MediaCard(event: IslandEvent.Media, interactor: IslandActions) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(ShapeCard)
-            .islandBlur(RadiusCard, CardBg)
+            .islandCard(RadiusCard)
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(SpaceXxl),

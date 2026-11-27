@@ -15356,6 +15356,12 @@ public final class Settings {
         public static final String AX_DYNAMIC_BAR_CHIP_MORPH = "ax_dynamic_bar_chip_morph";
 
         /**
+         * Surface of the Dynamic Bar expanded cards: 0 frosted, 1 shade colors, 2 solid black
+         * @hide
+         */
+        public static final String AX_DYNAMIC_BAR_CARD_STYLE = "ax_dynamic_bar_card_style";
+
+        /**
          * Keys we no longer back up under the current schema, but want to continue to
          * process when restoring historical backup datasets.
          *
