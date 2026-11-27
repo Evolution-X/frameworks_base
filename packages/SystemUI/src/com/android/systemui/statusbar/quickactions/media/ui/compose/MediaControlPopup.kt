@@ -20,6 +20,7 @@ import android.content.Context
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
 import android.text.format.DateUtils
+import android.view.ViewGroup
 import android.widget.SeekBar
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -141,7 +142,9 @@ fun MediaControlPopup(
                                 dimensionResource(R.dimen.notification_corner_radius)
                             )
                     ),
-            factory = { mediaHost.hostView },
+            factory = {
+                mediaHost.hostView.apply { (parent as? ViewGroup)?.removeView(this) }
+            },
         )
     }
 }

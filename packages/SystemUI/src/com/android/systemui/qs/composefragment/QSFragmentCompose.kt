@@ -1851,6 +1851,7 @@ private fun ContentScope.MediaObject(
                 modifier = modifier,
                 factory = {
                     mediaHost.hostView.apply {
+                        (parent as? ViewGroup)?.removeView(this)
                         layoutParams =
                             FrameLayout.LayoutParams(
                                 FrameLayout.LayoutParams.MATCH_PARENT,
