@@ -142,6 +142,7 @@ import com.android.systemui.keyguard.ui.binder.KeyguardTouchViewBinder;
 import com.android.systemui.keyguard.ui.transitions.BlurConfig;
 import com.android.systemui.keyguard.ui.viewmodel.DreamingToLockscreenTransitionViewModel;
 import com.android.systemui.keyguard.ui.viewmodel.KeyguardTouchHandlingViewModel;
+import com.android.systemui.axdynamicbar.domain.AxDynamicBarSettings;
 import com.android.systemui.media.controls.domain.pipeline.MediaDataManager;
 import com.android.systemui.media.controls.ui.controller.KeyguardMediaController;
 import com.android.systemui.media.controls.ui.controller.MediaHierarchyManager;
@@ -513,6 +514,7 @@ public final class NotificationPanelViewController implements
 
     private final CommandQueue mCommandQueue;
     private final MediaDataManager mMediaDataManager;
+    private final AxDynamicBarSettings mDynamicBarSettings;
     @PanelState
     private int mCurrentPanelState = STATE_CLOSED;
     @Deprecated // Use SysUIStateInteractor instead
@@ -701,6 +703,7 @@ public final class NotificationPanelViewController implements
             LockscreenShadeTransitionController lockscreenShadeTransitionController,
             ScrimController scrimController,
             MediaDataManager mediaDataManager,
+            AxDynamicBarSettings dynamicBarSettings,
             NotificationShadeDepthController notificationShadeDepthController,
             AmbientState ambientState,
             KeyguardMediaController keyguardMediaController,
@@ -860,6 +863,7 @@ public final class NotificationPanelViewController implements
         mDozeParameters = dozeParameters;
         mScrimController = scrimController;
         mMediaDataManager = mediaDataManager;
+        mDynamicBarSettings = dynamicBarSettings;
         mTapAgainViewController = tapAgainViewController;
         mSysUiState = sysUiState;
         mSysUIStateDisplaysInteractor = sysUIStateDisplaysInteractor;
@@ -1308,8 +1312,7 @@ public final class NotificationPanelViewController implements
 
     private ClockSize computeDesiredClockSizeForSplitShade() {
         // Media is not visible to the user on AOD.
-        boolean isMediaVisibleToUser =
-                mMediaDataManager.hasActiveMedia() && !isOnAod();
+        boolean isMediaVisibleToUser = hasLockscreenMedia() && !isOnAod();
         if (isMediaVisibleToUser) {
             // When media is visible, it overlaps with the large clock. Use small clock instead.
             return ClockSize.SMALL;
@@ -1359,7 +1362,13 @@ public final class NotificationPanelViewController implements
     }
 
     private boolean hasVisibleNotifications() {
-        return hasNotificationsVisibleOnKeyguard() || mMediaDataManager.hasActiveMedia();
+        return mActiveNotificationsInteractor.getAreAnyNotificationsPresentValue()
+                || hasLockscreenMedia();
+    }
+
+    private boolean hasLockscreenMedia() {
+        return mMediaDataManager.hasActiveMedia()
+                && !mDynamicBarSettings.isKeyguardMediaCovered();
     }
 
     /**
