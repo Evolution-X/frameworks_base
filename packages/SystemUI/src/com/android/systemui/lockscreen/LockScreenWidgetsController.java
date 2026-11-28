@@ -77,7 +77,7 @@ import com.android.systemui.statusbar.connectivity.SignalCallback;
 import com.android.systemui.statusbar.connectivity.MobileDataIndicators;
 import com.android.systemui.statusbar.connectivity.WifiIndicators;
 import com.android.systemui.util.MediaSessionManagerHelper;
-import com.android.internal.util.android.OmniJawsClient;
+import org.omnirom.omnijaws.client.OmniJawsClient;
 import com.android.internal.util.evolution.VibrationUtils;
 
 import java.util.ArrayList;
@@ -94,10 +94,10 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
 
     private static final String LOCKSCREEN_WIDGETS_EXTRAS =
             "lockscreen_widgets_extras";
-            
+
     private static final String LOCKSCREEN_WIDGETS_STYLE =
             "lockscreen_widgets_style";
-            
+
     private static final String LOCKSCREEN_WIDGETS_TRANSPARENCY =
             "lockscreen_widgets_transparency";
 
@@ -982,7 +982,8 @@ public class LockScreenWidgetsController implements OmniJawsClient.OmniJawsObser
             mWeatherClient.queryWeather(mContext);
             mWeatherInfo = mWeatherClient.getWeatherInfo();
             if (mWeatherInfo != null) {
-                String formattedCondition = mWeatherInfo.condition;
+                String formattedCondition = mWeatherInfo.condition != null
+                        ? mWeatherInfo.condition : "";
                 if (formattedCondition.toLowerCase().contains("clouds")) {
                     formattedCondition = mContext.getString(R.string.weather_condition_clouds);
                 } else if (formattedCondition.toLowerCase().contains("rain")) {
