@@ -236,8 +236,8 @@ open class ClockRegistry(
                             if (owner === manager) {
                                 continue
                             }
-                            if (owner != null && owner.packageName == manager.packageName) {
-                                // A previous instance of this package. It is superseded by
+                            if (owner != null && owner.componentName == manager.componentName) {
+                                // A previous instance of this plugin. It is superseded by
                                 // the instance currently loading; evict it below.
                                 continue
                             }
@@ -252,14 +252,14 @@ open class ClockRegistry(
                     if (!isDetached && conflictIds.isEmpty()) {
                         failedManagers.remove(manager)
 
-                        // Remove any clocks owned by another instance of the same package.
+                        // Remove any clocks owned by another instance of the same plugin.
                         // This also repairs a stale registration left behind by an earlier
                         // failed load without requiring a SystemUI restart.
                         val iterator = availableClocks.entries.iterator()
                         while (iterator.hasNext()) {
                             val info = iterator.next().value
                             val owner = info.manager ?: continue
-                            if (owner !== manager && owner.packageName == manager.packageName) {
+                            if (owner !== manager && owner.componentName == manager.componentName) {
                                 disconnected.add(info)
                                 iterator.remove()
                             }
