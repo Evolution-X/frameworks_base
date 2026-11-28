@@ -60,9 +60,6 @@ private val KNOWN_PLUGINS: Map<String, List<ClockMetadata>> =
             listOf(ClockMetadata("DIGITAL_CLOCK_CALLIGRAPHY")),
         "com.android.systemui.clocks.flex" to listOf(ClockMetadata("DIGITAL_CLOCK_FLEX")),
         "com.android.systemui.clocks.growth" to listOf(ClockMetadata("DIGITAL_CLOCK_GROWTH")),
-        // The Words clock ships under the stock handwritten package id so that Google's
-        // Wallpaper & style picker, which only allows the stock clock packages, can load it.
-        "com.android.systemui.clocks.handwritten" to listOf(ClockMetadata("DIGITAL_CLOCK_WORDS")),
         "com.android.systemui.clocks.inflate" to listOf(ClockMetadata("DIGITAL_CLOCK_INFLATE")),
         "com.android.systemui.clocks.metro" to listOf(ClockMetadata("DIGITAL_CLOCK_METRO")),
         "com.android.systemui.clocks.numoverlap" to
